@@ -5,10 +5,14 @@ import { InstallationModal } from '@/components/InstallationModal';
 import { db } from '@/lib/db';
 import { InstallationTarget, WikiGuide } from '@/types';
 import { Button, Card, Spinner, Surface, Tabs } from "@heroui/react";
+import 'highlight.js/styles/github-dark.css';
 import { ArrowLeft, Edit, FileText, Github, Info, Plus, Trash } from "lucide-react";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 
 export default function WikiDetailPage() {
     const { id } = useParams() as { id: string };
@@ -124,9 +128,14 @@ export default function WikiDetailPage() {
                                         </Card.Header>
                                         <Card.Content className="mt-4">
                                             {inst.notes ? (
-                                                <Surface variant="secondary" className="p-4 rounded-xl border border-border bg-black/5 dark:bg-white/5">
-                                                    <p className="whitespace-pre-wrap">{inst.notes}</p>
-                                                </Surface>
+                                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                                    <ReactMarkdown 
+                                                        remarkPlugins={[remarkGfm]} 
+                                                        rehypePlugins={[rehypeHighlight]}
+                                                    >
+                                                        {inst.notes}
+                                                    </ReactMarkdown>
+                                                </div>
                                             ) : (
                                                 <p className="text-muted-foreground italic">No specific notes provided.</p>
                                             )}
