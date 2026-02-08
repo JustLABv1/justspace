@@ -9,6 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@heroui/react": "3.0.0-beta.6",
+    "@heroui/styles": "3.0.0-beta.6",
+    "appwrite": "^22.0.0",
+    "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"

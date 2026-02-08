@@ -1,0 +1,13 @@
+{
+	"servers": {
+		"heroui-native": {
+      "command": "npx",
+      "args": ["-y", "@heroui/react-mcp@latest"]
+    },
+		"appwrite-docs": {
+      "url": "https://mcp-for-docs.appwrite.io",
+      "type": "http"
+    }
+	},
+	"inputs": []
+}
