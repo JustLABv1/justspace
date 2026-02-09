@@ -29,6 +29,9 @@ export const db = {
     async listProjects() {
         return await databases.listDocuments<Project & Models.Document>(DB_ID, PROJECTS_ID);
     },
+    async getProject(id: string) {
+        return await databases.getDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id);
+    },
     async createProject(data: Omit<Project, '$id' | '$createdAt'>) {
         const project = await databases.createDocument(DB_ID, PROJECTS_ID, ID.unique(), data);
         await this.logActivity({

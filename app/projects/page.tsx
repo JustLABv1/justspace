@@ -2,11 +2,11 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { ProjectModal } from '@/components/ProjectModal';
-import { TaskList } from '@/components/TaskList';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
-import { Calendar, Edit, LayoutGrid, ListTodo, Plus, Trash } from "lucide-react";
+import { ArrowUpRight, Calendar, Edit, LayoutGrid, ListTodo, Plus, Trash } from "lucide-react";
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 type ViewMode = 'grid' | 'kanban';
@@ -74,7 +74,7 @@ export default function ProjectsPage() {
                     <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Orchestrate & Deliver</h1>
                     <p className="text-muted-foreground font-medium">Track your consulting pipeline, manage tasks, and drive success.</p>
                 </div>
-                <div className="flex items-center gap-4 bg-surface-lowest p-2 rounded-[2rem] border border-border/60 shadow-sm self-stretch md:self-auto">
+                <div className="flex items-center gap-4 bg-surface p-2 rounded-[2rem] border border-border/60 shadow-sm self-stretch md:self-auto">
                     <div className="flex bg-surface-secondary/50 p-1 rounded-2xl border border-border/40">
                         <Button 
                             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
@@ -104,7 +104,7 @@ export default function ProjectsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-start">
                     {columns.map((column) => (
                         <div key={column.status} className="flex flex-col gap-8 min-h-[600px]">
-                            <Surface className="flex items-center justify-between px-6 py-4 bg-surface-lowest border border-border/40 rounded-[1.5rem] shadow-sm">
+                            <Surface className="flex items-center justify-between px-6 py-4 bg-surface border border-border/40 rounded-[1.5rem] shadow-sm">
                                 <span className="flex items-center gap-3">
                                     <div className={`w-2.5 h-2.5 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
                                     <h3 className="font-extrabold uppercase tracking-[0.15em] text-[10px] text-muted-foreground">
@@ -128,7 +128,7 @@ export default function ProjectsPage() {
                                 
                                 <Button 
                                     variant="secondary" 
-                                    className="w-full border border-dashed border-border py-14 rounded-[2.5rem] bg-surface-lowest/50 hover:bg-surface-lowest hover:border-primary/50 group transition-all duration-300"
+                                    className="w-full border border-dashed border-border py-14 rounded-[2.5rem] bg-surface/50 hover:bg-surface hover:border-primary/50 group transition-all duration-300"
                                     onPress={() => { 
                                         setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
@@ -186,7 +186,7 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Surface className="p-0 rounded-[2.5rem] border border-border/40 bg-surface-lowest group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5">
+        <Surface className="p-0 rounded-[2.5rem] border border-border/40 bg-surface group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5">
             <article className="p-8 space-y-8">
                 <header className="flex justify-between items-start gap-4">
                     <div className="space-y-2">
@@ -211,15 +211,28 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                     </div>
                 </header>
 
-                <div className="space-y-4">
-                    {isFull && project.description && (
-                        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 italic">
+                <div className="space-y-6">
+                    {project.description && (
+                        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 italic">
                            &quot; {project.description} &quot;
                         </p>
                     )}
                     
-                    <div className="bg-surface-lowest/50 rounded-2xl p-4 border border-border/30">
-                        <TaskList projectId={project.$id} />
+                    <div className="flex items-center justify-between gap-4 pt-2">
+                        <div className="flex items-center gap-2">
+                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                project.status === 'completed' ? 'bg-success/10 text-success border border-success/20' : 
+                                project.status === 'in-progress' ? 'bg-primary/10 text-primary border border-primary/20' : 
+                                'bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20'
+                            }`}>
+                                {project.status}
+                            </div>
+                        </div>
+
+                        <Link href={`/projects/${project.$id}`} className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary hover:gap-3 transition-all">
+                            View Roadmap
+                            <ArrowUpRight size={14} />
+                        </Link>
                     </div>
                 </div>
             </article>

@@ -108,7 +108,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             ref={setNodeRef} 
             style={style} 
             className={`group flex flex-col gap-0 rounded-[1.75rem] border transition-all duration-300 overflow-hidden ${
-                isDragging ? 'border-primary shadow-2xl z-50 bg-surface-lowest scale-[1.02]' : 'border-border/40 hover:border-primary/20 bg-surface-lowest shadow-sm'
+                isDragging ? 'border-primary shadow-2xl z-50 bg-surface scale-[1.02]' : 'border-border/40 hover:border-primary/20 bg-surface shadow-sm'
             }`}
         >
             {/* Header / Title Row */}
@@ -129,7 +129,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 </div>
 
                 <div className="flex-grow min-w-0">
-                    <span className={`text-[15px] font-black tracking-tight leading-tight block truncate transition-all ${
+                    <span className={`text-[16px] font-black tracking-tight leading-tight block truncate transition-all ${
                         task.completed ? 'line-through text-muted-foreground/30 italic font-bold' : 'text-foreground'
                     }`}>
                         {task.title}
@@ -159,15 +159,15 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             {/* Interaction / Metadata Row */}
             <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
                 <div className="flex items-center gap-2 flex-grow overflow-hidden">
-                    <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-surface-secondary border border-border/10 whitespace-nowrap">
-                        <Plus size={10} className="text-muted-foreground/60" />
-                        <span className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/80">{subtasks.length} sub objectives</span>
+                    <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-foreground/[0.03] border border-border/40 whitespace-nowrap">
+                        <Plus size={10} className="text-primary" strokeWidth={3} />
+                        <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{subtasks.length} sub objectives</span>
                     </div>
                     
                     {task.timeSpent && task.timeSpent > 0 && (
-                        <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-primary/5 border border-primary/10 whitespace-nowrap overflow-hidden">
-                            <History size={10} className="text-primary/60" />
-                            <span className="text-[9px] uppercase font-black tracking-widest text-primary/80 truncate">
+                        <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-primary/5 border border-primary/20 whitespace-nowrap overflow-hidden">
+                            <History size={10} className="text-primary" strokeWidth={3} />
+                            <span className="text-[10px] uppercase font-black tracking-widest text-primary truncate">
                                 {formatTime(task.timeSpent)} cumulative
                             </span>
                         </div>
@@ -177,7 +177,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 <div className={`flex items-center gap-2 pl-3 pr-1 py-1 rounded-2xl border transition-all duration-500 shrink-0 ${
                     task.isTimerRunning 
                         ? 'bg-primary border-primary text-white shadow-lg shadow-primary/30' 
-                        : 'bg-surface-secondary/50 border-border/20 text-foreground shadow-inner'
+                        : 'bg-surface-secondary border-border/20 text-foreground'
                 }`}>
                     <span className={`text-[11px] font-black tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
                         {dayjs.duration(currentTime, 'seconds').format(currentTime >= 3600 ? 'HH:mm:ss' : 'mm:ss')}
@@ -187,7 +187,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         variant="ghost" 
                         isIconOnly 
                         className={`h-8 w-8 rounded-xl transition-all active:scale-90 ${
-                            task.isTimerRunning ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white hover:bg-white/90 text-primary shadow-sm'
+                            task.isTimerRunning 
+                                ? 'bg-white/20 text-white hover:bg-white/30 border border-white/10' 
+                                : 'bg-foreground/5 text-foreground hover:bg-foreground/10 border border-border/10'
                         }`}
                         onPress={handleToggleTimer}
                     >

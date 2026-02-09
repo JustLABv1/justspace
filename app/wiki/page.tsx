@@ -72,7 +72,7 @@ export default function WikiPage() {
                     <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Standardized Documentation</h1>
                     <p className="text-muted-foreground font-medium">Access high-quality deployment guides and infrastructure patterns.</p>
                 </div>
-                <div className="flex gap-3 bg-surface-lowest border border-border p-1.5 rounded-2xl shadow-sm self-stretch md:self-auto">
+                <div className="flex gap-3 bg-surface border border-border p-1.5 rounded-2xl shadow-sm self-stretch md:self-auto">
                     <Button variant="primary" className="rounded-xl h-12 px-8 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
                         <Plus size={18} className="mr-2" />
                         Create Guide
@@ -90,7 +90,7 @@ export default function WikiPage() {
                         onChange={setSearchTerm}
                         aria-label="Search guides"
                     >
-                        <SearchField.Group className="rounded-3xl border-border/40 bg-surface-lowest h-16 px-6 shadow-sm focus-within:border-primary/50 transition-all">
+                        <SearchField.Group className="rounded-3xl border-border/40 bg-surface h-16 px-6 shadow-sm focus-within:border-primary/50 transition-all">
                             <Search size={22} className="text-muted-foreground mr-3" />
                             <SearchField.Input placeholder="Search documentation engine..." className="text-lg font-medium" />
                             <SearchField.ClearButton />
@@ -98,7 +98,7 @@ export default function WikiPage() {
                     </SearchField>
                 </div>
                 <div className="lg:col-span-4 flex justify-end">
-                    <Surface className="px-6 py-4 rounded-3xl border border-border/40 bg-surface-lowest flex items-center gap-4">
+                    <Surface className="px-6 py-4 rounded-3xl border border-border/40 bg-surface flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-accent/5 flex items-center justify-center text-accent">
                             <Book size={20} />
                         </div>
@@ -127,7 +127,7 @@ export default function WikiPage() {
                     filteredGuides.map((guide) => (
                         <Surface 
                             key={guide.$id} 
-                            className="p-8 rounded-[2.5rem] border border-border/40 bg-surface-lowest group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5"
+                            className="p-8 rounded-[2.5rem] border border-border/40 bg-surface group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5"
                         >
                             <div className="relative z-10 flex flex-col h-full space-y-8">
                                 <div className="space-y-4 flex-1">

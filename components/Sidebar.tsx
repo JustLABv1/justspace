@@ -56,7 +56,7 @@ const Sidebar = () => {
             </nav>
 
             <div className="mt-auto space-y-4">
-                <Surface variant="tertiary" className="p-5 rounded-[2rem] border border-border/40 bg-surface-lowest relative overflow-hidden group">
+                <Surface variant="tertiary" className="p-5 rounded-[2rem] border border-border/40 bg-surface relative overflow-hidden group">
                     <p className="text-xs font-bold text-muted-foreground relative z-10 leading-relaxed">
                         Need help? Check the <Link href="/wiki" className="text-primary hover:underline">Wiki</Link> for guides.
                     </p>

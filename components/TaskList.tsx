@@ -6,12 +6,12 @@ import { Task } from '@/types';
 import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Header, Input, Label, Spinner, Surface } from "@heroui/react";
+import { Button, Dropdown, Header, Input, Label, Spinner } from "@heroui/react";
 import { ListChecks, MessageSquarePlus, Plus, Search } from "lucide-react";
 import React, { useCallback, useEffect, useState } from 'react';
 import { TaskItem } from './TaskItem';
 
-export function TaskList({ projectId }: { projectId: string }) {
+export function TaskList({ projectId, hideHeader = false }: { projectId: string, hideHeader?: boolean }) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
@@ -127,61 +127,63 @@ export function TaskList({ projectId }: { projectId: string }) {
 
     return (
         <div className="flex flex-col h-full gap-6">
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
-                        <ListChecks size={20} strokeWidth={2.5} />
+            {!hideHeader && (
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
+                            <ListChecks size={20} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black tracking-tighter text-foreground">Project Roadmap</h2>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">
+                                    {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
+                                </p>
+                                <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                                <Dropdown>
+                                    <Dropdown.Trigger>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-5 px-1.5 text-[9px] uppercase font-bold tracking-widest text-primary hover:bg-primary/5 border-none"
+                                            isPending={isApplyingTemplate}
+                                        >
+                                            Templates
+                                        </Button>
+                                    </Dropdown.Trigger>
+                                    <Dropdown.Popover>
+                                        <Dropdown.Menu className="w-64">
+                                            <Dropdown.Section>
+                                                <Header className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">Deployment Checklists</Header>
+                                                {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
+                                                    <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
+                                                        <Label>{tpl.name}</Label>
+                                                    </Dropdown.Item>
+                                                ))}
+                                            </Dropdown.Section>
+                                        </Dropdown.Menu>
+                                    </Dropdown.Popover>
+                                </Dropdown>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-black tracking-tighter text-foreground">Project Roadmap</h2>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">
-                                {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
-                            </p>
-                            <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                            <Dropdown>
-                                <Dropdown.Trigger>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-5 px-1.5 text-[9px] uppercase font-bold tracking-widest text-primary hover:bg-primary/5 border-none"
-                                        isPending={isApplyingTemplate}
-                                    >
-                                        Templates
-                                    </Button>
-                                </Dropdown.Trigger>
-                                <Dropdown.Popover>
-                                    <Dropdown.Menu className="w-64">
-                                        <Dropdown.Section>
-                                            <Header className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">Deployment Checklists</Header>
-                                            {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
-                                                <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
-                                                    <Label>{tpl.name}</Label>
-                                                </Dropdown.Item>
-                                            ))}
-                                        </Dropdown.Section>
-                                    </Dropdown.Menu>
-                                </Dropdown.Popover>
-                            </Dropdown>
+
+                    <div className="flex items-center gap-3 flex-grow max-w-md">
+                        <div className="relative flex-grow group">
+                            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                            <Input 
+                                placeholder="Filter active tasks..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full h-11 bg-surface-lowest border-border/40 hover:border-primary/20 focus:border-primary/40 rounded-2xl pl-10 text-sm font-medium transition-all"
+                            />
                         </div>
                     </div>
                 </div>
+            )}
 
-                <div className="flex items-center gap-3 flex-grow max-w-md">
-                    <div className="relative flex-grow group">
-                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
-                        <Input 
-                            placeholder="Filter active tasks..." 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-11 bg-surface-lowest border-border/40 hover:border-primary/20 focus:border-primary/40 rounded-2xl pl-10 text-sm font-medium transition-all"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            <Surface className="flex-grow flex flex-col p-2 bg-surface-lowest border border-border/30 rounded-[2rem] overflow-hidden shadow-sm">
-                <div className="flex-grow overflow-y-auto custom-scrollbar p-5 space-y-4 min-h-[450px]">
+            <div className="flex-grow flex flex-col p-0 overflow-hidden">
+                <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-5 space-y-4 min-h-[450px]">
                     {filteredMainTasks.length === 0 ? (
                         <div className="h-64 flex flex-col items-center justify-center text-center p-8 gap-4 border-2 border-dashed border-border/20 rounded-3xl mx-2">
                             <div className="p-4 bg-surface-secondary rounded-2xl text-muted-foreground/30">
@@ -236,7 +238,7 @@ export function TaskList({ projectId }: { projectId: string }) {
                         </Button>
                     </form>
                 </div>
-            </Surface>
+            </div>
         </div>
     );
 }

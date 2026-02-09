@@ -79,7 +79,7 @@ export default function Home() {
 
       {/* Bento Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6">
-        <Surface variant="secondary" className="md:col-span-2 lg:col-span-3 p-8 rounded-[2rem] border border-border/50 bg-surface-lowest relative overflow-hidden group hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5">
+        <Surface variant="secondary" className="md:col-span-2 lg:col-span-3 p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5">
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary mb-8 group-hover:scale-110 transition-transform duration-500">
               <Target size={24} />
@@ -97,7 +97,7 @@ export default function Home() {
           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
         </Surface>
 
-        <Surface variant="secondary" className="md:col-span-2 lg:col-span-3 p-8 rounded-[2rem] border border-border/50 bg-surface-lowest relative overflow-hidden group hover:border-accent/30 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5">
+        <Surface variant="secondary" className="md:col-span-2 lg:col-span-3 p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-accent/30 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5">
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div className="w-12 h-12 rounded-2xl bg-accent/5 border border-accent/10 flex items-center justify-center text-accent mb-8 group-hover:scale-110 transition-transform duration-500">
               <Book size={24} />
@@ -112,7 +112,7 @@ export default function Home() {
           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
         </Surface>
 
-        <Surface variant="tertiary" className="md:col-span-4 lg:col-span-6 p-8 rounded-[2rem] border border-border/50 bg-gradient-to-br from-surface-lowest to-surface-secondary/30 relative flex flex-col justify-center overflow-hidden">
+        <Surface variant="tertiary" className="md:col-span-4 lg:col-span-6 p-8 rounded-[2rem] border border-border/50 bg-gradient-to-br from-surface to-surface-secondary/50 relative flex flex-col justify-center overflow-hidden">
           <div className="relative z-10 space-y-4">
             <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
               <LayoutDashboard size={22} className="text-primary" />
@@ -153,13 +153,13 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {isLoading ? (
                 Array(2).fill(0).map((_, i) => (
-                  <Surface key={i} className="h-48 rounded-[2rem] border border-border/40 flex items-center justify-center">
+                  <Surface key={i} className="h-48 rounded-[2rem] border border-border/40 flex items-center justify-center bg-surface">
                     <Spinner color="accent" />
                   </Surface>
                 ))
               ) : recentProjects.length > 0 ? (
                 recentProjects.map((project) => (
-                  <Surface key={project.$id} className="p-6 rounded-[2rem] border border-border/40 bg-surface-lowest hover:border-primary/20 transition-all group relative overflow-hidden">
+                  <Surface key={project.$id} className="p-6 rounded-[2rem] border border-border/40 bg-surface hover:border-primary/20 transition-all group relative overflow-hidden">
                     <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -196,7 +196,7 @@ export default function Home() {
           </section>
 
           {/* Productivity Highlight */}
-          <Surface className="p-10 rounded-[3rem] bg-surface-lowest border border-border/60 overflow-hidden relative group">
+          <Surface className="p-10 rounded-[3rem] bg-surface border border-border/60 overflow-hidden relative group">
             <div className="relative z-10 max-w-md space-y-6">
               <div className="p-3 w-fit rounded-2xl bg-primary/5 border border-primary/10 text-primary">
                 <Sparkles size={24} />
