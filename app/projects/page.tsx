@@ -64,40 +64,36 @@ export default function ProjectsPage() {
     ];
 
     return (
-        <div className="max-w-[1600px] mx-auto p-6 md:p-10 space-y-10">
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="max-w-[1600px] mx-auto p-6 md:p-12 space-y-12">
+            <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Chip variant="soft" color="accent">Active Pipeline</Chip>
-                        <Chip variant="soft" size="sm" className="bg-surface-secondary">{projects.length} Projects</Chip>
+                    <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-xs">
+                        <ListTodo size={14} className="animate-pulse" />
+                        Project Management
                     </div>
-                    <h1 className="text-4xl font-black tracking-tighter">Projects Hub</h1>
-                    <p className="text-muted-foreground max-w-xl text-lg leading-relaxed">
-                        Orchestrate your consulting projects with ease. Track tasks, manage timelines, and deliver results.
-                    </p>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Orchestrate & Deliver</h1>
+                    <p className="text-muted-foreground font-medium">Track your consulting pipeline, manage tasks, and drive success.</p>
                 </div>
-                <div className="flex items-center gap-3 bg-surface-lowest p-1.5 rounded-2xl border border-border shadow-sm self-stretch md:self-auto">
-                    <div className="flex bg-surface p-1 rounded-xl border border-border/50">
+                <div className="flex items-center gap-4 bg-surface-lowest p-2 rounded-[2rem] border border-border/60 shadow-sm self-stretch md:self-auto">
+                    <div className="flex bg-surface-secondary/50 p-1 rounded-2xl border border-border/40">
                         <Button 
                             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
-                            size="sm"
                             onPress={() => setViewMode('kanban')}
-                            className="h-9 px-4 rounded-lg"
+                            className="h-10 px-5 rounded-xl font-bold italic"
                         >
                             <ListTodo size={16} className="mr-2" />
                             Kanban
                         </Button>
                         <Button 
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
-                            size="sm"
                             onPress={() => setViewMode('grid')}
-                            className="h-9 px-4 rounded-lg"
+                            className="h-10 px-5 rounded-xl font-bold italic"
                         >
                             <LayoutGrid size={16} className="mr-2" />
                             Grid
                         </Button>
                     </div>
-                    <Button variant="primary" className="rounded-xl h-11 px-6 shadow-lg shadow-primary/20" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                    <Button variant="primary" className="rounded-2xl h-12 px-8 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
                         <Plus size={18} className="mr-2" />
                         Create
                     </Button>
@@ -105,20 +101,20 @@ export default function ProjectsPage() {
             </header>
 
             {viewMode === 'kanban' ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-start">
                     {columns.map((column) => (
-                        <div key={column.status} className="flex flex-col gap-6 min-h-[600px]">
-                            <div className="flex items-center justify-between px-4 py-2 bg-surface-secondary/50 rounded-2xl border border-border/50">
+                        <div key={column.status} className="flex flex-col gap-8 min-h-[600px]">
+                            <Surface className="flex items-center justify-between px-6 py-4 bg-surface-lowest border border-border/40 rounded-[1.5rem] shadow-sm">
                                 <span className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
-                                    <h3 className="font-bold uppercase tracking-widest text-xs text-foreground/80">
+                                    <div className={`w-2.5 h-2.5 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                                    <h3 className="font-extrabold uppercase tracking-[0.15em] text-[10px] text-muted-foreground">
                                         {column.label} 
                                     </h3>
                                 </span>
-                                <Chip size="sm" variant="soft" color={column.color}>{projects.filter(p => p.status === column.status).length}</Chip>
-                            </div>
+                                <Chip size="sm" variant="soft" color={column.color} className="font-bold">{projects.filter(p => p.status === column.status).length}</Chip>
+                            </Surface>
                             
-                            <div className="space-y-6">
+                            <div className="space-y-8">
                                 {projects
                                     .filter((p) => p.status === column.status)
                                     .map((project) => (
@@ -132,15 +128,17 @@ export default function ProjectsPage() {
                                 
                                 <Button 
                                     variant="secondary" 
-                                    className="w-full border-2 border-dashed border-border/50 py-10 rounded-[2rem] hover:bg-surface-secondary hover:border-primary group transition-all"
+                                    className="w-full border border-dashed border-border py-14 rounded-[2.5rem] bg-surface-lowest/50 hover:bg-surface-lowest hover:border-primary/50 group transition-all duration-300"
                                     onPress={() => { 
                                         setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
                                     }}
                                 >
-                                    <div className="flex flex-col items-center gap-2">
-                                        <Plus size={24} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        <span className="text-xs font-bold text-muted-foreground group-hover:text-primary">New Project</span>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-primary transition-all">
+                                            <Plus size={20} />
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary italic">Initiate New Project</span>
                                     </div>
                                 </Button>
                             </div>
@@ -188,14 +186,19 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Surface variant="secondary" className="p-0 rounded-[2rem] border border-border/50 bg-gradient-to-br from-surface to-surface-lowest group shadow-xl shadow-black/[0.02] hover:shadow-2xl hover:shadow-black/[0.05] transition-all hover:translate-y-[-4px]">
-            <article className="p-6 md:p-8 space-y-6">
+        <Surface className="p-0 rounded-[2.5rem] border border-border/40 bg-surface-lowest group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5">
+            <article className="p-8 space-y-8">
                 <header className="flex justify-between items-start gap-4">
-                    <div className="space-y-1">
-                        <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                            <Calendar size={14} />
-                            <span>{new Date(project.$createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                <LayoutGrid size={20} />
+                            </div>
+                            <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-bold italic uppercase tracking-widest">
+                            <Calendar size={14} className="text-primary/50" />
+                            <span>Established {new Date(project.$createdAt).toLocaleDateString()}</span>
                         </div>
                     </div>
                     <div className="flex gap-1">
