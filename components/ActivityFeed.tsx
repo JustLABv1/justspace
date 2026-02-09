@@ -54,6 +54,7 @@ export function ActivityFeed() {
             case 'complete': return <CheckCircle size={14} className="text-success" />;
             case 'update': return <FileText size={14} className="text-primary" />;
             case 'delete': return <Trash2 size={14} className="text-danger" />;
+            case 'work': return <Clock size={14} className="text-warning" />;
             default: return <Activity size={14} className="text-muted-foreground" />;
         }
     };
@@ -64,6 +65,7 @@ export function ActivityFeed() {
             case 'complete': return 'Completed';
             case 'delete': return 'Deleted';
             case 'update': return 'Modified';
+            case 'work': return 'Logged';
             default: return 'Updated';
         }
     };
@@ -114,11 +116,19 @@ export function ActivityFeed() {
                                     <span className="font-bold text-foreground">
                                         {getActionText(activity.type)}
                                     </span>
-                                    <span className="text-muted-foreground mx-1.5 font-medium">{activity.entityType.toLowerCase()}</span>
+                                    <span className="text-muted-foreground mx-1.5 font-medium">
+                                        {activity.type === 'work' ? 'time on' : activity.entityType.toLowerCase()}
+                                    </span>
                                     <span className="font-bold text-foreground truncate inline-block max-w-[180px] align-bottom">
                                         {activity.entityName}
                                     </span>
                                 </div>
+                                {activity.metadata && (
+                                    <div className="text-[11px] font-bold text-primary flex items-center gap-1.5 py-0.5">
+                                        <Clock size={12} />
+                                        {activity.metadata}
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                                     <span className="flex items-center gap-1">
                                         <Clock size={10} />

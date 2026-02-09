@@ -213,13 +213,22 @@ export const db = {
         return tasks;
     },
     async updateTask(id: string, data: Partial<Task>) {
-        const task = await databases.updateDocument(DB_ID, TASKS_ID, id, data);
+        const { workDuration, ...updateData } = data as any;
+        const task = await databases.updateDocument(DB_ID, TASKS_ID, id, updateData);
         if (data.completed === true) {
             await this.logActivity({
                 type: 'complete',
                 entityType: 'Task',
                 entityName: (task as any).title || 'Task',
                 projectId: (task as any).projectId
+            });
+        } else if (data.isTimerRunning === false && workDuration) {
+            await this.logActivity({
+                type: 'work',
+                entityType: 'Task',
+                entityName: (task as any).title || 'Task',
+                projectId: (task as any).projectId,
+                metadata: workDuration
             });
         } else if (data.title) {
             await this.logActivity({

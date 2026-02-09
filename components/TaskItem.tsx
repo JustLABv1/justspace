@@ -73,11 +73,18 @@ export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, sub
                 newEntries.push(JSON.stringify({ date: today, seconds: elapsedSinceStart }));
             }
 
+            const dur = dayjs.duration(elapsedSinceStart, 'seconds');
+            const workDuration = elapsedSinceStart >= 3600 
+                ? `${Math.floor(dur.asHours())}h ${dur.minutes()}m`
+                : `${dur.minutes()}m ${dur.seconds()}s`;
+
             onUpdate(task.$id, {
                 isTimerRunning: false,
                 timeSpent: totalTime,
                 timerStartedAt: undefined,
-                timeEntries: newEntries
+                timeEntries: newEntries,
+                // @ts-ignore - workDuration is used by db.updateTask to log activity
+                workDuration: `Worked ${workDuration}`
             });
         } else {
             onUpdate(task.$id, {

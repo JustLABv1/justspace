@@ -63,10 +63,11 @@ This document outlines the required database, collections, and attributes for **
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
-| `type` | String | 32 | Yes | `create`, `update`, `complete`, `delete`. |
-| `entityType` | String | 32 | Yes | `Project`, `Task`, `Wiki`, `Installation`. |
+| `type` | String | 32 | Yes | `create`, `update`, `complete`, `delete`, `work`. |
+| `entityType` | String | 32 | Yes | `Project`, `Task`, `Wiki`, `Installation`, `Snippet`. |
 | `entityName` | String | 128 | Yes | Name of the entity being modified. |
 | `projectId` | String | 36 | No | Associated project ID. |
+| `metadata` | String | 128 | No | Context like "Worked 2h 30m". |
 
 ### 6. Snippets
 - **Collection ID:** `snippets`

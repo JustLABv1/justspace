@@ -43,10 +43,11 @@ export interface InstallationTarget {
 
 export interface ActivityLog {
     $id: string;
-    type: 'create' | 'update' | 'delete' | 'complete';
+    type: 'create' | 'update' | 'delete' | 'complete' | 'work';
     entityType: 'Project' | 'Task' | 'Wiki' | 'Installation' | 'Snippet';
     entityName: string;
     projectId?: string;
+    metadata?: string; // For things like "Worked 2h 30m"
     $createdAt: string;
 }
 
