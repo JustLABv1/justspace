@@ -36,3 +36,12 @@ export interface InstallationTarget {
     tasks?: string[];
     $createdAt: string;
 }
+
+export interface ActivityLog {
+    $id: string;
+    type: 'create' | 'update' | 'delete' | 'complete';
+    entityType: 'Project' | 'Task' | 'Wiki' | 'Installation';
+    entityName: string;
+    projectId?: string;
+    $createdAt: string;
+}

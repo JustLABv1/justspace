@@ -5,7 +5,7 @@ import { ProjectModal } from '@/components/ProjectModal';
 import { TaskList } from '@/components/TaskList';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
-import { Button, Card, Spinner } from "@heroui/react";
+import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import { Calendar, Edit, LayoutGrid, ListTodo, Plus, Trash } from "lucide-react";
 import { useEffect, useState } from 'react';
 
@@ -35,17 +35,8 @@ export default function ProjectsPage() {
         }
     };
 
-    const handleUpdateStatus = async (projectId: string, status: Project['status']) => {
-        try {
-            await db.updateProject(projectId, { status });
-            setProjects(projects.map(p => p.$id === projectId ? { ...p, status } : p));
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
     const handleCreateOrUpdate = async (data: Partial<Project>) => {
-        if (selectedProject) {
+        if (selectedProject?.$id) {
             await db.updateProject(selectedProject.$id, data);
         } else {
             await db.createProject(data as Omit<Project, '$id' | '$createdAt'>);
@@ -63,64 +54,71 @@ export default function ProjectsPage() {
     };
 
     if (isLoading) {
-        return <div className="p-8 flex justify-center"><Spinner size="lg" /></div>;
+        return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
     }
 
-    const columns: { label: string; status: Project['status'] }[] = [
-        { label: 'Backlog', status: 'todo' },
-        { label: 'In Progress', status: 'in-progress' },
-        { label: 'Completed', status: 'completed' },
+    const columns: { label: string; status: Project['status']; color: 'default' | 'accent' | 'success' }[] = [
+        { label: 'Backlog', status: 'todo', color: 'default' },
+        { label: 'In Progress', status: 'in-progress', color: 'accent' },
+        { label: 'Completed', status: 'completed', color: 'success' },
     ];
 
     return (
-        <div className="p-8 max-w-full">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
-                <div>
-                    <h1 className="text-3xl font-bold">Projects</h1>
-                    <p className="text-muted-foreground mt-1">Manage your consulting engagements and tasks.</p>
+        <div className="max-w-[1600px] mx-auto p-6 md:p-10 space-y-10">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Chip variant="soft" color="accent">Active Pipeline</Chip>
+                        <Chip variant="soft" size="sm" className="bg-surface-secondary">{projects.length} Projects</Chip>
+                    </div>
+                    <h1 className="text-4xl font-black tracking-tighter">Projects Hub</h1>
+                    <p className="text-muted-foreground max-w-xl text-lg leading-relaxed">
+                        Orchestrate your consulting projects with ease. Track tasks, manage timelines, and deliver results.
+                    </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex bg-surface-secondary p-1 rounded-lg border border-border">
+                <div className="flex items-center gap-3 bg-surface-lowest p-1.5 rounded-2xl border border-border shadow-sm self-stretch md:self-auto">
+                    <div className="flex bg-surface p-1 rounded-xl border border-border/50">
                         <Button 
                             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
                             size="sm"
                             onPress={() => setViewMode('kanban')}
-                            className="h-8 px-3"
+                            className="h-9 px-4 rounded-lg"
                         >
-                            <ListTodo size={14} className="mr-2" />
+                            <ListTodo size={16} className="mr-2" />
                             Kanban
                         </Button>
                         <Button 
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
                             size="sm"
                             onPress={() => setViewMode('grid')}
-                            className="h-8 px-3"
+                            className="h-9 px-4 rounded-lg"
                         >
-                            <LayoutGrid size={14} className="mr-2" />
+                            <LayoutGrid size={16} className="mr-2" />
                             Grid
                         </Button>
                     </div>
-                    <Button variant="primary" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                    <Button variant="primary" className="rounded-xl h-11 px-6 shadow-lg shadow-primary/20" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
                         <Plus size={18} className="mr-2" />
-                        New Project
+                        Create
                     </Button>
                 </div>
-            </div>
+            </header>
 
             {viewMode === 'kanban' ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start overflow-x-auto pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
                     {columns.map((column) => (
-                        <div key={column.status} className="flex flex-col gap-4 min-w-[320px]">
-                            <div className="flex items-center justify-between px-2">
-                                <h3 className="font-bold uppercase tracking-wider text-xs text-muted-foreground">
-                                    {column.label} 
-                                    <span className="ml-2 px-2 py-0.5 rounded-full bg-surface-tertiary text-[10px]">
-                                        {projects.filter(p => p.status === column.status).length}
-                                    </span>
-                                </h3>
+                        <div key={column.status} className="flex flex-col gap-6 min-h-[600px]">
+                            <div className="flex items-center justify-between px-4 py-2 bg-surface-secondary/50 rounded-2xl border border-border/50">
+                                <span className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                                    <h3 className="font-bold uppercase tracking-widest text-xs text-foreground/80">
+                                        {column.label} 
+                                    </h3>
+                                </span>
+                                <Chip size="sm" variant="soft" color={column.color}>{projects.filter(p => p.status === column.status).length}</Chip>
                             </div>
                             
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {projects
                                     .filter((p) => p.status === column.status)
                                     .map((project) => (
@@ -133,21 +131,24 @@ export default function ProjectsPage() {
                                     ))}
                                 
                                 <Button 
-                                    variant="ghost" 
-                                    className="w-full border-2 border-dashed border-border py-8 hover:bg-surface-secondary hover:border-accent group"
+                                    variant="secondary" 
+                                    className="w-full border-2 border-dashed border-border/50 py-10 rounded-[2rem] hover:bg-surface-secondary hover:border-primary group transition-all"
                                     onPress={() => { 
-                                        setSelectedProject({ status: column.status } as any); 
+                                        setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
                                     }}
                                 >
-                                    <Plus size={20} className="text-muted-foreground group-hover:text-accent transition-colors" />
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Plus size={24} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                        <span className="text-xs font-bold text-muted-foreground group-hover:text-primary">New Project</span>
+                                    </div>
                                 </Button>
                             </div>
                         </div>
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                     {projects.map((project) => (
                         <ProjectCard 
                             key={project.$id} 
@@ -187,39 +188,38 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Card className="p-5 group">
-            <Card.Header className="flex flex-row justify-between items-start">
-                <div className="flex-1 min-w-0">
-                    <Card.Title className="text-lg font-bold truncate">{project.name}</Card.Title>
-                    {!isFull && <Card.Description className="mt-1 line-clamp-2 text-xs">{project.description}</Card.Description>}
-                </div>
-            </Card.Header>
-            
-            <Card.Content className="mt-4 space-y-4">
-                {isFull && (
-                    <div>
-                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Description</h4>
-                        <p className="text-sm line-clamp-3">{project.description}</p>
+        <Surface variant="secondary" className="p-0 rounded-[2rem] border border-border/50 bg-gradient-to-br from-surface to-surface-lowest group shadow-xl shadow-black/[0.02] hover:shadow-2xl hover:shadow-black/[0.05] transition-all hover:translate-y-[-4px]">
+            <article className="p-6 md:p-8 space-y-6">
+                <header className="flex justify-between items-start gap-4">
+                    <div className="space-y-1">
+                        <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</h3>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                            <Calendar size={14} />
+                            <span>{new Date(project.$createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
                     </div>
-                )}
-                
-                <TaskList projectId={project.$id} />
-            </Card.Content>
+                    <div className="flex gap-1">
+                        <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8 hover:bg-primary/10 hover:text-primary" onPress={onEdit}>
+                            <Edit size={16} />
+                        </Button>
+                        <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8 hover:bg-danger/10 hover:text-danger" onPress={onDelete}>
+                            <Trash size={16} />
+                        </Button>
+                    </div>
+                </header>
 
-            <Card.Footer className="mt-6 pt-4 border-t border-border flex justify-between items-center">
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
-                    <Calendar size={12} />
-                    <span>{new Date(project.$createdAt).toLocaleDateString()}</span>
+                <div className="space-y-4">
+                    {isFull && project.description && (
+                        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 italic">
+                           &quot; {project.description} &quot;
+                        </p>
+                    )}
+                    
+                    <div className="bg-surface-lowest/50 rounded-2xl p-4 border border-border/30">
+                        <TaskList projectId={project.$id} />
+                    </div>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" isIconOnly size="sm" className="h-7 w-7" onPress={onEdit}>
-                        <Edit size={14} />
-                    </Button>
-                    <Button variant="ghost" isIconOnly size="sm" className="h-7 w-7 text-danger" onPress={onDelete}>
-                        <Trash size={14} />
-                    </Button>
-                </div>
-            </Card.Footer>
-        </Card>
+            </article>
+        </Surface>
     );
 }

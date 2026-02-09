@@ -55,7 +55,7 @@ This document outlines the required database, collections, and attributes for **
 | `tasks` | String Array | 255 | No | Templated checklist tasks to apply to projects. |
 
 ### 5. Activity (Recommended)
-- **Collection ID:** `activity` (For real-time activity feed)
+- **Collection ID:** `activity` (Add this to `NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID` in `.env.local`)
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
