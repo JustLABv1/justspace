@@ -124,7 +124,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
         <Surface 
             ref={setNodeRef} 
             style={style} 
-            className={`group flex flex-col gap-0 rounded-[1.75rem] border transition-all duration-300 overflow-hidden ${
+            className={`group flex flex-col gap-0 rounded-2xl border transition-all duration-300 overflow-hidden ${
                 isDragging ? 'border-primary shadow-2xl z-50 bg-surface scale-[1.02]' : 'border-border/40 hover:border-primary/20 bg-surface shadow-sm'
             }`}
         >
@@ -146,8 +146,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 </div>
 
                 <div className="flex-grow min-w-0">
-                    <span className={`text-[16px] font-black tracking-tight leading-tight block truncate transition-all ${
-                        task.completed ? 'line-through text-muted-foreground/30 italic font-bold' : 'text-foreground'
+                    <span className={`text-[16px] font-bold tracking-tight leading-tight block truncate transition-all ${
+                        task.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'
                     }`}>
                         {task.title}
                     </span>
@@ -178,13 +178,13 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 <div className="flex items-center gap-2 flex-grow overflow-hidden">
                     <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-foreground/[0.03] border border-border/40 whitespace-nowrap">
                         <Plus size={10} weight="Bold" className="text-primary" />
-                        <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{subtasks.length} sub objectives</span>
+                        <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground/60">{subtasks.length} sub objectives</span>
                     </div>
                     
                     {task.timeSpent && task.timeSpent > 0 && (
                         <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-primary/5 border border-primary/20 whitespace-nowrap overflow-hidden">
                             <History size={10} weight="Bold" className="text-primary" />
-                            <span className="text-[10px] uppercase font-black tracking-widest text-primary truncate">
+                            <span className="text-xs uppercase font-bold tracking-widest text-primary truncate">
                                 {formatTime(task.timeSpent)} cumulative
                             </span>
                         </div>
@@ -196,7 +196,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         ? 'bg-primary border-primary text-white shadow-lg shadow-primary/30' 
                         : 'bg-surface-secondary border-border/20 text-foreground'
                 }`}>
-                    <span className={`text-[11px] font-black tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
+                    <span className={`text-xs font-bold tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
                         {dayjs.duration(currentTime, 'seconds').format(currentTime >= 3600 ? 'HH:mm:ss' : 'mm:ss')}
                     </span>
                     
@@ -224,17 +224,17 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 <Tooltip.Arrow />
                                 <div className="p-3 space-y-3 min-w-[220px]">
                                     <div className="flex items-center justify-between border-b border-border/20 pb-2">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Time Records</p>
-                                        <span className="text-[9px] font-bold text-muted-foreground/60">{parsedTimeEntries.length} entries</span>
+                                        <p className="text-xs font-bold uppercase tracking-widest text-primary">Time Records</p>
+                                        <span className="text-xs font-bold text-muted-foreground/60">{parsedTimeEntries.length} entries</span>
                                     </div>
                                     <div className="space-y-1 max-h-48 overflow-y-auto pr-1 flex flex-col">
                                         {parsedTimeEntries.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((entry, i) => (
                                             <div key={i} className="flex items-center justify-between py-1.5 px-2.5 rounded-xl hover:bg-surface-secondary transition-colors">
                                                 <div className="flex items-center gap-2">
                                                     <Calendar size={12} weight="Linear" className="text-muted-foreground/40" />
-                                                    <span className="text-[11px] font-bold text-foreground/80">{dayjs(entry.date).format('MMM D, YYYY')}</span>
+                                                    <span className="text-xs font-bold text-foreground/80">{dayjs(entry.date).format('MMM D, YYYY')}</span>
                                                 </div>
-                                                <span className="font-black text-[10px] tabular-nums text-primary/80">
+                                                <span className="font-bold text-xs tabular-nums text-primary/80">
                                                     {formatTime(entry.seconds)}
                                                 </span>
                                             </div>
@@ -250,8 +250,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             {isExpanded && (
                 <div className="mx-4 mb-4 mt-2 p-5 bg-surface-secondary/30 rounded-[1.25rem] border border-border/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center justify-between mb-2">
-                        <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Sub-Task Management</h5>
-                        <span className="text-[9px] font-bold text-primary/60 bg-primary/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Completed</span>
+                        <h5 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/70">Sub-Task Management</h5>
+                        <span className="text-xs font-bold text-primary/60 bg-primary/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Completed</span>
                     </div>
 
                     <div className="space-y-2">
@@ -265,7 +265,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         <Checkbox.Indicator />
                                     </Checkbox.Control>
                                 </Checkbox>
-                                <span className={`text-xs font-bold leading-tight flex-grow ${sub.completed ? 'line-through text-muted-foreground/40 italic font-medium' : 'text-foreground/80'}`}>
+                                <span className={`text-xs font-bold leading-tight flex-grow ${sub.completed ? 'line-through text-muted-foreground/40 font-medium' : 'text-foreground/80'}`}>
                                     {sub.title}
                                 </span>
                                 <Button 

@@ -8,7 +8,15 @@ import { TemplateModal } from '@/components/TemplateModal';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Spinner, Surface } from "@heroui/react";
-import { ArrowLeft, Calendar, Edit, LayoutGrid, ListTodo, Sparkles, Trash } from "lucide-react";
+import {
+  AltArrowLeft as ArrowLeft,
+  Calendar,
+  Pen2 as Edit,
+  Widget as LayoutGrid,
+  Checklist as ListTodo,
+  MagicStick as Sparkles,
+  TrashBinMinimalistic as Trash
+} from "@solar-icons/react";
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -74,63 +82,89 @@ export default function ProjectDetailPage() {
 
     return (
         <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
-            <header className="flex flex-col gap-4">
-                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-bold text-[10px] uppercase tracking-widest">
-                    <ArrowLeft size={12} />
-                    Back to Projects
+            <header className="flex flex-col gap-6">
+                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-bold text-xs tracking-widest group uppercase">
+                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
+                    Back to Matrix
                 </Link>
                 
-                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl shadow-primary/5">
-                                <LayoutGrid size={24} />
+                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                    <div className="space-y-6 flex-1">
+                        <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 rounded-[1.5rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/5">
+                                <LayoutGrid size={28} />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-black tracking-tighter text-foreground">{project.name}</h1>
-                                <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                                    <Calendar size={12} className="text-primary/50" />
-                                    <span>Launched {new Date(project.$createdAt).toLocaleDateString()}</span>
+                                <h1 className="text-4xl font-bold tracking-tight text-foreground leading-none">{project.name}</h1>
+                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
+                                    <Calendar size={14} className="text-primary/50" />
+                                    <span>Initialized Phase: {new Date(project.$createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Metadata & Allocation Strip */}
+                        <div className="flex flex-wrap gap-3">
+                            <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Operational Status</span>
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                                    <span className="text-xs font-bold uppercase tracking-widest">{project.status.replace('-', ' ')}</span>
+                                </div>
+                            </div>
+                            
+                            {project.daysPerWeek && (
+                                <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Resource Allocation</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest text-primary">{project.daysPerWeek}D / Weekly</span>
+                                </div>
+                            )}
+
+                            {project.allocatedDays && (
+                                <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Allocated Cycle</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest">{project.allocatedDays} Days Total</span>
+                                </div>
+                            )}
+                        </div>
+                        
                         {project.description && (
-                            <p className="text-muted-foreground text-base leading-relaxed max-w-2xl italic">
-                               &quot; {project.description} &quot;
+                            <p className="text-muted-foreground text-base leading-relaxed max-w-2xl font-medium opacity-80 border-l-2 border-primary/20 pl-6 py-2">
+                               {project.description}
                             </p>
                         )}
                     </div>
                     
-                    <div className="flex gap-2">
-                        <Button variant="secondary" className="rounded-xl h-10 px-5 font-bold text-sm" onPress={() => setIsProjectModalOpen(true)}>
+                    <div className="flex gap-2 shrink-0">
+                        <Button variant="secondary" className="rounded-xl h-10 px-6 font-bold text-xs uppercase border border-border/40" onPress={() => setIsProjectModalOpen(true)}>
                             <Edit size={16} className="mr-2" />
-                            Edit
+                            Modify
                         </Button>
-                        <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold text-sm text-danger hover:bg-danger/10" onPress={() => setIsDeleteModalOpen(true)}>
+                        <Button variant="ghost" className="rounded-xl h-10 px-6 font-bold text-xs uppercase text-danger hover:bg-danger/10" onPress={() => setIsDeleteModalOpen(true)}>
                             <Trash size={16} className="mr-2" />
-                            Archive
+                            Purge
                         </Button>
                     </div>
                 </div>
             </header>
 
-            <Surface className="p-0 rounded-[3rem] border border-border/40 bg-surface shadow-2xl shadow-primary/5 relative overflow-hidden">
+            <Surface className="p-0 rounded-[2rem] border border-border/40 bg-surface shadow-2xl shadow-primary/5 relative overflow-hidden">
                 <div className="relative z-10">
-                    <div className="p-8 border-b border-border/20 bg-surface-secondary/30">
+                    <div className="p-6 border-b border-border/20 bg-surface-secondary/30">
                         <div className="flex items-center justify-between">
                             <div className="space-y-1">
-                                <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
-                                    <ListTodo size={24} className="text-primary" />
+                                <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                                    <ListTodo size={20} className="text-primary" />
                                     Project Roadmap
                                 </h2>
-                                <p className="text-muted-foreground text-sm font-medium">Define milestones and track technical execution.</p>
+                                <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest opacity-40">Define milestones and track technical execution.</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="flex bg-surface p-1 rounded-xl border border-border/40 mr-2">
                                     <Button 
                                         variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
                                         size="sm" 
-                                        className="h-8 rounded-lg font-bold text-[10px] uppercase tracking-wider"
+                                        className="h-7 rounded-lg font-bold text-[9px] uppercase tracking-wider"
                                         onPress={() => setViewMode('list')}
                                     >
                                         List
@@ -138,21 +172,21 @@ export default function ProjectDetailPage() {
                                     <Button 
                                         variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
                                         size="sm" 
-                                        className="h-8 rounded-lg font-bold text-[10px] uppercase tracking-wider"
+                                        className="h-7 rounded-lg font-bold text-[9px] uppercase tracking-wider"
                                         onPress={() => setViewMode('kanban')}
                                     >
                                         Kanban
                                     </Button>
                                 </div>
-                                <Button variant="primary" size="sm" className="rounded-xl font-bold italic" onPress={() => setIsTemplateModalOpen(true)}>
-                                    <Sparkles size={16} className="mr-2" />
+                                <Button variant="primary" size="sm" className="rounded-xl font-bold text-[10px] uppercase tracking-widest" onPress={() => setIsTemplateModalOpen(true)}>
+                                    <Sparkles size={14} className="mr-2" />
                                     Apply Template
                                 </Button>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="p-8">
+                    <div className="p-6">
                         {viewMode === 'list' ? (
                             <TaskList projectId={project.$id} hideHeader />
                         ) : (

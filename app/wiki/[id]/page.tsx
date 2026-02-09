@@ -7,8 +7,16 @@ import { ProjectSelectorModal } from '@/components/ProjectSelectorModal';
 import { WikiExport } from '@/components/WikiExport';
 import { db } from '@/lib/db';
 import { InstallationTarget, WikiGuide } from '@/types';
-import { Button, Chip, Spinner, Surface, Tabs, Tooltip } from "@heroui/react";
-import { ArrowLeft, ClipboardCheck, Edit, FileText, Github, History, Info, Plus, Trash } from "lucide-react";
+import { Button, Spinner, Surface, Tabs, Tooltip } from "@heroui/react";
+import {
+    AltArrowLeft as ArrowLeft,
+    CheckCircle as ClipboardCheck,
+    Pen2 as Edit,
+    Restart as History,
+    InfoCircle as Info,
+    AddCircle as Plus,
+    TrashBinTrash as Trash
+} from "@solar-icons/react";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -76,70 +84,78 @@ export default function WikiDetailPage() {
     }
 
     return (
-        <div className="max-w-[1400px] mx-auto p-6 md:p-10 space-y-10">
+        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-12">
             <nav>
-                <Link href="/wiki" className="group inline-flex items-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors bg-surface-lowest px-4 py-2 rounded-full border border-border/50">
-                    <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
-                    Knowledge Base
+                <Link href="/wiki">
+                    <Button variant="secondary" className="rounded-2xl h-12 px-6 font-bold border-border/40 group bg-surface shadow-sm hover:border-primary/30 uppercase text-xs tracking-widest">
+                        <ArrowLeft size={18} weight="Bold" className="mr-2 group-hover:-translate-x-1 transition-transform" />
+                        Wiki Library_
+                    </Button>
                 </Link>
             </nav>
 
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                        <Chip variant="soft" size="sm" color="accent">Documentation</Chip>
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-10">
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="px-4 py-1.5 rounded-full bg-accent/5 border border-accent/10 text-xs font-bold uppercase tracking-widest text-accent">
+                            Infrastructure Frequency
+                        </div>
                         {guide.installations.length > 0 && (
-                            <Chip variant="soft" size="sm" color="success">{guide.installations.length} Targets</Chip>
+                            <div className="px-4 py-1.5 rounded-full bg-success/5 border border-success/10 text-xs font-bold uppercase tracking-widest text-success">
+                                {guide.installations.length} Active Targets
+                            </div>
                         )}
                     </div>
-                    <h1 className="text-5xl font-black tracking-tighter leading-tight">{guide.title}</h1>
-                    <p className="text-xl text-muted-foreground max-w-3xl leading-relaxed">{guide.description}</p>
+                    <h1 className="text-3xl font-bold tracking-tight leading-[1]">{guide.title}</h1>
+                    <p className="text-lg text-muted-foreground max-w-4xl leading-relaxed opacity-70 font-medium">{guide.description}</p>
                 </div>
-                <div className="flex gap-3 bg-surface-lowest border border-border p-1.5 rounded-2xl shadow-sm self-stretch md:self-auto">
-                    <Button variant="primary" className="rounded-xl h-11 px-6 shadow-lg shadow-primary/20" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
-                        <Plus size={18} className="mr-2" />
-                        Add Target
+                <div className="flex gap-4 self-stretch md:self-auto">
+                    <Button variant="primary" className="rounded-2xl h-12 px-6 font-bold uppercase tracking-widest shadow-xl shadow-primary/10 flex-1 md:flex-none" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                        <Plus size={18} weight="Bold" className="mr-3" />
+                        Init Target
                     </Button>
                 </div>
             </header>
 
             {guide.installations.length > 0 ? (
-                <div className="space-y-8">
+                <div className="space-y-12">
                     <Tabs defaultSelectedKey={guide.installations[0].$id} variant="secondary">
-                        <Tabs.ListContainer className="p-1 bg-surface-secondary/50 rounded-2xl border border-border/40 w-fit">
-                            <Tabs.List aria-label="Installation targets" className="gap-2">
+                        <Tabs.ListContainer className="p-2 bg-surface rounded-[2rem] border border-border/40 w-fit shadow-sm">
+                            <Tabs.List aria-label="Installation targets" className="gap-3">
                                 {guide.installations.map((inst) => (
-                                    <Tabs.Tab key={inst.$id} id={inst.$id} className="rounded-xl font-bold px-6">
+                                    <Tabs.Tab key={inst.$id} id={inst.$id} className="rounded-[1.5rem] font-bold px-8 py-3 tracking-tight text-sm data-[selected=true]:bg-foreground data-[selected=true]:text-background transition-all uppercase">
                                         {inst.target}
-                                        <Tabs.Indicator className="bg-primary h-0.5 rounded-full" />
+                                        <Tabs.Indicator className="hidden" />
                                     </Tabs.Tab>
                                 ))}
                             </Tabs.List>
                         </Tabs.ListContainer>
 
                         {guide.installations.map((inst) => (
-                            <Tabs.Panel key={inst.$id} id={inst.$id} className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                            <Tabs.Panel key={inst.$id} id={inst.$id} className="mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                                     <div className="lg:col-span-8">
-                                        <Surface variant="secondary" className="p-8 md:p-12 rounded-[2.5rem] border border-border/50 bg-gradient-to-br from-surface to-surface-lowest relative overflow-hidden">
+                                        <Surface variant="secondary" className="p-6 md:p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden shadow-sm">
                                             <div className="relative z-10 space-y-10">
-                                                <header className="flex justify-between items-center pb-8 border-b border-border/50">
-                                                    <div className="space-y-1">
-                                                        <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
-                                                            <Info size={28} className="text-primary" />
-                                                            {inst.target} Setup
+                                                <header className="flex justify-between items-center pb-8 border-b border-border/20">
+                                                    <div className="space-y-2">
+                                                        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-4">
+                                                            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
+                                                                <Info size={24} weight="Linear" />
+                                                            </div>
+                                                            {inst.target} Setup_
                                                         </h2>
-                                                        <p className="text-muted-foreground font-medium">Step-by-step deployment instructions</p>
+                                                        <p className="text-muted-foreground font-bold tracking-widest opacity-30 uppercase text-xs">Frequency Deployment Protocol</p>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-3">
                                                         <Tooltip>
-                                                            <Button variant="ghost" isIconOnly className="rounded-full h-10 w-10">
-                                                                <History size={18} />
+                                                            <Button variant="secondary" isIconOnly className="rounded-xl h-10 w-10 border-border/40 bg-surface">
+                                                                <History size={18} weight="Bold" />
                                                             </Button>
-                                                            <Tooltip.Content>
-                                                                <div className="p-3 text-xs space-y-2 max-w-[200px]">
-                                                                    <p className="font-black uppercase tracking-wider text-primary">History</p>
-                                                                    <p className="border-t border-border pt-2 text-muted-foreground italic">Last update: {new Date(guide.$createdAt).toLocaleDateString()}</p>
+                                                            <Tooltip.Content className="bg-surface rounded-xl border border-border/50 p-4 shadow-2xl">
+                                                                <div className="space-y-2">
+                                                                    <p className="font-bold uppercase tracking-widest text-primary text-xs">Registry Logs</p>
+                                                                    <p className="text-xs text-muted-foreground font-bold uppercase opacity-60">Last entry: {new Date(guide.$createdAt).toLocaleDateString()}</p>
                                                                 </div>
                                                             </Tooltip.Content>
                                                         </Tooltip>
@@ -148,79 +164,83 @@ export default function WikiDetailPage() {
                                                             content={inst.notes || ''} 
                                                             targetRef={contentRef} 
                                                         />
-                                                        <div className="w-[1px] h-6 bg-border mx-2" />
+                                                        <div className="w-[1px] h-6 bg-border/20 mx-2" />
                                                         <Button 
-                                                            variant="ghost" 
+                                                            variant="secondary" 
                                                             isIconOnly 
-                                                            className="rounded-full h-10 w-10 hover:bg-primary/10 hover:text-primary"
+                                                            className="rounded-xl h-10 w-10 border-border/40 bg-surface hover:text-primary transition-all"
                                                             onPress={() => { setSelectedInst(inst); setIsInstModalOpen(true); }}
                                                         >
-                                                            <Edit size={18} />
+                                                            <Edit size={18} weight="Bold" />
                                                         </Button>
                                                         <Button 
-                                                            variant="ghost" 
+                                                            variant="secondary" 
                                                             isIconOnly 
-                                                            className="rounded-full h-10 w-10 hover:bg-danger/10 hover:text-danger"
+                                                            className="rounded-xl h-10 w-10 border-border/40 bg-surface hover:text-danger transition-all"
                                                             onPress={() => { setSelectedInst(inst); setIsDeleteModalOpen(true); }}
                                                         >
-                                                            <Trash size={18} />
+                                                            <Trash size={18} weight="Bold" />
                                                         </Button>
                                                     </div>
                                                 </header>
 
-                                                <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tighter prose-p:text-muted-foreground prose-p:leading-relaxed" ref={contentRef}>
+                                                <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tighter prose-headings:uppercase prose-p:text-muted-foreground/80 prose-p:leading-relaxed prose-p:font-medium" ref={contentRef}>
                                                     {inst.notes ? (
                                                         <Markdown content={inst.notes} />
                                                     ) : (
-                                                        <p className="italic py-10 opacity-50">No specific documentation notes available for this target yet.</p>
+                                                        <p className="py-12 opacity-30 text-center font-black uppercase tracking-[0.3em] text-sm">Deployment registry is empty.</p>
                                                     )}
                                                 </div>
 
-                                                <footer className="pt-10 flex flex-wrap gap-4">
+                                                <footer className="pt-8 flex flex-wrap gap-4 border-t border-border/10">
                                                     {inst.gitRepo && (
-                                                        <Link href={inst.gitRepo} target="_blank">
-                                                            <Button variant="primary" className="rounded-2xl h-14 px-8 font-bold shadow-xl shadow-primary/10">
-                                                                <Github size={20} className="mr-3" />
-                                                                Access Repository
+                                                        <Link href={inst.gitRepo} target="_blank" className="flex-1 md:flex-none">
+                                                            <Button variant="primary" className="w-full rounded-xl h-12 px-8 font-black uppercase tracking-tight shadow-lg shadow-primary/10 text-xs">
+                                                                Access Source Registry
                                                             </Button>
                                                         </Link>
                                                     )}
                                                     {inst.documentation && (
-                                                        <Link href={inst.documentation} target="_blank">
-                                                            <Button variant="secondary" className="rounded-2xl h-14 px-8 font-bold border-2 border-border/50">
-                                                                <FileText size={20} className="mr-3" />
-                                                                External Resources
+                                                        <Link href={inst.documentation} target="_blank" className="flex-1 md:flex-none">
+                                                            <Button variant="secondary" className="w-full rounded-xl h-12 px-8 font-black tracking-tight border border-border/40 text-xs uppercase">
+                                                                External Reference
                                                             </Button>
                                                         </Link>
                                                     )}
                                                 </footer>
                                             </div>
-                                            <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+                                            {/* Design elements */}
+                                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/2 blur-[80px] rounded-full pointer-events-none -mr-40 -mt-40" />
+                                            <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-accent/2 blur-[60px] rounded-full pointer-events-none -ml-24 -mb-24" />
                                         </Surface>
                                     </div>
 
                                     <aside className="lg:col-span-4 space-y-8">
                                         {inst.tasks && inst.tasks.length > 0 && (
-                                            <Surface variant="tertiary" className="p-8 rounded-[2rem] border border-primary/20 bg-gradient-to-b from-primary/5 to-transparent h-fit">
+                                            <Surface variant="secondary" className="p-6 rounded-[2rem] border border-border/40 bg-surface shadow-sm">
                                                 <div className="space-y-8">
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1">
-                                                            <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
-                                                                <ClipboardCheck size={22} className="text-primary" />
-                                                                Automation Hub
+                                                            <h3 className="text-xl font-bold tracking-tight flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
+                                                                    <ClipboardCheck size={18} weight="Bold" />
+                                                                </div>
+                                                                Automation Hub_
                                                             </h3>
-                                                            <p className="text-xs font-bold uppercase tracking-widest text-primary/60">Deployment Checklist</p>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-40">Frequency Checklist</p>
                                                         </div>
-                                                        <Chip size="sm" color="accent" variant="soft" className="font-bold">{inst.tasks.length} Steps</Chip>
+                                                        <div className="w-8 h-8 rounded-full bg-accent/5 border border-accent/10 flex items-center justify-center text-accent font-bold text-xs">
+                                                            {inst.tasks.length}
+                                                        </div>
                                                     </div>
 
                                                     <ul className="space-y-4">
                                                         {inst.tasks.map((task, i) => (
-                                                            <li key={i} className="flex items-start gap-4 group p-3 rounded-2xl hover:bg-surface-lowest/50 transition-colors">
-                                                                <div className="mt-1 flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary text-[10px] font-black italic">
-                                                                    0{i + 1}
+                                                            <li key={i} className="flex items-start gap-4 group">
+                                                                <div className="mt-1 flex items-center justify-center w-5 h-5 rounded bg-primary/5 border border-primary/10 text-primary text-[8px] font-bold flex-shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
+                                                                    {i + 1}
                                                                 </div>
-                                                                <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                                                                <span className="text-sm font-bold text-muted-foreground/70 group-hover:text-foreground transition-colors leading-snug tracking-tight">
                                                                     {task}
                                                                 </span>
                                                             </li>
@@ -229,26 +249,26 @@ export default function WikiDetailPage() {
 
                                                     <Button 
                                                         variant="secondary" 
-                                                        className="w-full h-14 rounded-2xl font-black italic tracking-tight"
+                                                        className="w-full h-12 rounded-xl font-bold uppercase tracking-widest text-xs border border-border/40 hover:bg-foreground hover:text-background transition-all"
                                                         onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
                                                     >
-                                                        Deploy to Project
+                                                        Execute Deployment
                                                     </Button>
                                                 </div>
                                             </Surface>
                                         )}
                                         
-                                        <Surface className="p-8 rounded-[2rem] border border-border/40 bg-surface-lowest relative overflow-hidden group hover:border-primary/20 transition-colors">
+                                        <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface relative overflow-hidden group hover:border-primary/20 transition-all shadow-sm">
                                             <div className="relative z-10 space-y-4">
-                                                <h4 className="font-bold flex items-center gap-2">
-                                                    <Info size={18} className="text-accent" />
-                                                    Quick Tip
+                                                <h4 className="font-bold tracking-tight flex items-center gap-3 text-base">
+                                                    <Info size={18} weight="Bold" className="text-accent" />
+                                                    Frequency Tip_
                                                 </h4>
-                                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                                    Want to export this guide? Use the export button at the top to download it as a high-quality PDF or Markdown file for offline troubleshooting.
+                                                <p className="text-xs text-muted-foreground font-medium leading-relaxed opacity-60">
+                                                    Infrastructure fragments can be exported as synchronized documentation. Utilize the export registry to maintain local persistence.
                                                 </p>
                                             </div>
-                                            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-accent/5 blur-3xl rounded-full group-hover:bg-accent/10 transition-colors" />
+                                            <div className="absolute bottom-0 right-0 w-24 h-24 bg-accent/5 blur-2xl rounded-full group-hover:bg-accent/10 transition-colors -mr-12 -mb-12" />
                                         </Surface>
                                     </aside>
                                 </div>
@@ -257,16 +277,16 @@ export default function WikiDetailPage() {
                     </Tabs>
                 </div>
             ) : (
-                <Surface variant="tertiary" className="p-20 rounded-[3rem] border border-dashed border-border flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-surface-secondary rounded-[2rem] flex items-center justify-center text-muted-foreground">
-                        <Plus size={40} />
+                <Surface variant="tertiary" className="p-20 rounded-[2rem] border border-dashed border-border/40 flex flex-col items-center text-center space-y-6 bg-surface/30 shadow-inner">
+                    <div className="w-16 h-16 bg-surface rounded-2xl flex items-center justify-center text-muted-foreground/20 border border-border/40 shadow-sm">
+                        <Plus size={32} weight="Linear" />
                     </div>
                     <div className="space-y-2">
-                        <h2 className="text-2xl font-black">No installation targets defined</h2>
-                        <p className="text-muted-foreground max-w-sm">Every guide needs a target. Add your first deployment target (e.g., Azure VM, Local Docker) to get started.</p>
+                        <h2 className="text-2xl font-black tracking-tighter uppercase">No deployment targets defined_</h2>
+                        <p className="text-muted-foreground max-w-md text-sm opacity-60 font-medium">Infrastructure protocols require a target frequency. Initialize your first deployment instance to begin profiling.</p>
                     </div>
-                    <Button variant="primary" className="rounded-2xl h-12 px-8 font-bold" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
-                        Create First Target
+                    <Button variant="primary" className="rounded-xl h-12 px-8 font-black uppercase text-sm shadow-xl shadow-primary/10 tracking-tight" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                        Init First Target
                     </Button>
                 </Surface>
             )}

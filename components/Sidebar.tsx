@@ -35,7 +35,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
     return (
         <Surface 
             variant="secondary" 
-            className={`h-full flex flex-col border border-border/50 rounded-[2.5rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-hidden ${
+            className={`h-full flex flex-col border border-border/50 rounded-[2rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-hidden ${
                 isCollapsed ? 'w-20 p-4' : 'w-72 p-6'
             }`}
         >
@@ -43,18 +43,18 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                 <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-6`}>
                     {!isCollapsed && (
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-                                <span className="font-black text-xl italic mt-1">J</span>
+                            <div className="w-10 h-10 rounded-2xl bg-foreground flex items-center justify-center text-background shadow-lg shadow-black/10">
+                                <span className="font-bold text-xl leading-none">J</span>
                             </div>
                             <div>
-                                <h1 className="text-2xl font-black tracking-tighter text-foreground leading-none">justspace</h1>
-                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground ml-0.5 mt-1 block">Internal</span>
+                                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">justspace_</h1>
+                                <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-primary ml-0.5 mt-1 block opacity-60">Consultant OS</span>
                             </div>
                         </div>
                     )}
                     {isCollapsed && (
                         <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-                            <span className="font-black text-lg italic mt-1">J</span>
+                            <span className="font-bold text-lg">J</span>
                         </div>
                     )}
                     
@@ -85,10 +85,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
             <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
                 {!isCollapsed && (
                     <div className="flex items-center justify-between px-4 mb-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Main Menu</p>
-                        <div className="flex items-center gap-1.5 opacity-40">
-                             <kbd className="text-[9px] font-mono border border-border/50 px-1 rounded bg-surface">⌘</kbd>
-                             <kbd className="text-[9px] font-mono border border-border/50 px-1 rounded bg-surface">K</kbd>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground opacity-40">Main Menu</p>
+                        <div className="flex items-center gap-1.5 opacity-30">
+                             <kbd className="text-[10px] font-mono border border-border/50 px-1 rounded bg-surface">⌘</kbd>
+                             <kbd className="text-[10px] font-mono border border-border/50 px-1 rounded bg-surface">K</kbd>
                         </div>
                     </div>
                 )}
@@ -105,12 +105,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                                 isCollapsed ? 'justify-center px-0 py-3' : 'px-4 py-3'
                             } ${
                                 isActive 
-                                    ? 'bg-foreground text-background font-bold shadow-lg shadow-black/10' 
-                                    : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground'
+                                    ? 'bg-foreground text-background font-black shadow-lg shadow-black/10' 
+                                    : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground font-black opacity-50 hover:opacity-100'
                             }`}
                         >
                             <Icon size={20} weight={isActive ? "Bold" : "Linear"} className={isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'} />
-                            {!isCollapsed && <span className="tracking-tight">{item.name}</span>}
+                            {!isCollapsed && <span className="tracking-tighter text-xs font-bold">{item.name}</span>}
                         </Link>
                     );
                 })}
@@ -120,10 +120,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                 {!isCollapsed && (
                     <Surface variant="tertiary" className="p-4 rounded-2xl border border-border/40 bg-surface/50 backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Theme</span>
+                            <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground opacity-40">Theme</span>
                             <ThemeSwitcher />
                         </div>
-                        <p className="text-[10px] font-medium text-muted-foreground leading-snug">
+                        <p className="text-[11px] font-medium text-muted-foreground leading-snug">
                             Customize your view for focus or clarity.
                         </p>
                     </Surface>
@@ -133,23 +133,23 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                     <Link 
                         href="/settings"
                         title={isCollapsed ? 'Settings' : ''}
-                        className={`flex items-center gap-4 rounded-xl text-muted-foreground hover:text-foreground transition-all group ${
+                        className={`flex items-center gap-4 rounded-xl text-muted-foreground hover:text-foreground transition-all group font-bold opacity-60 hover:opacity-100 ${
                             isCollapsed ? 'justify-center p-3' : 'px-4 py-3'
                         }`}
                     >
                         <Settings size={20} weight="Linear" className="group-hover:rotate-45 transition-transform" />
-                        {!isCollapsed && <span className="font-medium tracking-tight">Settings</span>}
+                        {!isCollapsed && <span className="tracking-tight text-xs font-bold">Settings</span>}
                     </Link>
                     
                     <button 
                         onClick={logout}
                         title={isCollapsed ? 'Logout' : ''}
-                        className={`flex items-center gap-4 rounded-xl text-danger/70 hover:text-danger hover:bg-danger/5 transition-all group ${
+                        className={`flex items-center gap-4 rounded-xl text-danger/70 hover:text-danger hover:bg-danger/5 transition-all group font-bold opacity-60 hover:opacity-100 ${
                             isCollapsed ? 'justify-center p-3' : 'px-4 py-3'
                         }`}
                     >
                         <LogOut size={20} weight="Linear" />
-                        {!isCollapsed && <span className="font-medium tracking-tight">Logout</span>}
+                        {!isCollapsed && <span className="tracking-tighter text-xs font-bold">Logout</span>}
                     </button>
                 </div>
             </div>

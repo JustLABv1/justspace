@@ -1,10 +1,13 @@
 'use client';
 
 import { Button, Dropdown, Label } from '@heroui/react';
+import {
+    DownloadMinimalistic as Download,
+    FileText
+} from '@solar-icons/react';
 import { saveAs } from 'file-saver';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { Download, FileText, Image } from 'lucide-react';
 
 interface WikiExportProps {
     title: string;
@@ -37,26 +40,29 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
 
     return (
         <Dropdown>
-            <Button variant="secondary">
-                <Download size={18} className="mr-2" />
-                Export
-            </Button>
-            <Dropdown.Popover>
-                <Dropdown.Menu className="w-48">
-                    <Dropdown.Item onPress={exportAsMarkdown}>
-                        <div className="flex items-center gap-2">
-                            <FileText size={16} />
-                            <Label>Markdown (.md)</Label>
+            <Dropdown.Trigger>
+                <Button variant="secondary" className="rounded-xl h-10 px-4 font-black border border-border/40 opacity-50 hover:opacity-100 transition-all uppercase text-xs tracking-widest">
+                    <Download size={16} weight="Bold" className="mr-2" />
+                    Export Segment
+                </Button>
+            </Dropdown.Trigger>
+            <Dropdown.Menu className="bg-surface border border-border/40 rounded-2xl p-2 shadow-2xl">
+                <Dropdown.Section>
+                    <Label className="px-3 py-2 text-xs font-black uppercase tracking-[0.4em] text-muted-foreground/60">Output Formats</Label>
+                    <Dropdown.Item onPress={exportAsMarkdown} className="rounded-xl hover:bg-foreground/5 transition-all">
+                        <div className="flex items-center gap-3 p-1 font-black tracking-tight text-sm">
+                            <FileText size={18} weight="Bold" className="text-primary" />
+                            MARKDOWN PROTOCOL (.md)
                         </div>
                     </Dropdown.Item>
-                    <Dropdown.Item onPress={exportAsPDF}>
-                        <div className="flex items-center gap-2">
-                            <Image size={16} />
-                            <Label>PDF Document</Label>
+                    <Dropdown.Item onPress={exportAsPDF} className="rounded-xl hover:bg-foreground/5 transition-all">
+                        <div className="flex items-center gap-3 p-1 font-black tracking-tight text-sm">
+                            <FileText size={18} weight="Bold" className="text-danger" />
+                            PDF DOCUMENT (.pdf)
                         </div>
                     </Dropdown.Item>
-                </Dropdown.Menu>
-            </Dropdown.Popover>
+                </Dropdown.Section>
+            </Dropdown.Menu>
         </Dropdown>
     );
 }

@@ -135,13 +135,13 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
             {!hideHeader && (
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm border border-primary/20">
                             <ListChecks size={20} weight="Bold" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black tracking-tighter text-foreground">Project Roadmap</h2>
+                            <h2 className="text-xl font-bold tracking-tight text-foreground">Project Roadmap_</h2>
                             <div className="flex items-center gap-2 mt-0.5">
-                                <p className="text-[9px] uppercase font-bold tracking-widest text-muted-foreground/60">
+                                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/40">
                                     {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
                                 </p>
                                 <div className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
@@ -195,7 +195,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                 <MessageSquarePlus size={32} weight="Linear" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-black text-foreground/60">No tasks identified</h3>
+                                <h3 className="text-sm font-bold text-foreground/60">No tasks identified</h3>
                                 <p className="text-xs text-muted-foreground font-medium mt-1">Start by adding your first milestone below.</p>
                             </div>
                         </div>

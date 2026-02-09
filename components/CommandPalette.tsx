@@ -3,8 +3,15 @@
 import { db } from '@/lib/db';
 import { Project, Snippet, WikiGuide } from '@/types';
 import { Modal, Spinner } from '@heroui/react';
+import {
+    AltArrowRight as ArrowRight,
+    Book,
+    CodeCircle as Code2,
+    Folder2 as Folder,
+    Checklist as ListTodo,
+    Magnifer as Search
+} from '@solar-icons/react';
 import { Command } from 'cmdk';
-import { Book, Code2, Folder, ListTodo, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -70,123 +77,146 @@ export function CommandPalette() {
     };
 
     return (
-        <Modal isOpen={open} onOpenChange={setOpen}>
-            <Modal.Backdrop className="bg-black/60 backdrop-blur-md" />
-            <Modal.Container className="max-w-2xl top-[15%]">
-                <Modal.Dialog className="overflow-hidden p-0 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] border border-border/50 bg-surface rounded-[2rem] w-full">
-                    <Command className="flex flex-col overflow-hidden bg-surface min-h-[450px]">
-                        <div className="flex items-center border-b border-border/40 px-6 py-4" cmdk-input-wrapper="">
-                            <Search className="mr-3 h-5 w-5 shrink-0 text-muted-foreground" />
-                            <Command.Input
-                                autoFocus
-                                placeholder="Search projects, guides, snippets, or commands..."
-                                className="flex h-11 w-full rounded-md bg-transparent py-3 text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 font-medium"
-                            />
-                        </div>
-                        <Command.List className="max-h-[500px] overflow-y-auto overflow-x-hidden p-4 space-y-2 no-scrollbar">
-                            {loading && (
-                                <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-                                    <Spinner size="sm" className="mr-3" />
-                                    Indexing your workspace...
+        <Modal>
+            <Modal.Backdrop 
+                isOpen={open} 
+                onOpenChange={setOpen}
+                className="bg-black/40 backdrop-blur-xl"
+                variant="blur"
+            >
+                <Modal.Container>
+                    <Modal.Dialog className="max-w-2xl w-full p-0 overflow-hidden bg-surface border border-border/50 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.7)] rounded-[3rem]">
+                        <Command className="flex flex-col overflow-hidden bg-surface min-h-[520px]">
+                            <div className="flex items-center border-b border-border/40 px-8 py-7" cmdk-input-wrapper="">
+                                <Search size={26} weight="Linear" className="mr-5 text-muted-foreground/60" />
+                                <Command.Input
+                                    autoFocus
+                                    placeholder="Search fragments, projects & wiki..."
+                                    className="flex h-12 w-full rounded-md bg-transparent text-2xl outline-none placeholder:text-muted-foreground/30 disabled:cursor-not-allowed disabled:opacity-50 font-black tracking-tighter"
+                                />
+                            </div>
+                            <Command.List className="max-h-[600px] overflow-y-auto overflow-x-hidden p-6 space-y-3 no-scrollbar content-visibility-auto">
+                                {loading && (
+                                    <div className="flex flex-col items-center justify-center py-20 text-sm text-muted-foreground gap-4">
+                                        <Spinner size="lg" color="accent" />
+                                        <p className="font-bold uppercase tracking-[0.3em] text-[10px] opacity-40">Syncing frequency...</p>
+                                    </div>
+                                )}
+                                <Command.Empty className="py-24 text-center flex flex-col items-center gap-6">
+                                    <div className="w-20 h-20 rounded-[2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground/20 border border-border/40 scale-110">
+                                        <Search size={40} weight="Linear" />
+                                    </div>
+                                    <p className="text-muted-foreground font-black tracking-tight text-lg">No fragments matching your frequency.</p>
+                                </Command.Empty>
+
+                                <Command.Group heading="QUICK NAV" className="px-3 pb-3 text-[10px] font-black tracking-[0.4em] text-muted-foreground/20 mb-2 uppercase">
+                                    <Command.Item
+                                        onSelect={() => runCommand(() => router.push('/projects'))}
+                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-primary aria-selected:text-white transition-all gap-5 group"
+                                    >
+                                        <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
+                                            <ListTodo size={24} weight="Linear" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="flex-1 font-black">Consultant Kanban</span>
+                                            <span className="text-[10px] opacity-40 font-bold tracking-widest text-white group-aria-selected:opacity-60 group-aria-selected:text-white uppercase">Management HUB</span>
+                                        </div>
+                                        <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-black tracking-widest opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
+                                            ⌘P
+                                        </kbd>
+                                    </Command.Item>
+                                    <Command.Item
+                                        onSelect={() => runCommand(() => router.push('/wiki'))}
+                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
+                                    >
+                                        <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
+                                            <Book size={24} weight="Linear" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="flex-1 font-black">Wiki Engine</span>
+                                            <span className="text-[10px] opacity-40 font-bold tracking-widest text-white group-aria-selected:opacity-60 group-aria-selected:text-white uppercase">Knowledge Base</span>
+                                        </div>
+                                        <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-black tracking-widest opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
+                                            ⌘W
+                                        </kbd>
+                                    </Command.Item>
+                                    <Command.Item
+                                        onSelect={() => runCommand(() => router.push('/snippets'))}
+                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-black tracking-tight text-foreground outline-none aria-selected:bg-success aria-selected:text-white transition-all gap-5 group"
+                                    >
+                                        <div className="w-12 h-12 rounded-2xl bg-success/5 text-success flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
+                                            <Code2 size={24} weight="Linear" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="flex-1">Snippet Library</span>
+                                            <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Code Fragments</span>
+                                        </div>
+                                        <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-black tracking-widest opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
+                                            ⌘S
+                                        </kbd>
+                                    </Command.Item>
+                                </Command.Group>
+                                
+                                {projects.length > 0 && (
+                                    <Command.Group heading="Workspace Projects" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
+                                        {projects.map((project) => (
+                                            <Command.Item
+                                                key={project.$id}
+                                                onSelect={() => runCommand(() => router.push(`/projects/${project.$id}`))}
+                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-primary aria-selected:text-white transition-all gap-5 group"
+                                            >
+                                                <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
+                                                    <Folder size={24} weight="Linear" />
+                                                </div>
+                                                <div className="flex flex-col flex-1 truncate">
+                                                    <span className="truncate font-bold">{project.name}</span>
+                                                    <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Project Instance</span>
+                                                </div>
+                                                <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
+                                            </Command.Item>
+                                        ))}
+                                    </Command.Group>
+                                )}
+
+                                {guides.length > 0 && (
+                                    <Command.Group heading="Knowledge Base" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
+                                        {guides.map((guide) => (
+                                            <Command.Item
+                                                key={guide.$id}
+                                                onSelect={() => runCommand(() => router.push(`/wiki/${guide.$id}`))}
+                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
+                                            >
+                                                <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
+                                                    <Book size={24} weight="Linear" />
+                                                </div>
+                                                <div className="flex flex-col flex-1 truncate">
+                                                    <span className="truncate font-bold">{guide.title}</span>
+                                                    <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Wiki Guide</span>
+                                                </div>
+                                                <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
+                                            </Command.Item>
+                                        ))}
+                                    </Command.Group>
+                                )}
+                            </Command.List>
+                            <div className="border-t border-border/40 p-5 flex items-center justify-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <kbd className="h-5 rounded border border-border/40 bg-surface-secondary px-1.5 font-mono text-[9px] font-bold">ESC</kbd>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Close Palette</span>
                                 </div>
-                            )}
-                            <Command.Empty className="py-12 text-center text-sm text-muted-foreground italic">
-                                No results found for this query.
-                            </Command.Empty>
-
-                            <Command.Group heading="Common Actions" className="px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push('/projects'))}
-                                    className="flex cursor-pointer select-none items-center rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none aria-selected:bg-surface-secondary aria-selected:text-primary transition-all gap-3"
-                                >
-                                    <div className="w-8 h-8 rounded-lg bg-surface-tertiary flex items-center justify-center">
-                                        <ListTodo className="h-4 w-4" />
-                                    </div>
-                                    <span>Go to Kanban Board</span>
-                                    <kbd className="ml-auto text-[10px] font-mono opacity-40 bg-surface-tertiary px-1.5 py-0.5 rounded">⌘P</kbd>
-                                </Command.Item>
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push('/wiki'))}
-                                    className="flex cursor-pointer select-none items-center rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none aria-selected:bg-surface-secondary aria-selected:text-primary transition-all gap-3"
-                                >
-                                    <div className="w-8 h-8 rounded-lg bg-surface-tertiary flex items-center justify-center">
-                                        <Book className="h-4 w-4" />
-                                    </div>
-                                    <span>Browse Wiki Guides</span>
-                                    <kbd className="ml-auto text-[10px] font-mono opacity-40 bg-surface-tertiary px-1.5 py-0.5 rounded">⌘W</kbd>
-                                </Command.Item>
-                                <Command.Item
-                                    onSelect={() => runCommand(() => router.push('/snippets'))}
-                                    className="flex cursor-pointer select-none items-center rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none aria-selected:bg-surface-secondary aria-selected:text-primary transition-all gap-3"
-                                >
-                                    <div className="w-8 h-8 rounded-lg bg-surface-tertiary flex items-center justify-center">
-                                        <Code2 className="h-4 w-4" />
-                                    </div>
-                                    <span>Snippet Library</span>
-                                    <kbd className="ml-auto text-[10px] font-mono opacity-40 bg-surface-tertiary px-1.5 py-0.5 rounded">⌘S</kbd>
-                                </Command.Item>
-                            </Command.Group>
-                            
-                            {projects.length > 0 && (
-                                <Command.Group heading="Projects" className="px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-4">
-                                    {projects.map((project) => (
-                                        <Command.Item
-                                            key={project.$id}
-                                            onSelect={() => runCommand(() => router.push(`/projects/${project.$id}`))}
-                                            className="flex cursor-pointer select-none items-center rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none aria-selected:bg-surface-secondary aria-selected:text-primary transition-all gap-3"
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center">
-                                                <Folder className="h-4 w-4" />
-                                            </div>
-                                            <span>{project.name}</span>
-                                        </Command.Item>
-                                    ))}
-                                </Command.Group>
-                            )}
-
-                            {guides.length > 0 && (
-                                <Command.Group heading="Wiki Guides" className="px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-4">
-                                    {guides.map((guide) => (
-                                        <Command.Item
-                                            key={guide.$id}
-                                            onSelect={() => runCommand(() => router.push(`/wiki/${guide.$id}`))}
-                                            className="flex cursor-pointer select-none items-center rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none aria-selected:bg-surface-secondary aria-selected:text-primary transition-all gap-3"
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-accent/5 text-accent flex items-center justify-center">
-                                                <Book className="h-4 w-4" />
-                                            </div>
-                                            <span>{guide.title}</span>
-                                        </Command.Item>
-                                    ))}
-                                </Command.Group>
-                            )}
-
-                            {snippets.length > 0 && (
-                                <Command.Group heading="Snippets" className="px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-4">
-                                    {snippets.map((snippet) => (
-                                        <Command.Item
-                                            key={snippet.$id}
-                                            onSelect={() => runCommand(() => {
-                                                navigator.clipboard.writeText(snippet.content);
-                                                router.push('/snippets');
-                                            })}
-                                            className="flex cursor-pointer select-none items-center rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none aria-selected:bg-surface-secondary aria-selected:text-primary transition-all gap-3"
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-success/5 text-success flex items-center justify-center">
-                                                <Code2 className="h-4 w-4" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span>{snippet.title}</span>
-                                                <span className="text-[10px] opacity-60 font-medium tracking-normal">{snippet.language} • Copy to clipboard</span>
-                                            </div>
-                                        </Command.Item>
-                                    ))}
-                                </Command.Group>
-                            )}
-                        </Command.List>
-                    </Command>
-                </Modal.Dialog>
-            </Modal.Container>
+                                <div className="flex items-center gap-2">
+                                    <kbd className="h-5 rounded border border-border/40 bg-surface-secondary px-1.5 font-mono text-[9px] font-bold">↑↓</kbd>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Navigate</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <kbd className="h-5 rounded border border-border/40 bg-surface-secondary px-1.5 font-mono text-[9px] font-bold">ENTER</kbd>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Execute</span>
+                                </div>
+                            </div>
+                        </Command>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
         </Modal>
     );
 }

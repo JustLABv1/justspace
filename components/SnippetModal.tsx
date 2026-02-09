@@ -2,6 +2,7 @@
 
 import { Snippet } from '@/types';
 import { Button, Form, Input, Label, Modal, TextArea, TextField } from "@heroui/react";
+import { CodeCircle as Code } from '@solar-icons/react';
 import React, { useEffect, useState } from 'react';
 
 interface SnippetModalProps {
@@ -55,44 +56,58 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
     };
 
     return (
-        <Modal isOpen={isOpen} onOpenChange={onClose}>
-            <Modal.Backdrop className="bg-background/80 backdrop-blur-md">
+        <Modal>
+            <Modal.Backdrop 
+                isOpen={isOpen} 
+                onOpenChange={(next) => !next && onClose()}
+                className="bg-background/80 backdrop-blur-md"
+                variant="blur"
+            >
                 <Modal.Container size="lg">
                     <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden">
-                        <Modal.Header className="px-8 py-6 border-b border-border/20 flex flex-col items-start gap-1">
-                            <Modal.Heading className="text-2xl font-black tracking-tight">{snippet?.$id ? 'Edit Snippet' : 'Create Snippet'}</Modal.Heading>
-                            <p className="text-muted-foreground text-xs font-medium">Store reusable code blocks for your consulting projects.</p>
+                        <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                        
+                        <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">
+                            <div className="w-12 h-12 rounded-[1.5rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                                <Code size={24} weight="Bold" />
+                            </div>
+                            <div className="space-y-1">
+                                <Modal.Heading className="text-3xl font-black tracking-tighter text-foreground leading-none">
+                                    {snippet?.$id ? 'Edit Fragment_' : 'Init Fragment_'}
+                                </Modal.Heading>
+                                <p className="text-muted-foreground text-xs uppercase font-black opacity-30 tracking-widest ml-0.5">Capture and encrypt new code block.</p>
+                            </div>
                         </Modal.Header>
                         
                         <Form onSubmit={handleSubmit}>
                             <Modal.Body className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
                                 <TextField autoFocus isRequired value={title} onChange={setTitle} className="w-full">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Title</Label>
+                                    <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Title</Label>
                                     <Input 
                                         placeholder="Snippet title..." 
-                                        className="h-12 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                        className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
                                     />
                                 </TextField>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <TextField isRequired value={language} onChange={setLanguage} className="w-full">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Language</Label>
+                                        <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Language</Label>
                                         <Input 
                                             placeholder="e.g. typescript, bash" 
-                                            className="h-12 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                            className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
                                         />
                                     </TextField>
                                     <TextField value={tags} onChange={setTags} className="w-full">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tags (comma separated)</Label>
+                                        <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Tags (comma separated)</Label>
                                         <Input 
                                             placeholder="e.g. azure, auth, deployment" 
-                                            className="h-12 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                            className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
                                         />
                                     </TextField>
                                 </div>
 
                                 <TextField value={description} onChange={setDescription} className="w-full">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Description</Label>
+                                    <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Description</Label>
                                     <TextArea 
                                         placeholder="Short explanation..."
                                         className="rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-1.5 min-h-[60px]" 
@@ -100,20 +115,30 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                 </TextField>
 
                                 <TextField isRequired value={content} onChange={setContent} className="w-full">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Content</Label>
+                                    <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Content</Label>
                                     <TextArea 
                                         placeholder="Paste your code here..."
-                                        className="rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-mono transition-all mt-1.5 min-h-[200px]" 
+                                        className="rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-mono transition-all mt-1.5 min-h-[150px]" 
                                     />
                                 </TextField>
                             </Modal.Body>
 
                             <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
-                                <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold text-sm" onPress={onClose}>
-                                    Cancel
+                                <Button 
+                                    variant="ghost" 
+                                    className="rounded-xl h-10 px-6 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity text-sm" 
+                                    onPress={onClose} 
+                                    isDisabled={isLoading}
+                                >
+                                    Abort
                                 </Button>
-                                <Button type="submit" variant="primary" isPending={isLoading} className="rounded-xl h-10 px-8 font-black uppercase tracking-widest text-sm shadow-lg shadow-primary/10">
-                                    {snippet?.$id ? 'Save Changes' : 'Create Snippet'}
+                                <Button 
+                                    type="submit"
+                                    variant="primary" 
+                                    className="rounded-xl h-10 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-accent/20" 
+                                    isPending={isLoading}
+                                >
+                                    {snippet?.$id ? 'Commit Changes' : 'Execute Creation'}
                                 </Button>
                             </Modal.Footer>
                         </Form>

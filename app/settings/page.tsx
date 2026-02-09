@@ -27,14 +27,14 @@ export default function SettingsPage() {
     return (
         <div className="max-w-[1200px] mx-auto p-6 md:p-12 space-y-12">
             <header className="space-y-3">
-                <div className="flex items-center gap-3 text-primary font-bold tracking-widest uppercase text-[10px]">
+                <div className="flex items-center gap-3 text-primary font-black tracking-[0.2em] text-[10px] opacity-80 uppercase">
                     <SettingsIcon size={14} weight="Bold" className="animate-pulse" />
                     System Configuration
                 </div>
-                <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
-                    Settings
+                <h1 className="text-3xl font-black tracking-tighter text-foreground leading-tight">
+                    Settings_
                 </h1>
-                <p className="text-muted-foreground font-medium">
+                <p className="text-sm text-muted-foreground font-medium opacity-60">
                     Configure your workspace, security, and global defaults.
                 </p>
             </header>
@@ -70,7 +70,7 @@ export default function SettingsPage() {
                                 
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Workspace Name</label>
+                                        <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Workspace Name</label>
                                         <input 
                                             className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-primary transition-all"
                                             defaultValue="Justin's Space"
@@ -79,14 +79,14 @@ export default function SettingsPage() {
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Language</label>
+                                            <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Language</label>
                                             <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-primary transition-all">
                                                 <Globe size={18} className="mr-3 text-primary" />
                                                 <span>English (US)</span>
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Timezone</label>
+                                            <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Timezone</label>
                                             <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-primary transition-all">
                                                 <Globe size={18} className="mr-3 text-accent" />
                                                 <span>Europe/Berlin (UTC+1)</span>
@@ -140,7 +140,7 @@ export default function SettingsPage() {
 
                         <div className="pt-8 flex justify-end gap-3 border-t border-border/20">
                             <Button variant="ghost" className="rounded-xl font-bold px-6">Discard</Button>
-                            <Button variant="primary" className="rounded-xl font-black italic px-10 shadow-xl shadow-primary/20">
+                            <Button variant="primary" className="rounded-xl font-black px-10 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest">
                                 <Update size={18} weight="Bold" className="mr-2" />
                                 Save Changes
                             </Button>

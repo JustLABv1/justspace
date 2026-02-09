@@ -5,7 +5,14 @@ import { WikiModal } from '@/components/WikiModal';
 import { db } from '@/lib/db';
 import { WikiGuide } from '@/types';
 import { Button, SearchField, Spinner, Surface } from "@heroui/react";
-import { Book, Edit, ExternalLink, Plus, Search, Trash } from "lucide-react";
+import {
+    Book,
+    Pen2 as Edit,
+    ArrowRightUp as ExternalLink,
+    AddCircle as Plus,
+    Magnifer as Search,
+    TrashBinTrash as Trash
+} from "@solar-icons/react";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -61,27 +68,27 @@ export default function WikiPage() {
     }
 
     return (
-        <div className="max-w-[1400px] mx-auto p-6 md:p-12 space-y-12">
+        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-12">
             {/* Refined Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-xs">
-                        <Book size={14} className="animate-pulse" />
-                        Knowledge Base
+                    <div className="flex items-center gap-2 text-primary font-black tracking-[0.2em] text-xs uppercase opacity-80">
+                        <Book size={14} weight="Bold" className="animate-pulse" />
+                        Infrastructure Fragments
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Standardized Documentation</h1>
-                    <p className="text-muted-foreground font-medium">Access high-quality deployment guides and infrastructure patterns.</p>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Wiki documentation engine_</h1>
+                    <p className="text-muted-foreground font-medium opacity-70 text-sm">Standardized deployment patterns and architectural infrastructure.</p>
                 </div>
-                <div className="flex gap-3 bg-surface border border-border p-1.5 rounded-2xl shadow-sm self-stretch md:self-auto">
-                    <Button variant="primary" className="rounded-xl h-12 px-8 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
-                        <Plus size={18} className="mr-2" />
-                        Create Guide
+                <div className="flex gap-3">
+                    <Button variant="primary" className="rounded-xl h-12 px-6 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
+                        <Plus size={18} weight="Bold" className="mr-2" />
+                        Init New Guide
                     </Button>
                 </div>
             </header>
 
             {/* Bento-style Search & Controls */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                 <div className="lg:col-span-8">
                     <SearchField 
                         variant="secondary"
@@ -90,88 +97,88 @@ export default function WikiPage() {
                         onChange={setSearchTerm}
                         aria-label="Search guides"
                     >
-                        <SearchField.Group className="rounded-3xl border-border/40 bg-surface h-16 px-6 shadow-sm focus-within:border-primary/50 transition-all">
-                            <Search size={22} className="text-muted-foreground mr-3" />
-                            <SearchField.Input placeholder="Search documentation engine..." className="text-lg font-medium" />
+                        <SearchField.Group className="rounded-3xl border-border/40 bg-surface h-16 px-6 shadow-sm focus-within:border-primary/50 transition-all border">
+                            <Search size={22} weight="Linear" className="text-muted-foreground/40 mr-4" />
+                            <SearchField.Input placeholder="Search knowledge frequency..." className="text-lg font-black tracking-tighter placeholder:text-muted-foreground/20 uppercase" />
                             <SearchField.ClearButton />
                         </SearchField.Group>
                     </SearchField>
                 </div>
                 <div className="lg:col-span-4 flex justify-end">
-                    <Surface className="px-6 py-4 rounded-3xl border border-border/40 bg-surface flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-accent/5 flex items-center justify-center text-accent">
-                            <Book size={20} />
+                    <Surface className="px-6 py-4 rounded-2xl border border-border/40 bg-surface flex items-center gap-5 shadow-sm">
+                        <div className="w-10 h-10 rounded-xl bg-accent/5 flex items-center justify-center text-accent border border-accent/10">
+                            <Book size={20} weight="Linear" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Index</p>
-                            <p className="font-bold">{filteredGuides.length} Guides Available</p>
+                            <p className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground opacity-40">Frequency Index</p>
+                            <p className="font-extrabold text-base tracking-tighter uppercase">{filteredGuides.length} Fragments Found</p>
                         </div>
                     </Surface>
                 </div>
             </div>
 
             {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                 {filteredGuides.length === 0 ? (
-                    <Surface variant="tertiary" className="col-span-full py-24 rounded-[3rem] border border-dashed border-border flex flex-col items-center space-y-6">
-                        <div className="w-20 h-20 bg-surface-secondary rounded-[2rem] flex items-center justify-center text-muted-foreground">
-                            <Search size={40} />
+                    <Surface variant="tertiary" className="col-span-full py-32 rounded-[2rem] border border-dashed border-border flex flex-col items-center space-y-8 bg-surface/30">
+                        <div className="w-24 h-24 bg-surface-secondary rounded-[2.5rem] flex items-center justify-center text-muted-foreground/20 border border-border/40">
+                            <Search size={48} weight="Linear" />
                         </div>
-                        <div className="space-y-2 text-center">
-                            <h3 className="text-2xl font-black">No matching entries</h3>
-                            <p className="text-muted-foreground max-w-xs">Refine your search parameters or start fresh by creating a new guide.</p>
+                        <div className="space-y-3 text-center">
+                            <h3 className="text-3xl font-black tracking-tighter uppercase">No matching fragments</h3>
+                            <p className="text-muted-foreground max-w-sm font-medium opacity-60">Your query did not intersect with any documentation frequencies in the current index.</p>
                         </div>
-                        <Button variant="primary" className="rounded-xl font-bold px-8" onPress={() => { setSearchTerm(''); }}>Reset Search</Button>
+                        <Button variant="secondary" className="rounded-2xl font-black uppercase px-10 h-14 border-border/40" onPress={() => { setSearchTerm(''); }}>Reset Frequency</Button>
                     </Surface>
                 ) : (
                     filteredGuides.map((guide) => (
                         <Surface 
                             key={guide.$id} 
-                            className="p-8 rounded-[2.5rem] border border-border/40 bg-surface group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5"
+                            className="p-8 rounded-[2rem] border border-border/40 bg-surface group relative overflow-hidden transition-all duration-500 hover:border-primary/30 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] flex flex-col justify-between min-h-[320px]"
                         >
-                            <div className="relative z-10 flex flex-col h-full space-y-8">
-                                <div className="space-y-4 flex-1">
-                                    <div className="flex justify-between items-start">
-                                        <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform duration-500">
-                                            <Book size={24} />
-                                        </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                            <Button 
-                                                variant="ghost" 
-                                                isIconOnly 
-                                                className="rounded-xl h-9 w-9 hover:bg-primary/10 hover:text-primary"
-                                                onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
-                                            >
-                                                <Edit size={16} />
-                                            </Button>
-                                            <Button 
-                                                variant="ghost" 
-                                                isIconOnly 
-                                                className="rounded-xl h-9 w-9 hover:bg-danger/10 hover:text-danger"
-                                                onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
-                                            >
-                                                <Trash size={16} />
-                                            </Button>
-                                        </div>
+                            <div className="relative z-10 space-y-8">
+                                <div className="flex justify-between items-start">
+                                    <div className="w-16 h-16 rounded-[1.5rem] bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-sm">
+                                        <Book size={32} weight="Linear" />
                                     </div>
-                                    <div>
-                                        <h3 className="text-2xl font-black tracking-tight group-hover:text-primary transition-colors leading-tight">{guide.title}</h3>
-                                        <p className="mt-3 text-muted-foreground leading-relaxed line-clamp-3 font-medium opacity-80">
-                                            {guide.description}
-                                        </p>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
+                                        <Button 
+                                            variant="secondary" 
+                                            isIconOnly 
+                                            className="rounded-2xl h-11 w-11 border-border/40 hover:bg-primary/10 hover:text-primary transition-all"
+                                            onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
+                                        >
+                                            <Edit size={18} weight="Bold" />
+                                        </Button>
+                                        <Button 
+                                            variant="secondary" 
+                                            isIconOnly 
+                                            className="rounded-2xl h-11 w-11 border-border/40 hover:bg-danger/10 hover:text-danger transition-all"
+                                            onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
+                                        >
+                                            <Trash size={18} weight="Bold" />
+                                        </Button>
                                     </div>
                                 </div>
-                                
-                                <div className="pt-6 border-t border-border/30">
-                                    <Link href={`/wiki/${guide.$id}`}>
-                                        <Button variant="secondary" className="w-full rounded-2xl font-bold italic h-12 border-border/40 group-hover:bg-primary group-hover:text-white transition-all">
-                                            Read Full Guide
-                                            <ExternalLink size={16} className="ml-2" />
-                                        </Button>
-                                    </Link>
+                                <div className="space-y-4">
+                                    <h3 className="text-2xl font-black tracking-tight leading-[1.1] transition-colors uppercase">{guide.title}</h3>
+                                    <p className="text-muted-foreground leading-relaxed line-clamp-3 font-medium opacity-60 text-sm">
+                                        {guide.description}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                            
+                            <div className="pt-8 relative z-10">
+                                <Link href={`/wiki/${guide.$id}`}>
+                                    <Button variant="secondary" className="w-full rounded-[1.5rem] font-black h-14 border-border/40 group-hover:bg-foreground group-hover:text-background transition-all tracking-tight text-base shadow-sm uppercase">
+                                        Access Information
+                                        <ExternalLink size={20} weight="Bold" className="ml-2" />
+                                    </Button>
+                                </Link>
+                            </div>
+
+                            {/* Decorative background element */}
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-[80px] -mr-24 -mt-24 group-hover:bg-primary/10 transition-colors" />
                         </Surface>
                     ))
                 )}

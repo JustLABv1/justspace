@@ -59,7 +59,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex bg-background h-screen overflow-hidden p-4 gap-4">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={toggleCollapse} />
-            <main className="flex-1 bg-surface-secondary/30 rounded-[2.5rem] border border-border/40 overflow-y-auto shadow-sm no-scrollbar">
+            <main className="flex-1 bg-surface-secondary/30 rounded-[2rem] border border-border/40 overflow-y-auto shadow-sm no-scrollbar">
                 {children}
             </main>
         </div>

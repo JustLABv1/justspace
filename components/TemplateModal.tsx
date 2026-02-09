@@ -3,7 +3,7 @@
 import { db } from '@/lib/db';
 import { InstallationTarget, WikiGuide } from '@/types';
 import { Button, Modal, Spinner } from "@heroui/react";
-import { Book, CheckSquare, Sparkles } from "lucide-react";
+import { BookMinimalistic as Book, Checklist as CheckSquare, MagicStick2 as Sparkles } from '@solar-icons/react';
 import { useEffect, useState } from 'react';
 
 interface TemplateModalProps {
@@ -66,37 +66,53 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
     };
 
     return (
-        <Modal isOpen={isOpen} onOpenChange={onClose}>
-            <Modal.Backdrop className="bg-background/80 backdrop-blur-md">
+        <Modal>
+            <Modal.Backdrop 
+                isOpen={isOpen} 
+                onOpenChange={(next) => !next && onClose()}
+                className="bg-background/80 backdrop-blur-md"
+                variant="blur"
+            >
                 <Modal.Container size="md">
                     <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden">
-                        <Modal.Header className="px-8 py-6 border-b border-border/20 flex flex-col items-start gap-1">
-                            <Modal.Heading className="text-2xl font-black tracking-tight flex items-center gap-3">
-                                <Sparkles className="text-primary" />
-                                Apply Roadmap Template
-                            </Modal.Heading>
-                            <p className="text-muted-foreground text-xs font-medium">Select a guide to populate your project with expert tasks.</p>
+                        <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                        
+                        <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">
+                            <div className="w-12 h-12 rounded-[1.5rem] bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
+                                <Sparkles size={24} weight="Bold" />
+                            </div>
+                            <div className="space-y-1">
+                                <Modal.Heading className="text-3xl font-black tracking-tighter uppercase text-foreground leading-none">Apply Roadmap_</Modal.Heading>
+                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5">Select a guide to populate your project with expert tasks.</p>
+                            </div>
                         </Modal.Header>
                         
                         <Modal.Body className="p-8 space-y-6">
                             {isLoading && (
-                                <div className="flex justify-center py-10"><Spinner /></div>
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <Spinner color="accent" size="lg" />
+                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Syncing frequency...</p>
+                                </div>
                             )}
 
                             {!isLoading && !selectedGuideId && (
                                 <div className="space-y-4">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Wiki Guide</h3>
-                                    <div className="grid grid-cols-1 gap-2">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 ml-2 leading-none">AVAILABLE PROTOCOLS</h3>
+                                    <div className="grid grid-cols-1 gap-3">
                                         {guides.map(guide => (
-                                            <Button 
+                                            <button 
                                                 key={guide.$id} 
-                                                variant="secondary" 
-                                                className="justify-start h-14 rounded-xl px-4 font-bold"
-                                                onPress={() => fetchInstallations(guide.$id)}
+                                                className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-surface-secondary/20 text-left hover:border-accent/40 hover:bg-surface-secondary/40 transition-all group active:scale-[0.98]"
+                                                onClick={() => fetchInstallations(guide.$id)}
                                             >
-                                                <Book size={18} className="mr-3 text-primary" />
-                                                {guide.title}
-                                            </Button>
+                                                <div className="w-10 h-10 rounded-xl bg-foreground/5 border border-border/40 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform shrink-0 shadow-sm">
+                                                    <Book size={20} weight="Bold" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-black truncate text-foreground text-sm tracking-tight uppercase">{guide.title}</h4>
+                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-black tracking-widest mt-0.5">Protocol Document</p>
+                                                </div>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
@@ -104,22 +120,35 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
 
                             {!isLoading && selectedGuideId && (
                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Installation Target</h3>
-                                        <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase" onPress={() => setSelectedGuideId(null)}>Change Guide</Button>
+                                    <div className="flex items-center justify-between px-2">
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/30">SELECT TARGET NODE</h3>
+                                        <Button variant="ghost" className="text-[10px] font-black uppercase tracking-widest h-8 px-4 rounded-xl opacity-40 hover:opacity-100" onPress={() => setSelectedGuideId(null)}>Restart Scan</Button>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-2">
+                                    <div className="grid grid-cols-1 gap-3">
                                         {installations.map(inst => (
-                                            <Button 
-                                                key={inst.$id} 
-                                                variant={selectedInstallation?.$id === inst.$id ? 'primary' : 'secondary'} 
-                                                className="justify-start h-14 rounded-xl px-4 font-bold"
-                                                onPress={() => setSelectedInstallation(inst)}
+                                            <button 
+                                                key={inst.target}
+                                                className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group text-left active:scale-[0.98] ${
+                                                    selectedInstallation?.target === inst.target 
+                                                    ? 'bg-accent/10 border-accent shadow-inner' 
+                                                    : 'bg-surface-secondary/20 border-border/40 hover:border-accent/40 hover:bg-surface-secondary/40'
+                                                }`}
+                                                onClick={() => setSelectedInstallation(inst)}
                                             >
-                                                <CheckSquare size={18} className="mr-3" />
-                                                {inst.target}
-                                                <span className="ml-auto text-[10px] opacity-60">({inst.tasks?.length || 0} tasks)</span>
-                                            </Button>
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                                                    selectedInstallation?.target === inst.target 
+                                                    ? 'bg-accent text-white shadow-lg' 
+                                                    : 'bg-foreground/5 text-foreground group-hover:scale-110'
+                                                }`}>
+                                                    <CheckSquare size={20} weight="Bold" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className={`font-black truncate text-sm tracking-tight uppercase ${
+                                                        selectedInstallation?.target === inst.target ? 'text-accent' : 'text-foreground'
+                                                    }`}>{inst.target}</h4>
+                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-black tracking-widest mt-0.5">{inst.tasks?.length || 0} Sub-routines Detected</p>
+                                                </div>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
@@ -127,17 +156,22 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                         </Modal.Body>
 
                         <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
-                            <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold text-sm" onPress={onClose}>
-                                Cancel
+                            <Button 
+                                variant="ghost" 
+                                className="rounded-xl h-10 px-6 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
+                                onPress={onClose} 
+                                isDisabled={isApplying}
+                            >
+                                Abort
                             </Button>
                             <Button 
                                 variant="primary" 
-                                isPending={isApplying} 
-                                isDisabled={!selectedInstallation}
-                                className="rounded-xl h-10 px-8 font-black uppercase tracking-widest text-sm shadow-lg shadow-primary/10"
+                                className="rounded-xl h-10 px-8 font-black uppercase tracking-[0.1em] text-[10px] shadow-2xl shadow-accent/20" 
                                 onPress={handleApply}
+                                isDisabled={!selectedInstallation || isApplying}
+                                isPending={isApplying}
                             >
-                                Apply Checklists
+                                Execute Injection
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

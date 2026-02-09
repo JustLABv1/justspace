@@ -6,8 +6,6 @@ import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import {
-    AltArrowRight as ArrowRightAlt,
-    Calendar,
     Pen2 as Edit,
     Widget as LayoutGrid,
     Checklist as ListTodo,
@@ -73,57 +71,57 @@ export default function ProjectsPage() {
     ];
 
     return (
-        <div className="max-w-[1600px] mx-auto p-6 md:p-12 space-y-12">
+        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-xs">
-                        <ListTodo size={14} className="animate-pulse" />
-                        Project Management
+                    <div className="flex items-center gap-2 text-primary font-black tracking-[0.2em] uppercase text-xs opacity-80">
+                        <ListTodo size={14} weight="Bold" className="animate-pulse" />
+                        Management Frequency
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Orchestrate & Deliver</h1>
-                    <p className="text-muted-foreground font-medium">Track your consulting pipeline, manage tasks, and drive success.</p>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Orchestrate mission success_</h1>
+                    <p className="text-sm text-muted-foreground font-medium opacity-60">High-density tracking of consulting pipeline and project lifecycle.</p>
                 </div>
-                <div className="flex items-center gap-4 bg-surface p-2 rounded-[2rem] border border-border/60 shadow-sm self-stretch md:self-auto">
-                    <div className="flex bg-surface-secondary/50 p-1 rounded-2xl border border-border/40">
+                <div className="flex items-center gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
+                    <div className="flex bg-surface-secondary/40 p-1 rounded-xl border border-border/20 shadow-inner">
                         <Button 
                             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
                             onPress={() => setViewMode('kanban')}
-                            className="h-10 px-5 rounded-xl font-bold italic"
+                            className={`h-9 px-4 rounded-lg font-bold tracking-tight transition-all text-xs ${viewMode === 'kanban' ? 'bg-foreground text-background shadow-lg' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
                         >
-                            <ListTodo size={16} weight="Linear" className="mr-2" />
-                            Kanban
+                            <ListTodo size={14} weight="Bold" className="mr-2" />
+                            Kanban Board
                         </Button>
                         <Button 
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
                             onPress={() => setViewMode('grid')}
-                            className="h-10 px-5 rounded-xl font-bold italic"
+                            className={`h-9 px-4 rounded-lg font-bold tracking-tight transition-all text-xs ${viewMode === 'grid' ? 'bg-foreground text-background shadow-lg' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
                         >
-                            <LayoutGrid size={16} weight="Linear" className="mr-2" />
-                            Grid
+                            <LayoutGrid size={14} weight="Bold" className="mr-2" />
+                            Grid Overview
                         </Button>
                     </div>
-                    <Button variant="primary" className="rounded-2xl h-12 px-8 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
-                        <Plus size={18} weight="Linear" className="mr-2" />
-                        Create
+                    <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                        <Plus size={16} weight="Bold" className="mr-2" />
+                        Init Mission
                     </Button>
                 </div>
             </header>
 
             {viewMode === 'kanban' ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                     {columns.map((column) => (
-                        <div key={column.status} className="flex flex-col gap-8 min-h-[600px]">
-                            <Surface className="flex items-center justify-between px-6 py-4 bg-surface border border-border/40 rounded-[1.5rem] shadow-sm">
-                                <span className="flex items-center gap-3">
-                                    <div className={`w-2.5 h-2.5 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
-                                    <h3 className="font-extrabold uppercase tracking-[0.15em] text-[10px] text-muted-foreground">
+                        <div key={column.status} className="flex flex-col gap-4 min-h-[500px]">
+                            <Surface className="flex items-center justify-between px-4 py-2 bg-surface border border-border/40 rounded-xl shadow-sm">
+                                <span className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                                    <h3 className="font-bold tracking-tight text-xs text-muted-foreground">
                                         {column.label} 
                                     </h3>
                                 </span>
-                                <Chip size="sm" variant="soft" color={column.color} className="font-bold">{projects.filter(p => p.status === column.status).length}</Chip>
+                                <Chip size="sm" variant="soft" color={column.color} className="font-bold text-[10px]">{projects.filter(p => p.status === column.status).length}</Chip>
                             </Surface>
                             
-                            <div className="space-y-8">
+                            <div className="space-y-4">
                                 {projects
                                     .filter((p) => p.status === column.status)
                                     .map((project) => (
@@ -137,17 +135,17 @@ export default function ProjectsPage() {
                                 
                                 <Button 
                                     variant="secondary" 
-                                    className="w-full border border-dashed border-border py-14 rounded-[2.5rem] bg-surface/50 hover:bg-surface hover:border-primary/50 group transition-all duration-300"
+                                    className="w-full border border-dashed border-border py-6 rounded-xl bg-surface/50 hover:bg-surface hover:border-primary/50 group transition-all duration-300"
                                     onPress={() => { 
                                         setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
                                     }}
                                 >
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-primary transition-all">
-                                            <Plus size={20} weight="Linear" />
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-6 h-6 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-primary transition-all">
+                                            <Plus size={14} weight="Linear" />
                                         </div>
-                                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary italic">Initiate New Project</span>
+                                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary">Initiate New Project</span>
                                     </div>
                                 </Button>
                             </div>
@@ -155,7 +153,7 @@ export default function ProjectsPage() {
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {projects.map((project) => (
                         <ProjectCard 
                             key={project.$id} 
@@ -195,66 +193,48 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Surface className="p-10 rounded-[3.5rem] border border-border/40 bg-surface/50 backdrop-blur-2xl group relative overflow-hidden transition-all duration-700 hover:border-primary/40 hover:-translate-y-2 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)]">
-            <div className="relative z-10 space-y-10">
-                {/* Header row: Icon, Name and Actions */}
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-[1.25rem] bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                            <Widget size={28} weight="Linear" />
+        <Surface className="p-4 rounded-[1.25rem] border border-border/40 bg-surface/40 backdrop-blur-xl group relative overflow-hidden transition-all duration-300 hover:border-primary/50 hover:bg-surface/60">
+            <div className="relative z-10 flex flex-col h-full justify-between gap-4">
+                <div className="flex items-start justify-between gap-3">
+                    <Link href={`/projects/${project.$id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner group-hover:scale-105 transition-transform duration-500 shrink-0">
+                            <Widget size={16} weight="Linear" />
                         </div>
-                        <h3 className="text-2xl font-black tracking-tighter uppercase italic">{project.name}</h3>
-                    </div>
-                    <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity duration-500">
-                        <Button isIconOnly variant="ghost" size="sm" className="h-10 w-10 rounded-xl hover:bg-foreground/5" onPress={onEdit}>
-                            <Edit size={18} weight="Linear" />
-                        </Button>
-                        <Button isIconOnly variant="ghost" size="sm" className="h-10 w-10 rounded-xl hover:bg-danger/10 hover:text-danger" onPress={onDelete}>
-                            <Trash size={18} weight="Linear" />
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Established line */}
-                <div className="flex items-center gap-3">
-                    <Calendar size={18} weight="Linear" className="text-primary/60" />
-                    <span className="text-xs font-black uppercase tracking-[0.2em] italic opacity-80">
-                        Established {new Date(project.$createdAt).toLocaleDateString()}
-                    </span>
-                </div>
-
-                {/* Status and Link row */}
-                <div className="flex items-center justify-between">
-                    <Chip 
-                        variant="soft" 
-                        className="h-10 px-6 rounded-full font-black uppercase tracking-widest text-[10px] bg-foreground/5 border border-border/50"
-                    >
-                        {project.status.replace('-', ' ')}
-                    </Chip>
-                    <Link href={`/projects/${project.$id}`} className="group/link flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:text-primary transition-colors">
-                        View Roadmap <ArrowRightAlt size={18} weight="Bold" className="transition-transform group-hover/link:translate-x-1" />
+                        <div className="min-w-0">
+                            <h3 className={`font-black tracking-tighter uppercase leading-tight truncate ${isFull ? 'text-xl' : 'text-base'}`}>{project.name}</h3>
+                            <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Mission Code: {project.$id.slice(-4).toUpperCase()}</p>
+                        </div>
                     </Link>
+                    
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button isIconOnly variant="ghost" size="sm" className="h-7 w-7 rounded-lg hover:bg-foreground/5" onPress={onEdit}>
+                            <Edit size={12} weight="Linear" />
+                        </Button>
+                        <button 
+                            className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-danger/10 hover:text-danger transition-colors text-muted-foreground/40 hover:text-danger" 
+                            onClick={(e) => { e.preventDefault(); onDelete(); }}
+                        >
+                            <Trash size={12} weight="Linear" />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Allocation footer */}
-                <div className="space-y-3 pt-6 border-t border-border/30">
-                    <p className="text-[10px] font-black uppercase tracking-[.3em] opacity-40">Allocation</p>
-                    <div className="flex gap-8">
-                        {(project.daysPerWeek || 1) && (
-                            <div className="text-xl font-black italic">
-                                {project.daysPerWeek || 1} Days / Week
-                            </div>
-                        )}
-                        {project.allocatedDays && (
-                            <div className="text-xl font-black italic opacity-40">
-                                {project.allocatedDays} Days Total
-                            </div>
-                        )}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                         <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{project.status.replace('-', ' ')}</span>
                     </div>
+
+                    {project.daysPerWeek && (
+                         <div className="px-2 py-0.5 rounded-md bg-foreground/5 border border-border/50 text-xs font-black uppercase tracking-tighter">
+                             {project.daysPerWeek}D/W
+                         </div>
+                    )}
                 </div>
             </div>
+            
             {/* Corner gradient for depth */}
-            <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/5 rounded-full blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+            <div className="absolute -right-16 -bottom-16 w-32 h-32 bg-primary/5 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
         </Surface>
     );
 }

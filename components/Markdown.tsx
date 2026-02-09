@@ -1,8 +1,8 @@
 'use client';
 
 import { Button } from '@heroui/react';
+import { CheckRead as Check, Copy } from '@solar-icons/react';
 import 'highlight.js/styles/github-dark.css';
-import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';

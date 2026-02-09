@@ -6,7 +6,6 @@ import { db } from '@/lib/db';
 import { Project, WikiGuide } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import {
-  ArrowRight,
   AltArrowRight as ArrowRightAlt,
   Book,
   AddCircle as Plus,
@@ -56,98 +55,98 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="max-w-[1400px] mx-auto p-6 md:p-10 space-y-8">
+    <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
       {/* Refined Header */}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-xs">
-            <Sparkles size={14} className="animate-pulse" />
-            Workspace Overview
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-primary font-bold tracking-[0.2em] text-[10px] opacity-60 uppercase">
+            <Sparkles size={14} weight="Bold" className="animate-pulse" />
+            Control Hub
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
-            {greeting}, Justin.
+          <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">
+            {greeting}, Justin_
           </h1>
-          <p className="text-muted-foreground font-medium">
-            Everything is looking good. You have <span className="text-foreground">{stats.projects} active projects</span> to focus on.
+          <p className="text-sm text-muted-foreground font-medium opacity-60">
+            Consultant OS status: optimal. <span className="text-foreground font-bold tracking-widest text-[10px] ml-2 uppercase opacity-40">{stats.projects} Missions Active</span>
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
           <Link href="/wiki">
-            <Button variant="secondary" className="rounded-2xl h-12 px-6 font-bold border-border/40">
-              <Book size={18} weight="Linear" className="mr-2" />
-              Wiki
+            <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all text-sm">
+              <Book size={16} weight="Bold" className="mr-2" />
+              Intel
             </Button>
           </Link>
           <Link href="/projects">
-            <Button variant="primary" className="rounded-2xl h-12 px-6 font-bold shadow-xl shadow-primary/10">
-              <Plus size={18} weight="Linear" className="mr-2" />
-              New Project
+            <Button variant="primary" className="rounded-xl h-10 px-5 font-bold tracking-tight shadow-xl shadow-primary/10 text-sm">
+              <Plus size={16} weight="Bold" className="mr-2" />
+              Init Mission
             </Button>
           </Link>
         </div>
       </section>
 
       {/* Main Dashboard Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Primary Content */}
-        <div className="lg:col-span-8 space-y-10">
+        <div className="lg:col-span-8 space-y-8">
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 min-h-[200px]">
-              <div className="relative z-10 flex flex-col h-full justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform duration-500">
-                  <Target size={24} weight="Linear" />
+            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-primary/30 transition-all duration-500 hover:shadow-lg">
+              <div className="flex flex-col h-full justify-between gap-6">
+                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
+                  <Target size={20} weight="Bold" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Projects</p>
-                  {isLoading ? <Spinner size="sm" /> : (
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-4xl font-black tracking-tighter">{stats.projects}</p>
-                      <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">+1 today</span>
-                    </div>
-                  )}
+                  <h3 className="text-3xl font-bold tracking-tight">{stats.projects}</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Active Missions</p>
                 </div>
-                <Link href="/projects" className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Manage Board <ArrowRight size={10} weight="Bold" />
+                <Link href="/projects">
+                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-primary transition-colors">
+                    View Pipeline <ArrowRightAlt size={14} className="ml-1" />
+                  </Button>
                 </Link>
               </div>
-              <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </Surface>
 
-            <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-accent/30 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5 min-h-[200px]">
-              <div className="relative z-10 flex flex-col h-full justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-accent/5 border border-accent/10 flex items-center justify-center text-accent group-hover:scale-110 transition-transform duration-500">
-                  <Book size={24} weight="Linear" />
+            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-primary/30 transition-all duration-500 hover:shadow-lg">
+              <div className="flex flex-col h-full justify-between gap-6">
+                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
+                  <Book size={20} weight="Bold" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Wiki Guides</p>
-                  {isLoading ? <Spinner size="sm" /> : (
-                    <p className="text-4xl font-black tracking-tighter">{stats.guides}</p>
-                  )}
+                  <h3 className="text-3xl font-bold tracking-tight">{stats.guides}</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Knowledge Fragments</p>
                 </div>
-                <Link href="/wiki" className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Explore Docs <ArrowRight size={10} weight="Bold" />
+                <Link href="/wiki">
+                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-primary transition-colors">
+                    Access Wiki <ArrowRightAlt size={14} className="ml-1" />
+                  </Button>
                 </Link>
               </div>
-              <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </Surface>
           </div>
 
           {/* Recent Projects Section */}
           <section className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-black tracking-tight">Active Continuous</h2>
-                <p className="text-sm text-muted-foreground font-medium">Your currently active project pipeline</p>
+            <div className="flex items-center justify-between border-b border-border/20 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground/40">
+                  <Target size={20} weight="Bold" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Active Pipeline_</h2>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 mt-0.5">Operational target overview</p>
+                </div>
               </div>
               <Link href="/projects">
-                <Button variant="secondary" className="rounded-xl h-10 px-4 font-bold border-border/40">
-                  Manage Board
+                <Button variant="ghost" className="rounded-xl h-10 px-4 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all border border-border/40 text-xs">
+                  Full Board <ArrowRightAlt size={16} weight="Bold" className="ml-2" />
                 </Button>
               </Link>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {isLoading ? (
                 Array(2).fill(0).map((_, i) => (
                   <Surface key={i} className="h-48 rounded-[2rem] border border-border/40 flex items-center justify-center bg-surface">
@@ -156,26 +155,26 @@ export default function Home() {
                 ))
               ) : recentProjects.length > 0 ? (
                 recentProjects.map((project) => (
-                  <Surface key={project.$id} className="p-8 rounded-[3rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-primary/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5">
+                  <Surface key={project.$id} className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-primary/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5">
                     <div className="relative z-10 flex flex-col h-full justify-between gap-6">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-primary" />
-                            <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="font-black text-[9px] uppercase tracking-widest px-2 h-5 rounded-lg">
+                            <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="font-bold text-[10px] uppercase tracking-widest px-2.5 h-6 rounded-lg opacity-80">
                                 {project.status}
                             </Chip>
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 italic">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
                              {new Date(project.$createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <h3 className="text-2xl font-black tracking-tighter italic group-hover:text-primary transition-colors">{project.name}</h3>
+                        <h3 className="text-2xl font-bold tracking-tight group-hover:text-primary transition-colors">{project.name}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed font-medium opacity-80">{project.description}</p>
                       </div>
                       <Link href={`/projects/${project.$id}`}>
-                        <Button variant="secondary" className="w-full rounded-2xl font-black italic h-12 group-hover:bg-primary group-hover:text-white transition-all border-border/40 shadow-sm">
-                          Deep Dive <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
+                        <Button variant="secondary" className="w-full rounded-[1.25rem] font-bold h-14 group-hover:bg-foreground group-hover:text-background transition-all border border-border/40 shadow-sm uppercase text-[11px] tracking-widest">
+                          Deep Dive Mission <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
                         </Button>
                       </Link>
                     </div>
@@ -198,33 +197,33 @@ export default function Home() {
           </section>
 
           {/* Productivity Highlight */}
-          <Surface className="p-10 rounded-[3rem] bg-surface border border-border/60 overflow-hidden relative group">
-            <div className="relative z-10 max-w-md space-y-6">
-              <div className="p-3 w-fit rounded-2xl bg-primary/5 border border-primary/10 text-primary">
-                <Sparkles size={24} weight="Bold" />
+          <Surface className="p-12 rounded-[2rem] bg-primary text-white border-none overflow-hidden relative group shadow-2xl shadow-primary/10">
+            <div className="relative z-10 max-w-lg space-y-8">
+              <div className="w-16 h-16 rounded-[1.25rem] bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-inner">
+                <Sparkles size={32} weight="Bold" className="animate-pulse" />
               </div>
-              <div className="space-y-2">
-                <h2 className="text-3xl font-black leading-tight tracking-tight">The Art of Documentation.</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Your Knowledge Base is the brain of your workflow. Keep it sharp, keep it updated, and scale your productivity.
+              <div className="space-y-4">
+                <h2 className="text-3xl font-black leading-[1.1] tracking-tighter uppercase">Infrastructure Intelligence_</h2>
+                <p className="text-xl text-white/80 leading-relaxed font-medium">
+                  Your Knowledge base represents the core logic of your operations. Keep fragments synced to maximize mission output.
                 </p>
               </div>
               <Link href="/wiki">
-                <Button variant="primary" className="rounded-2xl px-10 h-14 font-black italic shadow-xl shadow-primary/10">
-                  Open Wiki Engine
+                <Button variant="secondary" className="bg-white text-primary hover:bg-white/90 rounded-[1.5rem] px-12 h-16 font-black shadow-2xl tracking-tight uppercase border-none">
+                  Deploy Knowledge Engine
                 </Button>
               </Link>
             </div>
             {/* Visual element */}
-            <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary/5 rounded-full blur-[100px]" />
-            <div className="absolute right-12 bottom-0 top-0 w-1/3 hidden md:flex items-center justify-center opacity-20 pointer-events-none">
-              <Book size={200} weight="Linear" className="text-primary rotate-12" />
+            <div className="absolute -right-20 -top-20 w-[600px] h-[600px] bg-white/10 rounded-full blur-[120px] mix-blend-overlay opacity-50" />
+            <div className="absolute right-12 bottom-0 top-0 w-1/3 hidden lg:flex items-center justify-center opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000">
+              <Book size={300} weight="Bold" className="text-white rotate-12" />
             </div>
           </Surface>
         </div>
 
         {/* Right Column: Sidebar Insights */}
-        <div className="lg:col-span-4 space-y-8">
+        <div className="lg:col-span-4 space-y-10">
           <ResourceHeatmap projects={allProjects} />
           <ActivityFeed />
         </div>

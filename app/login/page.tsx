@@ -2,8 +2,12 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
+import {
+    AltArrowRight as ArrowRight,
+    PasswordMinimalistic as Lock,
+    Letter as Mail
+} from "@solar-icons/react";
 import { motion } from 'framer-motion';
-import { ArrowRight, Lock, Mail, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import React, { useState } from 'react';
 
@@ -36,32 +40,32 @@ export default function LoginPage() {
                 <motion.div 
                     animate={{ rotate: 360 }}
                     transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-                    className="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl"
+                    className="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl opacity-40"
                 />
                 <motion.div 
                     animate={{ rotate: -360 }}
                     transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-                    className="absolute -bottom-32 -right-32 w-[30rem] h-[30rem] bg-accent/5 rounded-full blur-3xl"
+                    className="absolute -bottom-32 -right-32 w-[30rem] h-[30rem] bg-accent/5 rounded-full blur-3xl opacity-40"
                 />
 
-                <div className="relative z-10 max-w-lg space-y-8">
+                <div className="relative z-10 max-w-lg space-y-12">
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-2"
+                        className="space-y-4"
                     >
-                        <div className="flex items-center gap-3 text-primary mb-6">
-                            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-2xl shadow-primary/20">
-                                <span className="font-black text-2xl italic">J</span>
+                        <div className="flex items-center gap-4 text-foreground mb-8">
+                            <div className="w-12 h-12 rounded-xl bg-foreground flex items-center justify-center text-background shadow-2xl shadow-black/10">
+                                <span className="font-bold text-2xl mt-0.5 leading-none">J</span>
                             </div>
-                            <span className="text-3xl font-black tracking-tighter">justspace</span>
+                            <span className="text-3xl font-bold tracking-tight">justspace_</span>
                         </div>
-                        <h1 className="text-6xl font-black tracking-tighter leading-[0.9]">
-                            Elevate your <span className="text-primary italic">workflow.</span>
+                        <h1 className="text-5xl font-bold tracking-tight leading-[0.9]">
+                            Elevate your <br/><span className="text-primary">Workflow.</span>
                         </h1>
-                        <p className="text-xl text-muted-foreground font-medium leading-relaxed pt-4">
-                            The comprehensive portal for technical consultants to track projects, 
-                            manage infrastructure, and document deployments.
+                        <p className="text-lg text-muted-foreground font-medium leading-relaxed pt-6 opacity-60">
+                            The high-density protocol for technical consultants to orchestrate projects, 
+                            manage fragments, and baseline deployments.
                         </p>
                     </motion.div>
 
@@ -69,17 +73,17 @@ export default function LoginPage() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.5 }}
-                        className="grid grid-cols-2 gap-4 pt-8"
+                        className="grid grid-cols-2 gap-6 pt-10"
                     >
                         {[
-                            { label: 'Project Tracking', icon: '01' },
-                            { label: 'Cloud Templates', icon: '02' },
-                            { label: 'Wiki Engine', icon: '03' },
-                            { label: 'Time Logs', icon: '04' }
+                            { label: 'Mission Tracking', icon: 'PROTO-01' },
+                            { label: 'Cloud Fragments', icon: 'PROTO-02' },
+                            { label: 'Protocol Engine', icon: 'PROTO-03' },
+                            { label: 'Telemetry Logs', icon: 'PROTO-04' }
                         ].map((item) => (
-                            <Surface key={item.label} variant="secondary" className="p-4 rounded-2xl border border-border/40 flex flex-col gap-2 bg-surface/50 backdrop-blur-sm">
-                                <span className="text-[10px] font-black text-primary uppercase tracking-widest">{item.icon}</span>
-                                <span className="font-bold tracking-tight">{item.label}</span>
+                            <Surface key={item.label} variant="secondary" className="p-4 rounded-2xl border border-border/40 flex flex-col gap-2 bg-surface/50 backdrop-blur-2xl shadow-sm">
+                                <span className="text-[10px] font-bold text-primary uppercase tracking-[0.4em] opacity-40">{item.icon}</span>
+                                <span className="font-bold tracking-tight text-[12px]">{item.label}_</span>
                             </Surface>
                         ))}
                     </motion.div>
@@ -87,102 +91,83 @@ export default function LoginPage() {
             </div>
 
             {/* Right Side: Login Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 relative">
+                {/* Mobile Identity */}
+                <div className="absolute top-10 left-10 lg:hidden flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center text-background shadow-lg">
+                        <span className="font-bold text-xl">J</span>
+                    </div>
+                    <span className="text-2xl font-bold tracking-tight">justspace_</span>
+                </div>
+
                 <motion.div 
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="w-full max-w-[420px]"
                 >
-                    <div className="mb-10 lg:hidden flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground">
-                            <span className="font-black text-xl italic uppercase">J</span>
-                        </div>
-                        <span className="text-2xl font-black tracking-tighter">justspace</span>
+                    <div className="space-y-3 mb-10">
+                        <h2 className="text-3xl font-bold tracking-tight">Identity Check_</h2>
+                        <p className="text-muted-foreground text-sm font-medium opacity-60">Authenticate to gain access to the OS core.</p>
                     </div>
 
-                    <div className="space-y-2 mb-10">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest">
-                            <Sparkles size={12} />
-                            Access Granted
-                        </div>
-                        <h2 className="text-4xl font-extrabold tracking-tight">Welcome Back.</h2>
-                        <p className="text-muted-foreground font-medium">Please enter your credentials to initiate session.</p>
-                    </div>
-
-                    <Surface variant="tertiary" className="p-8 rounded-[2.5rem] border border-border/40 bg-surface shadow-2xl shadow-black/5">
-                        <Form onSubmit={handleSubmit} className="space-y-6">
-                            <TextField
-                                name="email"
-                                type="email"
-                                value={email}
-                                onChange={setEmail}
-                                isRequired
-                                className="w-full"
-                            >
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-2 block">Company Email</Label>
+                    <Form onSubmit={handleSubmit} className="space-y-6">
+                        {error && (
+                            <Surface className="p-4 rounded-xl bg-danger/5 border border-danger/20 text-danger text-[10px] font-bold uppercase tracking-widest text-center">
+                                {error}
+                            </Surface>
+                        )}
+                        
+                        <div className="space-y-4">
+                            <TextField className="w-full">
+                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Access Endpoint</Label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={18} />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
                                     <Input 
-                                        placeholder="consultant@justlab.io" 
-                                        className="h-14 rounded-2xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary pl-12 text-sm font-medium transition-all" 
+                                        type="email" 
+                                        value={email} 
+                                        onChange={(e) => setEmail(e.target.value)} 
+                                        placeholder="user@protocol.net"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        required
                                     />
                                 </div>
                             </TextField>
 
-                            <TextField
-                                name="password"
-                                type="password"
-                                value={password}
-                                onChange={setPassword}
-                                isRequired
-                                className="w-full"
-                            >
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-2 block">Password</Label>
+                            <TextField className="w-full">
+                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Secure Sequence</Label>
                                 <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors" size={18} />
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
                                     <Input 
-                                        placeholder="••••••••" 
-                                        className="h-14 rounded-2xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary pl-12 text-sm font-medium transition-all" 
+                                        type="password" 
+                                        value={password} 
+                                        onChange={(e) => setPassword(e.target.value)} 
+                                        placeholder="••••••••"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        required
                                     />
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                        <Link 
-                                            href="#" 
-                                            className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-primary transition-colors py-1 py-2 px-1"
-                                        >
-                                            Forgot?
-                                        </Link>
-                                    </div>
                                 </div>
                             </TextField>
+                        </div>
 
-                            {error && (
-                                <motion.div 
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    className="bg-danger/10 text-danger text-[11px] font-bold p-3 rounded-xl border border-danger/20"
-                                >
-                                    {error}
-                                </motion.div>
-                            )}
-
+                        <div className="flex flex-col gap-6 pt-2">
                             <Button 
                                 type="submit" 
                                 variant="primary" 
+                                className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-primary/20 tracking-widest"
                                 isPending={isLoading}
-                                className="w-full h-14 rounded-2xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 text-sm"
                             >
-                                {isLoading ? 'Authenticating...' : 'Sign In'}
-                                {!isLoading && <ArrowRight size={18} className="ml-2" />}
+                                Synchronize Credentials
+                                <ArrowRight size={18} className="ml-2" weight="Bold" />
                             </Button>
-                        </Form>
-                    </Surface>
-
-                    <p className="text-center mt-10 text-sm font-bold text-muted-foreground">
-                        Not a member yet?{' '}
-                        <Link href="/signup" className="text-primary hover:underline underline-offset-4 decoration-2">
-                            Request Access
-                        </Link>
-                    </p>
+                            
+                            <p className="text-center text-xs font-medium text-muted-foreground">
+                                Domain unauthorized?{' '}
+                                <Link href="/signup" className="text-primary font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
+                                    Initialize Identity
+                                </Link>
+                            </p>
+                        </div>
+                    </Form>
                 </motion.div>
             </div>
         </div>
