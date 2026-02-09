@@ -1,5 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { getRuntimeConfig } from "@/lib/env-config";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -24,8 +25,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const runtimeConfig = getRuntimeConfig();
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window._env_ = ${JSON.stringify(runtimeConfig)};`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

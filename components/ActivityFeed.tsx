@@ -51,7 +51,7 @@ export function ActivityFeed() {
     if (loading) {
         return (
             <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 h-full flex flex-col items-center justify-center space-y-4">
-                <Spinner size="lg" color="primary" />
+                <Spinner size="lg" color="accent" />
                 <div className="text-muted-foreground font-medium animate-pulse">Syncing activities...</div>
             </Surface>
         );

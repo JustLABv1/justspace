@@ -27,7 +27,7 @@ interface TaskItemProps {
     task: Task;
     onToggle: (id: string, completed: boolean) => void;
     onDelete: (id: string) => void;
-    onUpdate: (id: string, data: Partial<Task>) => void;
+    onUpdate: (id: string, data: Partial<Task> & { workDuration?: string }) => void;
     onAddSubtask: (title: string) => void;
     subtasks?: Task[];
 }
@@ -93,7 +93,6 @@ export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, sub
                 timeSpent: totalTime,
                 timerStartedAt: undefined,
                 timeEntries: newEntries,
-                // @ts-ignore - workDuration is used by db.updateTask to log activity
                 workDuration: `Worked ${workDuration}`
             });
         } else {

@@ -1,14 +1,15 @@
 import { ActivityLog, InstallationTarget, Project, Snippet, Task, WikiGuide } from '@/types';
 import { ID, Query, type Models } from 'appwrite';
 import { databases } from './appwrite';
+import { getEnv } from './env-config';
 
-const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!;
-const PROJECTS_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID!;
-const TASKS_ID = process.env.NEXT_PUBLIC_APPWRITE_TASKS_COLLECTION_ID!;
-const GUIDES_ID = process.env.NEXT_PUBLIC_APPWRITE_GUIDES_COLLECTION_ID!;
-const INSTALLATIONS_ID = process.env.NEXT_PUBLIC_APPWRITE_INSTALLATIONS_COLLECTION_ID!;
-const ACTIVITY_ID = process.env.NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID!;
-const SNIPPETS_ID = process.env.NEXT_PUBLIC_APPWRITE_SNIPPETS_COLLECTION_ID!;
+const DB_ID = getEnv('NEXT_PUBLIC_APPWRITE_DATABASE_ID');
+const PROJECTS_ID = getEnv('NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID');
+const TASKS_ID = getEnv('NEXT_PUBLIC_APPWRITE_TASKS_COLLECTION_ID');
+const GUIDES_ID = getEnv('NEXT_PUBLIC_APPWRITE_GUIDES_COLLECTION_ID');
+const INSTALLATIONS_ID = getEnv('NEXT_PUBLIC_APPWRITE_INSTALLATIONS_COLLECTION_ID');
+const ACTIVITY_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID');
+const SNIPPETS_ID = getEnv('NEXT_PUBLIC_APPWRITE_SNIPPETS_COLLECTION_ID');
 
 export const db = {
     // Activity
@@ -212,22 +213,22 @@ export const db = {
         });
         return tasks;
     },
-    async updateTask(id: string, data: Partial<Task>) {
-        const { workDuration, ...updateData } = data as any;
-        const task = await databases.updateDocument(DB_ID, TASKS_ID, id, updateData);
+    async updateTask(id: string, data: Partial<Task> & { workDuration?: string }) {
+        const { workDuration, ...updateData } = data;
+        const task = await databases.updateDocument<Task & Models.Document>(DB_ID, TASKS_ID, id, updateData);
         if (data.completed === true) {
             await this.logActivity({
                 type: 'complete',
                 entityType: 'Task',
-                entityName: (task as any).title || 'Task',
-                projectId: (task as any).projectId
+                entityName: task.title || 'Task',
+                projectId: task.projectId
             });
         } else if (data.isTimerRunning === false && workDuration) {
             await this.logActivity({
                 type: 'work',
                 entityType: 'Task',
-                entityName: (task as any).title || 'Task',
-                projectId: (task as any).projectId,
+                entityName: task.title || 'Task',
+                projectId: task.projectId,
                 metadata: workDuration
             });
         } else if (data.title) {
@@ -235,7 +236,7 @@ export const db = {
                 type: 'update',
                 entityType: 'Task',
                 entityName: data.title,
-                projectId: (task as any).projectId
+                projectId: task.projectId
             });
         }
         return task;

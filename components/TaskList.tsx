@@ -109,10 +109,11 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         }
     };
 
-    const updateTask = async (taskId: string, data: Partial<Task>) => {
+    const updateTask = async (taskId: string, data: Partial<Task> & { workDuration?: string }) => {
         try {
             await db.updateTask(taskId, data);
-            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...data } : t));
+            const { workDuration, ...taskData } = data;
+            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData } : t));
         } catch (error) {
             console.error(error);
             fetchTasks(); 
