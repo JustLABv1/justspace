@@ -8,12 +8,11 @@ import { db } from '@/lib/db';
 import { Project, WikiGuide } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import {
-  AltArrowRight as ArrowRightAlt,
-  Book,
-  AddCircle as Plus,
-  StarsLine as Sparkles,
-  Target,
-  ShieldKeyhole as Shield
+    AltArrowRight as ArrowRightAlt,
+    Book,
+    AddCircle as Plus,
+    StarsLine as Sparkles,
+    Target
 } from "@solar-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
