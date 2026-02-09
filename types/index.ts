@@ -12,6 +12,11 @@ export interface Task {
     title: string;
     completed: boolean;
     $createdAt: string;
+    parentId?: string;
+    timeSpent?: number; // In seconds
+    isTimerRunning?: boolean;
+    timerStartedAt?: string;
+    order?: number;
 }
 
 export interface WikiGuide {
@@ -28,5 +33,6 @@ export interface InstallationTarget {
     gitRepo?: string;
     documentation?: string;
     notes?: string;
+    tasks?: string[];
     $createdAt: string;
 }

@@ -1,4 +1,4 @@
-import { InstallationTarget, Project, WikiGuide } from '@/types';
+import { InstallationTarget, Project, Task, WikiGuide } from '@/types';
 import { ID, Query, type Models } from 'appwrite';
 import { databases } from './appwrite';
 
@@ -59,19 +59,31 @@ export const db = {
     
     // Tasks
     async listTasks(projectId: string) {
-        return await databases.listDocuments(DB_ID, TASKS_ID, [
-            Query.equal('projectId', projectId)
+        return await databases.listDocuments<Task & Models.Document>(DB_ID, TASKS_ID, [
+            Query.equal('projectId', projectId),
+            Query.orderAsc('order')
         ]);
     },
-    async createEmptyTask(projectId: string, title: string) {
+    async createEmptyTask(projectId: string, title: string, order: number = 0) {
         return await databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
             projectId,
             title,
-            completed: false
+            completed: false,
+            order
         });
     },
-    async updateTask(id: string, completed: boolean) {
-        return await databases.updateDocument(DB_ID, TASKS_ID, id, { completed });
+    async createTasks(projectId: string, titles: string[]) {
+        return Promise.all(titles.map((title, index) => 
+            databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
+                projectId,
+                title,
+                completed: false,
+                order: index
+            })
+        ));
+    },
+    async updateTask(id: string, data: Partial<Task>) {
+        return await databases.updateDocument(DB_ID, TASKS_ID, id, data);
     },
     async deleteTask(id: string) {
         return await databases.deleteDocument(DB_ID, TASKS_ID, id);

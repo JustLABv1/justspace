@@ -1,5 +1,6 @@
 'use client';
 
+import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePathname } from 'next/navigation';
@@ -11,6 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <AuthBoundary>
                 {children}
             </AuthBoundary>
+            <CommandPalette />
         </AuthProvider>
     );
 }

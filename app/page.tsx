@@ -1,5 +1,6 @@
 'use client';
 
+import { ActivityFeed } from '@/components/ActivityFeed';
 import { db } from '@/lib/db';
 import { Button, Card, Spinner, Surface } from "@heroui/react";
 import { ArrowRight, Book, CheckSquare, Plus } from "lucide-react";
@@ -96,8 +97,34 @@ export default function Home() {
       </div>
 
       <section className="mt-16">
-        <Surface variant="tertiary" className="p-8 rounded-3xl border border-border">
-          <div className="flex justify-between items-center mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+                <Surface variant="tertiary" className="p-8 rounded-3xl border border-border h-full">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold">Quick Actions</h2>
+                    </div>
+                    {/* ... actions content ... */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <Link href="/projects">
+                            <Button variant="secondary" className="w-full py-10 flex-col gap-2">
+                                <Plus size={24} />
+                                New Project
+                            </Button>
+                        </Link>
+                        <Link href="/wiki">
+                            <Button variant="secondary" className="w-full py-10 flex-col gap-2">
+                                <Book size={24} />
+                                New Guide
+                            </Button>
+                        </Link>
+                    </div>
+                </Surface>
+            </div>
+            <div className="lg:col-span-1">
+                <ActivityFeed />
+            </div>
+        </div>
+      </section>
             <h2 className="text-2xl font-bold">Quick Start</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

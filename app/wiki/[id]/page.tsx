@@ -2,17 +2,16 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { InstallationModal } from '@/components/InstallationModal';
+import { Markdown } from '@/components/Markdown';
+import { ProjectSelectorModal } from '@/components/ProjectSelectorModal';
+import { WikiExport } from '@/components/WikiExport';
 import { db } from '@/lib/db';
 import { InstallationTarget, WikiGuide } from '@/types';
-import { Button, Card, Spinner, Surface, Tabs } from "@heroui/react";
-import 'highlight.js/styles/github-dark.css';
-import { ArrowLeft, Edit, FileText, Github, Info, Plus, Trash } from "lucide-react";
+import { Button, Card, Spinner, Surface, Tabs, Tooltip } from "@heroui/react";
+import { ArrowLeft, ClipboardCheck, Edit, FileText, Github, History, Info, Plus, Trash } from "lucide-react";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
-import remarkGfm from 'remark-gfm';
+import { useEffect, useRef, useState } from 'react';
 
 export default function WikiDetailPage() {
     const { id } = useParams() as { id: string };
@@ -21,6 +20,8 @@ export default function WikiDetailPage() {
     const [selectedInst, setSelectedInst] = useState<InstallationTarget | undefined>(undefined);
     const [isInstModalOpen, setIsInstModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchGuide();
@@ -51,6 +52,12 @@ export default function WikiDetailPage() {
         if (selectedInst) {
             await db.deleteInstallation(selectedInst.$id);
             fetchGuide();
+        }
+    };
+
+    const handleApplyTasks = async (projectId: string) => {
+        if (selectedInst?.tasks && selectedInst.tasks.length > 0) {
+            await db.createTasks(projectId, selectedInst.tasks);
         }
     };
 
@@ -107,6 +114,23 @@ export default function WikiDetailPage() {
                                                 <Card.Title className="text-xl">Instructions for {inst.target}</Card.Title>
                                             </div>
                                             <div className="flex gap-2">
+                                                <Tooltip>
+                                                    <Button variant="ghost" isIconOnly size="sm">
+                                                        <History size={16} />
+                                                    </Button>
+                                                    <Tooltip.Content>
+                                                        <div className="p-2 text-xs">
+                                                            <p className="font-bold mb-1 border-b border-border pb-1">Version History</p>
+                                                            <p className="text-muted-foreground italic">Current: {new Date(guide.$createdAt).toLocaleDateString()}</p>
+                                                            <p className="mt-1">Initial deployment guide created.</p>
+                                                        </div>
+                                                    </Tooltip.Content>
+                                                </Tooltip>
+                                                <WikiExport 
+                                                    title={`${guide.title} - ${inst.target}`} 
+                                                    content={inst.notes || ''} 
+                                                    targetRef={contentRef} 
+                                                />
                                                 <Button 
                                                     variant="ghost" 
                                                     isIconOnly 
@@ -126,16 +150,9 @@ export default function WikiDetailPage() {
                                                 </Button>
                                             </div>
                                         </Card.Header>
-                                        <Card.Content className="mt-4">
+                                        <Card.Content className="mt-4" ref={contentRef}>
                                             {inst.notes ? (
-                                                <div className="prose prose-sm dark:prose-invert max-w-none">
-                                                    <ReactMarkdown 
-                                                        remarkPlugins={[remarkGfm]} 
-                                                        rehypePlugins={[rehypeHighlight]}
-                                                    >
-                                                        {inst.notes}
-                                                    </ReactMarkdown>
-                                                </div>
+                                                <Markdown content={inst.notes} />
                                             ) : (
                                                 <p className="text-muted-foreground italic">No specific notes provided.</p>
                                             )}
@@ -162,6 +179,40 @@ export default function WikiDetailPage() {
                                 </div>
 
                                 <aside className="space-y-6">
+                                    {inst.tasks && inst.tasks.length > 0 && (
+                                        <Surface variant="secondary" className="p-6 rounded-2xl border border-border h-fit">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h3 className="font-bold flex items-center gap-2">
+                                                    <ClipboardCheck size={18} className="text-primary" />
+                                                    Setup Checklist
+                                                </h3>
+                                                <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                                    {inst.tasks.length} Tasks
+                                                </span>
+                                            </div>
+                                            <ul className="space-y-3 mb-6">
+                                                {inst.tasks.map((task, i) => (
+                                                    <li key={i} className="flex items-start gap-3 group">
+                                                        <div className="mt-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
+                                                        </div>
+                                                        <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors leading-tight">
+                                                            {task}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                            <Button 
+                                                variant="primary" 
+                                                className="w-full shadow-lg shadow-primary/20"
+                                                onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
+                                            >
+                                                <Plus size={16} className="mr-2" />
+                                                Add to Project
+                                            </Button>
+                                        </Surface>
+                                    )}
+
                                     <Surface variant="tertiary" className="p-6 rounded-2xl border border-border h-fit">
                                         <h3 className="font-bold mb-4">Quick Links</h3>
                                         <ul className="space-y-3">
@@ -198,6 +249,12 @@ export default function WikiDetailPage() {
                 onConfirm={handleDeleteInst}
                 title="Delete Target"
                 message={`Are you sure you want to delete the "${selectedInst?.target}" installation target?`}
+            />
+
+            <ProjectSelectorModal 
+                isOpen={isProjectSelectorOpen}
+                onClose={() => setIsProjectSelectorOpen(false)}
+                onSelect={handleApplyTasks}
             />
         </div>
     );
