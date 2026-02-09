@@ -1,15 +1,17 @@
 'use client';
 
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { ResourceHeatmap } from '@/components/ResourceHeatmap';
 import { db } from '@/lib/db';
 import { Project, WikiGuide } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
-import { ArrowRight, Book, LayoutDashboard, Plus, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Book, Plus, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 
 export default function Home() {
   const [stats, setStats] = useState({ projects: 0, guides: 0 });
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [recentGuides, setRecentGuides] = useState<WikiGuide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +34,7 @@ export default function Home() {
           projects: projects.total,
           guides: guides.total
         });
+        setAllProjects(projects.documents);
 
         // Get top 2 most recent
         setRecentProjects(projects.documents.slice(0, 2));
@@ -77,65 +80,52 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Bento Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6">
-        <Surface variant="secondary" className="md:col-span-2 lg:col-span-3 p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5">
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary mb-8 group-hover:scale-110 transition-transform duration-500">
-              <Target size={24} />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-1">Projects</p>
-              {isLoading ? <Spinner size="sm" /> : (
-                <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-black">{stats.projects}</p>
-                  <span className="text-xs font-bold text-success">+1 today</span>
+      {/* Main Dashboard Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        {/* Left Column: Primary Content */}
+        <div className="lg:col-span-8 space-y-10">
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 min-h-[200px]">
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform duration-500">
+                  <Target size={24} />
                 </div>
-              )}
-            </div>
-          </div>
-          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-        </Surface>
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Projects</p>
+                  {isLoading ? <Spinner size="sm" /> : (
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-4xl font-black tracking-tighter">{stats.projects}</p>
+                      <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">+1 today</span>
+                    </div>
+                  )}
+                </div>
+                <Link href="/projects" className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Manage Board <ArrowRight size={10} />
+                </Link>
+              </div>
+              <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Surface>
 
-        <Surface variant="secondary" className="md:col-span-2 lg:col-span-3 p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-accent/30 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5">
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <div className="w-12 h-12 rounded-2xl bg-accent/5 border border-accent/10 flex items-center justify-center text-accent mb-8 group-hover:scale-110 transition-transform duration-500">
-              <Book size={24} />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-1">Guides</p>
-              {isLoading ? <Spinner size="sm" /> : (
-                <p className="text-4xl font-black">{stats.guides}</p>
-              )}
-            </div>
+            <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-accent/30 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5 min-h-[200px]">
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="w-12 h-12 rounded-2xl bg-accent/5 border border-accent/10 flex items-center justify-center text-accent group-hover:scale-110 transition-transform duration-500">
+                  <Book size={24} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Wiki Guides</p>
+                  {isLoading ? <Spinner size="sm" /> : (
+                    <p className="text-4xl font-black tracking-tighter">{stats.guides}</p>
+                  )}
+                </div>
+                <Link href="/wiki" className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Explore Docs <ArrowRight size={10} />
+                </Link>
+              </div>
+              <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Surface>
           </div>
-          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-        </Surface>
 
-        <Surface variant="tertiary" className="md:col-span-4 lg:col-span-6 p-8 rounded-[2rem] border border-border/50 bg-gradient-to-br from-surface to-surface-secondary/50 relative flex flex-col justify-center overflow-hidden">
-          <div className="relative z-10 space-y-4">
-            <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
-              <LayoutDashboard size={22} className="text-primary" />
-              Focus Mode
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Review your most recent updates and continue your workflow without interruption.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <Link href="/projects" className="flex-1">
-                <Button variant="secondary" className="w-full rounded-xl font-bold h-11 border-border/40">Resume Latest</Button>
-              </Link>
-            </div>
-          </div>
-          <div className="absolute right-0 top-0 h-full w-48 bg-gradient-to-l from-primary/5 to-transparent flex items-center justify-center opacity-50">
-             <Target size={120} className="text-primary/10 rotate-12" />
-          </div>
-        </Surface>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* Main Content Area */}
-        <div className="lg:col-span-8 space-y-12">
           {/* Recent Projects Section */}
           <section className="space-y-6">
             <div className="flex items-center justify-between">
@@ -221,8 +211,9 @@ export default function Home() {
           </Surface>
         </div>
 
-        {/* Activity Sidebar */}
-        <div className="lg:col-span-4">
+        {/* Right Column: Sidebar Insights */}
+        <div className="lg:col-span-4 space-y-8">
+          <ResourceHeatmap projects={allProjects} />
           <ActivityFeed />
         </div>
       </div>

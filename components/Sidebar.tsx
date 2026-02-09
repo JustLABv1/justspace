@@ -74,7 +74,15 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
             </div>
             
             <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
-                {!isCollapsed && <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-4 mb-4">Main Menu</p>}
+                {!isCollapsed && (
+                    <div className="flex items-center justify-between px-4 mb-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Main Menu</p>
+                        <div className="flex items-center gap-1.5 opacity-40">
+                             <kbd className="text-[9px] font-mono border border-border/50 px-1 rounded bg-surface">⌘</kbd>
+                             <kbd className="text-[9px] font-mono border border-border/50 px-1 rounded bg-surface">K</kbd>
+                        </div>
+                    </div>
+                )}
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                     const Icon = item.icon;
