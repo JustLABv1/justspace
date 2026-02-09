@@ -3,6 +3,8 @@ export interface Project {
     name: string;
     description: string;
     status: 'todo' | 'in-progress' | 'completed';
+    daysPerWeek?: number;
+    allocatedDays?: number;
     $createdAt: string;
 }
 
@@ -18,6 +20,7 @@ export interface Task {
     timerStartedAt?: string;
     order?: number;
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
+    kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'done';
 }
 
 export interface WikiGuide {
@@ -41,8 +44,18 @@ export interface InstallationTarget {
 export interface ActivityLog {
     $id: string;
     type: 'create' | 'update' | 'delete' | 'complete';
-    entityType: 'Project' | 'Task' | 'Wiki' | 'Installation';
+    entityType: 'Project' | 'Task' | 'Wiki' | 'Installation' | 'Snippet';
     entityName: string;
     projectId?: string;
+    $createdAt: string;
+}
+
+export interface Snippet {
+    $id: string;
+    title: string;
+    content: string;
+    language: string;
+    tags?: string[];
+    description?: string;
     $createdAt: string;
 }

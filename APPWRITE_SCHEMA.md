@@ -19,6 +19,8 @@ This document outlines the required database, collections, and attributes for **
 | `name` | String | 128 | Yes | The name of the consulting project. |
 | `description` | String | 16384 | Yes | Detailed overview of the project. |
 | `status` | String (Enum) | `todo`, `in-progress`, `completed` | Yes | Current status of the project. |
+| `daysPerWeek` | Float | - | No | Amount of days the consultant is on this project per week. |
+| `allocatedDays` | Integer | - | No | Total number of days allocated for this project. |
 
 ### 2. Tasks
 - **Collection ID:** `tasks`
@@ -34,6 +36,7 @@ This document outlines the required database, collections, and attributes for **
 | `timerStartedAt` | String (ISO) | - | No | Time when current timer started. |
 | `timeEntries` | String Array | 255 | No | Historical log of time entries (JSON stringified). |
 | `order` | Integer | - | No | Display order for DnD. |
+| `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `done` | No | Status for Kanban board. |
 
 ### 3. Wiki Guides
 - **Collection ID:** `wiki_guides` (Deployment guides hub)
@@ -64,6 +67,17 @@ This document outlines the required database, collections, and attributes for **
 | `entityType` | String | 32 | Yes | `Project`, `Task`, `Wiki`, `Installation`. |
 | `entityName` | String | 128 | Yes | Name of the entity being modified. |
 | `projectId` | String | 36 | No | Associated project ID. |
+
+### 6. Snippets
+- **Collection ID:** `snippets`
+
+| Attribute | Type | Size / Options | Required | Description |
+|-----------|------|----------------|----------|-------------|
+| `title` | String | 128 | Yes | Title of the snippet. |
+| `content` | String | 16384 | Yes | The code or text content. |
+| `language` | String | 32 | Yes | Programming language for syntax highlighting. |
+| `tags` | String Array | 32 | No | Categorization tags. |
+| `description` | String | 512 | No | Short explanation. |
 
 ---
 

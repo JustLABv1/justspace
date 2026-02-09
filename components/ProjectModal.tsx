@@ -15,6 +15,8 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [status, setStatus] = useState<'todo' | 'in-progress' | 'completed'>('todo');
+    const [daysPerWeek, setDaysPerWeek] = useState<string>('');
+    const [allocatedDays, setAllocatedDays] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
@@ -22,10 +24,14 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setName(project.name);
             setDescription(project.description);
             setStatus(project.status as 'todo' | 'in-progress' | 'completed');
+            setDaysPerWeek(project.daysPerWeek?.toString() || '');
+            setAllocatedDays(project.allocatedDays?.toString() || '');
         } else {
             setName('');
             setDescription('');
             setStatus('todo');
+            setDaysPerWeek('');
+            setAllocatedDays('');
         }
     }, [project, isOpen]);
 
@@ -33,7 +39,13 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
         e.preventDefault();
         setIsLoading(true);
         try {
-            await onSubmit({ name, description, status });
+            await onSubmit({ 
+                name, 
+                description, 
+                status,
+                daysPerWeek: daysPerWeek ? parseFloat(daysPerWeek) : undefined,
+                allocatedDays: allocatedDays ? parseInt(allocatedDays) : undefined
+            });
             onClose();
         } catch (error) {
             console.error(error);
@@ -87,6 +99,27 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             </Button>
                                         ))}
                                     </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <TextField value={daysPerWeek} onChange={setDaysPerWeek} className="w-full">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Days / Week</Label>
+                                        <Input 
+                                            type="number"
+                                            step="0.5"
+                                            placeholder="e.g. 5" 
+                                            className="h-12 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                        />
+                                    </TextField>
+
+                                    <TextField value={allocatedDays} onChange={setAllocatedDays} className="w-full">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Total Allocation</Label>
+                                        <Input 
+                                            type="number"
+                                            placeholder="e.g. 100" 
+                                            className="h-12 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                        />
+                                    </TextField>
                                 </div>
                             </Modal.Body>
 

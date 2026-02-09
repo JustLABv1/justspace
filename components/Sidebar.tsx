@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { Button, Surface } from '@heroui/react';
-import { Book, CheckSquare, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { Book, CheckSquare, ChevronLeft, ChevronRight, Code2, LayoutDashboard, LogOut, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -20,6 +20,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
         { name: 'Projects', href: '/projects', icon: CheckSquare },
         { name: 'Wiki', href: '/wiki', icon: Book },
+        { name: 'Snippets', href: '/snippets', icon: Code2 },
     ];
 
     return (

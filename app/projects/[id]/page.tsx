@@ -1,12 +1,14 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { KanbanBoard } from '@/components/KanbanBoard';
 import { ProjectModal } from '@/components/ProjectModal';
 import { TaskList } from '@/components/TaskList';
+import { TemplateModal } from '@/components/TemplateModal';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Spinner, Surface } from "@heroui/react";
-import { ArrowLeft, Calendar, Edit, LayoutGrid, ListTodo, Trash } from "lucide-react";
+import { ArrowLeft, Calendar, Edit, LayoutGrid, ListTodo, Sparkles, Trash } from "lucide-react";
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -18,6 +20,8 @@ export default function ProjectDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
     useEffect(() => {
         if (id) {
@@ -43,6 +47,15 @@ export default function ProjectDetailPage() {
             await db.updateProject(project.$id, data);
             fetchProject();
             setIsProjectModalOpen(false);
+        }
+    };
+
+    const handleApplyTemplate = async (tasks: string[]) => {
+        if (project) {
+            await db.createTasks(project.$id, tasks);
+            // TaskList should refresh if it has its own state or we can force a re-render
+            // For now, let's just refresh the project data if needed, or assume TaskList handles it.
+            // Since TaskList handles its own fetching based on projectId, we might need a way to trigger it.
         }
     };
 
@@ -112,11 +125,39 @@ export default function ProjectDetailPage() {
                                 </h2>
                                 <p className="text-muted-foreground text-sm font-medium">Define milestones and track technical execution.</p>
                             </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex bg-surface p-1 rounded-xl border border-border/40 mr-2">
+                                    <Button 
+                                        variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
+                                        size="sm" 
+                                        className="h-8 rounded-lg font-bold text-[10px] uppercase tracking-wider"
+                                        onPress={() => setViewMode('list')}
+                                    >
+                                        List
+                                    </Button>
+                                    <Button 
+                                        variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
+                                        size="sm" 
+                                        className="h-8 rounded-lg font-bold text-[10px] uppercase tracking-wider"
+                                        onPress={() => setViewMode('kanban')}
+                                    >
+                                        Kanban
+                                    </Button>
+                                </div>
+                                <Button variant="primary" size="sm" className="rounded-xl font-bold italic" onPress={() => setIsTemplateModalOpen(true)}>
+                                    <Sparkles size={16} className="mr-2" />
+                                    Apply Template
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     
                     <div className="p-8">
-                        <TaskList projectId={project.$id} hideHeader />
+                        {viewMode === 'list' ? (
+                            <TaskList projectId={project.$id} hideHeader />
+                        ) : (
+                            <KanbanBoard projectId={project.$id} />
+                        )}
                     </div>
                 </div>
                 
@@ -129,6 +170,12 @@ export default function ProjectDetailPage() {
                 onClose={() => setIsProjectModalOpen(false)} 
                 onSubmit={handleUpdate}
                 project={project}
+            />
+
+            <TemplateModal 
+                isOpen={isTemplateModalOpen}
+                onClose={() => setIsTemplateModalOpen(false)}
+                onApply={handleApplyTemplate}
             />
 
             <DeleteModal 

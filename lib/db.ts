@@ -1,4 +1,4 @@
-import { ActivityLog, InstallationTarget, Project, Task, WikiGuide } from '@/types';
+import { ActivityLog, InstallationTarget, Project, Snippet, Task, WikiGuide } from '@/types';
 import { ID, Query, type Models } from 'appwrite';
 import { databases } from './appwrite';
 
@@ -8,6 +8,7 @@ const TASKS_ID = process.env.NEXT_PUBLIC_APPWRITE_TASKS_COLLECTION_ID!;
 const GUIDES_ID = process.env.NEXT_PUBLIC_APPWRITE_GUIDES_COLLECTION_ID!;
 const INSTALLATIONS_ID = process.env.NEXT_PUBLIC_APPWRITE_INSTALLATIONS_COLLECTION_ID!;
 const ACTIVITY_ID = process.env.NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID!;
+const SNIPPETS_ID = process.env.NEXT_PUBLIC_APPWRITE_SNIPPETS_COLLECTION_ID!;
 
 export const db = {
     // Activity
@@ -23,6 +24,41 @@ export const db = {
         } catch (e) {
             console.error('Failed to log activity:', e);
         }
+    },
+
+    // Snippets
+    async listSnippets() {
+        return await databases.listDocuments<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, [
+            Query.orderDesc('$createdAt')
+        ]);
+    },
+    async createSnippet(data: Omit<Snippet, '$id' | '$createdAt'>) {
+        const snippet = await databases.createDocument(DB_ID, SNIPPETS_ID, ID.unique(), data);
+        await this.logActivity({
+            type: 'create',
+            entityType: 'Snippet',
+            entityName: data.title
+        });
+        return snippet;
+    },
+    async updateSnippet(id: string, data: Partial<Snippet>) {
+        const snippet = await databases.updateDocument(DB_ID, SNIPPETS_ID, id, data);
+        if (data.title) {
+            await this.logActivity({
+                type: 'update',
+                entityType: 'Snippet',
+                entityName: data.title
+            });
+        }
+        return snippet;
+    },
+    async deleteSnippet(id: string) {
+        await this.logActivity({
+            type: 'delete',
+            entityType: 'Snippet',
+            entityName: 'Snippet'
+        });
+        return await databases.deleteDocument(DB_ID, SNIPPETS_ID, id);
     },
 
     // Projects
@@ -147,7 +183,8 @@ export const db = {
             projectId,
             title,
             completed: false,
-            order
+            order,
+            kanbanStatus: 'todo'
         });
         await this.logActivity({
             type: 'create',
@@ -163,7 +200,8 @@ export const db = {
                 projectId,
                 title,
                 completed: false,
-                order: index
+                order: index,
+                kanbanStatus: 'todo'
             })
         ));
         await this.logActivity({

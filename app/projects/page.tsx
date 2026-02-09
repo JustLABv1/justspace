@@ -234,6 +234,23 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                             <ArrowUpRight size={14} />
                         </Link>
                     </div>
+
+                    {(project.daysPerWeek || project.allocatedDays) && (
+                        <div className="flex gap-4 pt-4 border-t border-border/20 mt-4">
+                            {project.daysPerWeek && (
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">Allocation</span>
+                                    <div className="text-sm font-bold">{project.daysPerWeek} Days / Week</div>
+                                </div>
+                            )}
+                            {project.allocatedDays && (
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">Total Scope</span>
+                                    <div className="text-sm font-bold">{project.allocatedDays} Days Total</div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </article>
         </Surface>
