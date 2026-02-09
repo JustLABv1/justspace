@@ -4,10 +4,20 @@ import { Task } from '@/types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button, Checkbox, Input, Surface, Tooltip } from '@heroui/react';
+import {
+    Calendar,
+    AltArrowDown as ChevronDown,
+    AltArrowRight as ChevronRight,
+    HamburgerMenu as GripVertical,
+    History,
+    Pause,
+    Play,
+    AddCircle as Plus,
+    TrashBinMinimalistic as Trash
+} from '@solar-icons/react';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Calendar, ChevronDown, ChevronRight, GripVertical, History, Pause, Play, Plus, Trash } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 dayjs.extend(duration);
@@ -121,7 +131,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             {/* Header / Title Row */}
             <div className="flex items-center gap-3 px-4 pt-4 pb-2">
                 <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/20 hover:text-primary transition-colors">
-                    <GripVertical size={16} />
+                    <GripVertical size={16} weight="Linear" />
                 </div>
                 
                 <div className="flex-shrink-0">
@@ -150,7 +160,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground/30 hover:text-foreground'}`}
                         onPress={() => setIsExpanded(!isExpanded)}
                     >
-                        {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                        {isExpanded ? <ChevronDown size={18} weight="Bold" /> : <ChevronRight size={18} weight="Bold" />}
                     </Button>
                     <Button 
                         variant="ghost" 
@@ -158,7 +168,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         className="h-8 w-8 rounded-xl text-muted-foreground/10 hover:text-danger hover:bg-danger/10 transition-all opacity-0 group-hover:opacity-100"
                         onPress={() => onDelete(task.$id)}
                     >
-                        <Trash size={14} />
+                        <Trash size={14} weight="Linear" />
                     </Button>
                 </div>
             </div>
@@ -167,13 +177,13 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
                 <div className="flex items-center gap-2 flex-grow overflow-hidden">
                     <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-foreground/[0.03] border border-border/40 whitespace-nowrap">
-                        <Plus size={10} className="text-primary" strokeWidth={3} />
+                        <Plus size={10} weight="Bold" className="text-primary" />
                         <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{subtasks.length} sub objectives</span>
                     </div>
                     
                     {task.timeSpent && task.timeSpent > 0 && (
                         <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-primary/5 border border-primary/20 whitespace-nowrap overflow-hidden">
-                            <History size={10} className="text-primary" strokeWidth={3} />
+                            <History size={10} weight="Bold" className="text-primary" />
                             <span className="text-[10px] uppercase font-black tracking-widest text-primary truncate">
                                 {formatTime(task.timeSpent)} cumulative
                             </span>
@@ -200,14 +210,14 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         }`}
                         onPress={handleToggleTimer}
                     >
-                        {task.isTimerRunning ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
+                        {task.isTimerRunning ? <Pause size={14} weight="Bold" /> : <Play size={14} weight="Bold" className="ml-0.5" />}
                     </Button>
 
                     {parsedTimeEntries.length > 0 && (
                         <Tooltip delay={0}>
                             <Tooltip.Trigger>
                                 <Button variant="ghost" isIconOnly className={`h-8 w-8 rounded-xl transition-colors ${task.isTimerRunning ? 'text-white/60 hover:text-white' : 'text-muted-foreground/40 hover:text-foreground'}`}>
-                                   <History size={14} />
+                                   <History size={14} weight="Linear" />
                                 </Button>
                             </Tooltip.Trigger>
                             <Tooltip.Content showArrow placement="top">
@@ -221,7 +231,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         {parsedTimeEntries.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((entry, i) => (
                                             <div key={i} className="flex items-center justify-between py-1.5 px-2.5 rounded-xl hover:bg-surface-secondary transition-colors">
                                                 <div className="flex items-center gap-2">
-                                                    <Calendar size={12} className="text-muted-foreground/40" />
+                                                    <Calendar size={12} weight="Linear" className="text-muted-foreground/40" />
                                                     <span className="text-[11px] font-bold text-foreground/80">{dayjs(entry.date).format('MMM D, YYYY')}</span>
                                                 </div>
                                                 <span className="font-black text-[10px] tabular-nums text-primary/80">
@@ -264,7 +274,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                     className="h-6 w-6 rounded-lg opacity-0 group-hover/sub:opacity-100 hover:text-danger"
                                     onPress={() => onDelete(sub.$id)}
                                 >
-                                    <Trash size={12} />
+                                    <Trash size={12} weight="Linear" />
                                 </Button>
                             </div>
                         ))}
@@ -287,7 +297,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             className="h-11 rounded-xl bg-surface-lowest border-dashed border-2 border-border/30 focus:border-primary/40 transition-all pl-4 pr-12 text-sm font-medium"
                         />
                         <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary">
-                            <Plus size={16} />
+                            <Plus size={16} weight="Linear" />
                         </Button>
                     </form>
                 </div>

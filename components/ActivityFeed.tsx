@@ -3,9 +3,18 @@
 import { db } from "@/lib/db";
 import { ActivityLog } from "@/types";
 import { Button, Spinner, Surface } from "@heroui/react";
+import {
+    History as Activity,
+    CheckCircle,
+    ClockCircle as Clock,
+    Document as FileText,
+    Play as PlayIcon,
+    AddCircle as PlusCircle,
+    Restart as RefreshCw,
+    TrashBinMinimalistic as Trash2
+} from "@solar-icons/react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { Activity, CheckCircle, Clock, FileText, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 dayjs.extend(relativeTime);
@@ -50,12 +59,12 @@ export function ActivityFeed() {
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'create': return <PlusCircle size={14} className="text-accent" />;
-            case 'complete': return <CheckCircle size={14} className="text-success" />;
-            case 'update': return <FileText size={14} className="text-primary" />;
-            case 'delete': return <Trash2 size={14} className="text-danger" />;
-            case 'work': return <Clock size={14} className="text-warning" />;
-            default: return <Activity size={14} className="text-muted-foreground" />;
+            case 'create': return <PlusCircle size={14} weight="Bold" className="text-accent" />;
+            case 'complete': return <CheckCircle size={14} weight="Bold" className="text-success" />;
+            case 'update': return <FileText size={14} weight="Bold" className="text-primary" />;
+            case 'delete': return <Trash2 size={14} weight="Bold" className="text-danger" />;
+            case 'work': return <PlayIcon size={14} weight="Bold" className="text-warning" />;
+            default: return <Activity size={14} weight="Bold" className="text-muted-foreground" />;
         }
     };
 
@@ -75,7 +84,7 @@ export function ActivityFeed() {
             <div className="flex items-center justify-between mb-8">
                 <h3 className="font-black text-xl flex items-center gap-3 tracking-tight">
                     <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                        <Activity size={20} />
+                        <Activity size={20} weight="Bold" />
                     </div>
                     Activity Feed
                 </h3>
@@ -86,7 +95,7 @@ export function ActivityFeed() {
                     className="h-9 w-9 p-0 rounded-xl hover:bg-surface-tertiary transition-all"
                     isPending={refreshing}
                 >
-                    <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                    <RefreshCw size={16} weight="Linear" className={refreshing ? 'animate-spin' : ''} />
                 </Button>
             </div>
 
@@ -94,7 +103,7 @@ export function ActivityFeed() {
                 {activities.length === 0 ? (
                     <div className="text-center py-20 flex flex-col items-center justify-center space-y-4">
                         <div className="w-16 h-16 rounded-full bg-surface-secondary flex items-center justify-center text-muted-foreground/30">
-                            <Activity size={32} />
+                            <Activity size={32} weight="Linear" />
                         </div>
                         <p className="text-muted-foreground font-medium">No recent activity found.</p>
                     </div>

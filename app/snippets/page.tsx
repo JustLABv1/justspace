@@ -5,7 +5,14 @@ import { SnippetModal } from '@/components/SnippetModal';
 import { db } from '@/lib/db';
 import { Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
-import { Code2, Copy, Edit, Plus, Search, Trash } from "lucide-react";
+import {
+  CodeFile,
+  Copy,
+  Pen2 as Edit,
+  AddCircle as Plus,
+  Magnifier as Search,
+  TrashBinTrash as Trash
+} from "@solar-icons/react";
 import { useEffect, useState } from 'react';
 
 export default function SnippetsPage() {
@@ -69,24 +76,24 @@ export default function SnippetsPage() {
         <div className="max-w-[1400px] mx-auto p-6 md:p-12 space-y-12">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-xs">
-                        <Code2 size={14} className="animate-pulse" />
+                    <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-[10px]">
+                        <CodeFile size={16} weight="Bold" className="animate-pulse" />
                         Code Repository
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Snippet Library</h1>
-                    <p className="text-muted-foreground font-medium">Reusable building blocks for efficient delivery.</p>
+                    <h1 className="text-5xl font-black tracking-tighter text-foreground italic">Snippet Library</h1>
+                    <p className="text-muted-foreground font-medium">Reusable building blocks for high-velocity output.</p>
                 </div>
-                <Button variant="primary" className="rounded-2xl h-12 px-8 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
-                    <Plus size={18} className="mr-2" />
+                <Button variant="primary" className="rounded-[1.5rem] h-14 px-10 font-black italic shadow-2xl shadow-primary/20" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                    <Plus size={20} weight="Bold" className="mr-2" />
                     New Snippet
                 </Button>
             </header>
 
-            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-2xl shadow-sm max-w-xl">
-                <Search size={18} className="text-muted-foreground" />
+            <Surface className="flex items-center gap-4 px-8 py-3 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-primary/40 transition-all duration-500">
+                <Search size={22} className="text-muted-foreground" />
                 <input 
-                    className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-medium" 
-                    placeholder="Search snippets by title, tags, or description..."
+                    className="bg-transparent border-none outline-none flex-1 h-10 text-base font-bold placeholder:text-muted-foreground/30 placeholder:font-medium" 
+                    placeholder="Search by title, tags, or engine..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -94,51 +101,57 @@ export default function SnippetsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredSnippets.map((snippet) => (
-                    <Surface key={snippet.$id} className="p-0 rounded-[2.5rem] border border-border/40 bg-surface group relative overflow-hidden flex flex-col transition-all duration-500 hover:border-primary/20 hover:shadow-2xl">
-                        <div className="p-8 flex-1 space-y-6">
+                    <Surface key={snippet.$id} className="p-0 rounded-[3rem] border border-border/40 bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-primary/40 hover:-translate-y-2 hover:shadow-[0_40px_80px_-20px_rgba(var(--color-primary-rgb),0.15)]">
+                        <div className="p-10 flex-1 space-y-8">
                             <div className="flex justify-between items-start">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <Chip size="sm" variant="soft" color="accent" className="font-black text-[8px] uppercase tracking-widest px-2 h-5">
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-surface-secondary flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                                            <CodeFile size={20} weight="Bold" />
+                                        </div>
+                                        <Chip size="sm" variant="soft" color="accent" className="font-black text-[9px] uppercase tracking-widest px-3 h-6 rounded-lg">
                                             {snippet.language}
                                         </Chip>
                                     </div>
-                                    <h3 className="text-lg font-black tracking-tight">{snippet.title}</h3>
+                                    <h3 className="text-2xl font-black tracking-tighter leading-tight italic">{snippet.title}</h3>
                                 </div>
-                                <div className="flex gap-1">
-                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8" onPress={() => copyToClipboard(snippet.content)}>
-                                        <Copy size={14} />
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-xl h-10 w-10 hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
+                                        <Edit size={18} weight="Bold" />
                                     </Button>
-                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
-                                        <Edit size={14} />
-                                    </Button>
-                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8 text-danger" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
-                                        <Trash size={14} />
+                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-xl h-10 w-10 text-danger hover:bg-danger/10 transition-all" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
+                                        <Trash size={18} weight="Bold" />
                                     </Button>
                                 </div>
                             </div>
 
                             {snippet.description && (
-                                <p className="text-muted-foreground text-xs leading-relaxed italic line-clamp-2">
-                                    &quot;{snippet.description}&quot;
+                                <p className="text-muted-foreground text-[13px] leading-relaxed font-medium italic opacity-80 line-clamp-2">
+                                   &quot; {snippet.description} &quot;
                                 </p>
                             )}
 
-                            <div className="bg-surface-secondary/50 rounded-xl p-4 font-mono text-[11px] overflow-hidden relative group/code h-32">
-                                <pre className="text-foreground/80 overflow-hidden line-clamp-5 whitespace-pre-wrap">
+                            <div className="bg-surface/80 rounded-3xl p-6 font-mono text-[12px] border border-border/20 overflow-hidden relative group/code h-44 shadow-inner">
+                                <pre className="text-foreground/90 overflow-hidden line-clamp-6 whitespace-pre-wrap leading-relaxed">
                                     {snippet.content}
                                 </pre>
-                                <div className="absolute inset-0 bg-gradient-to-t from-surface-secondary/80 to-transparent opacity-0 group-hover/code:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Button variant="secondary" size="sm" className="rounded-lg font-bold text-[10px]" onPress={() => copyToClipboard(snippet.content)}>
-                                        Copy Code
+                                <div className="absolute inset-0 bg-primary/10 backdrop-blur-[2px] opacity-0 group-hover/code:opacity-100 transition-all duration-500 flex items-center justify-center">
+                                    <Button 
+                                        variant="primary" 
+                                        size="md" 
+                                        className="rounded-2xl font-black italic px-8 h-12 shadow-xl shadow-primary/20" 
+                                        onPress={() => copyToClipboard(snippet.content)}
+                                    >
+                                        <Copy size={18} weight="Bold" className="mr-2" />
+                                        Copy Block
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="px-8 py-4 bg-surface-secondary/30 border-t border-border/20 flex flex-wrap gap-2">
+                        <div className="px-10 py-6 bg-surface-secondary/20 border-t border-border/10 flex flex-wrap gap-3">
                             {snippet.tags?.map(tag => (
-                                <span key={tag} className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/60">
+                                <span key={tag} className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 hover:text-primary transition-colors cursor-default">
                                     #{tag}
                                 </span>
                             ))}
@@ -147,9 +160,9 @@ export default function SnippetsPage() {
                 ))}
 
                 {filteredSnippets.length === 0 && (
-                    <div className="col-span-full py-20 flex flex-col items-center gap-4 text-muted-foreground italic">
-                        <Code2 size={48} className="opacity-20" />
-                        <p>No snippets found matching your search.</p>
+                    <div className="col-span-full py-32 flex flex-col items-center gap-6 text-muted-foreground/50">
+                        <CodeFile size={80} weight="Linear" className="opacity-10" />
+                        <p className="font-bold italic tracking-tight text-xl">No fragments match the query.</p>
                     </div>
                 )}
             </div>

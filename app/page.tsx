@@ -5,7 +5,14 @@ import { ResourceHeatmap } from '@/components/ResourceHeatmap';
 import { db } from '@/lib/db';
 import { Project, WikiGuide } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
-import { ArrowRight, Book, Plus, Sparkles, Target } from "lucide-react";
+import {
+  ArrowRight,
+  AltArrowRight as ArrowRightAlt,
+  Book,
+  AddCircle as Plus,
+  StarsLine as Sparkles,
+  Target
+} from "@solar-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from 'react';
 
@@ -67,13 +74,13 @@ export default function Home() {
         <div className="flex gap-3">
           <Link href="/wiki">
             <Button variant="secondary" className="rounded-2xl h-12 px-6 font-bold border-border/40">
-              <Book size={18} className="mr-2" />
+              <Book size={18} weight="Linear" className="mr-2" />
               Wiki
             </Button>
           </Link>
           <Link href="/projects">
             <Button variant="primary" className="rounded-2xl h-12 px-6 font-bold shadow-xl shadow-primary/10">
-              <Plus size={18} className="mr-2" />
+              <Plus size={18} weight="Linear" className="mr-2" />
               New Project
             </Button>
           </Link>
@@ -89,7 +96,7 @@ export default function Home() {
             <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 min-h-[200px]">
               <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform duration-500">
-                  <Target size={24} />
+                  <Target size={24} weight="Linear" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Projects</p>
@@ -101,7 +108,7 @@ export default function Home() {
                   )}
                 </div>
                 <Link href="/projects" className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Manage Board <ArrowRight size={10} />
+                  Manage Board <ArrowRight size={10} weight="Bold" />
                 </Link>
               </div>
               <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -110,7 +117,7 @@ export default function Home() {
             <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 bg-surface relative overflow-hidden group hover:border-accent/30 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5 min-h-[200px]">
               <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="w-12 h-12 rounded-2xl bg-accent/5 border border-accent/10 flex items-center justify-center text-accent group-hover:scale-110 transition-transform duration-500">
-                  <Book size={24} />
+                  <Book size={24} weight="Linear" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Wiki Guides</p>
@@ -119,7 +126,7 @@ export default function Home() {
                   )}
                 </div>
                 <Link href="/wiki" className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Explore Docs <ArrowRight size={10} />
+                  Explore Docs <ArrowRight size={10} weight="Bold" />
                 </Link>
               </div>
               <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -149,32 +156,37 @@ export default function Home() {
                 ))
               ) : recentProjects.length > 0 ? (
                 recentProjects.map((project) => (
-                  <Surface key={project.$id} className="p-6 rounded-[2rem] border border-border/40 bg-surface hover:border-primary/20 transition-all group relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                      <div className="space-y-2">
+                  <Surface key={project.$id} className="p-8 rounded-[3rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-primary/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5">
+                    <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+                      <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="font-bold">
-                            {project.status.toUpperCase()}
-                          </Chip>
-                          <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground italic">
-                            Updated {new Date(project.$createdAt).toLocaleDateString()}
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                            <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="font-black text-[9px] uppercase tracking-widest px-2 h-5 rounded-lg">
+                                {project.status}
+                            </Chip>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 italic">
+                             {new Date(project.$createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <h3 className="text-lg font-black tracking-tight group-hover:text-primary transition-colors">{project.name}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{project.description}</p>
+                        <h3 className="text-2xl font-black tracking-tighter italic group-hover:text-primary transition-colors">{project.name}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed font-medium opacity-80">{project.description}</p>
                       </div>
-                      <Link href="/projects">
-                        <Button variant="secondary" className="w-full rounded-xl font-bold italic h-10 group-hover:bg-primary group-hover:text-white transition-all border-border/40">
-                          Jump to Tasks <ArrowRight size={14} className="ml-2" />
+                      <Link href={`/projects/${project.$id}`}>
+                        <Button variant="secondary" className="w-full rounded-2xl font-black italic h-12 group-hover:bg-primary group-hover:text-white transition-all border-border/40 shadow-sm">
+                          Deep Dive <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
                         </Button>
                       </Link>
                     </div>
+                    {/* Abstract background highlight */}
+                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Surface>
                 ))
               ) : (
                 <Surface className="col-span-2 p-12 rounded-[2rem] border border-dashed border-border flex flex-col items-center text-center space-y-4">
                   <div className="p-4 rounded-2xl bg-surface-secondary text-muted-foreground">
-                    <Target size={32} />
+                    <Target size={32} weight="Linear" />
                   </div>
                   <p className="text-muted-foreground font-medium">No active projects found. Start one to see it here.</p>
                   <Link href="/projects">
@@ -189,7 +201,7 @@ export default function Home() {
           <Surface className="p-10 rounded-[3rem] bg-surface border border-border/60 overflow-hidden relative group">
             <div className="relative z-10 max-w-md space-y-6">
               <div className="p-3 w-fit rounded-2xl bg-primary/5 border border-primary/10 text-primary">
-                <Sparkles size={24} />
+                <Sparkles size={24} weight="Bold" />
               </div>
               <div className="space-y-2">
                 <h2 className="text-3xl font-black leading-tight tracking-tight">The Art of Documentation.</h2>
@@ -206,7 +218,7 @@ export default function Home() {
             {/* Visual element */}
             <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary/5 rounded-full blur-[100px]" />
             <div className="absolute right-12 bottom-0 top-0 w-1/3 hidden md:flex items-center justify-center opacity-20 pointer-events-none">
-              <Book size={200} className="text-primary rotate-12" />
+              <Book size={200} weight="Linear" className="text-primary rotate-12" />
             </div>
           </Surface>
         </div>

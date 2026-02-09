@@ -7,7 +7,12 @@ import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor,
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Header, Input, Label, Spinner } from "@heroui/react";
-import { ListChecks, MessageSquarePlus, Plus, Search } from "lucide-react";
+import {
+    Checklist as ListChecks,
+    ChatRoundDots as MessageSquarePlus,
+    AddCircle as Plus,
+    Magnifer as Search
+} from "@solar-icons/react";
 import React, { useCallback, useEffect, useState } from 'react';
 import { TaskItem } from './TaskItem';
 
@@ -131,7 +136,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
-                            <ListChecks size={20} strokeWidth={2.5} />
+                            <ListChecks size={20} weight="Bold" />
                         </div>
                         <div>
                             <h2 className="text-lg font-black tracking-tighter text-foreground">Project Roadmap</h2>
@@ -170,7 +175,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
 
                     <div className="flex items-center gap-3 flex-grow max-w-[300px]">
                         <div className="relative flex-grow group">
-                            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                            <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                             <Input 
                                 placeholder="Filter tasks..." 
                                 value={searchQuery}
@@ -187,7 +192,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                     {filteredMainTasks.length === 0 ? (
                         <div className="h-64 flex flex-col items-center justify-center text-center p-8 gap-4 border-2 border-dashed border-border/20 rounded-3xl mx-2">
                             <div className="p-4 bg-surface-secondary rounded-2xl text-muted-foreground/30">
-                                <MessageSquarePlus size={32} />
+                                <MessageSquarePlus size={32} weight="Linear" />
                             </div>
                             <div>
                                 <h3 className="text-sm font-black text-foreground/60">No tasks identified</h3>
@@ -234,7 +239,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                             isIconOnly 
                             className="absolute right-1.5 top-1.5 h-8 w-8 rounded-lg shadow-md"
                         >
-                            <Plus size={18} strokeWidth={3} />
+                            <Plus size={18} weight="Bold" />
                         </Button>
                     </form>
                 </div>

@@ -2,7 +2,16 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { Button, Surface } from '@heroui/react';
-import { Book, CheckSquare, ChevronLeft, ChevronRight, Code2, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import {
+    Book,
+    Checklist as CheckSquare,
+    AltArrowLeft as ChevronLeft,
+    AltArrowRight as ChevronRight,
+    CodeCircle as Code2,
+    Widget as LayoutDashboard,
+    Logout as LogOut,
+    Settings
+} from '@solar-icons/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -56,7 +65,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                             onPress={() => setIsCollapsed(!isCollapsed)}
                             className="p-1 h-8 w-8 rounded-lg border border-border/50 hover:bg-surface-tertiary transition-all"
                         >
-                            <ChevronLeft size={16} />
+                            <ChevronLeft size={16} weight="Linear" />
                         </Button>
                     )}
                 </div>
@@ -68,7 +77,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                         onPress={() => setIsCollapsed(!isCollapsed)}
                         className="p-1 h-8 w-8 rounded-lg border border-border/50 hover:bg-surface-tertiary transition-all"
                     >
-                        <ChevronRight size={16} />
+                        <ChevronRight size={16} weight="Linear" />
                     </Button>
                 )}
             </div>
@@ -100,7 +109,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                                     : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground'
                             }`}
                         >
-                            <Icon size={20} className={isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'} />
+                            <Icon size={20} weight={isActive ? "Bold" : "Linear"} className={isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'} />
                             {!isCollapsed && <span className="tracking-tight">{item.name}</span>}
                         </Link>
                     );
@@ -128,7 +137,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                             isCollapsed ? 'justify-center p-3' : 'px-4 py-3'
                         }`}
                     >
-                        <Settings size={20} className="group-hover:rotate-45 transition-transform" />
+                        <Settings size={20} weight="Linear" className="group-hover:rotate-45 transition-transform" />
                         {!isCollapsed && <span className="font-medium tracking-tight">Settings</span>}
                     </Link>
                     
@@ -139,7 +148,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                             isCollapsed ? 'justify-center p-3' : 'px-4 py-3'
                         }`}
                     >
-                        <LogOut size={20} />
+                        <LogOut size={20} weight="Linear" />
                         {!isCollapsed && <span className="font-medium tracking-tight">Logout</span>}
                     </button>
                 </div>

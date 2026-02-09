@@ -26,6 +26,9 @@ importers:
       '@heroui/styles':
         specifier: 3.0.0-beta.6
         version: 3.0.0-beta.6(tailwind-merge@3.4.0)(tailwindcss@4.1.18)
+      '@solar-icons/react':
+        specifier: ^1.1.0
+        version: 1.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@types/mermaid':
         specifier: ^9.2.0
         version: 9.2.0
@@ -1441,6 +1444,13 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@solar-icons/react@1.1.0':
+    resolution: {integrity: sha512-3DGDrolCV3ToaAqGHHHqambhveaTlAGv0h84bQTSUne6UbxJ95G3TiHW39w/43q1F53QylPwfS29Xa4Khy2p1w==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      react: '>= 16.8'
+      react-dom: '>= 16.8'
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -5712,6 +5722,11 @@ snapshots:
       react: 19.2.3
 
   '@rtsao/scc@1.1.0': {}
+
+  '@solar-icons/react@1.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   '@swc/helpers@0.5.15':
     dependencies:

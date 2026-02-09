@@ -5,7 +5,16 @@ import { ProjectModal } from '@/components/ProjectModal';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
-import { ArrowUpRight, Calendar, Edit, LayoutGrid, ListTodo, Plus, Trash } from "lucide-react";
+import {
+    AltArrowRight as ArrowRightAlt,
+    Calendar,
+    Pen2 as Edit,
+    Widget as LayoutGrid,
+    Checklist as ListTodo,
+    AddCircle as Plus,
+    TrashBinMinimalistic as Trash,
+    Widget
+} from "@solar-icons/react";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -81,7 +90,7 @@ export default function ProjectsPage() {
                             onPress={() => setViewMode('kanban')}
                             className="h-10 px-5 rounded-xl font-bold italic"
                         >
-                            <ListTodo size={16} className="mr-2" />
+                            <ListTodo size={16} weight="Linear" className="mr-2" />
                             Kanban
                         </Button>
                         <Button 
@@ -89,12 +98,12 @@ export default function ProjectsPage() {
                             onPress={() => setViewMode('grid')}
                             className="h-10 px-5 rounded-xl font-bold italic"
                         >
-                            <LayoutGrid size={16} className="mr-2" />
+                            <LayoutGrid size={16} weight="Linear" className="mr-2" />
                             Grid
                         </Button>
                     </div>
                     <Button variant="primary" className="rounded-2xl h-12 px-8 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
-                        <Plus size={18} className="mr-2" />
+                        <Plus size={18} weight="Linear" className="mr-2" />
                         Create
                     </Button>
                 </div>
@@ -136,7 +145,7 @@ export default function ProjectsPage() {
                                 >
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-primary transition-all">
-                                            <Plus size={20} />
+                                            <Plus size={20} weight="Linear" />
                                         </div>
                                         <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary italic">Initiate New Project</span>
                                     </div>
@@ -186,73 +195,66 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Surface className="p-0 rounded-[2.5rem] border border-border/40 bg-surface group relative overflow-hidden transition-all duration-500 hover:border-primary/20 hover:shadow-2xl hover:shadow-primary/5">
-            <article className="p-8 space-y-8">
-                <header className="flex justify-between items-start gap-4">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <LayoutGrid size={20} />
-                            </div>
-                            <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{project.name}</h3>
+        <Surface className="p-10 rounded-[3.5rem] border border-border/40 bg-surface/50 backdrop-blur-2xl group relative overflow-hidden transition-all duration-700 hover:border-primary/40 hover:-translate-y-2 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)]">
+            <div className="relative z-10 space-y-10">
+                {/* Header row: Icon, Name and Actions */}
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-5">
+                        <div className="w-16 h-16 rounded-[1.25rem] bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                            <Widget size={28} weight="Linear" />
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-bold italic uppercase tracking-widest">
-                            <Calendar size={14} className="text-primary/50" />
-                            <span>Established {new Date(project.$createdAt).toLocaleDateString()}</span>
-                        </div>
+                        <h3 className="text-2xl font-black tracking-tighter uppercase italic">{project.name}</h3>
                     </div>
-                    <div className="flex gap-1">
-                        <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8 hover:bg-primary/10 hover:text-primary" onPress={onEdit}>
-                            <Edit size={16} />
+                    <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity duration-500">
+                        <Button isIconOnly variant="ghost" size="sm" className="h-10 w-10 rounded-xl hover:bg-foreground/5" onPress={onEdit}>
+                            <Edit size={18} weight="Linear" />
                         </Button>
-                        <Button variant="ghost" isIconOnly size="sm" className="rounded-full h-8 w-8 hover:bg-danger/10 hover:text-danger" onPress={onDelete}>
-                            <Trash size={16} />
+                        <Button isIconOnly variant="ghost" size="sm" className="h-10 w-10 rounded-xl hover:bg-danger/10 hover:text-danger" onPress={onDelete}>
+                            <Trash size={18} weight="Linear" />
                         </Button>
                     </div>
-                </header>
-
-                <div className="space-y-6">
-                    {project.description && (
-                        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 italic">
-                           &quot; {project.description} &quot;
-                        </p>
-                    )}
-                    
-                    <div className="flex items-center justify-between gap-4 pt-2">
-                        <div className="flex items-center gap-2">
-                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                project.status === 'completed' ? 'bg-success/10 text-success border border-success/20' : 
-                                project.status === 'in-progress' ? 'bg-primary/10 text-primary border border-primary/20' : 
-                                'bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20'
-                            }`}>
-                                {project.status}
-                            </div>
-                        </div>
-
-                        <Link href={`/projects/${project.$id}`} className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary hover:gap-3 transition-all">
-                            View Roadmap
-                            <ArrowUpRight size={14} />
-                        </Link>
-                    </div>
-
-                    {(project.daysPerWeek || project.allocatedDays) && (
-                        <div className="flex gap-4 pt-4 border-t border-border/20 mt-4">
-                            {project.daysPerWeek && (
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">Allocation</span>
-                                    <div className="text-sm font-bold">{project.daysPerWeek} Days / Week</div>
-                                </div>
-                            )}
-                            {project.allocatedDays && (
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">Total Scope</span>
-                                    <div className="text-sm font-bold">{project.allocatedDays} Days Total</div>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
-            </article>
+
+                {/* Established line */}
+                <div className="flex items-center gap-3">
+                    <Calendar size={18} weight="Linear" className="text-primary/60" />
+                    <span className="text-xs font-black uppercase tracking-[0.2em] italic opacity-80">
+                        Established {new Date(project.$createdAt).toLocaleDateString()}
+                    </span>
+                </div>
+
+                {/* Status and Link row */}
+                <div className="flex items-center justify-between">
+                    <Chip 
+                        variant="soft" 
+                        className="h-10 px-6 rounded-full font-black uppercase tracking-widest text-[10px] bg-foreground/5 border border-border/50"
+                    >
+                        {project.status.replace('-', ' ')}
+                    </Chip>
+                    <Link href={`/projects/${project.$id}`} className="group/link flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:text-primary transition-colors">
+                        View Roadmap <ArrowRightAlt size={18} weight="Bold" className="transition-transform group-hover/link:translate-x-1" />
+                    </Link>
+                </div>
+
+                {/* Allocation footer */}
+                <div className="space-y-3 pt-6 border-t border-border/30">
+                    <p className="text-[10px] font-black uppercase tracking-[.3em] opacity-40">Allocation</p>
+                    <div className="flex gap-8">
+                        {(project.daysPerWeek || 1) && (
+                            <div className="text-xl font-black italic">
+                                {project.daysPerWeek || 1} Days / Week
+                            </div>
+                        )}
+                        {project.allocatedDays && (
+                            <div className="text-xl font-black italic opacity-40">
+                                {project.allocatedDays} Days Total
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            {/* Corner gradient for depth */}
+            <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/5 rounded-full blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
         </Surface>
     );
 }
