@@ -32,6 +32,7 @@ This document outlines the required database, collections, and attributes for **
 | `timeSpent` | Integer | - | No | Seconds spent on task. |
 | `isTimerRunning` | Boolean | - | No | Active timer status. |
 | `timerStartedAt` | String (ISO) | - | No | Time when current timer started. |
+| `timeEntries` | String Array | 255 | No | Historical log of time entries (JSON stringified). |
 | `order` | Integer | - | No | Display order for DnD. |
 
 ### 3. Wiki Guides
@@ -54,15 +55,15 @@ This document outlines the required database, collections, and attributes for **
 | `notes` | String (Markdown) | 16384 | No | Specific installation notes or instructions. |
 | `tasks` | String Array | 255 | No | Templated checklist tasks to apply to projects. |
 
-### 5. Activity (Recommended)
-- **Collection ID:** `activity` (Add this to `NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID` in `.env.local`)
+### 5. Activity
+- **Collection ID:** `activity`
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
 | `type` | String | 32 | Yes | `create`, `update`, `complete`, `delete`. |
-| `folder` | String | 32 | Yes | `Project`, `Task`, `Wiki`. |
-| `name` | String | 128 | Yes | Name of the entity being modified. |
-| `timestamp` | String (ISO) | - | Yes | When the activity occurred. |
+| `entityType` | String | 32 | Yes | `Project`, `Task`, `Wiki`, `Installation`. |
+| `entityName` | String | 128 | Yes | Name of the entity being modified. |
+| `projectId` | String | 36 | No | Associated project ID. |
 
 ---
 

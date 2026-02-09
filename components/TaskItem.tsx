@@ -3,13 +3,15 @@
 import { Task } from '@/types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, Checkbox, Input } from '@heroui/react';
+import { Button, Checkbox, Input, Surface, Tooltip } from '@heroui/react';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
-import { ChevronDown, ChevronRight, GripVertical, Pause, Play, Trash } from 'lucide-react';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { Calendar, ChevronDown, ChevronRight, GripVertical, History, Pause, Play, Plus, Trash } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 dayjs.extend(duration);
+dayjs.extend(relativeTime);
 
 interface TaskItemProps {
     task: Task;
@@ -25,6 +27,12 @@ export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, sub
     const [isExpanded, setIsExpanded] = useState(false);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [currentTime, setCurrentTime] = useState(task.timeSpent || 0);
+    const [prevTaskTime, setPrevTaskTime] = useState(task.timeSpent);
+
+    if (task.timeSpent !== prevTaskTime) {
+        setPrevTaskTime(task.timeSpent);
+        setCurrentTime(task.timeSpent || 0);
+    }
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -33,85 +41,114 @@ export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, sub
     };
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: NodeJS.Timeout | undefined;
         if (task.isTimerRunning && task.timerStartedAt) {
             interval = setInterval(() => {
                 const elapsedSinceStart = dayjs().diff(dayjs(task.timerStartedAt), 'second');
                 setCurrentTime((task.timeSpent || 0) + elapsedSinceStart);
             }, 1000);
         }
-        return () => clearInterval(interval);
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [task.isTimerRunning, task.timerStartedAt, task.timeSpent]);
 
     const handleToggleTimer = () => {
+        const now = dayjs();
         if (task.isTimerRunning) {
-            const elapsedSinceStart = dayjs().diff(dayjs(task.timerStartedAt), 'second');
+            const elapsedSinceStart = now.diff(dayjs(task.timerStartedAt), 'second');
+            const totalTime = (task.timeSpent || 0) + elapsedSinceStart;
+            
+            // Record time entry for today
+            const today = now.format('YYYY-MM-DD');
+            const existingEntries = task.timeEntries || [];
+            const newEntries = [...existingEntries];
+            
+            const todayEntryIndex = newEntries.findIndex(e => JSON.parse(e).date === today);
+            if (todayEntryIndex > -1) {
+                const entry = JSON.parse(newEntries[todayEntryIndex]);
+                entry.seconds += elapsedSinceStart;
+                newEntries[todayEntryIndex] = JSON.stringify(entry);
+            } else {
+                newEntries.push(JSON.stringify({ date: today, seconds: elapsedSinceStart }));
+            }
+
             onUpdate(task.$id, {
                 isTimerRunning: false,
-                timeSpent: (task.timeSpent || 0) + elapsedSinceStart,
-                timerStartedAt: undefined
+                timeSpent: totalTime,
+                timerStartedAt: undefined,
+                timeEntries: newEntries
             });
         } else {
             onUpdate(task.$id, {
                 isTimerRunning: true,
-                timerStartedAt: dayjs().toISOString()
+                timerStartedAt: now.toISOString()
             });
         }
     };
 
     const formatTime = (seconds: number) => {
         const dur = dayjs.duration(seconds, 'seconds');
-        if (seconds >= 3600) return dur.format('HH:mm:ss');
-        return dur.format('mm:ss');
+        if (seconds >= 3600) {
+            return `${Math.floor(dur.asHours())}h ${dur.minutes()}m`;
+        }
+        return `${dur.minutes()}m ${dur.seconds()}s`;
     };
 
+const parsedTimeEntries = (task.timeEntries || []).map(e => {
+        try {
+            return JSON.parse(e) as { date: string, seconds: number };
+        } catch {
+            return { date: dayjs().format('YYYY-MM-DD'), seconds: 0 };
+        }
+    });
+
     return (
-        <div ref={setNodeRef} style={style} className="group flex flex-col gap-2 p-2 bg-surface border border-border rounded-xl transition-all hover:border-primary/50">
-            <div className="flex items-center gap-3">
-                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+        <Surface 
+            ref={setNodeRef} 
+            style={style} 
+            className={`group flex flex-col gap-0 rounded-[1.75rem] border transition-all duration-300 overflow-hidden ${
+                isDragging ? 'border-primary shadow-2xl z-50 bg-surface-lowest scale-[1.02]' : 'border-border/40 hover:border-primary/20 bg-surface-lowest shadow-sm'
+            }`}
+        >
+            {/* Header / Title Row */}
+            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/20 hover:text-primary transition-colors">
                     <GripVertical size={16} />
                 </div>
-                <Checkbox 
-                    isSelected={task.completed} 
-                    onChange={(val: boolean) => onToggle(task.$id, val)}
-                >
-                    <Checkbox.Control>
-                        <Checkbox.Indicator />
-                    </Checkbox.Control>
-                </Checkbox>
-                <span className={`flex-grow text-sm ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground font-medium'}`}>
-                    {task.title}
-                </span>
                 
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="flex items-center gap-1 bg-secondary/20 px-2 py-1 rounded-md text-[10px] tabular-nums font-mono">
-                        {formatTime(currentTime)}
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            isIconOnly 
-                            className="h-5 w-5 ml-1" 
-                            onPress={handleToggleTimer}
-                        >
-                            {task.isTimerRunning ? <Pause size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
-                        </Button>
-                    </div>
-                    
+                <div className="flex-shrink-0">
+                    <Checkbox 
+                        isSelected={task.completed} 
+                        onChange={(val: boolean) => onToggle(task.$id, val)}
+                    >
+                        <Checkbox.Control className="size-6 rounded-lg border-2">
+                            <Checkbox.Indicator />
+                        </Checkbox.Control>
+                    </Checkbox>
+                </div>
+
+                <div className="flex-grow min-w-0">
+                    <span className={`text-[15px] font-black tracking-tight leading-tight block truncate transition-all ${
+                        task.completed ? 'line-through text-muted-foreground/30 italic font-bold' : 'text-foreground'
+                    }`}>
+                        {task.title}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1">
                     <Button 
                         variant="ghost" 
-                        size="sm" 
                         isIconOnly 
-                        className="h-7 w-7" 
+                        className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground/30 hover:text-foreground'}`}
                         onPress={() => setIsExpanded(!isExpanded)}
                     >
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </Button>
-                    
                     <Button 
                         variant="ghost" 
-                        size="sm" 
                         isIconOnly 
-                        className="h-7 w-7 text-danger" 
+                        className="h-8 w-8 rounded-xl text-muted-foreground/10 hover:text-danger hover:bg-danger/10 transition-all opacity-0 group-hover:opacity-100"
                         onPress={() => onDelete(task.$id)}
                     >
                         <Trash size={14} />
@@ -119,23 +156,111 @@ export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, sub
                 </div>
             </div>
 
-            {isExpanded && (
-                <div className="ml-10 space-y-2 pb-2">
-                    {subtasks.map((sub) => (
-                        <div key={sub.$id} className="flex items-center gap-2 py-1">
-                            <Checkbox 
-                                isSelected={sub.completed} 
-                                onChange={(val: boolean) => onToggle(sub.$id, val)}
-                            >
-                                <Checkbox.Control className="size-4">
-                                    <Checkbox.Indicator />
-                                </Checkbox.Control>
-                            </Checkbox>
-                            <span className={`text-xs ${sub.completed ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}>
-                                {sub.title}
+            {/* Interaction / Metadata Row */}
+            <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
+                <div className="flex items-center gap-2 flex-grow overflow-hidden">
+                    <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-surface-secondary border border-border/10 whitespace-nowrap">
+                        <Plus size={10} className="text-muted-foreground/60" />
+                        <span className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/80">{subtasks.length} sub objectives</span>
+                    </div>
+                    
+                    {task.timeSpent && task.timeSpent > 0 && (
+                        <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-primary/5 border border-primary/10 whitespace-nowrap overflow-hidden">
+                            <History size={10} className="text-primary/60" />
+                            <span className="text-[9px] uppercase font-black tracking-widest text-primary/80 truncate">
+                                {formatTime(task.timeSpent)} cumulative
                             </span>
                         </div>
-                    ))}
+                    )}
+                </div>
+
+                <div className={`flex items-center gap-2 pl-3 pr-1 py-1 rounded-2xl border transition-all duration-500 shrink-0 ${
+                    task.isTimerRunning 
+                        ? 'bg-primary border-primary text-white shadow-lg shadow-primary/30' 
+                        : 'bg-surface-secondary/50 border-border/20 text-foreground shadow-inner'
+                }`}>
+                    <span className={`text-[11px] font-black tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
+                        {dayjs.duration(currentTime, 'seconds').format(currentTime >= 3600 ? 'HH:mm:ss' : 'mm:ss')}
+                    </span>
+                    
+                    <Button 
+                        variant="ghost" 
+                        isIconOnly 
+                        className={`h-8 w-8 rounded-xl transition-all active:scale-90 ${
+                            task.isTimerRunning ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-white hover:bg-white/90 text-primary shadow-sm'
+                        }`}
+                        onPress={handleToggleTimer}
+                    >
+                        {task.isTimerRunning ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
+                    </Button>
+
+                    {parsedTimeEntries.length > 0 && (
+                        <Tooltip delay={0}>
+                            <Tooltip.Trigger>
+                                <Button variant="ghost" isIconOnly className={`h-8 w-8 rounded-xl transition-colors ${task.isTimerRunning ? 'text-white/60 hover:text-white' : 'text-muted-foreground/40 hover:text-foreground'}`}>
+                                   <History size={14} />
+                                </Button>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content showArrow placement="top">
+                                <Tooltip.Arrow />
+                                <div className="p-3 space-y-3 min-w-[220px]">
+                                    <div className="flex items-center justify-between border-b border-border/20 pb-2">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Time Records</p>
+                                        <span className="text-[9px] font-bold text-muted-foreground/60">{parsedTimeEntries.length} entries</span>
+                                    </div>
+                                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1 flex flex-col">
+                                        {parsedTimeEntries.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((entry, i) => (
+                                            <div key={i} className="flex items-center justify-between py-1.5 px-2.5 rounded-xl hover:bg-surface-secondary transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar size={12} className="text-muted-foreground/40" />
+                                                    <span className="text-[11px] font-bold text-foreground/80">{dayjs(entry.date).format('MMM D, YYYY')}</span>
+                                                </div>
+                                                <span className="font-black text-[10px] tabular-nums text-primary/80">
+                                                    {formatTime(entry.seconds)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </Tooltip.Content>
+                        </Tooltip>
+                    )}
+                </div>
+            </div>
+
+            {isExpanded && (
+                <div className="mx-4 mb-4 mt-2 p-5 bg-surface-secondary/30 rounded-[1.25rem] border border-border/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Sub-Task Management</h5>
+                        <span className="text-[9px] font-bold text-primary/60 bg-primary/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Completed</span>
+                    </div>
+
+                    <div className="space-y-2">
+                        {subtasks.map((sub) => (
+                            <div key={sub.$id} className="flex items-center gap-3 p-2 bg-surface-lowest/50 rounded-xl border border-border/10 hover:border-primary/20 transition-all group/sub">
+                                <Checkbox 
+                                    isSelected={sub.completed} 
+                                    onChange={(val: boolean) => onToggle(sub.$id, val)}
+                                >
+                                    <Checkbox.Control className="size-4 rounded-md">
+                                        <Checkbox.Indicator />
+                                    </Checkbox.Control>
+                                </Checkbox>
+                                <span className={`text-xs font-bold leading-tight flex-grow ${sub.completed ? 'line-through text-muted-foreground/40 italic font-medium' : 'text-foreground/80'}`}>
+                                    {sub.title}
+                                </span>
+                                <Button 
+                                    variant="ghost" 
+                                    isIconOnly 
+                                    className="h-6 w-6 rounded-lg opacity-0 group-hover/sub:opacity-100 hover:text-danger"
+                                    onPress={() => onDelete(sub.$id)}
+                                >
+                                    <Trash size={12} />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+
                     <form 
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -144,17 +269,20 @@ export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, sub
                                 setNewSubtaskTitle('');
                             }
                         }}
-                        className="flex gap-2"
+                        className="relative"
                     >
                         <Input 
-                            placeholder="Add sub-task..." 
+                            placeholder="Add actionable sub-task..." 
                             value={newSubtaskTitle}
                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                            className="h-7 text-xs bg-transparent border-dashed"
+                            className="h-11 rounded-xl bg-surface-lowest border-dashed border-2 border-border/30 focus:border-primary/40 transition-all pl-4 pr-12 text-sm font-medium"
                         />
+                        <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary">
+                            <Plus size={16} />
+                        </Button>
                     </form>
                 </div>
             )}
-        </div>
+        </Surface>
     );
 }

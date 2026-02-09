@@ -17,6 +17,7 @@ export interface Task {
     isTimerRunning?: boolean;
     timerStartedAt?: string;
     order?: number;
+    timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
 }
 
 export interface WikiGuide {

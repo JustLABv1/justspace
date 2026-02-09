@@ -6,8 +6,8 @@ import { Task } from '@/types';
 import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Header, Input, Label, Spinner, TextField } from "@heroui/react";
-import { ClipboardCheck, Plus } from "lucide-react";
+import { Button, Dropdown, Header, Input, Label, Spinner, Surface } from "@heroui/react";
+import { ListChecks, MessageSquarePlus, Plus, Search } from "lucide-react";
 import React, { useCallback, useEffect, useState } from 'react';
 import { TaskItem } from './TaskItem';
 
@@ -16,9 +16,14 @@ export function TaskList({ projectId }: { projectId: string }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const sensors = useSensors(
-        useSensor(PointerSensor),
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
@@ -109,84 +114,130 @@ export function TaskList({ projectId }: { projectId: string }) {
         }
     };
 
-    if (isLoading) return <Spinner size="sm" />;
+    if (isLoading) return (
+        <div className="h-64 flex items-center justify-center">
+            <Spinner color="accent" />
+        </div>
+    );
 
-    const mainTasks = tasks.filter(t => !t.parentId);
+    const filteredMainTasks = tasks.filter(t => 
+        !t.parentId && 
+        t.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Project Tasks</h4>
-                    <Dropdown>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            isIconOnly 
-                            className="h-6 w-6 text-muted-foreground hover:text-accent"
-                            isPending={isApplyingTemplate}
-                        >
-                            <ClipboardCheck size={14} />
-                        </Button>
-                        <Dropdown.Popover>
-                            <Dropdown.Menu className="w-64">
-                                <Dropdown.Section>
-                                    <Header className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">Deployment Checklists</Header>
-                                    {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
-                                        <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
-                                            <Label>{tpl.name}</Label>
-                                        </Dropdown.Item>
-                                    ))}
-                                </Dropdown.Section>
-                            </Dropdown.Menu>
-                        </Dropdown.Popover>
-                    </Dropdown>
+        <div className="flex flex-col h-full gap-6">
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
+                        <ListChecks size={20} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black tracking-tighter text-foreground">Project Roadmap</h2>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">
+                                {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
+                            </p>
+                            <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                            <Dropdown>
+                                <Dropdown.Trigger>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-5 px-1.5 text-[9px] uppercase font-bold tracking-widest text-primary hover:bg-primary/5 border-none"
+                                        isPending={isApplyingTemplate}
+                                    >
+                                        Templates
+                                    </Button>
+                                </Dropdown.Trigger>
+                                <Dropdown.Popover>
+                                    <Dropdown.Menu className="w-64">
+                                        <Dropdown.Section>
+                                            <Header className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">Deployment Checklists</Header>
+                                            {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
+                                                <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
+                                                    <Label>{tpl.name}</Label>
+                                                </Dropdown.Item>
+                                            ))}
+                                        </Dropdown.Section>
+                                    </Dropdown.Menu>
+                                </Dropdown.Popover>
+                            </Dropdown>
+                        </div>
+                    </div>
                 </div>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent/10 text-accent">
-                    {tasks.filter(t => t.completed).length}/{tasks.length} Done
-                </span>
+
+                <div className="flex items-center gap-3 flex-grow max-w-md">
+                    <div className="relative flex-grow group">
+                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                        <Input 
+                            placeholder="Filter active tasks..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full h-11 bg-surface-lowest border-border/40 hover:border-primary/20 focus:border-primary/40 rounded-2xl pl-10 text-sm font-medium transition-all"
+                        />
+                    </div>
+                </div>
             </div>
 
-            <DndContext 
-                sensors={sensors} 
-                collisionDetection={closestCenter} 
-                onDragEnd={handleDragEnd}
-                modifiers={[restrictToVerticalAxis]}
-            >
-                <SortableContext items={mainTasks.map(t => t.$id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2">
-                        {mainTasks.map((task) => (
-                            <TaskItem 
-                                key={task.$id} 
-                                task={task} 
-                                onToggle={(id, completed) => updateTask(id, { completed })}
-                                onDelete={(id) => db.deleteTask(id).then(fetchTasks)}
-                                onUpdate={updateTask}
-                                onAddSubtask={(title) => handleAddSubtask(task.$id, title)}
-                                subtasks={tasks.filter(t => t.parentId === task.$id)}
-                            />
-                        ))}
-                    </div>
-                </SortableContext>
-            </DndContext>
+            <Surface className="flex-grow flex flex-col p-2 bg-surface-lowest border border-border/30 rounded-[2rem] overflow-hidden shadow-sm">
+                <div className="flex-grow overflow-y-auto custom-scrollbar p-5 space-y-4 min-h-[450px]">
+                    {filteredMainTasks.length === 0 ? (
+                        <div className="h-64 flex flex-col items-center justify-center text-center p-8 gap-4 border-2 border-dashed border-border/20 rounded-3xl mx-2">
+                            <div className="p-4 bg-surface-secondary rounded-2xl text-muted-foreground/30">
+                                <MessageSquarePlus size={32} />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black text-foreground/60">No tasks identified</h3>
+                                <p className="text-xs text-muted-foreground font-medium mt-1">Start by adding your first milestone below.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <DndContext 
+                            sensors={sensors} 
+                            collisionDetection={closestCenter} 
+                            onDragEnd={handleDragEnd}
+                            modifiers={[restrictToVerticalAxis]}
+                        >
+                            <SortableContext items={filteredMainTasks.map(t => t.$id)} strategy={verticalListSortingStrategy}>
+                                <div className="space-y-3">
+                                    {filteredMainTasks.map((task) => (
+                                        <TaskItem 
+                                            key={task.$id} 
+                                            task={task} 
+                                            onToggle={(id, completed) => updateTask(id, { completed })}
+                                            onDelete={(id) => db.deleteTask(id).then(fetchTasks)}
+                                            onUpdate={updateTask}
+                                            onAddSubtask={(title) => handleAddSubtask(task.$id, title)}
+                                            subtasks={tasks.filter(t => t.parentId === task.$id)}
+                                        />
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        </DndContext>
+                    )}
+                </div>
 
-            <form onSubmit={handleAddTask} className="flex gap-2 pt-2">
-                <TextField 
-                    name="task"
-                    value={newTaskTitle}
-                    onChange={setNewTaskTitle}
-                    className="flex-1"
-                >
-                    <Input 
-                        placeholder="Add a priority task..." 
-                        aria-label="New task title"
-                        className="bg-surface-secondary border-none h-11"
-                    />
-                </TextField>
-                <Button isIconOnly size="md" variant="primary" type="submit" className="rounded-xl shadow-lg shadow-primary/20 h-11 w-11">
-                    <Plus size={18} />
-                </Button>
-            </form>
+                <div className="p-4 bg-surface-secondary/50 border-t border-border/20">
+                    <form onSubmit={handleAddTask} className="relative group">
+                        <Input 
+                            value={newTaskTitle}
+                            onChange={(e) => setNewTaskTitle(e.target.value)}
+                            placeholder="Add a new milestone or objective..." 
+                            className="h-14 bg-surface-lowest border-2 border-border/40 hover:border-primary/30 focus:border-primary rounded-[1.25rem] pl-6 pr-16 text-sm font-bold placeholder:font-medium transition-all shadow-sm"
+                        />
+                        <Button 
+                            type="submit" 
+                            variant="primary" 
+                            isIconOnly 
+                            className="absolute right-2 top-2 h-10 w-10 rounded-xl shadow-md"
+                        >
+                            <Plus size={20} strokeWidth={3} />
+                        </Button>
+                    </form>
+                </div>
+            </Surface>
         </div>
     );
 }
+

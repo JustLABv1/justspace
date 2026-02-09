@@ -4,6 +4,7 @@ import { Surface } from '@heroui/react';
 import { Book, CheckSquare, LayoutDashboard, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 const Sidebar = () => {
     const pathname = usePathname();
@@ -17,14 +18,17 @@ const Sidebar = () => {
     return (
         <Surface variant="secondary" className="w-72 min-h-screen flex flex-col p-6 border-r border-border/50 bg-gradient-to-b from-surface to-surface-secondary">
             <div className="mb-12 flex flex-col">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-                        <span className="font-black text-xl italic mt-1">J</span>
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                            <span className="font-black text-xl italic mt-1">J</span>
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tighter text-foreground leading-none">justspace</h1>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground ml-0.5 mt-1 block">Internal Hub</span>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-black tracking-tighter text-foreground leading-none">justspace</h1>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground ml-0.5 mt-1 block">Internal Hub</span>
-                    </div>
+                    <ThemeSwitcher />
                 </div>
             </div>
             
