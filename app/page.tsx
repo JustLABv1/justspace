@@ -46,9 +46,9 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="max-w-[1400px] mx-auto p-6 md:p-12 space-y-12">
+    <div className="max-w-[1400px] mx-auto p-6 md:p-10 space-y-8">
       {/* Refined Header */}
-      <section className="flex flex-col md:flex-row md:items-center justify-between gap-8 pb-4">
+      <section className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-primary font-bold tracking-widest uppercase text-xs">
             <Sparkles size={14} className="animate-pulse" />

@@ -37,17 +37,17 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                         <Modal.Body className="p-8">
                             <p className="text-muted-foreground font-medium leading-relaxed">{message}</p>
                         </Modal.Body>
-                        <Modal.Footer className="px-8 py-6 bg-surface-secondary/50 border-t border-border/20 flex justify-end gap-3">
-                            <Button variant="ghost" className="rounded-xl font-bold" onPress={onClose}>
-                                Retain
+                        <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
+                            <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold text-sm" onPress={onClose}>
+                                Cancel
                             </Button>
                             <Button 
                                 variant="danger" 
-                                className="rounded-xl font-black uppercase tracking-widest px-6 shadow-lg shadow-danger/20" 
+                                className="rounded-xl h-10 px-8 font-black uppercase tracking-widest text-sm shadow-lg shadow-danger/10" 
                                 onPress={handleConfirm} 
                                 isPending={isLoading}
                             >
-                                Purge
+                                Confirm Delete
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

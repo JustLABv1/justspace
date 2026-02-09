@@ -3,8 +3,8 @@
 import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { usePathname } from 'next/navigation';
-import React from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -19,10 +19,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 function AuthBoundary({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
     const { user, isLoading } = useAuth();
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const isAuthPage = pathname === '/login' || pathname === '/signup';
 
-    if (isLoading) {
+    useEffect(() => {
+        const saved = localStorage.getItem('sidebar-collapsed');
+        if (saved !== null) {
+            setIsCollapsed(saved === 'true');
+        }
+        setMounted(true);
+    }, []);
+
+    const toggleCollapse = (value: boolean) => {
+        setIsCollapsed(value);
+        localStorage.setItem('sidebar-collapsed', String(value));
+    };
+
+    useEffect(() => {
+        if (!isLoading && !user && !isAuthPage) {
+            router.push('/login');
+        }
+    }, [user, isLoading, isAuthPage, router]);
+
+    if (isLoading || !mounted) {
         return <div className="flex h-screen w-screen items-center justify-center">Loading...</div>;
     }
 
@@ -30,15 +52,14 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
-    // Optional: Redirect to login if not authenticated
-    // if (!user) {
-    //     return <RedirectToLogin />;
-    // }
+    if (!user) {
+        return null;
+    }
 
     return (
-        <div className="flex">
-            <Sidebar />
-            <main className="flex-1 min-h-screen bg-background overflow-auto">
+        <div className="flex bg-background h-screen overflow-hidden p-4 gap-4">
+            <Sidebar isCollapsed={isCollapsed} setIsCollapsed={toggleCollapse} />
+            <main className="flex-1 bg-surface-secondary/30 rounded-[2.5rem] border border-border/40 overflow-y-auto shadow-sm no-scrollbar">
                 {children}
             </main>
         </div>

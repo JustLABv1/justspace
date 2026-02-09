@@ -2,84 +2,144 @@
 
 import { db } from "@/lib/db";
 import { ActivityLog } from "@/types";
-import { Surface } from "@heroui/react";
+import { Button, Spinner, Surface } from "@heroui/react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { Activity, CheckCircle, Clock, FileText, PlusCircle, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Activity, CheckCircle, Clock, FileText, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 dayjs.extend(relativeTime);
 
 export function ActivityFeed() {
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const fetchActivity = useCallback(async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
+        else setRefreshing(true);
+        try {
+            const res = await db.listActivity();
+            if (res) {
+                setActivities(res.documents);
+            }
+        } catch (e) {
+            console.error('Activity Feed Error:', e);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchActivity = async () => {
-            try {
-                const res = await db.listActivity();
-                setActivities(res.documents);
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchActivity();
-    }, []);
+        
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(() => fetchActivity(true), 30000);
+        return () => clearInterval(interval);
+    }, [fetchActivity]);
 
     if (loading) {
         return (
-            <Surface variant="secondary" className="p-6 rounded-3xl border border-border h-full flex items-center justify-center">
-                <div className="animate-pulse text-muted-foreground">Loading activity...</div>
+            <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 h-full flex flex-col items-center justify-center space-y-4">
+                <Spinner size="lg" color="primary" />
+                <div className="text-muted-foreground font-medium animate-pulse">Syncing activities...</div>
             </Surface>
         );
     }
 
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'create': return <PlusCircle size={14} className="text-accent" />;
+            case 'complete': return <CheckCircle size={14} className="text-success" />;
+            case 'update': return <FileText size={14} className="text-primary" />;
+            case 'delete': return <Trash2 size={14} className="text-danger" />;
+            default: return <Activity size={14} className="text-muted-foreground" />;
+        }
+    };
+
+    const getActionText = (type: string) => {
+        switch (type) {
+            case 'create': return 'Created';
+            case 'complete': return 'Completed';
+            case 'delete': return 'Deleted';
+            case 'update': return 'Modified';
+            default: return 'Updated';
+        }
+    };
+
     return (
-        <Surface variant="secondary" className="p-6 rounded-3xl border border-border h-full">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold flex items-center gap-2">
-                    <Activity size={20} className="text-primary" />
-                    Recent Activity
+        <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 h-full flex flex-col bg-surface shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+                <h3 className="font-black text-xl flex items-center gap-3 tracking-tight">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                        <Activity size={20} />
+                    </div>
+                    Activity Feed
                 </h3>
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onPress={() => fetchActivity(true)}
+                    className="h-9 w-9 p-0 rounded-xl hover:bg-surface-tertiary transition-all"
+                    isPending={refreshing}
+                >
+                    <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                </Button>
             </div>
-            <div className="space-y-6">
+
+            <div className="flex-1 space-y-8 overflow-y-auto pr-2 custom-scrollbar">
                 {activities.length === 0 ? (
-                    <div className="text-center py-10 text-muted-foreground text-sm">
-                        No recent activity found.
+                    <div className="text-center py-20 flex flex-col items-center justify-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-surface-secondary flex items-center justify-center text-muted-foreground/30">
+                            <Activity size={32} />
+                        </div>
+                        <p className="text-muted-foreground font-medium">No recent activity found.</p>
                     </div>
                 ) : (
-                    activities.map((activity) => (
-                        <div key={activity.$id} className="relative pl-8">
+                    activities.map((activity, idx) => (
+                        <div key={activity.$id} className="relative pl-10 group">
                             {/* Connection Line */}
-                            <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-border last:hidden" />
+                            {idx !== activities.length - 1 && (
+                                <div className="absolute left-[15px] top-8 bottom-[-32px] w-[2px] bg-gradient-to-b from-border/50 to-transparent" />
+                            )}
                             
-                            {/* Icon */}
-                            <div className="absolute left-0 top-1 p-1.5 rounded-full bg-surface border border-border z-10">
-                                {activity.type === 'create' && <PlusCircle size={14} className="text-accent" />}
-                                {activity.type === 'complete' && <CheckCircle size={14} className="text-success" />}
-                                {activity.type === 'update' && <FileText size={14} className="text-primary" />}
-                                {activity.type === 'delete' && <Trash2 size={14} className="text-danger" />}
+                            {/* Icon Container */}
+                            <div className="absolute left-0 top-0.5 w-8 h-8 rounded-xl bg-surface-secondary border border-border/50 flex items-center justify-center z-10 group-hover:border-primary/50 transition-colors shadow-sm">
+                                {getIcon(activity.type)}
                             </div>
 
-                            <div className="flex flex-col">
-                                <span className="text-sm font-medium">
-                                    <span className="text-muted-foreground">
-                                        {activity.type === 'create' ? 'Created new' : 
-                                         activity.type === 'complete' ? 'Completed' : 
-                                         activity.type === 'delete' ? 'Deleted' : 'Updated'} 
+                            <div className="flex flex-col space-y-1">
+                                <div className="text-sm leading-tight">
+                                    <span className="font-bold text-foreground">
+                                        {getActionText(activity.type)}
                                     </span>
-                                    {' '}{activity.entityType}: {activity.entityName}
-                                </span>
-                                <span className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                                    <Clock size={10} />
-                                    {dayjs(activity.$createdAt).fromNow()}
-                                </span>
+                                    <span className="text-muted-foreground mx-1.5 font-medium">{activity.entityType.toLowerCase()}</span>
+                                    <span className="font-bold text-foreground truncate inline-block max-w-[180px] align-bottom">
+                                        {activity.entityName}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                                    <span className="flex items-center gap-1">
+                                        <Clock size={10} />
+                                        {dayjs(activity.$createdAt).fromNow()}
+                                    </span>
+                                    {activity.projectId && (
+                                        <span className="bg-surface-tertiary px-2 py-0.5 rounded-md border border-border/30">
+                                            ID: {activity.projectId.substring(0, 6)}...
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))
                 )}
+            </div>
+            
+            <div className="mt-8 pt-6 border-t border-border/20">
+                <p className="text-[10px] font-bold text-center text-muted-foreground uppercase tracking-[0.2em]">
+                    Real-time Synchronization Active
+                </p>
             </div>
         </Surface>
     );

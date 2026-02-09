@@ -126,26 +126,26 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     );
 
     return (
-        <div className="flex flex-col h-full gap-6">
+        <div className="flex flex-col h-full gap-4">
             {!hideHeader && (
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
                             <ListChecks size={20} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black tracking-tighter text-foreground">Project Roadmap</h2>
+                            <h2 className="text-lg font-black tracking-tighter text-foreground">Project Roadmap</h2>
                             <div className="flex items-center gap-2 mt-0.5">
-                                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">
+                                <p className="text-[9px] uppercase font-bold tracking-widest text-muted-foreground/60">
                                     {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
                                 </p>
-                                <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                                <div className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
                                 <Dropdown>
                                     <Dropdown.Trigger>
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
-                                            className="h-5 px-1.5 text-[9px] uppercase font-bold tracking-widest text-primary hover:bg-primary/5 border-none"
+                                            className="h-4 px-1.5 text-[8px] uppercase font-bold tracking-widest text-primary hover:bg-primary/5 border-none"
                                             isPending={isApplyingTemplate}
                                         >
                                             Templates
@@ -157,7 +157,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                                 <Header className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">Deployment Checklists</Header>
                                                 {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
                                                     <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
-                                                        <Label>{tpl.name}</Label>
+                                                        <Label className="text-xs font-semibold">{tpl.name}</Label>
                                                     </Dropdown.Item>
                                                 ))}
                                             </Dropdown.Section>
@@ -168,14 +168,14 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-grow max-w-md">
+                    <div className="flex items-center gap-3 flex-grow max-w-[300px]">
                         <div className="relative flex-grow group">
                             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
                             <Input 
-                                placeholder="Filter active tasks..." 
+                                placeholder="Filter tasks..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-11 bg-surface-lowest border-border/40 hover:border-primary/20 focus:border-primary/40 rounded-2xl pl-10 text-sm font-medium transition-all"
+                                className="w-full h-10 bg-surface border-border/40 hover:border-primary/20 focus:border-primary/40 rounded-xl pl-9 text-xs font-medium transition-all"
                             />
                         </div>
                     </div>
@@ -220,21 +220,21 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                     )}
                 </div>
 
-                <div className="p-4 bg-surface-secondary/50 border-t border-border/20">
+                <div className="p-3 bg-surface-secondary/30 border-t border-border/20">
                     <form onSubmit={handleAddTask} className="relative group">
                         <Input 
                             value={newTaskTitle}
                             onChange={(e) => setNewTaskTitle(e.target.value)}
-                            placeholder="Add a new milestone or objective..." 
-                            className="h-14 bg-surface-lowest border-2 border-border/40 hover:border-primary/30 focus:border-primary rounded-[1.25rem] pl-6 pr-16 text-sm font-bold placeholder:font-medium transition-all shadow-sm"
+                            placeholder="Add a new milestone..." 
+                            className="h-11 bg-surface border border-border/40 hover:border-primary/30 focus:border-primary rounded-xl pl-5 pr-14 text-sm font-bold transition-all"
                         />
                         <Button 
                             type="submit" 
                             variant="primary" 
                             isIconOnly 
-                            className="absolute right-2 top-2 h-10 w-10 rounded-xl shadow-md"
+                            className="absolute right-1.5 top-1.5 h-8 w-8 rounded-lg shadow-md"
                         >
-                            <Plus size={20} strokeWidth={3} />
+                            <Plus size={18} strokeWidth={3} />
                         </Button>
                     </form>
                 </div>

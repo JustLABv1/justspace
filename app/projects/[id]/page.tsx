@@ -60,41 +60,41 @@ export default function ProjectDetailPage() {
     if (!project) return null;
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-12 space-y-10">
-            <header className="flex flex-col gap-6">
-                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-bold text-xs uppercase tracking-widest">
-                    <ArrowLeft size={14} />
-                    Back to Pipeline
+        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
+            <header className="flex flex-col gap-4">
+                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-bold text-[10px] uppercase tracking-widest">
+                    <ArrowLeft size={12} />
+                    Back to Projects
                 </Link>
                 
-                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-                    <div className="space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                    <div className="space-y-3">
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-[2rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl shadow-primary/5">
-                                <LayoutGrid size={28} />
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl shadow-primary/5">
+                                <LayoutGrid size={24} />
                             </div>
                             <div>
-                                <h1 className="text-4xl font-black tracking-tighter text-foreground">{project.name}</h1>
-                                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground font-bold italic uppercase tracking-widest">
-                                    <Calendar size={14} className="text-primary/50" />
-                                    <span>Established {new Date(project.$createdAt).toLocaleDateString()}</span>
+                                <h1 className="text-3xl font-black tracking-tighter text-foreground">{project.name}</h1>
+                                <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                                    <Calendar size={12} className="text-primary/50" />
+                                    <span>Launched {new Date(project.$createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         </div>
                         {project.description && (
-                            <p className="text-muted-foreground text-lg leading-relaxed max-w-2xl italic">
+                            <p className="text-muted-foreground text-base leading-relaxed max-w-2xl italic">
                                &quot; {project.description} &quot;
                             </p>
                         )}
                     </div>
                     
                     <div className="flex gap-2">
-                        <Button variant="secondary" className="rounded-2xl h-12 px-6 font-bold" onPress={() => setIsProjectModalOpen(true)}>
-                            <Edit size={18} className="mr-2" />
+                        <Button variant="secondary" className="rounded-xl h-10 px-5 font-bold text-sm" onPress={() => setIsProjectModalOpen(true)}>
+                            <Edit size={16} className="mr-2" />
                             Edit
                         </Button>
-                        <Button variant="ghost" className="rounded-2xl h-12 px-6 font-bold text-danger hover:bg-danger/10" onPress={() => setIsDeleteModalOpen(true)}>
-                            <Trash size={18} className="mr-2" />
+                        <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold text-sm text-danger hover:bg-danger/10" onPress={() => setIsDeleteModalOpen(true)}>
+                            <Trash size={16} className="mr-2" />
                             Archive
                         </Button>
                     </div>
