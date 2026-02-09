@@ -2,6 +2,8 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { ProjectModal } from '@/components/ProjectModal';
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
@@ -10,11 +12,12 @@ import {
     Widget as LayoutGrid,
     Checklist as ListTodo,
     AddCircle as Plus,
+    ShieldKeyhole as Shield,
     TrashBinMinimalistic as Trash,
     Widget
 } from "@solar-icons/react";
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 type ViewMode = 'grid' | 'kanban';
 
@@ -25,29 +28,102 @@ export default function ProjectsPage() {
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | undefined>(undefined);
+    const { user, privateKey } = useAuth();
 
-    useEffect(() => {
-        fetchProjects();
-    }, []);
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.listProjects();
-            setProjects(data.documents);
+            const rawProjects = data.documents;
+
+            const processedProjects = await Promise.all(rawProjects.map(async (project) => {
+                if (project.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(project.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                
+                                const nameData = JSON.parse(project.name);
+                                const descData = JSON.parse(project.description);
+                                
+                                const decryptedName = await decryptData(nameData, docKey);
+                                const decryptedDesc = await decryptData(descData, docKey);
+                                
+                                return { ...project, name: decryptedName, description: decryptedDesc };
+                            }
+                        } catch (e) {
+                            console.error('Failed to decrypt project:', project.$id, e);
+                            return { ...project, name: '🔒 [Decryption Error]', description: 'Missing access keys.' };
+                        }
+                    }
+                    return { 
+                        ...project, 
+                        name: '🔒 [Locked Project]', 
+                        description: 'Vault authentication required to decrypt metadata.' 
+                    };
+                }
+                return project;
+            }));
+
+            setProjects(processedProjects);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [privateKey, user]);
 
-    const handleCreateOrUpdate = async (data: Partial<Project>) => {
-        if (selectedProject?.$id) {
-            await db.updateProject(selectedProject.$id, data);
+    useEffect(() => {
+        fetchProjects();
+    }, [fetchProjects]);
+
+    const handleCreateOrUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
+        const { shouldEncrypt, ...projectData } = data;
+        const finalData = { ...projectData };
+
+        if (shouldEncrypt && user) {
+            const userKeys = await db.getUserKeys(user.$id);
+            if (!userKeys) throw new Error('Vault keys not found');
+
+            const docKey = await generateDocumentKey();
+            const encryptedName = await encryptData(projectData.name || '', docKey);
+            const encryptedDesc = await encryptData(projectData.description || '', docKey);
+
+            finalData.name = JSON.stringify(encryptedName);
+            finalData.description = JSON.stringify(encryptedDesc);
+            finalData.isEncrypted = true;
+
+            const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+
+            if (selectedProject?.$id) {
+                await db.updateProject(selectedProject.$id, finalData);
+                const existingAccess = await db.getAccessKey(selectedProject.$id, user.$id);
+                if (!existingAccess) {
+                    await db.grantAccess({
+                        resourceId: selectedProject.$id,
+                        userId: user.$id,
+                        encryptedKey: encryptedDocKey,
+                        resourceType: 'Project'
+                    });
+                }
+            } else {
+                const newProject = await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
+                await db.grantAccess({
+                    resourceId: newProject.$id,
+                    userId: user.$id,
+                    encryptedKey: encryptedDocKey,
+                    resourceType: 'Project'
+                });
+            }
         } else {
-            await db.createProject(data as Omit<Project, '$id' | '$createdAt'>);
+            if (selectedProject?.$id) {
+                await db.updateProject(selectedProject.$id, finalData);
+            } else {
+                await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
+            }
         }
+        
         setIsProjectModalOpen(false);
         fetchProjects();
     };
@@ -201,7 +277,14 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                             <Widget size={16} weight="Linear" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className={`font-black tracking-tighter uppercase leading-tight truncate ${isFull ? 'text-xl' : 'text-base'}`}>{project.name}</h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className={`font-black tracking-tighter uppercase leading-tight truncate ${isFull ? 'text-xl' : 'text-base'}`}>{project.name}</h3>
+                                {project.isEncrypted && (
+                                    <div className="p-1 rounded-md bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
+                                        <Shield size={12} weight="Bold" />
+                                    </div>
+                                )}
+                            </div>
                             <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Mission Code: {project.$id.slice(-4).toUpperCase()}</p>
                         </div>
                     </Link>

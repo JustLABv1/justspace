@@ -2,6 +2,8 @@
 
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { ResourceHeatmap } from '@/components/ResourceHeatmap';
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project, WikiGuide } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
@@ -10,10 +12,11 @@ import {
   Book,
   AddCircle as Plus,
   StarsLine as Sparkles,
-  Target
+  Target,
+  ShieldKeyhole as Shield
 } from "@solar-icons/react";
 import Link from "next/link";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function Home() {
   const [stats, setStats] = useState({ projects: 0, guides: 0 });
@@ -22,37 +25,97 @@ export default function Home() {
   const [recentGuides, setRecentGuides] = useState<WikiGuide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
+  const { user, privateKey } = useAuth();
 
+  const hours = new Date().getHours();
   useEffect(() => {
-    const hours = new Date().getHours();
     if (hours < 12) setGreeting('Good Morning');
     else if (hours < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
+  }, [hours]);
 
-    const fetchData = async () => {
-      try {
-        const [projects, guides] = await Promise.all([
-          db.listProjects(),
-          db.listGuides()
-        ]);
-        
-        setStats({
-          projects: projects.total,
-          guides: guides.total
-        });
-        setAllProjects(projects.documents);
+  const fetchData = useCallback(async () => {
+    try {
+      const [projects, guides] = await Promise.all([
+        db.listProjects(),
+        db.listGuides()
+      ]);
+      
+      setStats({
+        projects: projects.total,
+        guides: guides.total
+      });
+      
+      // Decrypt data if possible, or show locked placeholders
+      const processedProjects = await Promise.all(projects.documents.map(async (p) => {
+        if (p.isEncrypted) {
+            if (privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(p.$id, user.$id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        const nameData = JSON.parse(p.name);
+                        const descData = JSON.parse(p.description);
+                        return { 
+                            ...p, 
+                            name: await decryptData(nameData, docKey),
+                            description: await decryptData(descData, docKey)
+                        };
+                    }
+                } catch (e) {
+                    console.error('Failed to decrypt project on dashboard:', p.$id, e);
+                }
+            }
+            return { 
+                ...p, 
+                name: '🔒 [Locked Mission]',
+                description: 'Vault authentication required.'
+            };
+        }
+        return p;
+      }));
 
-        // Get top 2 most recent
-        setRecentProjects(projects.documents.slice(0, 2));
-        setRecentGuides(guides.documents.slice(0, 2));
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      const processedGuides = await Promise.all(guides.documents.map(async (g) => {
+        if (g.isEncrypted) {
+            if (privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(g.$id, user.$id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        const titleData = JSON.parse(g.title);
+                        const descData = JSON.parse(g.description);
+                        return { 
+                            ...g, 
+                            title: await decryptData(titleData, docKey),
+                            description: await decryptData(descData, docKey)
+                        };
+                    }
+                } catch (e) {
+                    console.error('Failed to decrypt guide on dashboard:', g.$id, e);
+                }
+            }
+            return { 
+                ...g, 
+                title: '🔒 [Locked Protocol]',
+                description: 'Vault authentication required.'
+            };
+        }
+        return g;
+      }));
+
+      setAllProjects(processedProjects);
+      setRecentProjects(processedProjects.slice(0, 2));
+      setRecentGuides(processedGuides.slice(0, 2));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [privateKey, user]);
+
+  useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   return (
     <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">

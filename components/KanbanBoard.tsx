@@ -1,9 +1,11 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Task } from '@/types';
 import { Button, Surface } from "@heroui/react";
-import { MenuDots as GripVertical, AddSquare as Plus } from "@solar-icons/react";
+import { MenuDots as GripVertical, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
 import { useCallback, useEffect, useState } from 'react';
 
 const COLUMNS: { id: Task['kanbanStatus']; label: string; color: 'accent' | 'success' | 'warning' | 'default' }[] = [
@@ -14,6 +16,7 @@ const COLUMNS: { id: Task['kanbanStatus']; label: string; color: 'accent' | 'suc
 ];
 
 export function KanbanBoard({ projectId }: { projectId: string }) {
+    const { user, privateKey } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -21,13 +24,41 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         setIsLoading(true);
         try {
             const res = await db.listTasks(projectId);
-            setTasks(res.documents as unknown as Task[]);
+            const rawTasks = res.documents as unknown as Task[];
+
+            // Get decryption key if project is encrypted
+            const project = await db.getProject(projectId);
+            let documentKey: CryptoKey | null = null;
+            if (project.isEncrypted && privateKey && user) {
+                const access = await db.getAccessKey(projectId, user.$id);
+                if (access) {
+                    documentKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                }
+            }
+
+            const decryptedTasks = await Promise.all(rawTasks.map(async (task) => {
+                if (task.isEncrypted) {
+                    if (documentKey) {
+                        try {
+                            const encryptedData = JSON.parse(task.title);
+                            const decryptedTitle = await decryptData(encryptedData, documentKey);
+                            return { ...task, title: decryptedTitle };
+                        } catch (e) {
+                            return { ...task, title: '🔒 [Failed to decrypt]' };
+                        }
+                    }
+                    return { ...task, title: '🔒 [Locked Metadata]' };
+                }
+                return task;
+            }));
+
+            setTasks(decryptedTasks);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, user, privateKey]);
 
     useEffect(() => {
         fetchTasks();
@@ -86,7 +117,12 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                     className="p-6 rounded-[2rem] border border-border/40 bg-surface shadow-sm cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 transition-all group relative overflow-hidden active:scale-[0.98]"
                                 >
                                     <div className="flex items-start justify-between gap-4">
-                                        <p className="text-sm font-bold text-foreground leading-tight tracking-tight">{task.title}</p>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                {task.isEncrypted && <Shield size={12} className="text-primary/60" />}
+                                                <p className="text-sm font-bold text-foreground leading-tight tracking-tight">{task.title}</p>
+                                            </div>
+                                        </div>
                                         <GripVertical size={16} weight="Bold" className="text-muted-foreground/20 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
                                     </div>
                                     

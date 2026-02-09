@@ -21,6 +21,7 @@ This document outlines the required database, collections, and attributes for **
 | `status` | String (Enum) | `todo`, `in-progress`, `completed` | Yes | Current status of the project. |
 | `daysPerWeek` | Float | - | No | Amount of days the consultant is on this project per week. |
 | `allocatedDays` | Integer | - | No | Total number of days allocated for this project. |
+| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
 ### 2. Tasks
 - **Collection ID:** `tasks`
@@ -37,6 +38,7 @@ This document outlines the required database, collections, and attributes for **
 | `timeEntries` | String Array | 255 | No | Historical log of time entries (JSON stringified). |
 | `order` | Integer | - | No | Display order for DnD. |
 | `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `done` | No | Status for Kanban board. |
+| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
 ### 3. Wiki Guides
 - **Collection ID:** `wiki_guides` (Deployment guides hub)
@@ -45,6 +47,7 @@ This document outlines the required database, collections, and attributes for **
 |-----------|------|----------------|----------|-------------|
 | `title` | String | 128 | Yes | Title of the guide (e.g., "LGTM Stack"). |
 | `description` | String | 16384 | Yes | High-level (Markdown enabled) overview of the stack. |
+| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
 ### 4. Installations
 - **Collection ID:** `installations` (Target-specific details)
@@ -57,6 +60,30 @@ This document outlines the required database, collections, and attributes for **
 | `documentation` | String (URL) | 512 | No | URL to official documentation. |
 | `notes` | String (Markdown) | 16384 | No | Specific installation notes or instructions. |
 | `tasks` | String Array | 255 | No | Templated checklist tasks to apply to projects. |
+| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+| `iv` | String | 32 | No | Initialization vector for encrypted content. |
+
+### 7. User Keys
+- **Collection ID:** `user_keys`
+
+| Attribute | Type | Size / Options | Required | Description |
+|-----------|------|----------------|----------|-------------|
+| `userId` | String | 36 | Yes | ID of the user. |
+| `email` | String | 128 | No | Email of the user for sharing search. |
+| `publicKey` | String | 1024 | Yes | Public RSA key (SPKI format). |
+| `encryptedPrivateKey` | String | 2048 | Yes | Private RSA key encrypted with vault password. |
+| `salt` | String | 32 | Yes | Salt used for password derivation. |
+| `iv` | String | 32 | Yes | IV for private key encryption. |
+
+### 8. Access Control
+- **Collection ID:** `access_control`
+
+| Attribute | Type | Size / Options | Required | Description |
+|-----------|------|----------------|----------|-------------|
+| `resourceId` | String | 36 | Yes | ID of the encrypted resource (e.g., Wiki Guide). |
+| `userId` | String | 36 | Yes | ID of the user who has access. |
+| `encryptedKey` | String | 1024 | Yes | Resource AES key encrypted with user's public key. |
+| `resourceType` | String | 32 | Yes | `Wiki`, `Snippet`, etc. |
 
 ### 5. Activity
 - **Collection ID:** `activity`
@@ -79,6 +106,7 @@ This document outlines the required database, collections, and attributes for **
 | `language` | String | 32 | Yes | Programming language for syntax highlighting. |
 | `tags` | String Array | 32 | No | Categorization tags. |
 | `description` | String | 512 | No | Short explanation. |
+| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
 ---
 

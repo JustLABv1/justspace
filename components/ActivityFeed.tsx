@@ -79,6 +79,11 @@ export function ActivityFeed() {
         }
     };
 
+    const formatName = (name: string) => {
+        if (name.startsWith('{"iv":') || name.startsWith('{"ciphertext":')) return '🔒 Protected Logic Fragment';
+        return name;
+    };
+
     return (
         <Surface variant="secondary" className="p-6 rounded-[2rem] border border-border/40 h-full flex flex-col bg-surface shadow-sm backdrop-blur-2xl">
             <div className="flex items-center justify-between mb-8">
@@ -129,7 +134,7 @@ export function ActivityFeed() {
                                         {activity.type === 'work' ? 'time on' : activity.entityType.toLowerCase()}
                                     </span>
                                     <span className="font-bold text-foreground truncate inline-block max-w-[200px] align-bottom tracking-tight text-sm">
-                                        {activity.entityName}
+                                        {formatName(activity.entityName)}
                                     </span>
                                 </div>
                                 {activity.metadata && (

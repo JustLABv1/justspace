@@ -1,31 +1,36 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
 import { WikiGuide } from '@/types';
-import { Button, Form, Input, Label, Modal, Tabs, TextArea, TextField } from "@heroui/react";
-import { BookMinimalistic as Book } from '@solar-icons/react';
+import { Button, Form, Input, Label, Modal, Switch, Tabs, TextArea, TextField } from "@heroui/react";
+import { BookMinimalistic as Book, ShieldKeyhole as Shield } from '@solar-icons/react';
 import React, { useEffect, useState } from 'react';
 import { Markdown } from './Markdown';
 
 interface WikiModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: Partial<WikiGuide>) => Promise<void>;
+    onSubmit: (data: Partial<WikiGuide> & { shouldEncrypt?: boolean }) => Promise<void>;
     guide?: WikiGuide;
 }
 
 export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [isEncrypted, setIsEncrypted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('edit');
+    const { privateKey, hasVault } = useAuth();
 
     useEffect(() => {
         if (guide) {
             setTitle(guide.title);
             setDescription(guide.description);
+            setIsEncrypted(!!guide.isEncrypted);
         } else {
             setTitle('');
             setDescription('');
+            setIsEncrypted(false);
         }
         setActiveTab('edit');
     }, [guide, isOpen]);
@@ -34,7 +39,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
         e.preventDefault();
         setIsLoading(true);
         try {
-            await onSubmit({ title, description });
+            await onSubmit({ title, description, isEncrypted, shouldEncrypt: isEncrypted });
             onClose();
         } catch (error) {
             console.error(error);
@@ -70,6 +75,31 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                         <Form onSubmit={handleSubmit}>
                             <Modal.Body className="p-8 space-y-6">
                                 <div className="flex flex-col gap-6">
+                                    <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-secondary/50 border border-border/10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                                <Shield size={20} weight="Bold" />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-xs font-black uppercase tracking-widest">End-to-End Encryption</p>
+                                                <p className="text-[10px] text-muted-foreground font-medium opacity-60">Vault-based client-side security</p>
+                                            </div>
+                                        </div>
+                                        <Switch 
+                                            isSelected={isEncrypted} 
+                                            onValueChange={setIsEncrypted}
+                                            isDisabled={!hasVault || (guide?.isEncrypted)} // Cannot disable once enabled for now
+                                            aria-label="Toggle encryption"
+                                        />
+                                    </div>
+
+                                    {!hasVault && (
+                                        <div className="px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-500 flex items-center gap-2">
+                                            <Shield size={16} />
+                                            SETUP YOUR VAULT IN SETTINGS TO ENABLE ENCRYPTION
+                                        </div>
+                                    )}
+
                                     <TextField
                                         name="title"
                                         value={title}

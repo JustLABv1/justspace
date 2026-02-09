@@ -5,8 +5,11 @@
  */
 export const getEnv = (key: string): string => {
     if (typeof window !== 'undefined') {
-        // @ts-ignore
-        return window._env_?.[key] || '';
+        const val = (window as any)._env_?.[key];
+        if (!val) {
+            console.warn(`Environment variable ${key} is missing in window._env_`);
+        }
+        return val || '';
     }
     return process.env[key] || '';
 };
@@ -21,6 +24,8 @@ export const ENV_KEYS = [
     'NEXT_PUBLIC_APPWRITE_INSTALLATIONS_COLLECTION_ID',
     'NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID',
     'NEXT_PUBLIC_APPWRITE_SNIPPETS_COLLECTION_ID',
+    'NEXT_PUBLIC_APPWRITE_USER_KEYS_COLLECTION_ID',
+    'NEXT_PUBLIC_APPWRITE_ACCESS_CONTROL_COLLECTION_ID',
 ] as const;
 
 export type EnvKey = typeof ENV_KEYS[number];

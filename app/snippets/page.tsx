@@ -2,20 +2,24 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { SnippetModal } from '@/components/SnippetModal';
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Snippet } from '@/types';
+import { EncryptedData, Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import {
-  CodeFile,
-  Copy,
-  Pen2 as Edit,
-  AddCircle as Plus,
-  Magnifier as Search,
-  TrashBinTrash as Trash
+    CodeFile,
+    Copy,
+    Pen2 as Edit,
+    AddCircle as Plus,
+    Magnifier as Search,
+    ShieldKeyhole as Shield,
+    TrashBinTrash as Trash
 } from "@solar-icons/react";
 import { useEffect, useState } from 'react';
 
 export default function SnippetsPage() {
+    const { user, userKeys, privateKey } = useAuth();
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,14 +28,52 @@ export default function SnippetsPage() {
     const [selectedSnippet, setSelectedSnippet] = useState<Snippet | undefined>(undefined);
 
     useEffect(() => {
-        fetchSnippets();
-    }, []);
+        if (user) {
+            fetchSnippets();
+        }
+    }, [user]);
 
     const fetchSnippets = async () => {
         setIsLoading(true);
         try {
             const data = await db.listSnippets();
-            setSnippets(data.documents);
+            const allSnippets = data.documents;
+
+            const decryptedSnippets = await Promise.all(allSnippets.map(async (snippet) => {
+                if (snippet.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(snippet.$id, user.$id);
+                            if (access) {
+                                const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                const titleRaw = JSON.parse(snippet.title) as EncryptedData;
+                                const contentRaw = JSON.parse(snippet.content) as EncryptedData;
+                                const descRaw = snippet.description ? (JSON.parse(snippet.description) as EncryptedData) : null;
+
+                                return {
+                                    ...snippet,
+                                    title: await decryptData(titleRaw, snippetKey),
+                                    content: await decryptData(contentRaw, snippetKey),
+                                    description: descRaw ? await decryptData(descRaw, snippetKey) : snippet.description
+                                };
+                            }
+                        } catch (e) {
+                            console.error('Failed to decrypt snippet:', snippet.$id, e);
+                            return { ...snippet, title: `🔒 Locked: ${snippet.$id.slice(0, 4)}`, content: '// Access Denied' };
+                        }
+                    }
+                    // If vault is locked or no access
+                    return { 
+                        ...snippet, 
+                        title: "🔒 [Locked Snippet]", 
+                        content: "// Unlock vault to view content",
+                        description: "This fragment is protected by end-to-end encryption."
+                    };
+                }
+                return snippet;
+            }));
+
+            setSnippets(decryptedSnippets);
         } catch (error) {
             console.error(error);
         } finally {
@@ -40,13 +82,49 @@ export default function SnippetsPage() {
     };
 
     const handleCreateOrUpdate = async (data: Partial<Snippet>) => {
-        if (selectedSnippet?.$id) {
-            await db.updateSnippet(selectedSnippet.$id, data);
-        } else {
-            await db.createSnippet(data as Omit<Snippet, '$id' | '$createdAt'>);
+        try {
+            if (selectedSnippet?.$id) {
+                const updateData = { ...data };
+                if (data.isEncrypted && privateKey && user) {
+                    // Get existing key
+                    const access = await db.getAccessKey(selectedSnippet.$id, user.$id);
+                    if (access) {
+                        const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        if (data.title) updateData.title = JSON.stringify(await encryptData(data.title, snippetKey));
+                        if (data.content) updateData.content = JSON.stringify(await encryptData(data.content, snippetKey));
+                        if (data.description) updateData.description = JSON.stringify(await encryptData(data.description, snippetKey));
+                    }
+                }
+                await db.updateSnippet(selectedSnippet.$id, updateData);
+            } else {
+                const createData = { ...data };
+                let snippetId = '';
+                
+                if (data.isEncrypted && userKeys && user) {
+                    const snippetKey = await generateDocumentKey();
+                    if (data.title) createData.title = JSON.stringify(await encryptData(createData.title!, snippetKey));
+                    if (data.content) createData.content = JSON.stringify(await encryptData(createData.content!, snippetKey));
+                    if (data.description) createData.description = JSON.stringify(await encryptData(createData.description!, snippetKey));
+                    
+                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
+                    snippetId = res.$id;
+
+                    const encryptedKey = await encryptDocumentKey(snippetKey, userKeys.publicKey);
+                    await db.grantAccess({
+                        resourceId: snippetId,
+                        resourceType: 'snippet',
+                        userId: user.$id,
+                        encryptedKey
+                    });
+                } else {
+                    await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
+                }
+            }
+            setIsSnippetModalOpen(false);
+            fetchSnippets();
+        } catch (error) {
+            console.error('Failed to save snippet:', error);
         }
-        setIsSnippetModalOpen(false);
-        fetchSnippets();
     };
 
     const handleDelete = async () => {
@@ -112,6 +190,7 @@ export default function SnippetsPage() {
                                         <Chip size="sm" variant="soft" color="accent" className="font-bold text-[9px] uppercase tracking-widest px-2.5 h-5 rounded-lg">
                                             {snippet.language}
                                         </Chip>
+                                        {snippet.isEncrypted && <Shield size={14} className="text-primary/60" />}
                                     </div>
                                     <h3 className="text-xl font-bold tracking-tight leading-tight">{snippet.title}</h3>
                                 </div>

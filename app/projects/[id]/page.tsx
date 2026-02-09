@@ -3,56 +3,119 @@
 import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ProjectModal } from '@/components/ProjectModal';
+import { ShareModal } from '@/components/ShareModal';
 import { TaskList } from '@/components/TaskList';
 import { TemplateModal } from '@/components/TemplateModal';
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Spinner, Surface } from "@heroui/react";
 import {
-  AltArrowLeft as ArrowLeft,
-  Calendar,
-  Pen2 as Edit,
-  Widget as LayoutGrid,
-  Checklist as ListTodo,
-  MagicStick as Sparkles,
-  TrashBinMinimalistic as Trash
+    AltArrowLeft as ArrowLeft,
+    Calendar,
+    Pen2 as Edit,
+    Widget as LayoutGrid,
+    Checklist as ListTodo,
+    ShareCircle as Share,
+    ShieldKeyhole as Shield,
+    MagicStick as Sparkles,
+    TrashBinMinimalistic as Trash
 } from "@solar-icons/react";
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function ProjectDetailPage() {
-    const { id } = useParams();
+    const { id } = useParams() as { id: string };
     const router = useRouter();
     const [project, setProject] = useState<Project | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+    const { user, privateKey } = useAuth();
 
-    useEffect(() => {
-        if (id) {
-            fetchProject();
-        }
-    }, [id]);
-
-    const fetchProject = async () => {
+    const fetchProject = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.getProject(id as string);
-            setProject(data);
+            const processedProject = data;
+
+            if (processedProject.isEncrypted && privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(id as string, user.$id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        
+                        const nameData = JSON.parse(processedProject.name);
+                        const descData = JSON.parse(processedProject.description);
+                        
+                        processedProject.name = await decryptData(nameData, docKey);
+                        processedProject.description = await decryptData(descData, docKey);
+                    }
+                } catch (e) {
+                    console.error('Failed to decrypt project:', e);
+                }
+            }
+            setProject(processedProject);
         } catch (error) {
             console.error(error);
             router.push('/projects');
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [id, privateKey, user, router]);
 
-    const handleUpdate = async (data: Partial<Project>) => {
+    useEffect(() => {
+        if (id) {
+            fetchProject();
+        }
+    }, [id, fetchProject]);
+
+    const handleUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         if (project) {
-            await db.updateProject(project.$id, data);
+            const { shouldEncrypt, ...projectData } = data;
+            const finalData = { ...projectData };
+
+            if (shouldEncrypt && user) {
+                // If turning on encryption for existing project
+                // (Note: This is simplified, usually we'd need to re-encrypt old data if it wasn't encrypted)
+                const userKeys = await db.getUserKeys(user.$id);
+                if (userKeys) {
+                    const docKey = await generateDocumentKey();
+                    const encryptedName = await encryptData(projectData.name || project.name, docKey);
+                    const encryptedDesc = await encryptData(projectData.description || project.description, docKey);
+
+                    finalData.name = JSON.stringify(encryptedName);
+                    finalData.description = JSON.stringify(encryptedDesc);
+                    finalData.isEncrypted = true;
+
+                    const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                    await db.grantAccess({
+                        resourceId: project.$id,
+                        userId: user.$id,
+                        encryptedKey: encryptedDocKey,
+                        resourceType: 'Project'
+                    });
+                }
+            } else if (project.isEncrypted && privateKey && user) {
+                // Keep encrypted if it already was
+                const access = await db.getAccessKey(project.$id, user.$id);
+                if (access) {
+                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    if (projectData.name) {
+                        finalData.name = JSON.stringify(await encryptData(projectData.name, docKey));
+                    }
+                    if (projectData.description) {
+                        finalData.description = JSON.stringify(await encryptData(projectData.description, docKey));
+                    }
+                }
+            }
+
+            await db.updateProject(project.$id, finalData);
             fetchProject();
             setIsProjectModalOpen(false);
         }
@@ -74,11 +137,54 @@ export default function ProjectDetailPage() {
         }
     };
 
+    const handleShare = async (email: string) => {
+        if (!project || !privateKey || !user) return;
+
+        try {
+            const recipientKeys = await db.findUserKeysByEmail(email);
+            if (!recipientKeys) throw new Error('Recipient has no vault setup');
+
+            const access = await db.getAccessKey(id, user.$id);
+            if (!access) throw new Error('You do not have keys for this project');
+
+            const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+            const wrappedKeyForRecipient = await encryptDocumentKey(docKey, recipientKeys.publicKey);
+
+            await db.grantAccess({
+                resourceId: id,
+                resourceType: 'Project',
+                userId: recipientKeys.userId,
+                encryptedKey: wrappedKeyForRecipient
+            });
+        } catch (error) {
+            console.error('Sharing failed:', error);
+            throw error;
+        }
+    };
+
     if (isLoading) {
         return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
     }
 
     if (!project) return null;
+
+    if (project.isEncrypted && !privateKey) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
+                <div className="w-24 h-24 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-2xl shadow-primary/5">
+                    <Shield size={48} weight="Bold" className="animate-pulse" />
+                </div>
+                <div className="text-center space-y-3">
+                    <h2 className="text-3xl font-black tracking-tighter uppercase italic text-foreground">Mission Data Locked_</h2>
+                    <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
+                        This environment is secured with mission-critical encryption. <br/>
+                        Authorize your vault to access operational archives.
+                    </p>
+                </div>
+                <div className="w-px h-12 bg-gradient-to-b from-primary/40 to-transparent" />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
@@ -95,7 +201,14 @@ export default function ProjectDetailPage() {
                                 <LayoutGrid size={28} />
                             </div>
                             <div>
-                                <h1 className="text-4xl font-bold tracking-tight text-foreground leading-none">{project.name}</h1>
+                                <div className="flex items-center gap-3">
+                                    <h1 className="text-4xl font-bold tracking-tight text-foreground leading-none">{project.name}</h1>
+                                    {project.isEncrypted && (
+                                        <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
+                                            <Shield size={18} weight="Bold" />
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
                                     <Calendar size={14} className="text-primary/50" />
                                     <span>Initialized Phase: {new Date(project.$createdAt).toLocaleDateString()}</span>
@@ -136,6 +249,12 @@ export default function ProjectDetailPage() {
                     </div>
                     
                     <div className="flex gap-2 shrink-0">
+                        {project.isEncrypted && (
+                            <Button variant="primary" className="rounded-xl h-10 px-6 font-bold text-xs uppercase" onPress={() => setIsShareModalOpen(true)}>
+                                <Share size={16} className="mr-2" />
+                                Share
+                            </Button>
+                        )}
                         <Button variant="secondary" className="rounded-xl h-10 px-6 font-bold text-xs uppercase border border-border/40" onPress={() => setIsProjectModalOpen(true)}>
                             <Edit size={16} className="mr-2" />
                             Modify
@@ -219,6 +338,10 @@ export default function ProjectDetailPage() {
                 title="Archive Project"
                 message={`Are you sure you want to archive "${project.name}"? This will move it from the active pipeline.`}
             />
-        </div>
+            <ShareModal 
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                onShare={handleShare}
+            />        </div>
     );
 }

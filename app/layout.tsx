@@ -20,6 +20,8 @@ export const metadata: Metadata = {
   description: "Project tracking and documentation for consultants",
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{

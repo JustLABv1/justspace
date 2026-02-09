@@ -1,28 +1,199 @@
 'use client';
 
-import { Button, Surface } from '@heroui/react';
+import { useAuth } from '@/context/AuthContext';
+import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
+import { db } from '@/lib/db';
+import { Button, Form, Surface } from '@heroui/react';
 import {
-  Translation as Globe,
-  Keyboard,
-  MoneyBag,
-  Palette,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Restart as Update,
-  User
+    CheckCircle as CheckCircleIcon,
+    Database as DatabaseIcon,
+    Translation as Globe,
+    Keyboard,
+    MoneyBag,
+    Palette,
+    Refresh as RefreshIcon,
+    Settings as SettingsIcon,
+    ShieldCheck,
+    Restart as Update,
+    User,
+    ShieldKeyhole as Vault
 } from '@solar-icons/react';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('General');
+    const { user, hasVault, privateKey, userKeys, setupVault, unlockVault } = useAuth();
+    const [vaultPassword, setVaultPassword] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Migration state
+    const [isMigrating, setIsMigrating] = useState(false);
+    const [stats, setStats] = useState({ projects: 0, wiki: 0, snippets: 0 });
+    const [migrationProgress, setMigrationProgress] = useState('');
+
+    const fetchStats = useCallback(async () => {
+        if (!user) return;
+        try {
+            const [projects, guides, snippets] = await Promise.all([
+                db.listProjects(),
+                db.listGuides(),
+                db.listSnippets()
+            ]);
+            
+            setStats({
+                projects: projects.documents.filter(p => !p.isEncrypted).length,
+                wiki: guides.documents.filter(g => !g.isEncrypted).length,
+                snippets: snippets.documents.filter(s => !s.isEncrypted).length
+            });
+        } catch (error) {
+            console.error('Failed to fetch stats:', error);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
+
+    const handleMigrate = async () => {
+        if (!user || !userKeys || !privateKey) {
+            console.error('Migration blocked: Missing user, keys, or private key.', { user: !!user, userKeys: !!userKeys, privateKey: !!privateKey });
+            setMigrationProgress('Error: Vault must be unlocked to migrate.');
+            return;
+        }
+        setIsMigrating(true);
+        setMigrationProgress('Initializing migration batch...');
+        console.log('Starting migration for user:', user.$id);
+
+        try {
+            // 1. Migrate Snippets
+            setMigrationProgress('Encrypting code snippets...');
+            const snippets = await db.listSnippets();
+            for (const s of snippets.documents.filter(snip => !snip.isEncrypted)) {
+                const docKey = await generateDocumentKey();
+                const encTitle = await encryptData(s.title, docKey);
+                const encContent = await encryptData(s.content, docKey);
+                const encDesc = s.description ? await encryptData(s.description, docKey) : null;
+                
+                await db.updateSnippet(s.$id, {
+                    title: JSON.stringify(encTitle),
+                    content: JSON.stringify(encContent),
+                    description: encDesc ? JSON.stringify(encDesc) : undefined,
+                    isEncrypted: true
+                });
+                
+                const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                await db.grantAccess({
+                    resourceId: s.$id,
+                    userId: user.$id,
+                    encryptedKey: encKey,
+                    resourceType: 'Snippet'
+                });
+            }
+
+            // 2. Migrate Wiki & Installations
+            setMigrationProgress('Securing protocols and documentation...');
+            const guides = await db.listGuides();
+            for (const g of guides.documents.filter(guide => !guide.isEncrypted)) {
+                const docKey = await generateDocumentKey();
+                const encTitle = await encryptData(g.title, docKey);
+                const encDesc = await encryptData(g.description, docKey);
+                
+                await db.updateGuide(g.$id, {
+                    title: JSON.stringify(encTitle),
+                    description: JSON.stringify(encDesc),
+                    isEncrypted: true
+                });
+
+                // Wrap key for access control
+                const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                await db.grantAccess({
+                    resourceId: g.$id,
+                    userId: user.$id,
+                    encryptedKey: encKey,
+                    resourceType: 'Wiki'
+                });
+
+                // Also migrate installations
+                const fullGuide = await db.getGuide(g.$id);
+                for (const inst of fullGuide.installations) {
+                    if (inst.notes) {
+                        const encNotes = await encryptData(inst.notes, docKey);
+                        await db.updateInstallation(inst.$id, {
+                            notes: JSON.stringify(encNotes),
+                            isEncrypted: true
+                        });
+                    }
+                }
+            }
+
+            // 3. Migrate Projects & Tasks
+            setMigrationProgress('Encrypting project matrix and associated tasks...');
+            const projects = await db.listProjects();
+            for (const p of projects.documents.filter(proj => !proj.isEncrypted)) {
+                const docKey = await generateDocumentKey();
+                const encName = await encryptData(p.name, docKey);
+                const encDesc = await encryptData(p.description, docKey);
+                
+                await db.updateProject(p.$id, {
+                    name: JSON.stringify(encName),
+                    description: JSON.stringify(encDesc),
+                    isEncrypted: true
+                });
+
+                const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                await db.grantAccess({
+                    resourceId: p.$id,
+                    userId: user.$id,
+                    encryptedKey: encKey,
+                    resourceType: 'Project'
+                });
+
+                // Tasks
+                const tasks = await db.listTasks(p.$id);
+                for (const t of tasks.documents) {
+                    const encTaskTitle = await encryptData(t.title, docKey);
+                    await db.updateTask(t.$id, {
+                        title: JSON.stringify(encTaskTitle),
+                        isEncrypted: true
+                    });
+                }
+            }
+
+            setMigrationProgress('Migration complete. Your workspace is now secure.');
+            await fetchStats();
+        } catch (error) {
+            console.error('Migration failed:', error);
+            setMigrationProgress('Migration error. Please check console.');
+        } finally {
+            setIsMigrating(false);
+        }
+    };
 
     const menuItems = [
         { id: 'General', label: 'General', icon: SettingsIcon },
         { id: 'User', label: 'Account', icon: User },
+        { id: 'Security', label: 'Security & Vault', icon: Vault },
         { id: 'Appearance', label: 'Appearance', icon: Palette },
         { id: 'Financial', label: 'Financial', icon: MoneyBag },
         { id: 'Shortcuts', label: 'Shortcuts', icon: Keyboard },
     ];
+
+    const handleVaultAction = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            if (hasVault) {
+                await unlockVault(vaultPassword);
+            } else {
+                await setupVault(vaultPassword);
+            }
+            setVaultPassword('');
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="max-w-[1200px] mx-auto p-6 md:p-12 space-y-12">
@@ -94,6 +265,127 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'Security' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-xl font-black tracking-tight mb-2 uppercase italic">Encryption Vault_</h3>
+                                        <p className="text-xs text-muted-foreground">End-to-end encryption management for sensitive project fragments.</p>
+                                    </div>
+                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${
+                                        privateKey 
+                                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
+                                            : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                                    }`}>
+                                        <Vault size={14} />
+                                        {privateKey ? 'Vault Unlocked' : 'Vault Locked'}
+                                    </div>
+                                </div>
+
+                                <Surface variant="tertiary" className="p-8 rounded-[2rem] border border-border/20 bg-surface/30 space-y-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                                            <Vault size={24} weight="Bold" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h4 className="font-black text-sm uppercase tracking-wider">{hasVault ? 'Unlock your keys' : 'Initialize Vault Protocol'}</h4>
+                                            <p className="text-xs text-muted-foreground font-medium opacity-60">
+                                                {hasVault 
+                                                    ? 'Enter your vault password to decrypt your RSA keys. This will enable access to encrypted project documentation.' 
+                                                    : 'Setup a master vault password. This will generate a unique RSA key pair used to secure your most sensitive project data.'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <Form onSubmit={handleVaultAction} className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Vault Password</label>
+                                            <input 
+                                                type="password"
+                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-primary transition-all"
+                                                placeholder="Enter secure vault passphrase..."
+                                                value={vaultPassword}
+                                                onChange={(e) => setVaultPassword(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <Button 
+                                            type="submit" 
+                                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs" 
+                                            variant="primary"
+                                            isPending={isSubmitting}
+                                        >
+                                            {hasVault ? 'Decrypt Keys' : 'Synthesize Vault'}
+                                        </Button>
+                                    </Form>
+
+                                    {!hasVault && (
+                                        <p className="text-[10px] text-center text-orange-500 font-bold uppercase opacity-60 italic">
+                                            Warning: Vault passwords cannot be recovered. Loss of password results in permanent data loss.
+                                        </p>
+                                    )}
+                                </Surface>
+
+                                {privateKey && (stats.projects > 0 || stats.wiki > 0 || stats.snippets > 0) && (
+                                    <Surface variant="tertiary" className="p-8 rounded-[2rem] border border-orange-500/20 bg-orange-500/5 space-y-6">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                                                <DatabaseIcon size={24} weight="Bold" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h4 className="font-black text-sm uppercase tracking-wider text-orange-500">Legacy Data Migration</h4>
+                                                <p className="text-xs text-muted-foreground font-medium opacity-60">
+                                                    We detected unencrypted records in your workspace. You can migrate them to your secure vault now.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
+                                                <div className="text-lg font-black text-orange-500">{stats.projects}</div>
+                                                <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Projects</div>
+                                            </div>
+                                            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
+                                                <div className="text-lg font-black text-orange-500">{stats.wiki}</div>
+                                                <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Wiki Guides</div>
+                                            </div>
+                                            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
+                                                <div className="text-lg font-black text-orange-500">{stats.snippets}</div>
+                                                <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Snippets</div>
+                                            </div>
+                                        </div>
+
+                                        {isMigrating ? (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <RefreshIcon size={18} className="animate-spin text-orange-500" />
+                                                    <span className="text-xs font-bold text-orange-500 animate-pulse uppercase tracking-wider">{migrationProgress}</span>
+                                                </div>
+                                                <div className="h-1.5 w-full bg-orange-500/10 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-orange-500 animate-[progress_2s_ease-in-out_infinite]" style={{ width: '40%' }} />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <Button 
+                                                className="w-full h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border-none shadow-xl shadow-orange-500/20"
+                                                onPress={handleMigrate}
+                                                isDisabled={isMigrating}
+                                            >
+                                                Start Migration Phase
+                                            </Button>
+                                        )}
+                                    </Surface>
+                                )}
+
+                                {migrationProgress.includes('complete') && !isMigrating && (
+                                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-wider">
+                                        <CheckCircleIcon size={20} />
+                                        Migration completed successfully_
+                                    </div>
+                                )}
                             </div>
                         )}
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { Snippet } from '@/types';
-import { Button, Form, Input, Label, Modal, TextArea, TextField } from "@heroui/react";
-import { CodeCircle as Code } from '@solar-icons/react';
+import { Button, Checkbox, Form, Input, Label, Modal, TextArea, TextField } from "@heroui/react";
+import { CodeCircle as Code, ShieldKeyhole as Shield } from '@solar-icons/react';
 import React, { useEffect, useState } from 'react';
 
 interface SnippetModalProps {
@@ -18,6 +18,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
     const [language, setLanguage] = useState('javascript');
     const [description, setDescription] = useState('');
     const [tags, setTags] = useState('');
+    const [isEncrypted, setIsEncrypted] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
@@ -27,12 +28,14 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
             setLanguage(snippet.language);
             setDescription(snippet.description || '');
             setTags(snippet.tags?.join(', ') || '');
+            setIsEncrypted(snippet.isEncrypted ?? true);
         } else {
             setTitle('');
             setContent('');
             setLanguage('javascript');
             setDescription('');
             setTags('');
+            setIsEncrypted(true);
         }
     }, [snippet, isOpen]);
 
@@ -45,7 +48,8 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                 content, 
                 language, 
                 description, 
-                tags: tags.split(',').map(t => t.trim()).filter(Boolean) 
+                tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+                isEncrypted
             });
             onClose();
         } catch (error) {
@@ -113,6 +117,18 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                         className="rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-1.5 min-h-[60px]" 
                                     />
                                 </TextField>
+
+                                <div className="flex items-center gap-2 p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                                    <Checkbox isSelected={isEncrypted} onChange={setIsEncrypted}>
+                                        <div className="flex items-center gap-2 ml-2">
+                                            <Shield size={18} className="text-primary" />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-foreground">Advanced Encryption</span>
+                                                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Protect with client-side RSA/AES encryption</span>
+                                            </div>
+                                        </div>
+                                    </Checkbox>
+                                </div>
 
                                 <TextField isRequired value={content} onChange={setContent} className="w-full">
                                     <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Content</Label>

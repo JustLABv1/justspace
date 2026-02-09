@@ -25,9 +25,11 @@ export default function SignupPage() {
         e.preventDefault();
         setError('');
         setIsLoading(true);
+        console.log('Signup attempt with:', { email, endpoint: typeof window !== 'undefined' ? (window as unknown as { _env_?: { NEXT_PUBLIC_APPWRITE_ENDPOINT: string } })._env_?.NEXT_PUBLIC_APPWRITE_ENDPOINT : 'Server' });
         try {
             await signup(email, password, name);
         } catch (err) {
+            console.error('Signup error detailed:', err);
             setError(err instanceof Error ? err.message : 'Registration failed');
             setIsLoading(false);
         }

@@ -1,6 +1,9 @@
 'use client';
 
 import { account } from '@/lib/appwrite';
+import { decryptPrivateKey, generateUserKeyPair } from '@/lib/crypto';
+import { db } from '@/lib/db';
+import { UserKeys } from '@/types';
 import { Models } from 'appwrite';
 import { useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -8,15 +11,23 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 interface AuthContextType {
     user: Models.User<Models.Preferences> | null;
     isLoading: boolean;
+    privateKey: CryptoKey | null;
+    userKeys: UserKeys | null;
+    hasVault: boolean;
     login: (email: string, pass: string) => Promise<void>;
     signup: (email: string, pass: string, name: string) => Promise<void>;
     logout: () => Promise<void>;
+    unlockVault: (password: string) => Promise<void>;
+    setupVault: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
+    const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
+    const [userKeys, setUserKeys] = useState<UserKeys | null>(null);
+    const [hasVault, setHasVault] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
@@ -28,8 +39,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const currentUser = await account.get();
             setUser(currentUser);
+            // Check for vault keys
+            const keys = await db.getUserKeys(currentUser.$id);
+            setHasVault(!!keys);
+            setUserKeys(keys || null);
         } catch {
             setUser(null);
+            setHasVault(false);
+            setUserKeys(null);
         } finally {
             setIsLoading(false);
         }
@@ -41,6 +58,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             await account.createEmailPasswordSession(email, pass);
             const currentUser = await account.get();
             setUser(currentUser);
+            const keys = await db.getUserKeys(currentUser.$id);
+            setHasVault(!!keys);
+            setUserKeys(keys || null);
             router.push('/');
         } catch (error) {
             throw error;
@@ -65,14 +85,72 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await account.deleteSession('current');
             setUser(null);
+            setPrivateKey(null);
+            setHasVault(false);
             router.push('/login');
         } catch (error) {
             console.error(error);
         }
     };
 
+    const setupVault = async (password: string) => {
+        if (!user) return;
+        setIsLoading(true);
+        try {
+            const keyPair = await generateUserKeyPair(password);
+            const keys = await db.createUserKeys({
+                userId: user.$id,
+                email: user.email,
+                ...keyPair
+            });
+            setHasVault(true);
+            setUserKeys(keys as any);
+            // Also unlock it immediately
+            await unlockVault(password);
+        } catch (error) {
+            console.error('Setup vault error:', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const unlockVault = async (password: string) => {
+        if (!user) return;
+        setIsLoading(true);
+        try {
+            const keys = await db.getUserKeys(user.$id);
+            if (!keys) throw new Error('No vault found');
+
+            const pk = await decryptPrivateKey(
+                keys.encryptedPrivateKey,
+                password,
+                keys.salt,
+                keys.iv
+            );
+            setPrivateKey(pk);
+            setUserKeys(keys);
+        } catch (error) {
+            console.error('Unlock vault error:', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            isLoading, 
+            privateKey, 
+            userKeys,
+            hasVault, 
+            login, 
+            signup, 
+            logout, 
+            unlockVault, 
+            setupVault 
+        }}>
             {children}
         </AuthContext.Provider>
     );

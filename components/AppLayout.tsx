@@ -2,6 +2,7 @@
 
 import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
+import { VaultBanner } from "@/components/VaultBanner";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
@@ -59,7 +60,8 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex bg-background h-screen overflow-hidden p-4 gap-4">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={toggleCollapse} />
-            <main className="flex-1 bg-surface-secondary/30 rounded-[2rem] border border-border/40 overflow-y-auto shadow-sm no-scrollbar">
+            <main className="flex-1 bg-surface-secondary/30 rounded-[2rem] border border-border/40 overflow-y-auto shadow-sm no-scrollbar relative">
+                <VaultBanner />
                 {children}
             </main>
         </div>

@@ -5,6 +5,7 @@ export interface Project {
     status: 'todo' | 'in-progress' | 'completed';
     daysPerWeek?: number;
     allocatedDays?: number;
+    isEncrypted?: boolean;
     $createdAt: string;
 }
 
@@ -21,12 +22,14 @@ export interface Task {
     order?: number;
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
     kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'done';
+    isEncrypted?: boolean;
 }
 
 export interface WikiGuide {
     $id: string;
     title: string;
     description: string;
+    isEncrypted?: boolean;
     $createdAt: string;
 }
 
@@ -38,7 +41,32 @@ export interface InstallationTarget {
     documentation?: string;
     notes?: string;
     tasks?: string[];
+    isEncrypted?: boolean;
+    iv?: string; // IV for AES-GCM if whole document encrypted
     $createdAt: string;
+}
+
+export interface EncryptedData {
+    ciphertext: string;
+    iv: string;
+}
+
+export interface UserKeys {
+    $id: string;
+    userId: string;
+    email?: string;
+    publicKey: string;
+    encryptedPrivateKey: string;
+    salt: string;
+    iv: string;
+}
+
+export interface AccessControl {
+    $id: string;
+    resourceId: string;
+    userId: string;
+    encryptedKey: string; // The AES document key encrypted with user's RSA public key
+    resourceType: string;
 }
 
 export interface ActivityLog {
@@ -58,5 +86,6 @@ export interface Snippet {
     language: string;
     tags?: string[];
     description?: string;
+    isEncrypted?: boolean;
     $createdAt: string;
 }

@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env*
+pnpm-lock.yaml
+README.md
+Dockerfile
+.vscode
+.dockerignore

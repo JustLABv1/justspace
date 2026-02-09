@@ -4,9 +4,12 @@ import { DeleteModal } from '@/components/DeleteModal';
 import { InstallationModal } from '@/components/InstallationModal';
 import { Markdown } from '@/components/Markdown';
 import { ProjectSelectorModal } from '@/components/ProjectSelectorModal';
+import { ShareModal } from '@/components/ShareModal';
 import { WikiExport } from '@/components/WikiExport';
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { InstallationTarget, WikiGuide } from '@/types';
+import { EncryptedData, InstallationTarget, WikiGuide } from '@/types';
 import { Button, Spinner, Surface, Tabs, Tooltip } from "@heroui/react";
 import {
     AltArrowLeft as ArrowLeft,
@@ -15,6 +18,8 @@ import {
     Restart as History,
     InfoCircle as Info,
     AddCircle as Plus,
+    ShareCircle as Share,
+    ShieldKeyhole as Shield,
     TrashBinTrash as Trash
 } from "@solar-icons/react";
 import Link from 'next/link';
@@ -25,34 +30,89 @@ export default function WikiDetailPage() {
     const { id } = useParams() as { id: string };
     const [guide, setGuide] = useState<(WikiGuide & { installations: InstallationTarget[] }) | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDecrypting, setIsDecrypting] = useState(false);
     const [selectedInst, setSelectedInst] = useState<InstallationTarget | undefined>(undefined);
     const [isInstModalOpen, setIsInstModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
+    const { user, privateKey } = useAuth();
 
     const fetchGuide = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.getGuide(id);
-            setGuide(data as (WikiGuide & { installations: InstallationTarget[] }));
+            const processedGuide = data as (WikiGuide & { installations: InstallationTarget[] });
+
+            if (processedGuide.isEncrypted && privateKey && user) {
+                setIsDecrypting(true);
+                try {
+                    const access = await db.getAccessKey(id, user.$id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        
+                        // Decrypt guide title/desc
+                        const titleData = JSON.parse(processedGuide.title) as EncryptedData;
+                        const descData = JSON.parse(processedGuide.description) as EncryptedData;
+                        processedGuide.title = await decryptData(titleData, docKey);
+                        processedGuide.description = await decryptData(descData, docKey);
+
+                        // Decrypt installations notes
+                        processedGuide.installations = await Promise.all(processedGuide.installations.map(async (inst) => {
+                            if (inst.notes && inst.notes.startsWith('{')) {
+                                try {
+                                    const notesData = JSON.parse(inst.notes) as EncryptedData;
+                                    const decryptedNotes = await decryptData(notesData, docKey);
+                                    return { ...inst, notes: decryptedNotes };
+                                } catch {
+                                    return inst;
+                                }
+                            }
+                            return inst;
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Decryption error:', e);
+                } finally {
+                    setIsDecrypting(false);
+                }
+            }
+
+            setGuide(processedGuide);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    }, [id]);
+    }, [id, privateKey, user]);
 
     useEffect(() => {
         fetchGuide();
     }, [fetchGuide]);
 
     const handleCreateOrUpdateInst = async (data: Partial<InstallationTarget>) => {
+        const finalData = { ...data };
+
+        if (guide?.isEncrypted && privateKey && user) {
+            try {
+                const access = await db.getAccessKey(id, user.$id);
+                if (access) {
+                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    const encryptedNotes = await encryptData(data.notes || '', docKey);
+                    finalData.notes = JSON.stringify(encryptedNotes);
+                    finalData.isEncrypted = true;
+                }
+            } catch (e) {
+                console.error('Failed to encrypt installation notes:', e);
+            }
+        }
+
         if (selectedInst?.$id) {
-            await db.updateInstallation(selectedInst.$id, data);
+            await db.updateInstallation(selectedInst.$id, finalData);
         } else {
             await db.createInstallation({
-                ...data,
+                ...finalData,
                 guideId: id
             } as Omit<InstallationTarget, '$id' | '$createdAt'>);
         }
@@ -70,9 +130,49 @@ export default function WikiDetailPage() {
 
     const handleApplyTasks = async (projectId: string) => {
         if (selectedInst?.tasks && selectedInst.tasks.length > 0) {
-            await db.createTasks(projectId, selectedInst.tasks);
+            const project = await db.getProject(projectId);
+            const titles = selectedInst.tasks;
+
+            if (project.isEncrypted && user && privateKey) {
+                const access = await db.getAccessKey(projectId, user.$id);
+                if (access) {
+                    const projectKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    const encryptedTitles = await Promise.all(titles.map(async (t) => {
+                        return JSON.stringify(await encryptData(t, projectKey));
+                    }));
+                    await db.createTasks(projectId, encryptedTitles, true);
+                } else {
+                    await db.createTasks(projectId, titles);
+                }
+            } else {
+                await db.createTasks(projectId, titles);
+            }
         }
         setIsProjectSelectorOpen(false);
+    };
+
+    const handleShare = async (email: string) => {
+        if (!guide || !privateKey || !user) return;
+
+        // 1. Find recipient's public key
+        const recipientKeys = await db.findUserKeysByEmail(email);
+        if (!recipientKeys) throw new Error('Recipient has no vault setup');
+
+        // 2. Decrypt doc key for ourselves first
+        const access = await db.getAccessKey(id, user.$id);
+        if (!access) throw new Error('You do not have access to this document');
+        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+
+        // 3. Encrypt doc key with recipient's public key
+        const encryptedForRecipient = await encryptDocumentKey(docKey, recipientKeys.publicKey);
+
+        // 4. Create access control record
+        await db.grantAccess({
+            resourceId: id,
+            userId: recipientKeys.userId,
+            encryptedKey: encryptedForRecipient,
+            resourceType: 'Wiki'
+        });
     };
 
     if (isLoading) {
@@ -81,6 +181,24 @@ export default function WikiDetailPage() {
 
     if (!guide) {
         return <div className="p-8 text-center text-muted-foreground">Guide not found.</div>;
+    }
+
+    if (guide.isEncrypted && !privateKey) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
+                <div className="w-24 h-24 rounded-[2rem] bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-2xl shadow-orange-500/5">
+                    <Shield size={48} weight="Bold" className="animate-pulse" />
+                </div>
+                <div className="text-center space-y-3">
+                    <h2 className="text-3xl font-black tracking-tighter uppercase italic">Fragment Locked_</h2>
+                    <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
+                        This protocol is protected by end-to-end encryption. <br/>
+                        Please synchronize your vault sequence to gain access.
+                    </p>
+                </div>
+                <div className="w-px h-12 bg-gradient-to-b from-orange-500/40 to-transparent" />
+            </div>
+        );
     }
 
     return (
@@ -105,11 +223,28 @@ export default function WikiDetailPage() {
                                 {guide.installations.length} Active Targets
                             </div>
                         )}
+                        {guide.isEncrypted && (
+                            <div className="px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs font-bold uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                                <Shield size={14} weight="Bold" />
+                                Secured Fragment
+                            </div>
+                        )}
+                        {isDecrypting && <Spinner size="sm" />}
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight leading-[1]">{guide.title}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight leading-[1] uppercase italic">{guide.title}_</h1>
                     <p className="text-lg text-muted-foreground max-w-4xl leading-relaxed opacity-70 font-medium">{guide.description}</p>
                 </div>
                 <div className="flex gap-4 self-stretch md:self-auto">
+                    {guide.isEncrypted && (
+                        <Button 
+                            variant="secondary" 
+                            className="rounded-2xl h-12 px-6 font-bold uppercase tracking-widest border-orange-500/20 text-orange-500 hover:bg-orange-500/5 shadow-sm"
+                            onPress={() => setIsShareModalOpen(true)}
+                        >
+                            <Share size={18} weight="Bold" className="mr-3" />
+                            Secure Share
+                        </Button>
+                    )}
                     <Button variant="primary" className="rounded-2xl h-12 px-6 font-bold uppercase tracking-widest shadow-xl shadow-primary/10 flex-1 md:flex-none" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
                         <Plus size={18} weight="Bold" className="mr-3" />
                         Init Target
@@ -297,6 +432,12 @@ export default function WikiDetailPage() {
                 onSubmit={handleCreateOrUpdateInst}
                 installation={selectedInst}
                 guideId={id}
+            />
+
+            <ShareModal 
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                onShare={handleShare}
             />
 
             <ProjectSelectorModal

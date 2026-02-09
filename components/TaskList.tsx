@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { DEPLOYMENT_TEMPLATES } from '@/lib/templates';
 import { Task } from '@/types';
@@ -22,6 +24,8 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const { user, privateKey } = useAuth();
+    const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -37,14 +41,46 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
+            const projectRes = await db.getProject(projectId);
             const res = await db.listTasks(projectId);
-            setTasks(res.documents as unknown as Task[]);
+            let rawTasks = res.documents as unknown as Task[];
+            let docKey: CryptoKey | null = null;
+
+            if (projectRes.isEncrypted && privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(projectId, user.$id);
+                    if (access) {
+                        docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        setDocumentKey(docKey);
+                    }
+                } catch (e) {
+                    console.error('Failed to decrypt tasks:', e);
+                }
+            }
+
+            rawTasks = await Promise.all(rawTasks.map(async (task) => {
+                if (task.isEncrypted) {
+                    if (docKey) {
+                        try {
+                            const titleData = JSON.parse(task.title);
+                            const decryptedTitle = await decryptData(titleData, docKey);
+                            return { ...task, title: decryptedTitle };
+                        } catch (e) {
+                            return { ...task, title: '🔒 [Failed to decrypt]' };
+                        }
+                    }
+                    return { ...task, title: '🔒 [Locked Metadata]' };
+                }
+                return task;
+            }));
+
+            setTasks(rawTasks);
         } catch (error) {
             console.error(error instanceof Error ? error.message : error);
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, privateKey, user]);
 
     useEffect(() => {
         fetchTasks();
@@ -75,7 +111,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         if (!newTaskTitle.trim()) return;
 
         try {
-            await db.createEmptyTask(projectId, newTaskTitle, tasks.length);
+            let title = newTaskTitle;
+            let isEncrypted = false;
+            if (documentKey) {
+                const encrypted = await encryptData(title, documentKey);
+                title = JSON.stringify(encrypted);
+                isEncrypted = true;
+            }
+            await db.createEmptyTask(projectId, title, tasks.length, isEncrypted);
+
             setNewTaskTitle('');
             fetchTasks();
         } catch (error) {
@@ -85,11 +129,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
 
     const handleAddSubtask = async (parentId: string, title: string) => {
         try {
-            // Using direct database call as we don't have a specific db helper for subtasks yet
-            await db.createEmptyTask(projectId, title, 0); 
-            const res = await db.listTasks(projectId);
-            const latest = res.documents[res.documents.length - 1];
-            await db.updateTask(latest.$id, { parentId });
+            let finalTitle = title;
+            let isEncrypted = false;
+            if (documentKey) {
+                const encrypted = await encryptData(title, documentKey);
+                finalTitle = JSON.stringify(encrypted);
+                isEncrypted = true;
+            }
+            const task = await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted); 
+            await db.updateTask(task.$id, { parentId });
             fetchTasks();
         } catch (error) {
             console.error(error);
@@ -100,7 +148,16 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         setIsApplyingTemplate(true);
         try {
             const template = DEPLOYMENT_TEMPLATES[templateIndex];
-            await db.createTasks(projectId, template.tasks);
+            const titles = template.tasks;
+            
+            if (documentKey) {
+                const encryptedTitles = await Promise.all(titles.map(async (t) => {
+                    return JSON.stringify(await encryptData(t, documentKey));
+                }));
+                await db.createTasks(projectId, encryptedTitles, true);
+            } else {
+                await db.createTasks(projectId, titles);
+            }
             fetchTasks();
         } catch (error) {
             console.error(error);
@@ -111,9 +168,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
 
     const updateTask = async (taskId: string, data: Partial<Task> & { workDuration?: string }) => {
         try {
-            await db.updateTask(taskId, data);
-            const { workDuration, ...taskData } = data;
-            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData } : t));
+            let updateData = { ...data };
+            if (documentKey && data.title) {
+                updateData.title = JSON.stringify(await encryptData(data.title, documentKey));
+                updateData.isEncrypted = true;
+            }
+            await db.updateTask(taskId, updateData);
+            const { workDuration, ...taskData } = updateData;
+            const updatedTaskTitle = data.title || (tasks.find(t => t.$id === taskId)?.title);
+            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
         } catch (error) {
             console.error(error);
             fetchTasks(); 

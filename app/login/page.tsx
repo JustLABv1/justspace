@@ -22,9 +22,11 @@ export default function LoginPage() {
         e.preventDefault();
         setError('');
         setIsLoading(true);
+        console.log('Login attempt with:', { email, endpoint: typeof window !== 'undefined' ? (window as unknown as { _env_?: { NEXT_PUBLIC_APPWRITE_ENDPOINT: string } })._env_?.NEXT_PUBLIC_APPWRITE_ENDPOINT : 'Server' });
         try {
             await login(email, password);
         } catch (err) {
+            console.error('Login error detailed:', err);
             setError(err instanceof Error ? err.message : 'Invalid credentials');
             setIsLoading(false);
         }

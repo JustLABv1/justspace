@@ -1,4 +1,13 @@
-import { ActivityLog, InstallationTarget, Project, Snippet, Task, WikiGuide } from '@/types';
+import {
+    AccessControl,
+    ActivityLog,
+    InstallationTarget,
+    Project,
+    Snippet,
+    Task,
+    UserKeys,
+    WikiGuide
+} from '@/types';
 import { ID, Query, type Models } from 'appwrite';
 import { databases } from './appwrite';
 import { getEnv } from './env-config';
@@ -10,6 +19,8 @@ const GUIDES_ID = getEnv('NEXT_PUBLIC_APPWRITE_GUIDES_COLLECTION_ID');
 const INSTALLATIONS_ID = getEnv('NEXT_PUBLIC_APPWRITE_INSTALLATIONS_COLLECTION_ID');
 const ACTIVITY_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID');
 const SNIPPETS_ID = getEnv('NEXT_PUBLIC_APPWRITE_SNIPPETS_COLLECTION_ID');
+const USER_KEYS_ID = getEnv('NEXT_PUBLIC_APPWRITE_USER_KEYS_COLLECTION_ID');
+const ACCESS_CONTROL_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACCESS_CONTROL_COLLECTION_ID');
 
 export const db = {
     // Activity
@@ -44,11 +55,11 @@ export const db = {
     },
     async updateSnippet(id: string, data: Partial<Snippet>) {
         const snippet = await databases.updateDocument(DB_ID, SNIPPETS_ID, id, data);
-        if (data.title) {
+        if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Snippet',
-                entityName: data.title
+                entityName: data.isEncrypted ? '🔒 Secret Snippet' : (data.title || 'Snippet')
             });
         }
         return snippet;
@@ -80,11 +91,11 @@ export const db = {
     },
     async updateProject(id: string, data: Partial<Project>) {
         const project = await databases.updateDocument(DB_ID, PROJECTS_ID, id, data);
-        if (data.name) {
+        if (data.name || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Project',
-                entityName: data.name
+                entityName: project.isEncrypted ? '🔒 Secure Mission' : (project.name || 'Project')
             });
         }
         return project;
@@ -118,17 +129,17 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Wiki',
-            entityName: data.title
+            entityName: data.isEncrypted ? 'Secure Fragment' : data.title
         });
         return guide;
     },
     async updateGuide(id: string, data: Partial<WikiGuide>) {
         const guide = await databases.updateDocument(DB_ID, GUIDES_ID, id, data);
-        if (data.title) {
+        if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Wiki',
-                entityName: data.title
+                entityName: data.isEncrypted ? 'Secure Fragment' : (data.title || 'Guide')
             });
         }
         return guide;
@@ -179,30 +190,32 @@ export const db = {
             Query.orderAsc('order')
         ]);
     },
-    async createEmptyTask(projectId: string, title: string, order: number = 0) {
+    async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false) {
         const task = await databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
             projectId,
             title,
             completed: false,
             order,
-            kanbanStatus: 'todo'
+            kanbanStatus: 'todo',
+            isEncrypted
         });
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
-            entityName: title,
+            entityName: isEncrypted ? '🔒 Secure Task' : title,
             projectId
         });
         return task;
     },
-    async createTasks(projectId: string, titles: string[]) {
+    async createTasks(projectId: string, titles: string[], isEncrypted: boolean = false) {
         const tasks = await Promise.all(titles.map((title, index) => 
             databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
                 projectId,
                 title,
                 completed: false,
                 order: index,
-                kanbanStatus: 'todo'
+                kanbanStatus: 'todo',
+                isEncrypted
             })
         ));
         await this.logActivity({
@@ -220,14 +233,14 @@ export const db = {
             await this.logActivity({
                 type: 'complete',
                 entityType: 'Task',
-                entityName: task.title || 'Task',
+                entityName: task.isEncrypted ? '🔒 Secure Task' : (task.title || 'Task'),
                 projectId: task.projectId
             });
         } else if (data.isTimerRunning === false && workDuration) {
             await this.logActivity({
                 type: 'work',
                 entityType: 'Task',
-                entityName: task.title || 'Task',
+                entityName: task.isEncrypted ? '🔒 Secure Task' : (task.title || 'Task'),
                 projectId: task.projectId,
                 metadata: workDuration
             });
@@ -235,7 +248,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Task',
-                entityName: data.title,
+                entityName: task.isEncrypted ? '🔒 Secure Task' : data.title,
                 projectId: task.projectId
             });
         }
@@ -248,5 +261,37 @@ export const db = {
             entityName: 'Task'
         });
         return await databases.deleteDocument(DB_ID, TASKS_ID, id);
+    },
+
+    // Encryption Keys
+    async getUserKeys(userId: string) {
+        if (!USER_KEYS_ID) return null;
+        const res = await databases.listDocuments<UserKeys & Models.Document>(DB_ID, USER_KEYS_ID, [
+            Query.equal('userId', userId)
+        ]);
+        return res.documents[0];
+    },
+    async findUserKeysByEmail(email: string) {
+        if (!USER_KEYS_ID) return null;
+        const res = await databases.listDocuments<UserKeys & Models.Document>(DB_ID, USER_KEYS_ID, [
+            Query.equal('email', email)
+        ]);
+        return res.documents[0];
+    },
+    async createUserKeys(data: Omit<UserKeys, '$id'>) {
+        if (!USER_KEYS_ID) throw new Error('User Keys Collection ID is not configured');
+        return await databases.createDocument(DB_ID, USER_KEYS_ID, ID.unique(), data);
+    },
+    async getAccessKey(resourceId: string, userId: string) {
+        if (!ACCESS_CONTROL_ID) return null;
+        const res = await databases.listDocuments<AccessControl & Models.Document>(DB_ID, ACCESS_CONTROL_ID, [
+            Query.equal('resourceId', resourceId),
+            Query.equal('userId', userId)
+        ]);
+        return res.documents[0];
+    },
+    async grantAccess(data: Omit<AccessControl, '$id'>) {
+        if (!ACCESS_CONTROL_ID) throw new Error('Access Control Collection ID is not configured');
+        return await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), data);
     }
 };

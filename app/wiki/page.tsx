@@ -2,6 +2,8 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { WikiModal } from '@/components/WikiModal';
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { WikiGuide } from '@/types';
 import { Button, SearchField, Spinner, Surface } from "@heroui/react";
@@ -11,10 +13,11 @@ import {
     ArrowRightUp as ExternalLink,
     AddCircle as Plus,
     Magnifer as Search,
+    ShieldKeyhole as Shield,
     TrashBinTrash as Trash
 } from "@solar-icons/react";
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function WikiPage() {
     const [guides, setGuides] = useState<WikiGuide[]>([]);
@@ -23,29 +26,104 @@ export default function WikiPage() {
     const [isWikiModalOpen, setIsWikiModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedGuide, setSelectedGuide] = useState<WikiGuide | undefined>(undefined);
+    const { user, privateKey } = useAuth();
 
-    useEffect(() => {
-        fetchGuides();
-    }, []);
-
-    const fetchGuides = async () => {
+    const fetchGuides = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.listGuides();
-            setGuides(data.documents);
+            const rawGuides = data.documents;
+
+            // Decrypt encrypted guides if private key is available
+            const processedGuides = await Promise.all(rawGuides.map(async (guide) => {
+                if (guide.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(guide.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                
+                                const titleData = JSON.parse(guide.title);
+                                const descData = JSON.parse(guide.description);
+                                
+                                const decryptedTitle = await decryptData(titleData, docKey);
+                                const decryptedDesc = await decryptData(descData, docKey);
+                                
+                                return { ...guide, title: decryptedTitle, description: decryptedDesc };
+                            }
+                        } catch (e) {
+                            console.error('Failed to decrypt guide:', guide.$id, e);
+                            return { ...guide, title: '🔒 [Decryption Error]', description: 'Missing access keys.' };
+                        }
+                    }
+                    return { 
+                        ...guide, 
+                        title: '🔒 [Locked Protocol]', 
+                        description: 'Vault authentication required.' 
+                    };
+                }
+                return guide;
+            }));
+
+            setGuides(processedGuides);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [privateKey, user]);
 
-    const handleCreateOrUpdate = async (data: Partial<WikiGuide>) => {
-        if (selectedGuide?.$id) {
-            await db.updateGuide(selectedGuide.$id, data);
+    useEffect(() => {
+        fetchGuides();
+    }, [fetchGuides]);
+
+    const handleCreateOrUpdate = async (data: Partial<WikiGuide> & { shouldEncrypt?: boolean }) => {
+        const { shouldEncrypt, ...guideData } = data;
+        const finalData = { ...guideData };
+
+        if (shouldEncrypt && user) {
+            const userKeys = await db.getUserKeys(user.$id);
+            if (!userKeys) throw new Error('Vault keys not found');
+
+            const docKey = await generateDocumentKey();
+            const encryptedTitle = await encryptData(guideData.title || '', docKey);
+            const encryptedDesc = await encryptData(guideData.description || '', docKey);
+
+            finalData.title = JSON.stringify(encryptedTitle);
+            finalData.description = JSON.stringify(encryptedDesc);
+            finalData.isEncrypted = true;
+
+            const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+
+            if (selectedGuide?.$id) {
+                await db.updateGuide(selectedGuide.$id, finalData);
+                // Also update/add access control if not exists
+                const existingAccess = await db.getAccessKey(selectedGuide.$id, user.$id);
+                if (!existingAccess) {
+                    await db.grantAccess({
+                        resourceId: selectedGuide.$id,
+                        userId: user.$id,
+                        encryptedKey: encryptedDocKey,
+                        resourceType: 'Wiki'
+                    });
+                }
+            } else {
+                const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                await db.grantAccess({
+                    resourceId: newGuide.$id,
+                    userId: user.$id,
+                    encryptedKey: encryptedDocKey,
+                    resourceType: 'Wiki'
+                });
+            }
         } else {
-            await db.createGuide(data as Omit<WikiGuide, '$id' | '$createdAt'>);
+            if (selectedGuide?.$id) {
+                await db.updateGuide(selectedGuide.$id, finalData);
+            } else {
+                await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+            }
         }
+        
         setIsWikiModalOpen(false);
         fetchGuides();
     };
@@ -161,7 +239,14 @@ export default function WikiPage() {
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h3 className="text-2xl font-black tracking-tight leading-[1.1] transition-colors uppercase">{guide.title}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-2xl font-black tracking-tight leading-[1.1] transition-colors uppercase">{guide.title}</h3>
+                                        {guide.isEncrypted && (
+                                            <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
+                                                <Shield size={16} weight="Bold" />
+                                            </div>
+                                        )}
+                                    </div>
                                     <p className="text-muted-foreground leading-relaxed line-clamp-3 font-medium opacity-60 text-sm">
                                         {guide.description}
                                     </p>

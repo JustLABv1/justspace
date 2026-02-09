@@ -1,14 +1,15 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
 import { Project } from '@/types';
-import { Button, Form, Input, Label, Modal, TextArea, TextField } from "@heroui/react";
-import { Folder2 as Folder } from '@solar-icons/react';
+import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "@heroui/react";
+import { Folder2 as Folder, ShieldKeyhole as Shield } from '@solar-icons/react';
 import React, { useEffect, useState } from 'react';
 
 interface ProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: Partial<Project>) => Promise<void>;
+    onSubmit: (data: Partial<Project> & { shouldEncrypt?: boolean }) => Promise<void>;
     project?: Project;
 }
 
@@ -18,7 +19,9 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
     const [status, setStatus] = useState<'todo' | 'in-progress' | 'completed'>('todo');
     const [daysPerWeek, setDaysPerWeek] = useState<string>('');
     const [allocatedDays, setAllocatedDays] = useState<string>('');
+    const [isEncrypted, setIsEncrypted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const { hasVault } = useAuth();
 
     useEffect(() => {
         if (project) {
@@ -27,12 +30,14 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setStatus(project.status as 'todo' | 'in-progress' | 'completed');
             setDaysPerWeek(project.daysPerWeek?.toString() || '');
             setAllocatedDays(project.allocatedDays?.toString() || '');
+            setIsEncrypted(!!project.isEncrypted);
         } else {
             setName('');
             setDescription('');
             setStatus('todo');
             setDaysPerWeek('');
             setAllocatedDays('');
+            setIsEncrypted(false);
         }
     }, [project, isOpen]);
 
@@ -45,7 +50,9 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                 description, 
                 status,
                 daysPerWeek: daysPerWeek ? parseFloat(daysPerWeek) : undefined,
-                allocatedDays: allocatedDays ? parseInt(allocatedDays) : undefined
+                allocatedDays: allocatedDays ? parseInt(allocatedDays) : undefined,
+                isEncrypted,
+                shouldEncrypt: isEncrypted && !project?.isEncrypted
             });
             onClose();
         } catch (error) {
@@ -81,6 +88,31 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                         
                         <Form onSubmit={handleSubmit}>
                             <Modal.Body className="p-8 space-y-6">
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-secondary/50 border border-border/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                            <Shield size={20} weight="Bold" />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-xs font-black uppercase tracking-widest">End-to-End Encryption</p>
+                                            <p className="text-[10px] text-muted-foreground font-medium opacity-60">Secure project metadata & details</p>
+                                        </div>
+                                    </div>
+                                    <Switch 
+                                        isSelected={isEncrypted} 
+                                        onValueChange={setIsEncrypted}
+                                        isDisabled={!hasVault || (project?.isEncrypted)}
+                                        aria-label="Toggle encryption"
+                                    />
+                                </div>
+
+                                {!hasVault && (
+                                    <div className="px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-500 flex items-center gap-2">
+                                        <Shield size={16} />
+                                        SETUP YOUR VAULT IN SETTINGS TO ENABLE ENCRYPTION
+                                    </div>
+                                )}
+
                                 <TextField autoFocus isRequired value={name} onChange={setName} className="w-full">
                                     <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Project Identifier</Label>
                                     <Input 
