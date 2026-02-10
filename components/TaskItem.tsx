@@ -204,12 +204,12 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             ref={setNodeRef} 
             style={style} 
             className={`group flex flex-col gap-0 rounded-2xl border transition-all duration-300 overflow-hidden ${
-                isDragging ? 'border-primary shadow-2xl z-50 bg-surface scale-[1.02]' : 'border-border/40 hover:border-primary/20 bg-surface shadow-sm'
+                isDragging ? 'border-accent shadow-2xl z-50 bg-surface scale-[1.02]' : 'border-border/40 hover:border-accent/20 bg-surface shadow-sm'
             }`}
         >
             {/* Header / Title Row */}
             <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/20 hover:text-primary transition-colors">
+                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/20 hover:text-accent transition-colors">
                     <GripVertical size={16} weight="Linear" />
                 </div>
                 
@@ -236,7 +236,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     <Button 
                         variant="ghost" 
                         isIconOnly 
-                        className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground/30 hover:text-foreground'}`}
+                        className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-accent/10 text-accent' : 'text-muted-foreground/30 hover:text-foreground'}`}
                         onPress={onToggleExpanded}
                     >
                         {isExpanded ? <ChevronDown size={18} weight="Bold" /> : <ChevronRight size={18} weight="Bold" />}
@@ -256,7 +256,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
                 <div className="flex items-center gap-2 flex-grow overflow-hidden">
                     <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-foreground/[0.03] border border-border/40 whitespace-nowrap">
-                        <Plus size={10} weight="Bold" className="text-primary" />
+                        <Plus size={10} weight="Bold" className="text-accent" />
                         <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground/60">{subtasks.length} sub objectives</span>
                     </div>
                     
@@ -270,9 +270,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     )}
                     
                     {task.timeSpent && task.timeSpent > 0 && (
-                        <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-primary/5 border border-primary/20 whitespace-nowrap overflow-hidden">
-                            <History size={10} weight="Bold" className="text-primary" />
-                            <span className="text-xs uppercase font-bold tracking-widest text-primary truncate">
+                        <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-accent/5 border border-accent/20 whitespace-nowrap overflow-hidden">
+                            <History size={10} weight="Bold" className="text-accent" />
+                            <span className="text-xs uppercase font-bold tracking-widest text-accent truncate">
                                 {formatTime(task.timeSpent)} cumulative
                             </span>
                         </div>
@@ -281,7 +281,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
 
                 <div className={`flex items-center gap-2 pl-3 pr-1 py-1 rounded-2xl border transition-all duration-500 shrink-0 ${
                     task.isTimerRunning 
-                        ? 'bg-primary border-primary text-white shadow-lg shadow-primary/30' 
+                        ? 'bg-accent border-accent text-white shadow-lg shadow-accent/30' 
                         : 'bg-surface-secondary border-border/20 text-foreground'
                 }`}>
                     <span className={`text-xs font-bold tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
@@ -312,7 +312,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 <Tooltip.Arrow />
                                 <div className="p-3 space-y-3 min-w-[220px]">
                                     <div className="flex items-center justify-between border-b border-border/20 pb-2">
-                                        <p className="text-xs font-bold uppercase tracking-widest text-primary">Time Records</p>
+                                        <p className="text-xs font-bold uppercase tracking-widest text-accent">Time Records</p>
                                         <span className="text-xs font-bold text-muted-foreground/60">{parsedTimeEntries.length} entries</span>
                                     </div>
                                     <div className="space-y-1 max-h-48 overflow-y-auto pr-1 flex flex-col">
@@ -322,7 +322,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                                     <Calendar size={12} weight="Linear" className="text-muted-foreground/40" />
                                                     <span className="text-xs font-bold text-foreground/80">{dayjs(entry.date).format('MMM D, YYYY')}</span>
                                                 </div>
-                                                <span className="font-bold text-xs tabular-nums text-primary/80">
+                                                <span className="font-bold text-xs tabular-nums text-accent/80">
                                                     {formatTime(entry.seconds)}
                                                 </span>
                                             </div>
@@ -341,12 +341,12 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Sub-Task Management</h5>
-                            <span className="text-[10px] font-bold text-primary/60 bg-primary/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Resolved</span>
+                            <span className="text-[10px] font-bold text-accent/60 bg-accent/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Resolved</span>
                         </div>
 
                         <div className="space-y-2">
                             {subtasks.map((sub) => (
-                                <div key={sub.$id} className="flex items-center gap-3 p-2.5 bg-surface-lowest/50 rounded-xl border border-border/10 hover:border-primary/20 transition-all group/sub">
+                                <div key={sub.$id} className="flex items-center gap-3 p-2.5 bg-surface-lowest/50 rounded-xl border border-border/10 hover:border-accent/20 transition-all group/sub">
                                     <Checkbox 
                                         isSelected={sub.completed} 
                                         onChange={(val: boolean) => onToggle(sub.$id, val)}
@@ -384,9 +384,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 placeholder="Add actionable sub-task..." 
                                 value={newSubtaskTitle}
                                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                className="h-11 rounded-xl bg-surface-lowest border-dashed border-2 border-border/30 focus:border-primary/40 transition-all pl-4 pr-12 text-sm font-medium"
+                                className="h-11 rounded-xl bg-surface-lowest border-dashed border-2 border-border/30 focus:border-accent/40 transition-all pl-4 pr-12 text-sm font-medium"
                             />
-                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary">
+                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-accent/10 hover:text-accent">
                                 <Plus size={16} weight="Linear" />
                             </Button>
                         </form>
@@ -410,11 +410,11 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                     {parsedNotes.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((note, i) => (
                                         <div key={i} className={`p-3 rounded-xl border flex gap-3 group/note transition-all ${
                                             editingNoteIndex === note.originalIndex 
-                                                ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/20' 
+                                                ? 'bg-accent/5 border-accent/30 ring-1 ring-accent/20' 
                                                 : 'bg-surface-lowest/40 border-border/5'
                                         }`}>
                                             <div className={`mt-0.5 shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${
-                                                note.type === 'email' ? 'bg-primary/10 text-primary' :
+                                                note.type === 'email' ? 'bg-accent/10 text-accent' :
                                                 note.type === 'call' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
                                             }`}>
                                                 {note.type === 'email' ? <Email size={14} weight="Bold" /> :
@@ -429,7 +429,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                                         <Button 
                                                             variant="ghost" 
                                                             isIconOnly 
-                                                            className="h-6 w-6 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                                                            className="h-6 w-6 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
                                                             onPress={() => handleEditNote(note.originalIndex)}
                                                         >
                                                             <Edit size={12} weight="Bold" />
@@ -461,7 +461,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                                 size="sm"
                                                 className={`h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                                                     noteType === type 
-                                                        ? 'bg-primary text-white border-primary shadow-sm' 
+                                                        ? 'bg-accent text-white border-accent shadow-sm' 
                                                         : 'bg-surface-lowest text-muted-foreground/40 hover:text-foreground border-border/10'
                                                 }`}
                                                 onPress={() => setNoteType(type)}
@@ -489,9 +489,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         placeholder={editingNoteIndex !== null ? 'Edit entry...' : `Log new ${noteType}...`}
                                         value={newNote}
                                         onChange={(e) => setNewNote(e.target.value)}
-                                        className="h-11 rounded-xl bg-surface-lowest border border-border/20 focus:border-primary/40 transition-all pl-4 pr-12 text-sm font-medium"
+                                        className="h-11 rounded-xl bg-surface-lowest border border-border/20 focus:border-accent/40 transition-all pl-4 pr-12 text-sm font-medium"
                                     />
-                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary">
+                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-accent/10 hover:text-accent">
                                         {editingNoteIndex !== null ? <CheckCircleIcon size={16} weight="Bold" /> : <Plus size={16} weight="Linear" />}
                                     </Button>
                                 </div>

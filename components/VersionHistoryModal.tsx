@@ -86,7 +86,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                         <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
                                 <History size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
@@ -112,7 +112,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                                                         {v.title || 'Untitled Snapshot'}
                                                     </p>
                                                     {v.isEncrypted && (
-                                                        <Shield size={12} className="text-primary" />
+                                                        <Shield size={12} className="text-accent" />
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">

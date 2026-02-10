@@ -75,7 +75,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                         <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
                                 <Folder size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
@@ -90,7 +90,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                             <Modal.Body className="px-8 pt-4 pb-8 space-y-4 overflow-y-auto">
                                 <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-secondary/50 border border-border/10">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                        <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                                             <Shield size={20} weight="Bold" />
                                         </div>
                                         <div className="space-y-0.5">
@@ -120,7 +120,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Project Identifier</Label>
                                     <Input 
                                         placeholder="Enter project name..." 
-                                        className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-5" 
+                                        className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
                                     />
                                 </TextField>
 
@@ -128,7 +128,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Description</Label>
                                     <TextArea 
                                         placeholder="Briefly describe the project objectives..."
-                                        className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-2 min-h-[100px] p-5" 
+                                        className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-medium transition-all mt-2 min-h-[100px] p-5" 
                                     />
                                 </TextField>
 
@@ -158,7 +158,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             type="number"
                                             step="0.5"
                                             placeholder="e.g. 5" 
-                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-5" 
+                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
                                         />
                                     </TextField>
 
@@ -167,7 +167,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                         <Input 
                                             type="number"
                                             placeholder="e.g. 100" 
-                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-5" 
+                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
                                         />
                                     </TextField>
                                 </div>

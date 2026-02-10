@@ -48,12 +48,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                             </div>
                             <div>
                                 <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">justspace_</h1>
-                                <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-primary ml-0.5 mt-1 block opacity-60">Consultant OS</span>
+                                <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-accent ml-0.5 mt-1 block opacity-60">Consultant OS</span>
                             </div>
                         </div>
                     )}
                     {isCollapsed && (
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                        <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
                             <span className="font-bold text-lg">J</span>
                         </div>
                     )}
@@ -109,7 +109,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                                     : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground font-black opacity-50 hover:opacity-100'
                             }`}
                         >
-                            <Icon size={20} weight={isActive ? "Bold" : "Linear"} className={isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'} />
+                            <Icon size={20} weight={isActive ? "Bold" : "Linear"} className={isActive ? 'text-accent' : 'group-hover:text-accent transition-colors'} />
                             {!isCollapsed && <span className="tracking-tighter text-xs font-bold">{item.name}</span>}
                         </Link>
                     );

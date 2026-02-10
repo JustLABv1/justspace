@@ -80,8 +80,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
     if (isLoading) return (
         <div className="h-64 flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/40">Syncing board frequency...</p>
+            <div className="w-12 h-12 rounded-full border-4 border-accent/20 border-t-accent animate-spin" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-accent/40">Syncing board frequency...</p>
         </div>
     );
 
@@ -98,9 +98,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                 <div className="flex items-center gap-3">
                                     <div className={`w-2 h-2 rounded-full shadow-sm animate-pulse ${
                                         column.color === 'default' ? 'bg-muted-foreground/40' : 
-                                        column.color === 'accent' ? 'bg-primary' : 
+                                        column.color === 'accent' ? 'bg-accent' : 
                                         column.color === 'success' ? 'bg-success' : 
-                                        column.color === 'warning' ? 'bg-warning' : 'bg-primary/60'
+                                        column.color === 'warning' ? 'bg-warning' : 'bg-accent/60'
                                     }`} />
                                     <h3 className="font-bold tracking-tight text-sm text-foreground whitespace-nowrap">{column.label}</h3>
                                 </div>
@@ -130,19 +130,19 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                                 setSelectedTask(task);
                                                 setIsDetailModalOpen(true);
                                             }}
-                                            className="p-6 rounded-[2rem] border border-border/40 bg-surface shadow-sm cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 transition-all group relative overflow-hidden active:scale-[0.98]"
+                                            className="p-6 rounded-[2rem] border border-border/40 bg-surface shadow-sm cursor-grab active:cursor-grabbing hover:border-accent/40 hover:shadow-xl hover:shadow-accent/5 transition-all group relative overflow-hidden active:scale-[0.98]"
                                         >
                                             <div className="flex items-start justify-between gap-4">
                                                 <div className="flex-1 space-y-2">
                                                     <div className="flex items-center gap-2">
-                                                        {task.isEncrypted && <Shield size={12} className="text-primary/60" />}
+                                                        {task.isEncrypted && <Shield size={12} className="text-accent/60" />}
                                                         <p className="text-sm font-bold text-foreground leading-tight tracking-tight">{task.title}</p>
                                                     </div>
                                                     {subtasks.length > 0 && (
                                                         <div className="flex items-center gap-2">
                                                             <div className="flex-1 h-1 bg-foreground/5 rounded-full overflow-hidden">
                                                                 <div 
-                                                                    className="h-full bg-primary/40 rounded-full transition-all duration-500"
+                                                                    className="h-full bg-accent/40 rounded-full transition-all duration-500"
                                                                     style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
                                                                 />
                                                             </div>
@@ -150,12 +150,12 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <GripVertical size={16} weight="Bold" className="text-muted-foreground/20 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+                                                <GripVertical size={16} weight="Bold" className="text-muted-foreground/20 group-hover:text-accent transition-colors shrink-0 mt-0.5" />
                                             </div>
                                             
                                             <div className="mt-4 pt-4 border-t border-border/10 flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-accent/40" />
                                                     <span className="text-[9px] font-bold uppercase text-muted-foreground/40 tracking-widest">Task_{task.$id.slice(-4)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
@@ -166,7 +166,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                                         </div>
                                                     )}
                                                     {task.timeSpent && task.timeSpent > 0 && (
-                                                        <span className="text-[9px] font-bold uppercase text-primary/60 tracking-wider bg-primary/5 px-2 py-0.5 rounded-md">
+                                                        <span className="text-[9px] font-bold uppercase text-accent/60 tracking-wider bg-accent/5 px-2 py-0.5 rounded-md">
                                                             {Math.floor(task.timeSpent / 3600)}H {Math.floor((task.timeSpent % 3600) / 60)}M
                                                         </span>
                                                     )}
@@ -178,7 +178,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                             
                             <Button 
                                 variant="ghost" 
-                                className="w-full h-16 border-2 border-dashed border-border/30 hover:border-primary/40 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 hover:text-primary rounded-[2rem] transition-all bg-transparent hover:bg-primary/5"
+                                className="w-full h-16 border-2 border-dashed border-border/30 hover:border-accent/40 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 hover:text-accent rounded-[2rem] transition-all bg-transparent hover:bg-accent/5"
                                 onPress={async () => {
                                     const title = prompt('Enter task title:');
                                     if (title) {

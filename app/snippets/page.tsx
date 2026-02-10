@@ -213,20 +213,20 @@ export default function SnippetsPage() {
         <div className="max-w-[1400px] mx-auto p-6 md:p-12 space-y-12">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-primary font-bold tracking-widest text-[10px] opacity-80 uppercase">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-widest text-[10px] opacity-80 uppercase">
                         <CodeFile size={16} weight="Bold" className="animate-pulse" />
                         Source Code
                     </div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Snippet Library</h1>
                     <p className="text-sm text-muted-foreground font-medium opacity-60">Securely store and reuse your code snippets.</p>
                 </div>
-                <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
                     <Plus size={16} weight="Bold" className="mr-2" />
                     New Snippet
                 </Button>
             </header>
 
-            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-primary/40 transition-all duration-500">
+            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-accent/40 transition-all duration-500">
                 <Search size={20} className="text-muted-foreground/40" />
                 <input 
                     className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-bold tracking-tight placeholder:text-muted-foreground/20" 
@@ -238,18 +238,18 @@ export default function SnippetsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredSnippets.map((snippet) => (
-                    <Surface key={snippet.$id} className="p-0 rounded-[2.5rem] border border-border/40 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-primary/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5">
+                    <Surface key={snippet.$id} className="p-0 rounded-[2.5rem] border border-border/40 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5">
                         <div className="p-8 flex-1 space-y-6">
                             <div className="flex justify-between items-start">
                                 <div className="space-y-3">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-500 shadow-sm border border-border/20">
+                                        <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-500 shadow-sm border border-border/20">
                                             <CodeFile size={20} weight="Bold" />
                                         </div>
                                         <Chip size="sm" variant="soft" color="accent" className="font-bold text-[9px] uppercase tracking-widest px-2.5 h-5 rounded-lg">
                                             {snippet.language}
                                         </Chip>
-                                        {snippet.isEncrypted && <Shield size={14} className="text-primary/60" />}
+                                        {snippet.isEncrypted && <Shield size={14} className="text-accent/60" />}
                                     </div>
                                     <h3 className="text-xl font-bold tracking-tight leading-tight">{snippet.title}</h3>
                                 </div>
@@ -281,7 +281,7 @@ export default function SnippetsPage() {
                                                     const blocks = JSON.parse(snippet.blocks);
                                                     return blocks.map((b: { type: string; content: string }, i: number) => (
                                                         <div key={i} className="space-y-1">
-                                                            <div className="text-[9px] uppercase tracking-widest text-primary/40 font-black">{b.type} component_{i+1}</div>
+                                                            <div className="text-[9px] uppercase tracking-widest text-accent/40 font-black">{b.type} component_{i+1}</div>
                                                             <pre className="line-clamp-3">{b.content}</pre>
                                                         </div>
                                                     ));
@@ -294,11 +294,11 @@ export default function SnippetsPage() {
                                         <pre>{snippet.content}</pre>
                                     )}
                                 </div>
-                                <div className="absolute inset-0 bg-primary/10 backdrop-blur-[2px] opacity-0 group-hover/code:opacity-100 transition-all duration-500 flex items-center justify-center">
+                                <div className="absolute inset-0 bg-accent/10 backdrop-blur-[2px] opacity-0 group-hover/code:opacity-100 transition-all duration-500 flex items-center justify-center">
                                     <Button 
                                         variant="primary" 
                                         size="md" 
-                                        className="rounded-xl font-bold px-6 h-10 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest" 
+                                        className="rounded-xl font-bold px-6 h-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest" 
                                         onPress={() => copyToClipboard(snippet.blocks ? JSON.parse(snippet.blocks).map((b: { content: string }) => b.content).join('\n\n') : snippet.content)}
                                     >
                                         <Copy size={16} weight="Bold" className="mr-2" />
@@ -310,7 +310,7 @@ export default function SnippetsPage() {
 
                         <div className="px-10 py-6 bg-surface-secondary/20 border-t border-border/10 flex flex-wrap gap-3">
                             {snippet.tags?.map(tag => (
-                                <span key={tag} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-primary transition-colors cursor-default">
+                                <span key={tag} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-accent transition-colors cursor-default">
                                     #{tag}
                                 </span>
                             ))}

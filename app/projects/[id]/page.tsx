@@ -171,7 +171,7 @@ export default function ProjectDetailPage() {
     if (project.isEncrypted && !privateKey) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
-                <div className="w-24 h-24 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-2xl shadow-primary/5">
+                <div className="w-24 h-24 rounded-[2rem] bg-accent/10 flex items-center justify-center text-accent border border-accent/20 shadow-2xl shadow-accent/5">
                     <Shield size={48} weight="Bold" className="animate-pulse" />
                 </div>
                 <div className="text-center space-y-3">
@@ -181,7 +181,7 @@ export default function ProjectDetailPage() {
                         Unlock your vault to access project details.
                     </p>
                 </div>
-                <div className="w-px h-12 bg-gradient-to-b from-primary/40 to-transparent" />
+                <div className="w-px h-12 bg-gradient-to-b from-accent/40 to-transparent" />
             </div>
         );
     }
@@ -189,7 +189,7 @@ export default function ProjectDetailPage() {
     return (
         <div className={`mx-auto p-6 md:p-8 space-y-8 transition-all duration-500 ${viewMode === 'kanban' ? 'max-w-full' : 'max-w-[1200px]'}`}>
             <header className="flex flex-col gap-6">
-                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-bold text-xs tracking-widest group uppercase">
+                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors font-bold text-xs tracking-widest group uppercase">
                     <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
                     Back to Matrix
                 </Link>
@@ -197,7 +197,7 @@ export default function ProjectDetailPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                     <div className="space-y-6 flex-1">
                         <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 rounded-[1.5rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/5">
+                            <div className="w-14 h-14 rounded-[1.5rem] bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-2xl shadow-accent/5">
                                 <LayoutGrid size={28} />
                             </div>
                             <div>
@@ -210,7 +210,7 @@ export default function ProjectDetailPage() {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
-                                    <Calendar size={14} className="text-primary/50" />
+                                    <Calendar size={14} className="text-accent/50" />
                                     <span>Initialized Phase: {new Date(project.$createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
@@ -221,7 +221,7 @@ export default function ProjectDetailPage() {
                             <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Operational Status</span>
                                 <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                                    <div className={`w-2 h-2 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
                                     <span className="text-xs font-bold uppercase tracking-widest">{project.status.replace('-', ' ')}</span>
                                 </div>
                             </div>
@@ -229,7 +229,7 @@ export default function ProjectDetailPage() {
                             {project.daysPerWeek && (
                                 <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
                                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Resource Allocation</span>
-                                    <span className="text-xs font-bold uppercase tracking-widest text-primary">{project.daysPerWeek}D / Weekly</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest text-accent">{project.daysPerWeek}D / Weekly</span>
                                 </div>
                             )}
 
@@ -242,7 +242,7 @@ export default function ProjectDetailPage() {
                         </div>
                         
                         {project.description && (
-                            <p className="text-muted-foreground text-base leading-relaxed max-w-2xl font-medium opacity-80 border-l-2 border-primary/20 pl-6 py-2">
+                            <p className="text-muted-foreground text-base leading-relaxed max-w-2xl font-medium opacity-80 border-l-2 border-accent/20 pl-6 py-2">
                                {project.description}
                             </p>
                         )}
@@ -267,13 +267,13 @@ export default function ProjectDetailPage() {
                 </div>
             </header>
 
-            <Surface className="p-0 rounded-[2rem] border border-border/40 bg-surface shadow-2xl shadow-primary/5 relative overflow-hidden">
+            <Surface className="p-0 rounded-[2rem] border border-border/40 bg-surface shadow-2xl shadow-accent/5 relative overflow-hidden">
                 <div className="relative z-10">
                     <div className="p-6 border-b border-border/20 bg-surface-secondary/30">
                         <div className="flex items-center justify-between">
                             <div className="space-y-1">
                                 <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                                    <ListTodo size={20} className="text-primary" />
+                                    <ListTodo size={20} className="text-accent" />
                                     Project Roadmap
                                 </h2>
                                 <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest opacity-40">Define milestones and track technical execution.</p>
@@ -315,7 +315,7 @@ export default function ProjectDetailPage() {
                 </div>
                 
                 {/* Decorative background element */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             </Surface>
 
             <ProjectModal 

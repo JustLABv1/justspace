@@ -52,7 +52,7 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
                         <Label className="px-3 py-2 text-xs font-black uppercase tracking-[0.4em] text-muted-foreground/60">Output Formats</Label>
                         <Dropdown.Item onPress={exportAsMarkdown} className="rounded-xl hover:bg-foreground/5 transition-all outline-none">
                             <div className="flex items-center gap-3 p-1 font-black tracking-tight text-sm">
-                                <FileText size={18} weight="Bold" className="text-primary" />
+                                <FileText size={18} weight="Bold" className="text-accent" />
                                 MARKDOWN (.md)
                             </div>
                         </Dropdown.Item>

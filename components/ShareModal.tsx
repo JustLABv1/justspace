@@ -56,8 +56,8 @@ export const ShareModal = ({ isOpen, onClose, onShare }: ShareModalProps) => {
                         <Form onSubmit={handleSubmit} className="flex flex-col min-h-0 overflow-hidden flex-1">
                             <Modal.Body className="px-8 pt-4 pb-8 space-y-6">
                                 <div className="space-y-4">
-                                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-3">
-                                        <Shield size={20} className="text-primary shrink-0 mt-0.5" />
+                                    <div className="p-4 rounded-xl bg-accent/5 border border-accent/10 flex items-start gap-3">
+                                        <Shield size={20} className="text-accent shrink-0 mt-0.5" />
                                         <p className="text-[11px] text-muted-foreground font-medium leading-relaxed">
                                             This document is end-to-end encrypted. Sharing will encrypt the document&apos;s secret key with the recipient&apos;s public RSA key.
                                         </p>
@@ -75,7 +75,7 @@ export const ShareModal = ({ isOpen, onClose, onShare }: ShareModalProps) => {
                                         <Input 
                                             type="email"
                                             placeholder="colleague@example.com" 
-                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-5" 
+                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
                                         />
                                     </TextField>
                                 </div>

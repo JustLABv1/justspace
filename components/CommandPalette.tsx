@@ -112,9 +112,9 @@ export function CommandPalette() {
                                 <Command.Group heading="QUICK NAV" className="px-3 pb-3 text-[10px] font-black tracking-[0.4em] text-muted-foreground/20 mb-2 uppercase">
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push('/projects'))}
-                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-primary aria-selected:text-white transition-all gap-5 group"
+                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
                                     >
-                                        <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
+                                        <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
                                             <ListTodo size={24} weight="Linear" />
                                         </div>
                                         <div className="flex flex-col">
@@ -163,9 +163,9 @@ export function CommandPalette() {
                                             <Command.Item
                                                 key={project.$id}
                                                 onSelect={() => runCommand(() => router.push(`/projects/${project.$id}`))}
-                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-primary aria-selected:text-white transition-all gap-5 group"
+                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
                                             >
-                                                <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
+                                                <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
                                                     <Folder size={24} weight="Linear" />
                                                 </div>
                                                 <div className="flex flex-col flex-1 truncate">

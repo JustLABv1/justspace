@@ -86,12 +86,12 @@ export default function SignupPage() {
                             <TextField className="w-full">
                                 <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Full Designation</Label>
                                 <div className="relative group">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         placeholder="Dominic Cobb" 
-                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 pl-12 font-bold tracking-tight focus:border-accent/50 transition-all shadow-inner text-sm"
                                         required
                                     />
                                 </div>
@@ -100,13 +100,13 @@ export default function SignupPage() {
                             <TextField className="w-full">
                                 <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Email Address</Label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="consultant@example.com" 
-                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 pl-12 font-bold tracking-tight focus:border-accent/50 transition-all shadow-inner text-sm"
                                         required
                                     />
                                 </div>
@@ -120,7 +120,7 @@ export default function SignupPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="••••••••" 
-                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 px-5 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 px-5 font-bold tracking-tight focus:border-accent/50 transition-all shadow-inner text-sm"
                                         required
                                     />
                                 </div>
@@ -130,7 +130,7 @@ export default function SignupPage() {
                                 <Button 
                                     type="submit" 
                                     variant="primary" 
-                                    className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-primary/20 tracking-widest"
+                                    className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-accent/20 tracking-widest"
                                     isPending={isLoading}
                                 >
                                     Establish Identity
@@ -139,7 +139,7 @@ export default function SignupPage() {
                                 
                                 <p className="text-center text-xs font-medium text-muted-foreground">
                                     Already have a node?{' '}
-                                    <Link href="/login" className="text-primary font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
+                                    <Link href="/login" className="text-accent font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
                                         Authenticate
                                     </Link>
                                 </p>
@@ -151,7 +151,7 @@ export default function SignupPage() {
 
             {/* Right Side: Brand area */}
             <div className="hidden lg:flex lg:w-1/2 relative bg-surface items-center justify-center p-12 overflow-hidden border-l border-border/40 order-1 lg:order-2">
-                <div className="absolute inset-0 bg-gradient-to-bl from-primary/5 via-transparent to-accent/5" />
+                <div className="absolute inset-0 bg-gradient-to-bl from-accent/5 via-transparent to-accent/5" />
                 <div className="relative z-10 max-w-lg space-y-12">
                     <div className="flex items-center gap-4 text-foreground mb-8">
                         <div className="w-12 h-12 rounded-xl bg-foreground flex items-center justify-center text-background shadow-2xl shadow-black/10">
@@ -160,7 +160,7 @@ export default function SignupPage() {
                         <span className="text-3xl font-bold tracking-tight">justspace_</span>
                     </div>
                     <h1 className="text-5xl font-bold tracking-tight leading-[0.9]">
-                        The Master Console for <br/><span className="text-primary">Engineers.</span>
+                        The Master Console for <br/><span className="text-accent">Engineers.</span>
                     </h1>
                     <p className="text-lg text-muted-foreground font-medium leading-relaxed opacity-60">
                         Join the high-density environment optimized for professional consultants and solution architects.
@@ -168,7 +168,7 @@ export default function SignupPage() {
                     
                     <div className="grid grid-cols-2 gap-4 pt-10">
                         <Surface className="p-6 rounded-2xl bg-foreground text-background border border-foreground relative overflow-hidden group shadow-2xl shadow-black/10">
-                            <Sparkles size={24} weight="Bold" className="mb-4 text-primary" />
+                            <Sparkles size={24} weight="Bold" className="mb-4 text-accent" />
                             <h3 className="text-lg font-bold tracking-tight mb-1">Premium OS_</h3>
                             <p className="text-[11px] font-medium text-background/60 leading-snug">Designer UI built for high-performance engineers.</p>
                         </Surface>

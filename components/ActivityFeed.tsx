@@ -61,7 +61,7 @@ export function ActivityFeed() {
         switch (type) {
             case 'create': return <PlusCircle size={14} weight="Bold" className="text-accent" />;
             case 'complete': return <CheckCircle size={14} weight="Bold" className="text-success" />;
-            case 'update': return <FileText size={14} weight="Bold" className="text-primary" />;
+            case 'update': return <FileText size={14} weight="Bold" className="text-accent" />;
             case 'delete': return <Trash2 size={14} weight="Bold" className="text-danger" />;
             case 'work': return <PlayIcon size={14} weight="Bold" className="text-warning" />;
             default: return <Activity size={14} weight="Bold" className="text-muted-foreground" />;
@@ -100,7 +100,7 @@ export function ActivityFeed() {
                     className="h-8 w-8 p-0 rounded-lg hover:bg-foreground/5 transition-all opacity-50 hover:opacity-100"
                     isPending={refreshing}
                 >
-                    <RefreshCw size={16} weight="Bold" className={refreshing ? 'animate-spin text-primary' : ''} />
+                    <RefreshCw size={16} weight="Bold" className={refreshing ? 'animate-spin text-accent' : ''} />
                 </Button>
             </div>
 
@@ -121,7 +121,7 @@ export function ActivityFeed() {
                             )}
                             
                             {/* Icon Container */}
-                            <div className="absolute left-0 top-0.5 w-10 h-10 rounded-2xl bg-surface-secondary border border-border/50 flex items-center justify-center z-10 group-hover:border-primary/50 transition-all duration-500 shadow-sm group-hover:scale-110">
+                            <div className="absolute left-0 top-0.5 w-10 h-10 rounded-2xl bg-surface-secondary border border-border/50 flex items-center justify-center z-10 group-hover:border-accent/50 transition-all duration-500 shadow-sm group-hover:scale-110">
                                 {getIcon(activity.type)}
                             </div>
 
@@ -138,7 +138,7 @@ export function ActivityFeed() {
                                     </span>
                                 </div>
                                 {activity.metadata && (
-                                    <div className="text-[10px] font-bold text-primary tracking-widest flex items-center gap-2 py-1 bg-primary/5 px-3 rounded-lg w-fit border border-primary/10 uppercase">
+                                    <div className="text-[10px] font-bold text-accent tracking-widest flex items-center gap-2 py-1 bg-accent/5 px-3 rounded-lg w-fit border border-accent/10 uppercase">
                                         <Clock size={12} weight="Bold" />
                                         {activity.metadata}
                                     </div>

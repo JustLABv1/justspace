@@ -26,7 +26,7 @@ export default function SettingsPage() {
         <Suspense fallback={
             <div className="flex h-screen w-full items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
-                    <RefreshIcon size={40} className="animate-spin text-primary opacity-20" />
+                    <RefreshIcon size={40} className="animate-spin text-accent opacity-20" />
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing System_</p>
                 </div>
             </div>
@@ -235,7 +235,7 @@ function SettingsContent() {
     return (
         <div className="max-w-[1200px] mx-auto p-6 md:p-12 space-y-12">
             <header className="space-y-3">
-                <div className="flex items-center gap-3 text-primary font-black tracking-[0.2em] text-[10px] opacity-80 uppercase">
+                <div className="flex items-center gap-3 text-accent font-black tracking-[0.2em] text-[10px] opacity-80 uppercase">
                     <SettingsIcon size={14} weight="Bold" className="animate-pulse" />
                     System Configuration
                 </div>
@@ -280,7 +280,7 @@ function SettingsContent() {
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Workspace Name</label>
                                         <input 
-                                            className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-primary transition-all"
+                                            className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
                                             defaultValue="Justin's Space"
                                         />
                                     </div>
@@ -288,14 +288,14 @@ function SettingsContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Language</label>
-                                            <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-primary transition-all">
-                                                <Globe size={18} className="mr-3 text-primary" />
+                                            <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-accent transition-all">
+                                                <Globe size={18} className="mr-3 text-accent" />
                                                 <span>English (US)</span>
                                             </div>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Timezone</label>
-                                            <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-primary transition-all">
+                                            <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-accent transition-all">
                                                 <Globe size={18} className="mr-3 text-accent" />
                                                 <span>Europe/Berlin (UTC+1)</span>
                                             </div>
@@ -324,7 +324,7 @@ function SettingsContent() {
 
                                 <Surface variant="tertiary" className="p-8 rounded-[2rem] border border-border/20 bg-surface/30 space-y-6">
                                     <div className="flex items-start gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                                        <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
                                             <Vault size={24} weight="Bold" />
                                         </div>
                                         <div className="space-y-1">
@@ -342,7 +342,7 @@ function SettingsContent() {
                                             <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Vault Password</label>
                                             <input 
                                                 type="password"
-                                                className={`w-full h-14 bg-surface rounded-2xl border ${vaultError ? 'border-danger/50' : 'border-border/50'} px-5 font-bold outline-none focus:border-primary transition-all`}
+                                                className={`w-full h-14 bg-surface rounded-2xl border ${vaultError ? 'border-danger/50' : 'border-border/50'} px-5 font-bold outline-none focus:border-accent transition-all`}
                                                 placeholder="Enter secure vault passphrase..."
                                                 value={vaultPassword}
                                                 onChange={(e) => setVaultPassword(e.target.value)}
@@ -450,28 +450,28 @@ function SettingsContent() {
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Default Currency</label>
                                             <input 
-                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-primary transition-all"
+                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
                                                 defaultValue="EUR (€)"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Standard Day Rate</label>
                                             <input 
-                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-primary transition-all"
+                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
                                                 defaultValue="1.200"
                                             />
                                         </div>
                                     </div>
 
-                                    <Surface variant="tertiary" className="p-6 rounded-2xl border border-border/40 bg-primary/5 flex items-center justify-between">
+                                    <Surface variant="tertiary" className="p-6 rounded-2xl border border-border/40 bg-accent/5 flex items-center justify-between">
                                         <div className="flex items-center gap-4">
-                                            <ShieldCheck size={24} weight="Bold" className="text-primary" />
+                                            <ShieldCheck size={24} weight="Bold" className="text-accent" />
                                             <div>
                                                 <p className="font-bold text-sm">Tax Compliance Mode</p>
                                                 <p className="text-[11px] text-muted-foreground">Automatically calculate VAT/Sales Tax on forecasts.</p>
                                             </div>
                                         </div>
-                                        <div className="w-12 h-6 bg-primary rounded-full relative flex items-center px-1 shadow-inner cursor-pointer">
+                                        <div className="w-12 h-6 bg-accent rounded-full relative flex items-center px-1 shadow-inner cursor-pointer">
                                             <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm" />
                                         </div>
                                     </Surface>
@@ -481,7 +481,7 @@ function SettingsContent() {
 
                         <div className="pt-8 flex justify-end gap-3 border-t border-border/20">
                             <Button variant="ghost" className="rounded-xl font-bold px-6">Discard</Button>
-                            <Button variant="primary" className="rounded-xl font-black px-10 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest">
+                            <Button variant="primary" className="rounded-xl font-black px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest">
                                 <Update size={18} weight="Bold" className="mr-2" />
                                 Save Changes
                             </Button>

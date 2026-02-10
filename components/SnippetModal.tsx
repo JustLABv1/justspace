@@ -110,7 +110,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                         <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
                                 <Code size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
@@ -127,7 +127,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Title</Label>
                                     <Input 
                                         placeholder="Snippet title..." 
-                                        className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                        className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold transition-all mt-1.5" 
                                     />
                                 </TextField>
 
@@ -136,14 +136,14 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                         <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Language</Label>
                                         <Input 
                                             placeholder="e.g. typescript, bash" 
-                                            className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                            className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold transition-all mt-1.5" 
                                         />
                                     </TextField>
                                     <TextField value={tags} onChange={setTags} className="w-full">
                                         <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Tags (comma separated)</Label>
                                         <Input 
                                             placeholder="e.g. azure, auth, deployment" 
-                                            className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold transition-all mt-1.5" 
+                                            className="h-11 rounded-xl bg-surface-secondary border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold transition-all mt-1.5" 
                                         />
                                     </TextField>
                                 </div>
@@ -152,13 +152,13 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Description</Label>
                                     <TextArea 
                                         placeholder="Short explanation..."
-                                        className="rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-1.5 min-h-[60px]" 
+                                        className="rounded-xl bg-surface-secondary border-border/40 hover:border-accent/40 focus:border-accent text-sm font-medium transition-all mt-1.5 min-h-[60px]" 
                                     />
                                 </TextField>
 
                                 <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-secondary/50 border border-border/10">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                        <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                                             <Shield size={20} weight="Bold" />
                                         </div>
                                         <div className="space-y-0.5">
@@ -235,7 +235,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                                 value={block.content} 
                                                 onChange={(e) => updateBlock(block.id, e.target.value)}
                                                 placeholder={block.type === 'code' ? 'Paste code component...' : 'Enter documentation block...'}
-                                                className={`rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm transition-all min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
+                                                className={`rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm transition-all min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
                                             />
                                         </div>
                                     ))}

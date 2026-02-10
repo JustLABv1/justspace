@@ -91,7 +91,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Loading templates...</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-accent/40">Loading templates...</p>
                                 </div>
                             )}
 

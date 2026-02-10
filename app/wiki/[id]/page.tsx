@@ -276,7 +276,7 @@ export default function WikiDetailPage() {
         <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-12">
             <nav className="flex items-center justify-between">
                 <Link href="/wiki">
-                    <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 group bg-surface/5 backdrop-blur-sm hover:border-primary/30 uppercase text-[10px] tracking-widest transition-all">
+                    <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 group bg-surface/5 backdrop-blur-sm hover:border-accent/30 uppercase text-[10px] tracking-widest transition-all">
                         <ArrowLeft size={16} weight="Bold" className="mr-2 group-hover:-translate-x-1 transition-transform" />
                         Back to Wiki
                     </Button>
@@ -285,7 +285,7 @@ export default function WikiDetailPage() {
                      <Button 
                         variant="ghost" 
                         isIconOnly 
-                        className="rounded-xl h-9 w-9 border border-border/20 bg-surface/5 backdrop-blur-sm hover:text-primary transition-all"
+                        className="rounded-xl h-9 w-9 border border-border/20 bg-surface/5 backdrop-blur-sm hover:text-accent transition-all"
                         onPress={() => setIsHistoryModalOpen(true)}
                     >
                         <History size={18} weight="Bold" />
@@ -302,7 +302,7 @@ export default function WikiDetailPage() {
                     )}
                     <Button 
                         variant="primary" 
-                        className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" 
+                        className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" 
                         onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}
                     >
                         <Plus size={16} weight="Bold" className="mr-2" />
@@ -315,10 +315,10 @@ export default function WikiDetailPage() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/10">
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                             <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                             <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
                                 <Info size={14} weight="Bold" />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/60">Documentation Guide</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-accent/60">Documentation Guide</span>
                         </div>
                         <div className="flex items-center gap-4">
                             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -451,7 +451,7 @@ export default function WikiDetailPage() {
                                                             <h3 className="text-lg font-bold tracking-tight">Tasks Pipeline</h3>
                                                             <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Sync to Projects</p>
                                                         </div>
-                                                        <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                                                        <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold text-xs">
                                                             {inst.tasks.length}
                                                         </div>
                                                     </div>
@@ -459,7 +459,7 @@ export default function WikiDetailPage() {
                                                     <ul className="space-y-4">
                                                         {inst.tasks.map((task, i) => (
                                                             <li key={i} className="flex items-start gap-3 group">
-                                                                <div className="mt-1 flex items-center justify-center w-5 h-5 rounded-md bg-surface-secondary border border-border/20 text-muted-foreground/40 text-[9px] font-bold group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all">
+                                                                <div className="mt-1 flex items-center justify-center w-5 h-5 rounded-md bg-surface-secondary border border-border/20 text-muted-foreground/40 text-[9px] font-bold group-hover:bg-accent group-hover:text-white group-hover:border-accent transition-all">
                                                                     {i + 1}
                                                                 </div>
                                                                 <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">

@@ -211,7 +211,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
             {!hideHeader && (
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm border border-primary/20">
+                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shadow-sm border border-accent/20">
                             <ListChecks size={20} weight="Bold" />
                         </div>
                         <div>
@@ -226,7 +226,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
-                                            className="h-4 px-1.5 text-[8px] uppercase font-bold tracking-widest text-primary hover:bg-primary/5 border-none"
+                                            className="h-4 px-1.5 text-[8px] uppercase font-bold tracking-widest text-accent hover:bg-accent/5 border-none"
                                             isPending={isApplyingTemplate}
                                         >
                                             Templates
@@ -251,12 +251,12 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
 
                     <div className="flex items-center gap-3 flex-grow max-w-[300px]">
                         <div className="relative flex-grow group">
-                            <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                            <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-accent transition-colors" />
                             <Input 
                                 placeholder="Filter tasks..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-10 bg-surface border-border/40 hover:border-primary/20 focus:border-primary/40 rounded-xl pl-9 text-xs font-medium transition-all"
+                                className="w-full h-10 bg-surface border-border/40 hover:border-accent/20 focus:border-accent/40 rounded-xl pl-9 text-xs font-medium transition-all"
                             />
                         </div>
                     </div>
@@ -313,7 +313,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                             value={newTaskTitle}
                             onChange={(e) => setNewTaskTitle(e.target.value)}
                             placeholder="Add a new milestone..." 
-                            className="h-11 bg-surface border border-border/40 hover:border-primary/30 focus:border-primary rounded-xl pl-5 pr-14 text-sm font-bold transition-all"
+                            className="h-11 bg-surface border border-border/40 hover:border-accent/30 focus:border-accent rounded-xl pl-5 pr-14 text-sm font-bold transition-all"
                         />
                         <Button 
                             type="submit" 

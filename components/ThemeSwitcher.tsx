@@ -25,7 +25,7 @@ export function ThemeSwitcher() {
       isIconOnly
       onPress={() => setTheme(theme === "light" ? "dark" : "light")}
       aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-      className="h-11 w-11 rounded-2xl bg-foreground/5 text-muted-foreground hover:text-primary hover:bg-foreground/10 border border-border/20 transition-all shadow-inner group"
+      className="h-11 w-11 rounded-2xl bg-foreground/5 text-muted-foreground hover:text-accent hover:bg-foreground/10 border border-border/20 transition-all shadow-inner group"
     >
       {theme === "light" ? (
         <Moon size={22} weight="Bold" className="group-hover:scale-110 transition-transform" />

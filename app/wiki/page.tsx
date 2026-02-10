@@ -221,20 +221,20 @@ export default function WikiPage() {
         <div className="max-w-[1240px] mx-auto p-6 md:p-12 space-y-12">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-primary font-bold tracking-widest text-[10px] opacity-80 uppercase">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-widest text-[10px] opacity-80 uppercase">
                         <Book size={16} weight="Bold" className="animate-pulse" />
                         Knowledge Base
                     </div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Wiki Guides</h1>
                     <p className="text-sm text-muted-foreground font-medium opacity-60">Documentation and deployment guides for your stack.</p>
                 </div>
-                <Button variant="primary" className="rounded-xl h-10 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
+                <Button variant="primary" className="rounded-xl h-10 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
                     <Plus size={18} weight="Bold" className="mr-2" />
                     New Guide
                 </Button>
             </header>
 
-            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-primary/40 transition-all duration-500">
+            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-accent/40 transition-all duration-500">
                 <Search size={20} className="text-muted-foreground/40" />
                 <input 
                     className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-bold tracking-tight placeholder:text-muted-foreground/20" 
@@ -256,18 +256,18 @@ export default function WikiPage() {
                     filteredGuides.map((guide) => (
                         <Surface 
                             key={guide.$id} 
-                            className="p-0 rounded-[2.5rem] border border-border/30 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-500 hover:border-primary/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5"
+                            className="p-0 rounded-[2.5rem] border border-border/30 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-500 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5"
                         >
                             <div className="p-8 flex-1 flex flex-col gap-8">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-[1.2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground border border-border/20 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-500 shadow-sm">
+                                        <div className="w-12 h-12 rounded-[1.2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground border border-border/20 group-hover:bg-accent group-hover:text-white group-hover:border-accent transition-all duration-500 shadow-sm">
                                             <Book size={20} weight="Bold" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <h3 className="text-lg font-bold tracking-tight leading-none">{guide.title}</h3>
-                                                {guide.isEncrypted && <Shield size={14} className="text-primary/60" />}
+                                                {guide.isEncrypted && <Shield size={14} className="text-accent/60" />}
                                             </div>
                                         </div>
                                     </div>

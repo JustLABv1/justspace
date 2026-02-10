@@ -150,7 +150,7 @@ export default function ProjectsPage() {
         <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary font-black tracking-[0.2em] uppercase text-xs opacity-80">
+                    <div className="flex items-center gap-2 text-accent font-black tracking-[0.2em] uppercase text-xs opacity-80">
                         <ListTodo size={14} weight="Bold" className="animate-pulse" />
                         Project Operations
                     </div>
@@ -176,7 +176,7 @@ export default function ProjectsPage() {
                             Grid View
                         </Button>
                     </div>
-                    <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                    <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
                         <Plus size={16} weight="Bold" className="mr-2" />
                         New Project
                     </Button>
@@ -189,7 +189,7 @@ export default function ProjectsPage() {
                         <div key={column.status} className="flex flex-col gap-4 min-h-[500px]">
                             <Surface className="flex items-center justify-between px-4 py-2 bg-surface border border-border/40 rounded-xl shadow-sm">
                                 <span className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                                    <div className={`w-2 h-2 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
                                     <h3 className="font-bold tracking-tight text-xs text-muted-foreground">
                                         {column.label} 
                                     </h3>
@@ -211,17 +211,17 @@ export default function ProjectsPage() {
                                 
                                 <Button 
                                     variant="secondary" 
-                                    className="w-full border border-dashed border-border py-6 rounded-xl bg-surface/50 hover:bg-surface hover:border-primary/50 group transition-all duration-300"
+                                    className="w-full border border-dashed border-border py-6 rounded-xl bg-surface/50 hover:bg-surface hover:border-accent/50 group transition-all duration-300"
                                     onPress={() => { 
                                         setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
                                     }}
                                 >
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-6 h-6 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-primary transition-all">
+                                        <div className="w-6 h-6 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-accent transition-all">
                                             <Plus size={14} weight="Linear" />
                                         </div>
-                                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary">Initiate New Project</span>
+                                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-accent">Initiate New Project</span>
                                     </div>
                                 </Button>
                             </div>
@@ -269,7 +269,7 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Surface className="p-4 rounded-[1.25rem] border border-border/40 bg-surface/40 backdrop-blur-xl group relative overflow-hidden transition-all duration-300 hover:border-primary/50 hover:bg-surface/60">
+        <Surface className="p-4 rounded-[1.25rem] border border-border/40 bg-surface/40 backdrop-blur-xl group relative overflow-hidden transition-all duration-300 hover:border-accent/50 hover:bg-surface/60">
             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                 <div className="flex items-start justify-between gap-3">
                     <Link href={`/projects/${project.$id}`} className="flex items-center gap-3 flex-1 min-w-0">
@@ -304,7 +304,7 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
 
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                         <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-primary' : 'bg-success'}`} />
+                         <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{project.status.replace('-', ' ')}</span>
                     </div>
 
@@ -317,7 +317,7 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
             </div>
             
             {/* Corner gradient for depth */}
-            <div className="absolute -right-16 -bottom-16 w-32 h-32 bg-primary/5 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+            <div className="absolute -right-16 -bottom-16 w-32 h-32 bg-accent/5 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
         </Surface>
     );
 }

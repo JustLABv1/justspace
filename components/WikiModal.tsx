@@ -77,7 +77,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                 <div className="flex flex-col gap-6">
                                     <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-secondary/50 border border-border/10">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                                                 <Shield size={20} weight="Bold" />
                                             </div>
                                             <div className="space-y-0.5">
@@ -115,7 +115,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                         <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Document Title</Label>
                                         <Input 
                                             placeholder="e.g. System Architecture Guide" 
-                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-5" 
+                                            className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
                                         />
                                     </TextField>
 

@@ -14,20 +14,20 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
     // Intensity categories
     const getIntensityClass = (load: number) => {
         if (load === 0) return 'bg-foreground/5 text-muted-foreground/20';
-        if (load <= 20) return 'bg-primary/20 text-primary/40';
-        if (load <= 50) return 'bg-primary/40 text-primary/60';
-        if (load <= 80) return 'bg-primary/70 text-white';
-        if (load <= 100) return 'bg-primary text-white';
+        if (load <= 20) return 'bg-accent/20 text-accent/40';
+        if (load <= 50) return 'bg-accent/40 text-accent/60';
+        if (load <= 80) return 'bg-accent/70 text-white';
+        if (load <= 100) return 'bg-accent text-white';
         return 'bg-danger text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.4)]'; // Overbooked
     };
 
     return (
-        <Surface className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-2xl relative overflow-hidden group hover:border-primary/40 transition-all duration-700 hover:shadow-lg">
+        <Surface className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-2xl relative overflow-hidden group hover:border-accent/40 transition-all duration-700 hover:shadow-lg">
             <div className="relative z-10 flex flex-col">
                 <header className="flex items-center justify-between mb-8">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                             <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                             <div className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(var(--accent),0.5)]" />
                              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground opacity-60">Pulse Telemetry</p>
                         </div>
                         <h3 className="text-xl font-bold tracking-tight">Capacity Load_</h3>
@@ -75,7 +75,7 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
                         <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] opacity-60">Allocated Days / Week</p>
                     </div>
                     <div className="text-right space-y-1">
-                        <p className={`text-3xl font-bold tracking-tighter tabular-nums leading-none ${loadPercentage > 100 ? 'text-danger' : 'text-primary'}`}>
+                        <p className={`text-3xl font-bold tracking-tighter tabular-nums leading-none ${loadPercentage > 100 ? 'text-danger' : 'text-accent'}`}>
                             {loadPercentage.toFixed(0)}%
                         </p>
                         <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] opacity-60">System Utilization</p>
@@ -84,7 +84,7 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
             </div>
 
             {/* Decorative background depth */}
-            <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary/5 blur-[80px] rounded-full opacity-50 pointer-events-none" />
+            <div className="absolute -right-16 -top-16 w-48 h-48 bg-accent/5 blur-[80px] rounded-full opacity-50 pointer-events-none" />
         </Surface>
     );
 }

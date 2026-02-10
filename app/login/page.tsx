@@ -41,13 +41,13 @@ export default function LoginPage() {
         <div className="min-h-screen w-full flex overflow-hidden bg-background">
             {/* Left Side: Aesthetic brand area */}
             <div className="hidden lg:flex lg:w-1/2 relative bg-surface items-center justify-center p-12 overflow-hidden border-r border-border/40">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5" />
                 
                 {/* Animated background elements */}
                 <motion.div 
                     animate={{ rotate: 360 }}
                     transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-                    className="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl opacity-40"
+                    className="absolute -top-24 -left-24 w-96 h-96 bg-accent/5 rounded-full blur-3xl opacity-40"
                 />
                 <motion.div 
                     animate={{ rotate: -360 }}
@@ -68,7 +68,7 @@ export default function LoginPage() {
                             <span className="text-3xl font-bold tracking-tight">justspace_</span>
                         </div>
                         <h1 className="text-5xl font-bold tracking-tight leading-[0.9]">
-                            Elevate your <br/><span className="text-primary">Workflow.</span>
+                            Elevate your <br/><span className="text-accent">Workflow.</span>
                         </h1>
                         <p className="text-lg text-muted-foreground font-medium leading-relaxed pt-6 opacity-60">
                             The professional platform for technical consultants to manage projects, 
@@ -89,7 +89,7 @@ export default function LoginPage() {
                             { label: 'Activity Logs', icon: 'UNIT-04' }
                         ].map((item) => (
                             <Surface key={item.label} variant="secondary" className="p-4 rounded-2xl border border-border/40 flex flex-col gap-2 bg-surface/50 backdrop-blur-2xl shadow-sm">
-                                <span className="text-[10px] font-bold text-primary uppercase tracking-[0.4em] opacity-40">{item.icon}</span>
+                                <span className="text-[10px] font-bold text-accent uppercase tracking-[0.4em] opacity-40">{item.icon}</span>
                                 <span className="font-bold tracking-tight text-[12px]">{item.label}_</span>
                             </Surface>
                         ))}
@@ -141,13 +141,13 @@ export default function LoginPage() {
                             <TextField className="w-full">
                                 <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Account Email</Label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
                                         type="email" 
                                         value={email} 
                                         onChange={(e) => setEmail(e.target.value)} 
                                         placeholder="user@example.com"
-                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-accent/50 transition-all shadow-inner text-sm"
                                         required
                                     />
                                 </div>
@@ -156,13 +156,13 @@ export default function LoginPage() {
                             <TextField className="w-full">
                                 <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">System Password</Label>
                                 <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
                                         type="password" 
                                         value={password} 
                                         onChange={(e) => setPassword(e.target.value)} 
                                         placeholder="••••••••"
-                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
+                                        className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-accent/50 transition-all shadow-inner text-sm"
                                         required
                                     />
                                 </div>
@@ -173,7 +173,7 @@ export default function LoginPage() {
                             <Button 
                                 type="submit" 
                                 variant="primary" 
-                                className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-primary/20 tracking-widest"
+                                className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-accent/20 tracking-widest"
                                 isPending={isLoading}
                             >
                                 Synchronize Credentials
@@ -182,7 +182,7 @@ export default function LoginPage() {
                             
                             <p className="text-center text-xs font-medium text-muted-foreground">
                                 Domain unauthorized?{' '}
-                                <Link href="/signup" className="text-primary font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
+                                <Link href="/signup" className="text-accent font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
                                     Initialize Identity
                                 </Link>
                             </p>

@@ -121,7 +121,7 @@ export default function Home() {
       {/* Refined Header */}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-primary font-bold tracking-[0.2em] text-[10px] opacity-60 uppercase">
+          <div className="flex items-center gap-2 text-accent font-bold tracking-[0.2em] text-[10px] opacity-60 uppercase">
             <Sparkles size={14} weight="Bold" className="animate-pulse" />
             Control Hub
           </div>
@@ -140,7 +140,7 @@ export default function Home() {
             </Button>
           </Link>
           <Link href="/projects">
-            <Button variant="primary" className="rounded-xl h-9 px-5 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs">
+            <Button variant="primary" className="rounded-xl h-9 px-5 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs">
               <Plus size={16} weight="Bold" className="mr-2" />
               New Project
             </Button>
@@ -154,7 +154,7 @@ export default function Home() {
         <div className="lg:col-span-8 space-y-8">
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-primary/30 transition-all duration-500 hover:shadow-lg">
+            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
               <div className="flex flex-col h-full justify-between gap-6">
                 <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
                   <Target size={20} weight="Bold" />
@@ -164,14 +164,14 @@ export default function Home() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Active Projects</p>
                 </div>
                 <Link href="/projects">
-                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-primary transition-colors">
+                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-accent transition-colors">
                     View Pipeline <ArrowRightAlt size={14} className="ml-1" />
                   </Button>
                 </Link>
               </div>
             </Surface>
 
-            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-primary/30 transition-all duration-500 hover:shadow-lg">
+            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
               <div className="flex flex-col h-full justify-between gap-6">
                 <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
                   <Book size={20} weight="Bold" />
@@ -181,7 +181,7 @@ export default function Home() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Knowledge Base</p>
                 </div>
                 <Link href="/wiki">
-                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-primary transition-colors">
+                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-accent transition-colors">
                     Access Wiki <ArrowRightAlt size={14} className="ml-1" />
                   </Button>
                 </Link>
@@ -217,12 +217,12 @@ export default function Home() {
                 ))
               ) : recentProjects.length > 0 ? (
                 recentProjects.map((project) => (
-                  <Surface key={project.$id} className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-primary/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5">
+                  <Surface key={project.$id} className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-accent/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5">
                     <div className="relative z-10 flex flex-col h-full justify-between gap-6">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-primary" />
+                            <div className="w-2 h-2 rounded-full bg-accent" />
                             <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="font-bold text-[10px] uppercase tracking-widest px-2.5 h-6 rounded-lg opacity-80">
                                 {project.status}
                             </Chip>
@@ -231,7 +231,7 @@ export default function Home() {
                              {new Date(project.$createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <h3 className="text-2xl font-bold tracking-tight group-hover:text-primary transition-colors">{project.name}</h3>
+                        <h3 className="text-2xl font-bold tracking-tight group-hover:text-accent transition-colors">{project.name}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed font-medium opacity-80">{project.description}</p>
                       </div>
                       <Link href={`/projects/${project.$id}`}>
@@ -241,7 +241,7 @@ export default function Home() {
                       </Link>
                     </div>
                     {/* Abstract background highlight */}
-                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Surface>
                 ))
               ) : (
@@ -259,7 +259,7 @@ export default function Home() {
           </section>
 
           {/* Productivity Highlight */}
-          <Surface className="p-12 rounded-[2rem] bg-primary text-white border-none overflow-hidden relative group shadow-2xl shadow-primary/10">
+          <Surface className="p-12 rounded-[2rem] bg-accent text-white border-none overflow-hidden relative group shadow-2xl shadow-accent/10">
             <div className="relative z-10 max-w-lg space-y-8">
               <div className="w-16 h-16 rounded-[1.25rem] bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-inner">
                 <Sparkles size={32} weight="Bold" className="animate-pulse" />
@@ -271,7 +271,7 @@ export default function Home() {
                 </p>
               </div>
               <Link href="/wiki">
-                <Button variant="secondary" className="bg-white text-primary hover:bg-white/90 rounded-[1.5rem] px-12 h-16 font-black shadow-2xl tracking-tight uppercase border-none">
+                <Button variant="secondary" className="bg-white text-accent hover:bg-white/90 rounded-[1.5rem] px-12 h-16 font-black shadow-2xl tracking-tight uppercase border-none">
                   Open Documentation
                 </Button>
               </Link>

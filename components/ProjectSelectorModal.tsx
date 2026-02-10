@@ -60,7 +60,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                         <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
                                 <Folder size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
@@ -73,7 +73,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                             {isLoading ? (
                                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                                     <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Loading projects...</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-accent/40">Loading projects...</p>
                                 </div>
                             ) : projects.length > 0 ? (
                                 <div className="flex flex-col gap-3">
@@ -82,7 +82,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                             key={project.$id}
                                             onClick={() => handleSelect(project.$id)}
                                             disabled={isSubmitting}
-                                            className="flex items-center gap-5 p-5 rounded-[2.5rem] border border-border/40 bg-surface-secondary/20 text-left hover:border-primary/40 hover:bg-surface-secondary/40 transition-all group disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                                            className="flex items-center gap-5 p-5 rounded-[2.5rem] border border-border/40 bg-surface-secondary/20 text-left hover:border-accent/40 hover:bg-surface-secondary/40 transition-all group disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                                         >
                                             <div className="w-14 h-14 rounded-3xl bg-foreground/5 border border-border/40 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform shrink-0 shadow-sm">
                                                 <Folder size={28} weight="Bold" />
@@ -90,8 +90,8 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-black truncate text-foreground text-base tracking-tight uppercase">{project.name}</h4>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                                    <p className="text-[11px] text-primary/80 truncate uppercase font-black tracking-widest">{project.status}</p>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                                                    <p className="text-[11px] text-accent/80 truncate uppercase font-black tracking-widest">{project.status}</p>
                                                 </div>
                                             </div>
                                         </button>

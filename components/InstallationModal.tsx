@@ -91,7 +91,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Target Frequency</Label>
                                         <Input 
                                             placeholder="e.g. Azure, Linux" 
-                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-4" 
+                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
                                         />
                                     </TextField>
 
@@ -105,7 +105,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Source Registry</Label>
                                         <Input 
                                             placeholder="https://..." 
-                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-4" 
+                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
                                         />
                                     </TextField>
 
@@ -119,7 +119,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">External Documentation</Label>
                                         <Input 
                                             placeholder="https://docs..." 
-                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-4" 
+                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
                                         />
                                     </TextField>
                                 </div>
@@ -133,7 +133,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                     <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Deployment Checklist</Label>
                                     <TextArea 
                                         placeholder="Add step-by-step instructions..." 
-                                        className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-2 min-h-[100px] p-4" 
+                                        className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-medium transition-all mt-2 min-h-[100px] p-4" 
                                     />
                                 </TextField>
 
