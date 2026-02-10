@@ -25,7 +25,9 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }: SidebarProps) => {
     const pathname = usePathname();
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
+    const workspaceName = user?.prefs?.workspaceName || 'justspace_';
+    const firstLetter = workspaceName.charAt(0).toUpperCase();
 
     const navItems = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -48,17 +50,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                     {!isCollapsed && (
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
-                                <span className="font-bold text-xl leading-none">J</span>
+                                <span className="font-bold text-xl leading-none">{firstLetter}</span>
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">justspace_</h1>
+                                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none truncate max-w-[120px]">{workspaceName}</h1>
                                 <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-accent ml-0.5 mt-1 block opacity-60">Consultant OS</span>
                             </div>
                         </div>
                     )}
                     {isCollapsed && (
                         <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
-                            <span className="font-bold text-xl leading-none">J</span>
+                            <span className="font-bold text-xl leading-none">{firstLetter}</span>
                         </div>
                     )}
                     

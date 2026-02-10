@@ -1,23 +1,24 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { account } from '@/lib/appwrite';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Button, Form, Surface, toast } from '@heroui/react';
 import {
     CheckCircle as CheckCircleIcon,
     Database as DatabaseIcon,
-    Translation as Globe,
     Keyboard,
-    MoneyBag,
+    Moon,
     Palette,
     Refresh as RefreshIcon,
     Settings as SettingsIcon,
-    ShieldCheck,
+    Sun,
     Restart as Update,
     User,
     ShieldKeyhole as Vault
 } from '@solar-icons/react';
+import { useTheme } from 'next-themes';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 
@@ -39,6 +40,7 @@ export default function SettingsPage() {
 function SettingsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { theme, setTheme } = useTheme();
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'General');
     
     useEffect(() => {
@@ -60,6 +62,17 @@ function SettingsContent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [vaultError, setVaultError] = useState<string | null>(null);
     
+    // Core states
+    const [userName, setUserName] = useState('');
+    const [workspaceName, setWorkspaceName] = useState('');
+
+    useEffect(() => {
+        if (user) {
+            setUserName(user.name || '');
+            setWorkspaceName(user.prefs?.workspaceName || 'justspace_');
+        }
+    }, [user]);
+
     // Migration state
     const [isMigrating, setIsMigrating] = useState(false);
     const [stats, setStats] = useState({ projects: 0, wiki: 0, snippets: 0 });
@@ -87,6 +100,25 @@ function SettingsContent() {
     useEffect(() => {
         fetchStats();
     }, [fetchStats]);
+
+    const handleSaveChanges = async () => {
+        setIsSubmitting(true);
+        try {
+            if (userName !== user?.name) {
+                await account.updateName(userName);
+            }
+            await account.updatePreferences({
+                ...user?.prefs,
+                workspaceName,
+            });
+            toast.success('Settings synchronized');
+        } catch (error) {
+            console.error(error);
+            toast.danger('Failed to update settings');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleMigrate = async () => {
         if (!user || !userKeys || !privateKey) {
@@ -212,7 +244,6 @@ function SettingsContent() {
         { id: 'User', label: 'Account', icon: User },
         { id: 'Security', label: 'Security & Vault', icon: Vault },
         { id: 'Appearance', label: 'Appearance', icon: Palette },
-        { id: 'Financial', label: 'Financial', icon: MoneyBag },
         { id: 'Shortcuts', label: 'Shortcuts', icon: Keyboard },
     ];
 
@@ -290,26 +321,102 @@ function SettingsContent() {
                                         <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Workspace Name</label>
                                         <input 
                                             className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
-                                            defaultValue="Justin's Space"
+                                            value={workspaceName}
+                                            onChange={(e) => setWorkspaceName(e.target.value)}
+                                            placeholder="Enter workspace name..."
                                         />
                                     </div>
+                                </div>
+                            </div>
+                        )}
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Language</label>
-                                            <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-accent transition-all">
-                                                <Globe size={18} className="mr-3 text-accent" />
-                                                <span>English (US)</span>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Timezone</label>
-                                            <div className="h-14 bg-surface rounded-2xl border border-border/50 flex items-center px-5 font-bold cursor-pointer group hover:border-accent transition-all">
-                                                <Globe size={18} className="mr-3 text-accent" />
-                                                <span>Europe/Berlin (UTC+1)</span>
-                                            </div>
+                        {activeTab === 'User' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div>
+                                    <h3 className="text-xl font-black tracking-tight mb-2 uppercase italic">Account Profile</h3>
+                                    <p className="text-xs text-muted-foreground">Manage your personal information and identity.</p>
+                                </div>
+                                
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Full Name</label>
+                                        <input 
+                                            className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
+                                            value={userName}
+                                            onChange={(e) => setUserName(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2 opacity-50">
+                                        <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Email Address</label>
+                                        <div className="w-full h-14 bg-surface/50 rounded-2xl border border-border/50 px-5 font-bold flex items-center cursor-not-allowed">
+                                            {user?.email}
                                         </div>
                                     </div>
+                                    <div className="pt-4 p-6 rounded-2xl bg-surface-tertiary border border-border/50 space-y-2">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">System Identity</h4>
+                                        <p className="text-xs font-mono text-muted-foreground truncate">{user?.$id}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'Appearance' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div>
+                                    <h3 className="text-xl font-black tracking-tight mb-2">Visual Interface</h3>
+                                    <p className="text-xs text-muted-foreground">Customize the lighting and theme of your dashboard.</p>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {[
+                                        { id: 'light', label: 'Light Mode', icon: Sun },
+                                        { id: 'dark', label: 'Dark Mode', icon: Moon },
+                                        { id: 'system', label: 'System Sync', icon: RefreshIcon }
+                                    ].map((t) => (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => setTheme(t.id)}
+                                            className={`p-8 rounded-[2rem] border transition-all duration-300 flex flex-col items-center gap-4 group ${
+                                                theme === t.id 
+                                                    ? 'bg-foreground text-background border-transparent shadow-2xl' 
+                                                    : 'bg-surface/50 border-border/50 text-muted-foreground hover:border-accent hover:text-foreground'
+                                            }`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                                                theme === t.id ? 'bg-background/20 text-background' : 'bg-surface text-accent group-hover:bg-accent group-hover:text-white'
+                                            }`}>
+                                                <t.icon size={24} weight="Bold" />
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'Shortcuts' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div>
+                                    <h3 className="text-xl font-black tracking-tight mb-2">Keyboard Shortcuts</h3>
+                                    <p className="text-xs text-muted-foreground">Power user commands for rapid navigation.</p>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 gap-4">
+                                    {[
+                                        { cmd: '⌘ K', action: 'Open Command Palette' },
+                                        { cmd: '⌘ P', action: 'Quick Navigation: Projects' },
+                                        { cmd: '⌘ W', action: 'Quick Navigation: Wiki' },
+                                        { cmd: '⌘ S', action: 'Quick Navigation: Snippets' },
+                                        { cmd: '⌘ /', action: 'Toggle Sidebar' },
+                                        { cmd: 'ESC', action: 'Close Modals / Deselect' }
+                                    ].map((shortcut, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 px-6 rounded-2xl bg-surface/50 border border-border/30">
+                                            <span className="text-xs font-bold text-muted-foreground">{shortcut.action}</span>
+                                            <kbd className="px-3 py-1 bg-surface border border-border/50 rounded-lg text-[10px] font-black tracking-wider shadow-sm">
+                                                {shortcut.cmd}
+                                            </kbd>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -447,50 +554,20 @@ function SettingsContent() {
                             </div>
                         )}
 
-                        {activeTab === 'Financial' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                <div>
-                                    <h3 className="text-xl font-black tracking-tight mb-2">Financial Defaults</h3>
-                                    <p className="text-xs text-muted-foreground">Configure your billing and pipeline calculations.</p>
-                                </div>
-                                
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Default Currency</label>
-                                            <input 
-                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
-                                                defaultValue="EUR (€)"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Standard Day Rate</label>
-                                            <input 
-                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
-                                                defaultValue="1.200"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <Surface variant="tertiary" className="p-6 rounded-2xl border border-border/40 bg-accent/5 flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <ShieldCheck size={24} weight="Bold" className="text-accent" />
-                                            <div>
-                                                <p className="font-bold text-sm">Tax Compliance Mode</p>
-                                                <p className="text-[11px] text-muted-foreground">Automatically calculate VAT/Sales Tax on forecasts.</p>
-                                            </div>
-                                        </div>
-                                        <div className="w-12 h-6 bg-accent rounded-full relative flex items-center px-1 shadow-inner cursor-pointer">
-                                            <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm" />
-                                        </div>
-                                    </Surface>
-                                </div>
-                            </div>
-                        )}
-
                         <div className="pt-8 flex justify-end gap-3 border-t border-border/20">
-                            <Button variant="ghost" className="rounded-xl font-bold px-6">Discard</Button>
-                            <Button variant="primary" className="rounded-xl font-black px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest">
+                            <Button 
+                                variant="ghost" 
+                                className="rounded-xl font-bold px-6"
+                                onPress={() => router.refresh()}
+                            >
+                                Discard
+                            </Button>
+                            <Button 
+                                variant="primary" 
+                                className="rounded-xl font-black px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest"
+                                onPress={handleSaveChanges}
+                                isLoading={isSubmitting}
+                            >
                                 <Update size={18} weight="Bold" className="mr-2" />
                                 Save Changes
                             </Button>
