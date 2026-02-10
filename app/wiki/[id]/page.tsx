@@ -238,15 +238,15 @@ export default function WikiDetailPage() {
                     {guide.isEncrypted && (
                         <Button 
                             variant="secondary" 
-                            className="rounded-2xl h-12 px-6 font-bold uppercase tracking-widest border-orange-500/20 text-orange-500 hover:bg-orange-500/5 shadow-sm"
+                            className="rounded-xl h-10 px-6 font-bold uppercase tracking-widest border-orange-500/20 text-orange-500 hover:bg-orange-500/5 shadow-sm text-xs"
                             onPress={() => setIsShareModalOpen(true)}
                         >
-                            <Share size={18} weight="Bold" className="mr-3" />
+                            <Share size={16} weight="Bold" className="mr-3" />
                             Secure Share
                         </Button>
                     )}
-                    <Button variant="primary" className="rounded-2xl h-12 px-6 font-bold uppercase tracking-widest shadow-xl shadow-primary/10 flex-1 md:flex-none" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
-                        <Plus size={18} weight="Bold" className="mr-3" />
+                    <Button variant="primary" className="rounded-xl h-10 px-6 font-bold uppercase tracking-widest shadow-xl shadow-primary/10 flex-1 md:flex-none text-xs" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                        <Plus size={16} weight="Bold" className="mr-3" />
                         Init Target
                     </Button>
                 </div>

@@ -73,8 +73,8 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                 className="bg-background/80 backdrop-blur-md"
                 variant="blur"
             >
-                <Modal.Container size="md">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden">
+                <Modal.Container size="md" scroll="inside">
+                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0">
                         <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">

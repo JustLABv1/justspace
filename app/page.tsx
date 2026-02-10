@@ -71,7 +71,7 @@ export default function Home() {
                 description: 'Synchronize vault to access project details.'
             };
         }
-        return g;
+        return p;
       }));
 
       const processedGuides = await Promise.all(guides.documents.map(async (g) => {

@@ -1,7 +1,8 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
 import { Snippet } from '@/types';
-import { Button, Checkbox, Form, Input, Label, Modal, TextArea, TextField } from "@heroui/react";
+import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "@heroui/react";
 import { CodeCircle as Code, ShieldKeyhole as Shield } from '@solar-icons/react';
 import React, { useEffect, useState } from 'react';
 
@@ -20,6 +21,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
     const [tags, setTags] = useState('');
     const [isEncrypted, setIsEncrypted] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
+    const { hasVault } = useAuth();
 
     useEffect(() => {
         if (snippet) {
@@ -35,9 +37,9 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
             setLanguage('javascript');
             setDescription('');
             setTags('');
-            setIsEncrypted(true);
+            setIsEncrypted(hasVault);
         }
-    }, [snippet, isOpen]);
+    }, [snippet, isOpen, hasVault]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,7 +69,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                 className="bg-background/80 backdrop-blur-md"
                 variant="blur"
             >
-                <Modal.Container size="lg">
+                <Modal.Container size="lg" scroll="inside">
                     <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden">
                         <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
@@ -118,17 +120,34 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     />
                                 </TextField>
 
-                                <div className="flex items-center gap-2 p-4 rounded-2xl bg-primary/5 border border-primary/10">
-                                    <Checkbox isSelected={isEncrypted} onChange={setIsEncrypted}>
-                                        <div className="flex items-center gap-2 ml-2">
-                                            <Shield size={18} className="text-primary" />
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-foreground">Advanced Encryption</span>
-                                                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Protect with client-side RSA/AES encryption</span>
-                                            </div>
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                            <Shield size={20} weight="Bold" />
                                         </div>
-                                    </Checkbox>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-black uppercase tracking-widest text-foreground">End-to-End Encryption</span>
+                                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Secure with client-side RSA/AES encryption</span>
+                                        </div>
+                                    </div>
+                                    <Switch 
+                                        isSelected={isEncrypted} 
+                                        onChange={setIsEncrypted}
+                                        isDisabled={!hasVault || (snippet?.isEncrypted)}
+                                        aria-label="Toggle encryption"
+                                    >
+                                        <Switch.Control>
+                                            <Switch.Thumb />
+                                        </Switch.Control>
+                                    </Switch>
                                 </div>
+
+                                {!hasVault && (
+                                    <div className="px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-500 flex items-center gap-2">
+                                        <Shield size={16} />
+                                        SETUP YOUR VAULT IN SETTINGS TO ENABLE ENCRYPTION
+                                    </div>
+                                )}
 
                                 <TextField isRequired value={content} onChange={setContent} className="w-full">
                                     <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Content</Label>

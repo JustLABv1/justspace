@@ -158,8 +158,8 @@ export default function WikiPage() {
                     <p className="text-muted-foreground font-medium opacity-70 text-sm">Standardized procedures, deployment guides, and implementation standards.</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="primary" className="rounded-xl h-12 px-6 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
-                        <Plus size={18} weight="Bold" className="mr-2" />
+                    <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
+                        <Plus size={16} weight="Bold" className="mr-2" />
                         New Guide
                     </Button>
                 </div>
@@ -219,22 +219,22 @@ export default function WikiPage() {
                                     <div className="w-16 h-16 rounded-[1.5rem] bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-sm">
                                         <Book size={32} weight="Linear" />
                                     </div>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
+                                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
                                         <Button 
                                             variant="secondary" 
                                             isIconOnly 
-                                            className="rounded-2xl h-11 w-11 border-border/40 hover:bg-primary/10 hover:text-primary transition-all"
+                                            className="rounded-lg h-7 w-7 border-border/40 hover:bg-primary/10 hover:text-primary transition-all"
                                             onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
                                         >
-                                            <Edit size={18} weight="Bold" />
+                                            <Edit size={12} weight="Bold" />
                                         </Button>
                                         <Button 
                                             variant="secondary" 
                                             isIconOnly 
-                                            className="rounded-2xl h-11 w-11 border-border/40 hover:bg-danger/10 hover:text-danger transition-all"
+                                            className="rounded-lg h-7 w-7 border-border/40 hover:bg-danger/10 hover:text-danger transition-all"
                                             onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
                                         >
-                                            <Trash size={18} weight="Bold" />
+                                            <Trash size={12} weight="Bold" />
                                         </Button>
                                     </div>
                                 </div>

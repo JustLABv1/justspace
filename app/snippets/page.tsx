@@ -161,8 +161,8 @@ export default function SnippetsPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Snippet Library</h1>
                     <p className="text-sm text-muted-foreground font-medium opacity-60">Securely store and reuse your code snippets.</p>
                 </div>
-                <Button variant="primary" className="rounded-xl h-12 px-8 font-bold shadow-xl shadow-primary/10 text-sm uppercase tracking-widest" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
-                    <Plus size={18} weight="Bold" className="mr-2" />
+                <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                    <Plus size={16} weight="Bold" className="mr-2" />
                     New Snippet
                 </Button>
             </header>
@@ -194,12 +194,12 @@ export default function SnippetsPage() {
                                     </div>
                                     <h3 className="text-xl font-bold tracking-tight leading-tight">{snippet.title}</h3>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-lg h-8 w-8 hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
-                                        <Edit size={16} weight="Bold" />
+                                <div className="flex gap-1.5">
+                                    <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
+                                        <Edit size={12} weight="Bold" />
                                     </Button>
-                                    <Button variant="ghost" isIconOnly size="sm" className="rounded-lg h-8 w-8 text-danger hover:bg-danger/10 transition-all" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
-                                        <Trash size={16} weight="Bold" />
+                                    <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-danger hover:bg-danger/10 transition-all" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
+                                        <Trash size={12} weight="Bold" />
                                     </Button>
                                 </div>
                             </div>

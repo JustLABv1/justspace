@@ -37,9 +37,9 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setStatus('todo');
             setDaysPerWeek('');
             setAllocatedDays('');
-            setIsEncrypted(false);
+            setIsEncrypted(hasVault);
         }
-    }, [project, isOpen]);
+    }, [project, isOpen, hasVault]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -70,8 +70,8 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                 className="bg-black/60 backdrop-blur-xl"
                 variant="blur"
             >
-                <Modal.Container className="max-w-xl pt-[10%]">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0 overflow-hidden">
+                <Modal.Container className="max-w-xl pt-[10%]" scroll="inside">
+                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0">
                         <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">
@@ -100,12 +100,15 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     </div>
                                     <Switch 
                                         isSelected={isEncrypted} 
-                                        onValueChange={setIsEncrypted}
-                                        isDisabled={!hasVault || (project?.isEncrypted)}
-                                        aria-label="Toggle encryption"
-                                    />
+                                            onChange={setIsEncrypted}
+                                            isDisabled={!hasVault || (project?.isEncrypted)}
+                                            aria-label="Toggle encryption"
+                                        >
+                                            <Switch.Control>
+                                                <Switch.Thumb />
+                                            </Switch.Control>
+                                        </Switch>
                                 </div>
-
                                 {!hasVault && (
                                     <div className="px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-500 flex items-center gap-2">
                                         <Shield size={16} />

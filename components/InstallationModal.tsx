@@ -62,8 +62,8 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                 className="bg-black/60 backdrop-blur-xl"
                 variant="blur"
             >
-                <Modal.Container className="max-w-2xl pt-[5%]">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0 overflow-hidden">
+                <Modal.Container className="max-w-2xl pt-[5%]" scroll="inside">
+                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0">
                         <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
                         <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">
