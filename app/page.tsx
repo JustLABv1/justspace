@@ -5,23 +5,28 @@ import { ResourceHeatmap } from '@/components/ResourceHeatmap';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Project, WikiGuide } from '@/types';
-import { Button, Chip, Spinner, Surface } from "@heroui/react";
+import { Project, Snippet, Task } from '@/types';
+import { Button, Chip, Spinner, Surface, Tooltip } from "@heroui/react";
 import {
-    AltArrowRight as ArrowRightAlt,
-    Book,
-    AddCircle as Plus,
-    StarsLine as Sparkles,
-    Target
+  AltArrowRight as ArrowRightAlt,
+  Book,
+  CodeCircle as Code,
+  LockPassword as LockIcon,
+  AddCircle as Plus,
+  StarsLine as Sparkles,
+  Target,
+  Checklist as TaskIcon,
+  ShieldKeyhole as VaultIcon
 } from "@solar-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
 
 export default function Home() {
-  const [stats, setStats] = useState({ projects: 0, guides: 0 });
+  const [stats, setStats] = useState({ projects: 0, guides: 0, snippets: 0, tasks: 0 });
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
-  const [recentGuides, setRecentGuides] = useState<WikiGuide[]>([]);
+  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
+  const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const { user, privateKey } = useAuth();
@@ -35,14 +40,20 @@ export default function Home() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [projects, guides] = await Promise.all([
+      const [projects, guides, snippets, allTasks] = await Promise.all([
         db.listProjects(),
-        db.listGuides()
+        db.listGuides(),
+        db.listSnippets(),
+        db.listAllTasks(50)
       ]);
       
+      const pendingTasksCount = allTasks.documents.filter(t => !t.completed).length;
+
       setStats({
         projects: projects.total,
-        guides: guides.total
+        guides: guides.total,
+        snippets: snippets.total,
+        tasks: pendingTasksCount
       });
       
       // Decrypt data if possible, or show locked placeholders
@@ -74,37 +85,45 @@ export default function Home() {
         return p;
       }));
 
-      const processedGuides = await Promise.all(guides.documents.map(async (g) => {
-        if (g.isEncrypted) {
-            if (privateKey && user) {
-                try {
-                    const access = await db.getAccessKey(g.$id, user.$id);
-                    if (access) {
-                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                        const titleData = JSON.parse(g.title);
-                        const descData = JSON.parse(g.description);
-                        return { 
-                            ...g, 
-                            title: await decryptData(titleData, docKey),
-                            description: await decryptData(descData, docKey)
-                        };
-                    }
-                } catch (e) {
-                    console.error('Failed to decrypt guide on dashboard:', g.$id, e);
+      const processedSnippets = await Promise.all(snippets.documents.slice(0, 3).map(async (s) => {
+        if (s.isEncrypted && privateKey && user) {
+            try {
+                const access = await db.getAccessKey(s.$id, user.$id);
+                if (access) {
+                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    const titleData = JSON.parse(s.title);
+                    return { ...s, title: await decryptData(titleData, docKey) };
                 }
+            } catch (e) {
+                console.error('Failed to decrypt snippet:', s.$id, e);
             }
-            return { 
-                ...g, 
-                title: 'Encrypted Guide',
-                description: 'Synchronize vault to access documentation details.'
-            };
+            return { ...s, title: 'Secure Snippet' };
         }
-        return g;
+        return s;
+      }));
+
+      const processedTasks = await Promise.all(allTasks.documents.filter(t => !t.completed).slice(0, 3).map(async (t) => {
+        if (t.isEncrypted && privateKey && user) {
+            try {
+                // Tasks use the project's access key
+                const access = await db.getAccessKey(t.projectId, user.$id);
+                if (access) {
+                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    const titleData = JSON.parse(t.title);
+                    return { ...t, title: await decryptData(titleData, docKey) };
+                }
+            } catch (e) {
+                console.error('Failed to decrypt task:', t.$id, e);
+            }
+            return { ...t, title: 'Secure Task' };
+        }
+        return t;
       }));
 
       setAllProjects(processedProjects);
       setRecentProjects(processedProjects.slice(0, 2));
-      setRecentGuides(processedGuides.slice(0, 2));
+      setRecentSnippets(processedSnippets);
+      setRecentTasks(processedTasks);
     } catch (error) {
       console.error(error);
     } finally {
@@ -126,13 +145,35 @@ export default function Home() {
             Control Hub
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">
-            {greeting}, Justin_
+            {greeting}, {user?.name || 'Justin'}_
           </h1>
-          <p className="text-sm text-muted-foreground font-medium opacity-60">
-            Consultant OS status: optimal. <span className="text-foreground font-bold tracking-widest text-[10px] ml-2 uppercase opacity-40">{stats.projects} Projects Active</span>
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-muted-foreground font-medium opacity-60">
+              Consultant OS status: optimal. 
+            </p>
+            <Tooltip delay={0}>
+                <Tooltip.Trigger aria-label="Vault status">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-sm transition-all cursor-help ${privateKey ? 'bg-success/5 border-success/20 text-success' : 'bg-warning/5 border-warning/20 text-warning'}`}>
+                        {privateKey ? <VaultIcon size={12} weight="Bold" /> : <LockIcon size={12} weight="Bold" />}
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">
+                            Vault {privateKey ? 'Active' : 'Locked'}
+                        </span>
+                    </div>
+                </Tooltip.Trigger>
+                <Tooltip.Content showArrow placement="top" className="font-bold">
+                    <Tooltip.Arrow />
+                    {privateKey ? "Vault Unlocked" : "Vault Locked - Some data hidden"}
+                </Tooltip.Content>
+            </Tooltip>
+            <span className="text-foreground font-bold tracking-widest text-[10px] uppercase opacity-40">{stats.projects} Projects Active</span>
+          </div>
         </div>
         <div className="flex gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
+          <Link href="/snippets">
+            <Button variant="ghost" isIconOnly className="rounded-xl h-9 w-9 opacity-50 hover:opacity-100 transition-all">
+              <Code size={18} weight="Bold" />
+            </Button>
+          </Link>
           <Link href="/wiki">
             <Button variant="ghost" className="rounded-xl h-9 px-5 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all text-xs">
               <Book size={16} weight="Bold" className="mr-2" />
@@ -140,7 +181,7 @@ export default function Home() {
             </Button>
           </Link>
           <Link href="/projects">
-            <Button variant="primary" className="rounded-xl h-9 px-5 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs">
+            <Button variant="primary" className="rounded-xl h-9 px-5 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs text-white">
               <Plus size={16} weight="Bold" className="mr-2" />
               New Project
             </Button>
@@ -153,38 +194,52 @@ export default function Home() {
         {/* Left Column: Primary Content */}
         <div className="lg:col-span-8 space-y-8">
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Surface className="p-6 rounded-2xl md:rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
-              <div className="flex flex-col h-full justify-between gap-6">
-                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
-                  <Target size={20} weight="Bold" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
+              <div className="flex flex-col justify-between gap-3">
+                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
+                  <Target size={16} weight="Bold" />
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold tracking-tight">{stats.projects}</h3>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Active Projects</p>
+                  <h3 className="text-xl font-bold tracking-tight">{stats.projects}</h3>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Projects</p>
                 </div>
-                <Link href="/projects">
-                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-accent transition-colors">
-                    View Pipeline <ArrowRightAlt size={14} className="ml-1" />
-                  </Button>
-                </Link>
               </div>
             </Surface>
 
-            <Surface className="p-6 rounded-2xl md:rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
-              <div className="flex flex-col h-full justify-between gap-6">
-                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
-                  <Book size={20} weight="Bold" />
+            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
+              <div className="flex flex-col justify-between gap-3">
+                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
+                  <Book size={16} weight="Bold" />
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold tracking-tight">{stats.guides}</h3>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Knowledge Base</p>
+                  <h3 className="text-xl font-bold tracking-tight">{stats.guides}</h3>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Wiki Pages</p>
                 </div>
-                <Link href="/wiki">
-                  <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-accent transition-colors">
-                    Access Wiki <ArrowRightAlt size={14} className="ml-1" />
-                  </Button>
-                </Link>
+              </div>
+            </Surface>
+
+            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
+              <div className="flex flex-col justify-between gap-3">
+                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
+                  <Code size={16} weight="Bold" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight">{stats.snippets}</h3>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Snippets</p>
+                </div>
+              </div>
+            </Surface>
+
+            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
+              <div className="flex flex-col justify-between gap-3">
+                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
+                  <TaskIcon size={16} weight="Bold" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight">{stats.tasks}</h3>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Pending</p>
+                </div>
               </div>
             </Surface>
           </div>
@@ -258,30 +313,58 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Productivity Highlight */}
-          <Surface className="p-8 md:p-12 rounded-2xl md:rounded-[2rem] bg-accent text-white border-none overflow-hidden relative group shadow-2xl shadow-accent/10">
-            <div className="relative z-10 max-w-lg space-y-8">
-              <div className="w-16 h-16 rounded-[1.25rem] bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-inner">
-                <Sparkles size={32} weight="Bold" className="animate-pulse" />
-              </div>
-              <div className="space-y-4">
-                <h2 className="text-3xl font-black leading-[1.1] tracking-tighter uppercase">Infrastructure Knowledge_</h2>
-                <p className="text-xl text-white/80 leading-relaxed font-medium">
-                  Your knowledge base represents the foundation of your practice. Keep guides synced to maximize output.
-                </p>
-              </div>
-              <Link href="/wiki">
-                <Button variant="secondary" className="bg-white text-accent hover:bg-white/90 rounded-[1.5rem] px-12 h-16 font-black shadow-2xl tracking-tight uppercase border-none">
-                  Open Documentation
-                </Button>
-              </Link>
-            </div>
-            {/* Visual element */}
-            <div className="absolute -right-20 -top-20 w-[600px] h-[600px] bg-white/10 rounded-full blur-[120px] mix-blend-overlay opacity-50" />
-            <div className="absolute right-12 bottom-0 top-0 w-1/3 hidden lg:flex items-center justify-center opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000">
-              <Book size={300} weight="Bold" className="text-white rotate-12" />
-            </div>
-          </Surface>
+          {/* New Quick Glance Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Recent Snippets */}
+            <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold uppercase tracking-widest opacity-40">Recent Snippets</h2>
+                    <Link href="/snippets" className="text-[10px] font-bold text-accent">View all</Link>
+                </div>
+                <div className="space-y-2">
+                    {recentSnippets.length > 0 ? recentSnippets.map(snippet => (
+                        <Link key={snippet.$id} href="/snippets">
+                            <Surface className="p-3 rounded-xl border border-border/40 hover:border-accent/40 bg-surface/50 transition-all flex items-center justify-between group">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center">
+                                        <Code size={14} className="text-muted-foreground" />
+                                    </div>
+                                    <span className="text-xs font-semibold truncate max-w-[150px]">{snippet.title}</span>
+                                </div>
+                                <ArrowRightAlt size={14} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                            </Surface>
+                        </Link>
+                    )) : (
+                        <p className="text-[10px] text-muted-foreground italic">No snippets available.</p>
+                    )}
+                </div>
+            </section>
+
+            {/* Active Tasks */}
+            <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold uppercase tracking-widest opacity-40">Top Tasks</h2>
+                    <Link href="/projects" className="text-[10px] font-bold text-accent">Go to board</Link>
+                </div>
+                <div className="space-y-2">
+                    {recentTasks.length > 0 ? recentTasks.map(task => (
+                        <Link key={task.$id} href={`/projects/${task.projectId}`}>
+                            <Surface className="p-3 rounded-xl border border-border/40 hover:border-accent/40 bg-surface/50 transition-all flex items-center justify-between group">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center">
+                                        <div className="w-2 h-2 rounded-full bg-accent/40" />
+                                    </div>
+                                    <span className="text-xs font-semibold truncate max-w-[150px]">{task.title}</span>
+                                </div>
+                                <ArrowRightAlt size={14} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                            </Surface>
+                        </Link>
+                    )) : (
+                        <p className="text-[10px] text-muted-foreground italic">All caught up!</p>
+                    )}
+                </div>
+            </section>
+          </div>
         </div>
 
         {/* Right Column: Sidebar Insights */}

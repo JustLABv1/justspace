@@ -62,7 +62,8 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Snippet',
-            entityName: data.isEncrypted ? 'Secure Snippet' : data.title
+            entityName: data.title,
+            projectId: snippet.$id // Treat Snippet ID as a segment for access
         });
         return snippet;
     },
@@ -72,7 +73,8 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Snippet',
-                entityName: data.isEncrypted ? 'Secure Snippet' : (data.title || 'Snippet')
+                entityName: snippet.title || 'Snippet',
+                projectId: snippet.$id
             });
         }
         return snippet;
@@ -98,7 +100,8 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Project',
-            entityName: data.isEncrypted ? 'Secure Project' : data.name
+            entityName: project.name,
+            projectId: project.$id
         });
         return project;
     },
@@ -108,7 +111,8 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Project',
-                entityName: project.isEncrypted ? 'Secure Project' : (project.name || 'Project')
+                entityName: project.name || 'Project',
+                projectId: project.$id
             });
         }
         return project;
@@ -142,7 +146,8 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Wiki',
-            entityName: data.isEncrypted ? 'Secure Document' : data.title
+            entityName: guide.title,
+            projectId: guide.$id
         });
         return guide;
     },
@@ -152,7 +157,8 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Wiki',
-                entityName: data.isEncrypted ? 'Secure Document' : (data.title || 'Guide')
+                entityName: guide.title || 'Guide',
+                projectId: guide.$id
             });
         }
         return guide;
@@ -197,6 +203,12 @@ export const db = {
     },
     
     // Tasks
+    async listAllTasks(limit = 100) {
+        return await databases.listDocuments<Task & Models.Document>(DB_ID, TASKS_ID, [
+            Query.orderDesc('$createdAt'),
+            Query.limit(limit)
+        ]);
+    },
     async listTasks(projectId: string) {
         return await databases.listDocuments<Task & Models.Document>(DB_ID, TASKS_ID, [
             Query.equal('projectId', projectId),
@@ -216,7 +228,7 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
-            entityName: isEncrypted ? 'Secure Task' : title,
+            entityName: task.title,
             projectId
         });
         return task;
@@ -226,6 +238,7 @@ export const db = {
         const existing = await this.listTasks(projectId);
         const startOrder = existing.documents.length;
 
+        const tasksCount = titles.length;
         const tasks = await Promise.all(titles.map((title, index) => 
             databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
                 projectId,
@@ -239,7 +252,7 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
-            entityName: `${titles.length} tasks`,
+            entityName: isEncrypted ? JSON.stringify({ ciphertext: "Batch Creation", iv: "N/A" }) : `${tasksCount} tasks`,
             projectId
         });
         return tasks;
@@ -251,14 +264,14 @@ export const db = {
             await this.logActivity({
                 type: 'complete',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? 'Secure Task' : (task.title || 'Task'),
+                entityName: task.title || 'Task',
                 projectId: task.projectId
             });
         } else if (data.isTimerRunning === false && workDuration) {
             await this.logActivity({
                 type: 'work',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? 'Secure Task' : (task.title || 'Task'),
+                entityName: task.title || 'Task',
                 projectId: task.projectId,
                 metadata: workDuration
             });
@@ -267,7 +280,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? 'Secure Task' : task.title,
+                entityName: task.title,
                 projectId: task.projectId,
                 metadata: `Logged ${lastNote.type}: ${lastNote.text.slice(0, 30)}...`
             });
@@ -275,7 +288,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? 'Secure Task' : data.title,
+                entityName: task.title,
                 projectId: task.projectId
             });
         }
