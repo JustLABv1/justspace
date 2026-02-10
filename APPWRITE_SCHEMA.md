@@ -16,7 +16,7 @@ This document outlines the required database, collections, and attributes for **
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
-| `name` | String | 128 | Yes | The name of the consulting project. |
+| `name` | String | 512 | Yes | The name of the consulting project (Large size for encryption). |
 | `description` | String | 16384 | Yes | Detailed overview of the project. |
 | `status` | String (Enum) | `todo`, `in-progress`, `completed` | Yes | Current status of the project. |
 | `daysPerWeek` | Float | - | No | Amount of days the consultant is on this project per week. |
@@ -46,7 +46,7 @@ This document outlines the required database, collections, and attributes for **
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
-| `title` | String | 128 | Yes | Title of the guide (e.g., "LGTM Stack"). |
+| `title` | String | 512 | Yes | Title of the guide (Large size for encryption). |
 | `description` | String | 16384 | Yes | High-level (Markdown enabled) overview of the stack. |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
@@ -56,11 +56,11 @@ This document outlines the required database, collections, and attributes for **
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
 | `guideId` | String | 36 | Yes | ID of the parent Wiki Guide. |
-| `target` | String | 64 | Yes | The target environment (e.g., "Azure", "Linux"). |
+| `target` | String | 512 | Yes | The target environment (Large size for encryption). |
 | `gitRepo` | String (URL) | 512 | No | URL to the git repository. |
 | `documentation` | String (URL) | 512 | No | URL to official documentation. |
 | `notes` | String (Markdown) | 16384 | No | Specific installation notes or instructions. |
-| `tasks` | String Array | 255 | No | Templated checklist tasks to apply to projects. |
+| `tasks` | String Array | 512 | No | Templated checklist tasks to apply to projects. |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 | `iv` | String | 32 | No | Initialization vector for encrypted content. |
 
@@ -102,7 +102,7 @@ This document outlines the required database, collections, and attributes for **
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
-| `title` | String | 128 | Yes | Snippet title. |
+| `title` | String | 512 | Yes | Snippet title (Large size for encryption). |
 | `content` | String | 16384 | Yes | Code or text content. |
 | `blocks` | String | 16384 | No | JSON stringified multi-block content. |
 | `language` | String | 32 | Yes | Programming language for highlighting. |
@@ -118,7 +118,7 @@ This document outlines the required database, collections, and attributes for **
 | `resourceId` | String | 36 | Yes | ID of the parent resource (Wiki/Snippet). |
 | `resourceType` | String | 16 | Yes | `Wiki`, `Snippet`, or `Installation`. |
 | `content` | String | 16384 | Yes | Content snapshot. |
-| `title` | String | 128 | No | Title snapshot. |
+| `title` | String | 512 | No | Title snapshot (Large size for encryption). |
 | `metadata` | String | 1024 | No | Change details. |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
