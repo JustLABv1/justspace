@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Install pnpm and dependencies
 COPY package.json ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+RUN corepack enable pnpm && pnpm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
