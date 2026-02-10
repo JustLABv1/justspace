@@ -1,6 +1,7 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { Markdown } from '@/components/Markdown';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
@@ -299,9 +300,9 @@ export default function WikiPage() {
                                     </div>
                                 </div>
 
-                                <p className="text-xs text-muted-foreground font-medium leading-relaxed opacity-80 line-clamp-3">
-                                    {guide.description}
-                                </p>
+                                <div className="text-xs text-muted-foreground font-medium leading-relaxed opacity-80 line-clamp-3">
+                                    <Markdown content={guide.description} />
+                                </div>
 
                                 <div className="mt-auto pt-4 flex items-center justify-between border-t border-border/5">
                                     <div className="flex items-center gap-2">

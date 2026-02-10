@@ -326,9 +326,9 @@ export default function WikiDetailPage() {
                             </h1>
                             {isDecrypting && <Spinner size="sm" color="current" />}
                         </div>
-                        <p className="text-muted-foreground font-medium max-w-4xl leading-relaxed text-sm opacity-60">
-                            {guide.description}
-                        </p>
+                        <div className="text-muted-foreground font-medium max-w-4xl leading-relaxed text-sm opacity-60">
+                            <Markdown content={guide.description} />
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-2 p-1.5 rounded-xl border border-border/20 bg-surface shadow-sm">
