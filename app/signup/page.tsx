@@ -27,9 +27,9 @@ export default function SignupPage() {
         setIsLoading(true);
         try {
             await signup(email, password, name);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Signup error detailed:', err);
-            const errorMessage = err?.message || (err?.response && typeof err.response === 'object' ? err.response.message : null) || 'Registration failed';
+            const errorMessage = (err as any)?.message || ((err as any)?.response && typeof (err as any).response === 'object' ? (err as any).response.message : null) || 'Registration failed';
             setError(errorMessage);
         } finally {
             setIsLoading(false);

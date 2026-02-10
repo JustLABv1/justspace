@@ -26,11 +26,11 @@ export default function LoginPage() {
         try {
             console.log('Initiating login for:', email);
             await login(email, password);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Login caught error:', err);
             // Appwrite error messages are typically in err.message
             // We also check err.response?.message as a fallback
-            const msg = err?.message || err?.response?.message || 'Authentication failed. Please check your credentials.';
+            const msg = (err as any)?.message || (err as any)?.response?.message || 'Authentication failed. Please check your credentials.';
             setError(msg);
         } finally {
             setIsLoading(false);

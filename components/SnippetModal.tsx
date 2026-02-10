@@ -20,7 +20,6 @@ interface SnippetModalProps {
 
 export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModalProps) => {
     const [title, setTitle] = useState('');
-    const [content, setContent] = useState('');
     const [language, setLanguage] = useState('javascript');
     const [description, setDescription] = useState('');
     const [tags, setTags] = useState('');
@@ -234,7 +233,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
 
                                             <TextArea 
                                                 value={block.content} 
-                                                onChange={(c) => updateBlock(block.id, c)}
+                                                onChange={(e) => updateBlock(block.id, e.target.value)}
                                                 placeholder={block.type === 'code' ? 'Paste code component...' : 'Enter documentation block...'}
                                                 className={`rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm transition-all min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
                                             />
