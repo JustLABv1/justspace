@@ -69,7 +69,8 @@ function SettingsContent() {
     useEffect(() => {
         if (user) {
             setUserName(user.name || '');
-            setWorkspaceName(user.prefs?.workspaceName || 'justspace_');
+            const prefs = user.prefs as Record<string, string | undefined>;
+            setWorkspaceName(prefs?.workspaceName || 'justspace_');
         }
     }, [user]);
 
@@ -107,8 +108,8 @@ function SettingsContent() {
             if (userName !== user?.name) {
                 await account.updateName(userName);
             }
-            await account.updatePreferences({
-                ...user?.prefs,
+            await account.updatePrefs({
+                ...(user?.prefs || {}),
                 workspaceName,
             });
             toast.success('Settings synchronized');
@@ -566,7 +567,7 @@ function SettingsContent() {
                                 variant="primary" 
                                 className="rounded-xl font-black px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest"
                                 onPress={handleSaveChanges}
-                                isLoading={isSubmitting}
+                                isPending={isSubmitting}
                             >
                                 <Update size={18} weight="Bold" className="mr-2" />
                                 Save Changes
