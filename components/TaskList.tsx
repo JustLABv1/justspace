@@ -8,7 +8,7 @@ import { Task } from '@/types';
 import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Header, Input, Label, Spinner } from "@heroui/react";
+import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import {
     Checklist as ListChecks,
     ChatRoundDots as MessageSquarePlus,
@@ -156,9 +156,11 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
             // Replace optimistic task with the real one
             setTasks(prev => prev.map(t => t.$id === optimisticId ? (res as unknown as Task) : t));
             fetchTasks(); // Refresh to get correct decrypted title if needed
+            toast.success('Task added');
         } catch (error) {
             console.error('Failed to add task:', error);
             setTasks(previousTasks);
+            toast.danger('Failed to add task');
         }
     };
 
@@ -173,8 +175,10 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
             }
             await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId);
             fetchTasks();
+            toast.success('Subtask added');
         } catch (error) {
             console.error(error);
+            toast.danger('Failed to add subtask');
         }
     };
 
@@ -193,8 +197,12 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 await db.createTasks(projectId, titles);
             }
             fetchTasks();
+            toast.success('Template applied', {
+                description: `Created ${titles.length} tasks`
+            });
         } catch (error) {
             console.error(error);
+            toast.danger('Failed to apply template');
         } finally {
             setIsApplyingTemplate(false);
         }
@@ -216,9 +224,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 updateData.isEncrypted = true;
             }
             await db.updateTask(taskId, updateData);
+            // We usually don't want a toast for every field update (especially if it's auto-save)
+            // But if it's specifically "completed" or something significant, we could.
+            if ('completed' in data) {
+                toast.success(data.completed ? 'Task completed' : 'Task reopened');
+            }
         } catch (error) {
             console.error('Task update failed, rolling back:', error);
             setTasks(previousTasks);
+            toast.danger('Sync failed, changes reverted');
         }
     };
 
@@ -227,9 +241,11 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         try {
             setTasks(tasks.filter(t => t.$id !== taskId));
             await db.deleteTask(taskId);
+            toast.success('Task deleted');
         } catch (error) {
             console.error('Task deletion failed, rolling back:', error);
             setTasks(previousTasks);
+            toast.danger('Failed to delete task');
         }
     };
 

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
-import { Button, Chip, Spinner, Surface } from "@heroui/react";
+import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
     Pen2 as Edit,
     Widget as LayoutGrid,
@@ -82,46 +82,57 @@ export default function ProjectsPage() {
         const { shouldEncrypt, ...projectData } = data;
         const finalData = { ...projectData };
 
-        if (shouldEncrypt && user) {
-            const userKeys = await db.getUserKeys(user.$id);
-            if (!userKeys) throw new Error('Vault keys not found');
+        try {
+            if (shouldEncrypt && user) {
+                const userKeys = await db.getUserKeys(user.$id);
+                if (!userKeys) throw new Error('Vault keys not found');
 
-            const docKey = await generateDocumentKey();
-            const encryptedName = await encryptData(projectData.name || '', docKey);
-            const encryptedDesc = await encryptData(projectData.description || '', docKey);
+                const docKey = await generateDocumentKey();
+                const encryptedName = await encryptData(projectData.name || '', docKey);
+                const encryptedDesc = await encryptData(projectData.description || '', docKey);
 
-            finalData.name = JSON.stringify(encryptedName);
-            finalData.description = JSON.stringify(encryptedDesc);
-            finalData.isEncrypted = true;
+                finalData.name = JSON.stringify(encryptedName);
+                finalData.description = JSON.stringify(encryptedDesc);
+                finalData.isEncrypted = true;
 
-            const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
 
-            if (selectedProject?.$id) {
-                await db.updateProject(selectedProject.$id, finalData);
-                const existingAccess = await db.getAccessKey(selectedProject.$id, user.$id);
-                if (!existingAccess) {
+                if (selectedProject?.$id) {
+                    await db.updateProject(selectedProject.$id, finalData);
+                    const existingAccess = await db.getAccessKey(selectedProject.$id, user.$id);
+                    if (!existingAccess) {
+                        await db.grantAccess({
+                            resourceId: selectedProject.$id,
+                            userId: user.$id,
+                            encryptedKey: encryptedDocKey,
+                            resourceType: 'Project'
+                        });
+                    }
+                    toast.success('Project updated successfully');
+                } else {
+                    const newProject = await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
                     await db.grantAccess({
-                        resourceId: selectedProject.$id,
+                        resourceId: newProject.$id,
                         userId: user.$id,
                         encryptedKey: encryptedDocKey,
                         resourceType: 'Project'
                     });
+                    toast.success('Project created successfully');
                 }
             } else {
-                const newProject = await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
-                await db.grantAccess({
-                    resourceId: newProject.$id,
-                    userId: user.$id,
-                    encryptedKey: encryptedDocKey,
-                    resourceType: 'Project'
-                });
+                if (selectedProject?.$id) {
+                    await db.updateProject(selectedProject.$id, finalData);
+                    toast.success('Project updated successfully');
+                } else {
+                    await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
+                    toast.success('Project created successfully');
+                }
             }
-        } else {
-            if (selectedProject?.$id) {
-                await db.updateProject(selectedProject.$id, finalData);
-            } else {
-                await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
-            }
+        } catch (error) {
+            console.error(error);
+            toast.danger('Action failed', {
+                description: error instanceof Error ? error.message : 'Unknown error occurred'
+            });
         }
         
         setIsProjectModalOpen(false);
@@ -130,9 +141,15 @@ export default function ProjectsPage() {
 
     const handleDelete = async () => {
         if (selectedProject) {
-            await db.deleteProject(selectedProject.$id);
-            setIsDeleteModalOpen(false);
-            fetchProjects();
+            try {
+                await db.deleteProject(selectedProject.$id);
+                setIsDeleteModalOpen(false);
+                fetchProjects();
+                toast.success('Project deleted successfully');
+            } catch (error) {
+                console.error(error);
+                toast.danger('Failed to delete project');
+            }
         }
     };
 

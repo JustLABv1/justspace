@@ -1,6 +1,7 @@
 import AppLayout from "@/components/AppLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { getRuntimeConfig } from "@/lib/env-config";
+import { Toast } from "@heroui/react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -46,6 +47,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
+          <Toast.Provider placement="bottom end" />
           <AppLayout>
             {children}
           </AppLayout>

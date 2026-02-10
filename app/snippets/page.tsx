@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { EncryptedData, ResourceVersion, Snippet } from '@/types';
-import { Button, Chip, Spinner, Surface } from "@heroui/react";
+import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
     CodeFile,
     Pen2 as Edit,
@@ -113,6 +113,7 @@ export default function SnippetsPage() {
                     isEncrypted: data.isEncrypted,
                     metadata: 'Updated'
                 });
+                toast.success('Snippet updated');
             } else {
                 const createData = { ...data };
                 let snippetId = '';
@@ -147,58 +148,72 @@ export default function SnippetsPage() {
                     isEncrypted: data.isEncrypted,
                     metadata: 'Initial version'
                 });
+                toast.success('Snippet created');
             }
             setIsSnippetModalOpen(false);
             fetchSnippets();
         } catch (error) {
             console.error('Failed to save snippet:', error);
+            toast.danger('Failed to save snippet');
         }
     };
 
     const handleRestore = async (version: ResourceVersion) => {
         if (!selectedSnippet) return;
         
-        const updateData: Partial<Snippet> = {
-            title: version.title || 'Restored Snippet',
-            content: version.content, 
-            isEncrypted: false
-        };
+        try {
+            const updateData: Partial<Snippet> = {
+                title: version.title || 'Restored Snippet',
+                content: version.content, 
+                isEncrypted: false
+            };
 
-        if (version.content.startsWith('[')) {
-            updateData.blocks = version.content;
-            try {
-                const b = JSON.parse(version.content);
-                updateData.content = b[0]?.content || '';
-            } catch {}
-        }
-
-        if (selectedSnippet.isEncrypted && user && privateKey) {
-            const access = await db.getAccessKey(selectedSnippet.$id, user.$id);
-            if (access) {
-                const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                updateData.title = JSON.stringify(await encryptData(version.title || 'Restored Snippet', snippetKey));
-                updateData.content = JSON.stringify(await encryptData(updateData.content || '', snippetKey));
-                if (updateData.blocks) updateData.blocks = JSON.stringify(await encryptData(updateData.blocks, snippetKey));
-                updateData.isEncrypted = true;
+            if (version.content.startsWith('[')) {
+                updateData.blocks = version.content;
+                try {
+                    const b = JSON.parse(version.content);
+                    updateData.content = b[0]?.content || '';
+                } catch {}
             }
-        }
 
-        await db.updateSnippet(selectedSnippet.$id, updateData);
-        setIsHistoryModalOpen(false);
-        fetchSnippets();
+            if (selectedSnippet.isEncrypted && user && privateKey) {
+                const access = await db.getAccessKey(selectedSnippet.$id, user.$id);
+                if (access) {
+                    const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    updateData.title = JSON.stringify(await encryptData(version.title || 'Restored Snippet', snippetKey));
+                    updateData.content = JSON.stringify(await encryptData(updateData.content || '', snippetKey));
+                    if (updateData.blocks) updateData.blocks = JSON.stringify(await encryptData(updateData.blocks, snippetKey));
+                    updateData.isEncrypted = true;
+                }
+            }
+
+            await db.updateSnippet(selectedSnippet.$id, updateData);
+            setIsHistoryModalOpen(false);
+            fetchSnippets();
+            toast.success('Version restored');
+        } catch (error) {
+            console.error(error);
+            toast.danger('Restore failed');
+        }
     };
 
     const handleDelete = async () => {
         if (selectedSnippet) {
-            await db.deleteSnippet(selectedSnippet.$id);
-            setIsDeleteModalOpen(false);
-            fetchSnippets();
+            try {
+                await db.deleteSnippet(selectedSnippet.$id);
+                setIsDeleteModalOpen(false);
+                fetchSnippets();
+                toast.success('Snippet deleted');
+            } catch (error) {
+                console.error(error);
+                toast.danger('Delete failed');
+            }
         }
     };
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        // Could add a toast here
+        toast.info('Copied to clipboard');
     };
 
     const filteredSnippets = snippets.filter(s => 

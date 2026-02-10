@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
+import { Button, Form, Input, Label, Surface, TextField, toast } from "@heroui/react";
 import {
     AltArrowRight as ArrowRight,
     Letter as Mail,
@@ -27,10 +27,16 @@ export default function SignupPage() {
         setIsLoading(true);
         try {
             await signup(email, password, name);
+            toast.success('Account created', {
+                description: 'Welcome to justspace.'
+            });
         } catch (err: unknown) {
             console.error('Signup error detailed:', err);
             const errorMessage = (err as any)?.message || ((err as any)?.response && typeof (err as any).response === 'object' ? (err as any).response.message : null) || 'Registration failed';
             setError(errorMessage);
+            toast.danger('Enrollment failed', {
+                description: errorMessage
+            });
         } finally {
             setIsLoading(false);
         }

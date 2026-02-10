@@ -7,7 +7,8 @@ import {
   Checkbox,
   Input,
   Modal,
-  ScrollShadow
+  ScrollShadow,
+  toast
 } from '@heroui/react';
 import {
   Pen2 as Edit,
@@ -70,8 +71,12 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             } else {
                 fetchDetails();
             }
+            if ('completed' in data) {
+                toast.success(data.completed ? 'Task completed' : 'Task reopened');
+            }
         } catch (error) {
             console.error('Failed to update task:', error);
+            toast.danger('Sync failed');
         }
     };
 
@@ -83,8 +88,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             setNewSubtaskTitle('');
             fetchDetails();
             onUpdate();
+            toast.success('Subtask added');
         } catch (error) {
             console.error('Failed to add subtask:', error);
+            toast.danger('Failed to add subtask');
         }
     };
 
@@ -97,8 +104,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 fetchDetails();
             }
             onUpdate();
+            toast.success('Task deleted');
         } catch (error) {
             console.error('Failed to delete task:', error);
+            toast.danger('Delete failed');
         }
     };
 
@@ -117,6 +126,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 updatedNotes[editingNoteIndex] = JSON.stringify(parsedNote);
                 await db.updateTask(task.$id, { notes: updatedNotes });
                 setEditingNoteIndex(null);
+                toast.success('Note updated');
             } else {
                 const note = {
                     date: new Date().toISOString(),
@@ -130,11 +140,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                     updateData.kanbanStatus = 'waiting';
                 }
                 await db.updateTask(task.$id, updateData);
+                toast.success('Note added');
             }
             setNewNote('');
             onUpdate();
         } catch (error) {
             console.error('Failed to handle note:', error);
+            toast.danger('Failed to save note');
         }
     };
 
@@ -144,8 +156,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         try {
             await db.updateTask(task.$id, { notes: updatedNotes });
             onUpdate();
+            toast.success('Note deleted');
         } catch (error) {
             console.error('Failed to delete note:', error);
+            toast.danger('Delete failed');
         }
     };
 

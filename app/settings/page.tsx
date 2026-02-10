@@ -3,7 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Button, Form, Surface } from '@heroui/react';
+import { Button, Form, Surface, toast } from '@heroui/react';
 import {
     CheckCircle as CheckCircleIcon,
     Database as DatabaseIcon,
@@ -194,10 +194,14 @@ function SettingsContent() {
             }
 
             setMigrationProgress('Migration complete. Your workspace is now secure.');
+            toast.success('Migration successful', {
+                description: 'Your workspace is now fully encrypted.'
+            });
             await fetchStats();
         } catch (error) {
             console.error('Migration failed:', error);
             setMigrationProgress('Migration error. Please check console.');
+            toast.danger('Migration failed');
         } finally {
             setIsMigrating(false);
         }
@@ -219,14 +223,19 @@ function SettingsContent() {
         try {
             if (hasVault) {
                 await unlockVault(vaultPassword);
+                toast.success('Vault unlocked');
             } else {
                 await setupVault(vaultPassword);
+                toast.success('Vault setup complete', {
+                    description: 'Your security keys have been generated.'
+                });
             }
             setVaultPassword('');
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Vault operation failed. Please check your connection.';
             console.error(error);
             setVaultError(message);
+            toast.danger('Vault operation failed');
         } finally {
             setIsSubmitting(false);
         }

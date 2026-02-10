@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { ResourceVersion, WikiGuide } from '@/types';
-import { Button, Spinner, Surface } from "@heroui/react";
+import { Button, Spinner, Surface, toast } from "@heroui/react";
 import {
     Book,
     Pen2 as Edit,
@@ -116,84 +116,93 @@ export default function WikiPage() {
         const { shouldEncrypt, ...guideData } = data;
         const finalData = { ...guideData };
 
-        if (shouldEncrypt && user) {
-            const userKeys = await db.getUserKeys(user.$id);
-            if (!userKeys) throw new Error('Vault keys not found');
+        try {
+            if (shouldEncrypt && user) {
+                const userKeys = await db.getUserKeys(user.$id);
+                if (!userKeys) throw new Error('Vault keys not found');
 
-            const docKey = await generateDocumentKey();
-            const encryptedTitle = await encryptData(guideData.title || '', docKey);
-            const encryptedDesc = await encryptData(guideData.description || '', docKey);
+                const docKey = await generateDocumentKey();
+                const encryptedTitle = await encryptData(guideData.title || '', docKey);
+                const encryptedDesc = await encryptData(guideData.description || '', docKey);
 
-            finalData.title = JSON.stringify(encryptedTitle);
-            finalData.description = JSON.stringify(encryptedDesc);
-            finalData.isEncrypted = true;
+                finalData.title = JSON.stringify(encryptedTitle);
+                finalData.description = JSON.stringify(encryptedDesc);
+                finalData.isEncrypted = true;
 
-            const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
 
-            if (selectedGuide?.$id) {
-                await db.updateGuide(selectedGuide.$id, finalData);
-                
-                // Create version snapshot
-                await db.createVersion({
-                    resourceId: selectedGuide.$id,
-                    resourceType: 'Wiki',
-                    content: finalData.description || '',
-                    title: finalData.title,
-                    isEncrypted: true,
-                    metadata: 'Updated'
-                });
-
-                // Also update/add access control if not exists
-                const existingAccess = await db.getAccessKey(selectedGuide.$id, user.$id);
-                if (!existingAccess) {
-                    await db.grantAccess({
+                if (selectedGuide?.$id) {
+                    await db.updateGuide(selectedGuide.$id, finalData);
+                    
+                    // Create version snapshot
+                    await db.createVersion({
                         resourceId: selectedGuide.$id,
+                        resourceType: 'Wiki',
+                        content: finalData.description || '',
+                        title: finalData.title,
+                        isEncrypted: true,
+                        metadata: 'Updated'
+                    });
+
+                    // Also update/add access control if not exists
+                    const existingAccess = await db.getAccessKey(selectedGuide.$id, user.$id);
+                    if (!existingAccess) {
+                        await db.grantAccess({
+                            resourceId: selectedGuide.$id,
+                            userId: user.$id,
+                            encryptedKey: encryptedDocKey,
+                            resourceType: 'Wiki'
+                        });
+                    }
+                    toast.success('Wiki updated');
+                } else {
+                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                    
+                    await db.createVersion({
+                        resourceId: newGuide.$id,
+                        resourceType: 'Wiki',
+                        content: finalData.description || '',
+                        title: finalData.title,
+                        isEncrypted: true,
+                        metadata: 'Initial version'
+                    });
+
+                    await db.grantAccess({
+                        resourceId: newGuide.$id,
                         userId: user.$id,
                         encryptedKey: encryptedDocKey,
                         resourceType: 'Wiki'
                     });
+                    toast.success('Wiki created');
                 }
             } else {
-                const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
-                
-                await db.createVersion({
-                    resourceId: newGuide.$id,
-                    resourceType: 'Wiki',
-                    content: finalData.description || '',
-                    title: finalData.title,
-                    isEncrypted: true,
-                    metadata: 'Initial version'
-                });
-
-                await db.grantAccess({
-                    resourceId: newGuide.$id,
-                    userId: user.$id,
-                    encryptedKey: encryptedDocKey,
-                    resourceType: 'Wiki'
-                });
+                if (selectedGuide?.$id) {
+                    await db.updateGuide(selectedGuide.$id, finalData);
+                    await db.createVersion({
+                        resourceId: selectedGuide.$id,
+                        resourceType: 'Wiki',
+                        content: finalData.description || '',
+                        title: finalData.title,
+                        isEncrypted: false,
+                        metadata: 'Updated'
+                    });
+                    toast.success('Wiki updated');
+                } else {
+                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                    await db.createVersion({
+                        resourceId: newGuide.$id,
+                        resourceType: 'Wiki',
+                        content: finalData.description || '',
+                        title: finalData.title,
+                        isEncrypted: false,
+                        metadata: 'Initial version'
+                    });
+                    toast.success('Wiki created');
+                }
             }
-        } else {
-            if (selectedGuide?.$id) {
-                await db.updateGuide(selectedGuide.$id, finalData);
-                await db.createVersion({
-                    resourceId: selectedGuide.$id,
-                    resourceType: 'Wiki',
-                    content: finalData.description || '',
-                    title: finalData.title,
-                    isEncrypted: false,
-                    metadata: 'Updated'
-                });
-            } else {
-                const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
-                await db.createVersion({
-                    resourceId: newGuide.$id,
-                    resourceType: 'Wiki',
-                    content: finalData.description || '',
-                    title: finalData.title,
-                    isEncrypted: false,
-                    metadata: 'Initial version'
-                });
-            }
+        } catch (error) {
+            console.error(error);
+            toast.danger('Action failed');
         }
         
         setIsWikiModalOpen(false);
@@ -202,9 +211,15 @@ export default function WikiPage() {
 
     const handleDelete = async () => {
         if (selectedGuide) {
-            await db.deleteGuide(selectedGuide.$id);
-            setIsDeleteModalOpen(false);
-            fetchGuides();
+            try {
+                await db.deleteGuide(selectedGuide.$id);
+                setIsDeleteModalOpen(false);
+                fetchGuides();
+                toast.success('Wiki deleted');
+            } catch (error) {
+                console.error(error);
+                toast.danger('Delete failed');
+            }
         }
     };
 

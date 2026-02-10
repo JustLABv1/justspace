@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
-import { Button, Spinner, Surface } from "@heroui/react";
+import { Button, Spinner, Surface, toast } from "@heroui/react";
 import {
     AltArrowLeft as ArrowLeft,
     Calendar,
@@ -80,78 +80,99 @@ export default function ProjectDetailPage() {
             const { shouldEncrypt, ...projectData } = data;
             const finalData = { ...projectData };
 
-            if (shouldEncrypt && user) {
-                // If turning on encryption for existing project
-                // (Note: This is simplified, usually we'd need to re-encrypt old data if it wasn't encrypted)
-                const userKeys = await db.getUserKeys(user.$id);
-                if (userKeys) {
-                    const docKey = await generateDocumentKey();
-                    const encryptedName = await encryptData(projectData.name || project.name, docKey);
-                    const encryptedDesc = await encryptData(projectData.description || project.description, docKey);
+            try {
+                if (shouldEncrypt && user) {
+                    // If turning on encryption for existing project
+                    // (Note: This is simplified, usually we'd need to re-encrypt old data if it wasn't encrypted)
+                    const userKeys = await db.getUserKeys(user.$id);
+                    if (userKeys) {
+                        const docKey = await generateDocumentKey();
+                        const encryptedName = await encryptData(projectData.name || project.name, docKey);
+                        const encryptedDesc = await encryptData(projectData.description || project.description, docKey);
 
-                    finalData.name = JSON.stringify(encryptedName);
-                    finalData.description = JSON.stringify(encryptedDesc);
-                    finalData.isEncrypted = true;
+                        finalData.name = JSON.stringify(encryptedName);
+                        finalData.description = JSON.stringify(encryptedDesc);
+                        finalData.isEncrypted = true;
 
-                    const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
-                    await db.grantAccess({
-                        resourceId: project.$id,
-                        userId: user.$id,
-                        encryptedKey: encryptedDocKey,
-                        resourceType: 'Project'
-                    });
-                }
-            } else if (project.isEncrypted && privateKey && user) {
-                // Keep encrypted if it already was
-                const access = await db.getAccessKey(project.$id, user.$id);
-                if (access) {
-                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    if (projectData.name) {
-                        finalData.name = JSON.stringify(await encryptData(projectData.name, docKey));
+                        const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+                        await db.grantAccess({
+                            resourceId: project.$id,
+                            userId: user.$id,
+                            encryptedKey: encryptedDocKey,
+                            resourceType: 'Project'
+                        });
                     }
-                    if (projectData.description) {
-                        finalData.description = JSON.stringify(await encryptData(projectData.description, docKey));
+                } else if (project.isEncrypted && privateKey && user) {
+                    // Keep encrypted if it already was
+                    const access = await db.getAccessKey(project.$id, user.$id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        if (projectData.name) {
+                            finalData.name = JSON.stringify(await encryptData(projectData.name, docKey));
+                        }
+                        if (projectData.description) {
+                            finalData.description = JSON.stringify(await encryptData(projectData.description, docKey));
+                        }
                     }
                 }
+
+                await db.updateProject(project.$id, finalData);
+                fetchProject();
+                setIsProjectModalOpen(false);
+                toast.success('Project updated');
+            } catch (error) {
+                console.error(error);
+                toast.danger('Update failed');
             }
-
-            await db.updateProject(project.$id, finalData);
-            fetchProject();
-            setIsProjectModalOpen(false);
         }
     };
 
     const handleApplyTemplate = async (titles: string[]) => {
         if (project) {
-            if (project.isEncrypted && privateKey && user) {
-                try {
-                    const access = await db.getAccessKey(project.$id, user.$id);
-                    if (access) {
-                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                        const encryptedTitles = await Promise.all(titles.map(async (t) => {
-                            return JSON.stringify(await encryptData(t, docKey));
-                        }));
-                        await db.createTasks(project.$id, encryptedTitles, true);
-                    } else {
+            try {
+                if (project.isEncrypted && privateKey && user) {
+                    try {
+                        const access = await db.getAccessKey(project.$id, user.$id);
+                        if (access) {
+                            const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                            const encryptedTitles = await Promise.all(titles.map(async (t) => {
+                                return JSON.stringify(await encryptData(t, docKey));
+                            }));
+                            await db.createTasks(project.$id, encryptedTitles, true);
+                        } else {
+                            await db.createTasks(project.$id, titles);
+                        }
+                    } catch (e) {
+                        console.error('Failed to encrypt tasks from template:', e);
                         await db.createTasks(project.$id, titles);
                     }
-                } catch (e) {
-                    console.error('Failed to encrypt tasks from template:', e);
+                } else {
                     await db.createTasks(project.$id, titles);
                 }
-            } else {
-                await db.createTasks(project.$id, titles);
+                
+                toast.success('Template applied', {
+                    description: `Created ${titles.length} tasks`
+                });
+
+                // Trigger refresh by updating a local state if needed
+                window.dispatchEvent(new CustomEvent('refresh-tasks'));
+            } catch (error) {
+                console.error(error);
+                toast.danger('Failed to apply template');
             }
-            
-            // Trigger refresh by updating a local state if needed
-            window.dispatchEvent(new CustomEvent('refresh-tasks'));
         }
     };
 
     const handleDelete = async () => {
         if (project) {
-            await db.deleteProject(project.$id);
-            router.push('/projects');
+            try {
+                await db.deleteProject(project.$id);
+                toast.success('Project deleted');
+                router.push('/projects');
+            } catch (error) {
+                console.error(error);
+                toast.danger('Delete failed');
+            }
         }
     };
 
@@ -174,8 +195,14 @@ export default function ProjectDetailPage() {
                 userId: recipientKeys.userId,
                 encryptedKey: wrappedKeyForRecipient
             });
+            toast.success('Project shared', {
+                description: `Access granted to ${email}`
+            });
         } catch (error) {
             console.error('Sharing failed:', error);
+            toast.danger('Sharing failed', {
+                description: error instanceof Error ? error.message : 'Unknown error'
+            });
             throw error;
         }
     };

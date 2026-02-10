@@ -12,7 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { EncryptedData, InstallationTarget, ResourceVersion, WikiGuide } from '@/types';
-import { Button, Spinner, Surface, Tabs } from "@heroui/react";
+import { Button, Spinner, Surface, Tabs, toast } from "@heroui/react";
 import {
     AltArrowLeft as ArrowLeft,
     Pen2 as Edit,
@@ -157,6 +157,7 @@ export default function WikiDetailPage() {
                     resourceType: 'Wiki'
                 });
             }
+            toast.success('Wiki updated');
         } else {
             await db.updateGuide(id, finalData);
             await db.createVersion({
@@ -167,6 +168,7 @@ export default function WikiDetailPage() {
                 isEncrypted: false,
                 metadata: 'Updated'
             });
+            toast.success('Wiki updated');
         }
         
         setIsWikiModalOpen(false);
@@ -216,6 +218,7 @@ export default function WikiDetailPage() {
                 isEncrypted: !!finalData.isEncrypted,
                 metadata: 'Updated'
             });
+            toast.success('Installation updated');
         } else {
             const newInst = await db.createInstallation({
                 ...finalData,
@@ -230,6 +233,7 @@ export default function WikiDetailPage() {
                 isEncrypted: !!finalData.isEncrypted,
                 metadata: 'Initial version'
             });
+            toast.success('Installation created');
         }
         setIsInstModalOpen(false);
         fetchGuide();
@@ -257,6 +261,7 @@ export default function WikiDetailPage() {
         await db.updateGuide(id, updateData);
         setIsHistoryModalOpen(false);
         fetchGuide();
+        toast.success('Wiki restored');
     };
 
     const handleRestoreInst = async (version: ResourceVersion) => {
@@ -280,6 +285,7 @@ export default function WikiDetailPage() {
         await db.updateInstallation(selectedInst.$id, updateData);
         setIsInstHistoryModalOpen(false);
         fetchGuide();
+        toast.success('Installation restored');
     };
 
     const handleDeleteInst = async () => {
@@ -287,6 +293,7 @@ export default function WikiDetailPage() {
             await db.deleteInstallation(selectedInst.$id);
             setIsDeleteModalOpen(false);
             fetchGuide();
+            toast.success('Installation deleted');
         }
     };
 
@@ -309,6 +316,7 @@ export default function WikiDetailPage() {
             } else {
                 await db.createTasks(projectId, titles);
             }
+            toast.success('Tasks applied to project');
         }
         setIsProjectSelectorOpen(false);
     };
@@ -316,25 +324,36 @@ export default function WikiDetailPage() {
     const handleShare = async (email: string) => {
         if (!guide || !privateKey || !user) return;
 
-        // 1. Find recipient's public key
-        const recipientKeys = await db.findUserKeysByEmail(email);
-        if (!recipientKeys) throw new Error('Recipient has no vault setup');
+        try {
+            // 1. Find recipient's public key
+            const recipientKeys = await db.findUserKeysByEmail(email);
+            if (!recipientKeys) throw new Error('Recipient has no vault setup');
 
-        // 2. Decrypt doc key for ourselves first
-        const access = await db.getAccessKey(id, user.$id);
-        if (!access) throw new Error('You do not have access to this document');
-        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+            // 2. Decrypt doc key for ourselves first
+            const access = await db.getAccessKey(id, user.$id);
+            if (!access) throw new Error('You do not have access to this document');
+            const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
 
-        // 3. Encrypt doc key with recipient's public key
-        const encryptedForRecipient = await encryptDocumentKey(docKey, recipientKeys.publicKey);
+            // 3. Encrypt doc key with recipient's public key
+            const encryptedForRecipient = await encryptDocumentKey(docKey, recipientKeys.publicKey);
 
-        // 4. Create access control record
-        await db.grantAccess({
-            resourceId: id,
-            userId: recipientKeys.userId,
-            encryptedKey: encryptedForRecipient,
-            resourceType: 'Wiki'
-        });
+            // 4. Create access control record
+            await db.grantAccess({
+                resourceId: id,
+                userId: recipientKeys.userId,
+                encryptedKey: encryptedForRecipient,
+                resourceType: 'Wiki'
+            });
+            toast.success('Wiki shared', {
+                description: `Access granted to ${email}`
+            });
+        } catch (error) {
+            console.error(error);
+            toast.danger('Sharing failed', {
+                description: error instanceof Error ? error.message : 'Unknown error'
+            });
+            throw error;
+        }
     };
 
     if (isLoading) {

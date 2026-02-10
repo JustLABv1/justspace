@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Task } from '@/types';
-import { Button, ScrollShadow, Surface } from "@heroui/react";
+import { Button, ScrollShadow, Surface, toast } from "@heroui/react";
 import { MenuDots as GripVertical, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
 import { useCallback, useEffect, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
@@ -76,9 +76,11 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
             setTasks(prev => prev.map(t => t.$id === taskId ? { ...t, kanbanStatus: newStatus, completed: isCompleted } : t));
             
             await db.updateTask(taskId, { kanbanStatus: newStatus, completed: isCompleted });
+            toast.success(`Task moved to ${COLUMNS.find(c => c.id === newStatus)?.label.replace('_', '')}`);
         } catch (error) {
             console.error('Failed to move task, rolling back:', error);
             setTasks(previousTasks);
+            toast.danger('Sync failed, movement reverted');
         }
     };
 

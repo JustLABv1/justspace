@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
+import { Button, Form, Input, Label, Surface, TextField, toast } from "@heroui/react";
 import {
     AltArrowRight as ArrowRight,
     PasswordMinimalistic as Lock,
@@ -26,12 +26,18 @@ export default function LoginPage() {
         try {
             console.log('Initiating login for:', email);
             await login(email, password);
+            toast.success('Access granted', {
+                description: 'Authentication successful.'
+            });
         } catch (err: unknown) {
             console.error('Login caught error:', err);
             // Appwrite error messages are typically in err.message
             // We also check err.response?.message as a fallback
             const msg = (err as any)?.message || (err as any)?.response?.message || 'Authentication failed. Please check your credentials.';
             setError(msg);
+            toast.danger('Authentication failed', {
+                description: msg
+            });
         } finally {
             setIsLoading(false);
         }
