@@ -51,12 +51,16 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
         }
     }, [user, isLoading, isAuthPage, router]);
 
-    if (isLoading || !isClient) {
+    if (!isClient) {
         return <div className="flex h-screen w-screen items-center justify-center">Loading...</div>;
     }
 
     if (isAuthPage) {
         return <>{children}</>;
+    }
+
+    if (isLoading) {
+        return <div className="flex h-screen w-screen items-center justify-center">Loading...</div>;
     }
 
     if (!user) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
+import { Alert, Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
 import {
     AltArrowRight as ArrowRight,
     Letter as Mail,
@@ -25,12 +25,13 @@ export default function SignupPage() {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-        console.log('Signup attempt with:', { email, endpoint: typeof window !== 'undefined' ? (window as unknown as { _env_?: { NEXT_PUBLIC_APPWRITE_ENDPOINT: string } })._env_?.NEXT_PUBLIC_APPWRITE_ENDPOINT : 'Server' });
         try {
             await signup(email, password, name);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Signup error detailed:', err);
-            setError(err instanceof Error ? err.message : 'Registration failed');
+            const errorMessage = err?.message || (err?.response && typeof err.response === 'object' ? err.response.message : null) || 'Registration failed';
+            setError(errorMessage);
+        } finally {
             setIsLoading(false);
         }
     };
@@ -62,12 +63,25 @@ export default function SignupPage() {
                     </div>
 
                     <Surface className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-2xl shadow-sm">
-                        <Form onSubmit={handleSubmit} className="space-y-4">
-                            {error && (
-                                <div className="p-3 rounded-xl bg-danger/5 border border-danger/10 text-danger text-[10px] font-bold uppercase tracking-widest text-center">
-                                    {error}
+                        {error && (
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="mb-6"
+                            >
+                                <div className="p-4 rounded-xl border border-danger/30 bg-danger/5 backdrop-blur-md">
+                                    <div className="flex gap-3 items-center">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
+                                        <div className="flex flex-col">
+                                            <span className="text-danger text-[10px] font-bold uppercase tracking-[0.2em]">Enrollment Error_</span>
+                                            <span className="text-danger/90 text-xs font-semibold mt-0.5">{error}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
+                            </motion.div>
+                        )}
+
+                        <Form onSubmit={handleSubmit} className="space-y-4">
 
                             <TextField className="w-full">
                                 <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Full Designation</Label>

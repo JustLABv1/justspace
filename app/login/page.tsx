@@ -24,12 +24,14 @@ export default function LoginPage() {
         setIsLoading(true);
         
         try {
+            console.log('Initiating login for:', email);
             await login(email, password);
         } catch (err: any) {
-            console.error('Login error detailed:', err);
-            // Extract the most descriptive error message possible
-            const errorMessage = err?.response?.message || err?.message || 'Invalid credentials';
-            setError(errorMessage);
+            console.error('Login caught error:', err);
+            // Appwrite error messages are typically in err.message
+            // We also check err.response?.message as a fallback
+            const msg = err?.message || err?.response?.message || 'Authentication failed. Please check your credentials.';
+            setError(msg);
         } finally {
             setIsLoading(false);
         }
@@ -115,17 +117,25 @@ export default function LoginPage() {
                         <p className="text-muted-foreground text-sm font-medium opacity-60">Authenticate to gain access to the OS core.</p>
                     </div>
 
+                    {error && (
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="mb-8"
+                        >
+                            <Surface className="p-4 rounded-xl border border-danger/30 bg-danger/5 backdrop-blur-md">
+                                <div className="flex gap-3 items-center">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
+                                    <div className="flex flex-col">
+                                        <span className="text-danger text-[10px] font-bold uppercase tracking-[0.2em]">Authentication Error_</span>
+                                        <span className="text-danger/90 text-xs font-semibold mt-0.5">{error}</span>
+                                    </div>
+                                </div>
+                            </Surface>
+                        </motion.div>
+                    )}
+
                     <Form onSubmit={handleSubmit} className="space-y-6">
-                        {error && (
-                            <motion.div 
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="p-4 rounded-2xl bg-danger/5 border border-danger/20 flex flex-col gap-1 items-center justify-center text-center backdrop-blur-sm"
-                            >
-                                <span className="text-danger text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Authentication Error_</span>
-                                <span className="text-danger/90 text-xs font-semibold">{error}</span>
-                            </motion.div>
-                        )}
                         
                         <div className="space-y-4">
                             <TextField className="w-full">
