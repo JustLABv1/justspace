@@ -235,7 +235,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                                 value={block.content} 
                                                 onChange={(e) => updateBlock(block.id, e.target.value)}
                                                 placeholder={block.type === 'code' ? 'Paste code component...' : 'Enter documentation block...'}
-                                                className={`rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm transition-all min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
+                                                className={`rounded-xl w-full bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm transition-all min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
                                             />
                                         </div>
                                     ))}

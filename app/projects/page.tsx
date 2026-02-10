@@ -154,7 +154,7 @@ export default function ProjectsPage() {
                         <ListTodo size={14} weight="Bold" className="animate-pulse" />
                         Project Operations
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Manage your pipeline_</h1>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Manage your projects_</h1>
                     <p className="text-sm text-muted-foreground font-medium opacity-60">High-density tracking of consulting engagements and project lifecycle.</p>
                 </div>
                 <div className="flex items-center gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
@@ -217,8 +217,8 @@ export default function ProjectsPage() {
                                         setIsProjectModalOpen(true); 
                                     }}
                                 >
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="w-6 h-6 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-accent transition-all">
+                                    <div className="flex flex-cols items-center gap-2">
+                                        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-accent transition-all">
                                             <Plus size={14} weight="Linear" />
                                         </div>
                                         <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-accent">Initiate New Project</span>
