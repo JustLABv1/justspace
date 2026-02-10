@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { VaultBanner } from "@/components/VaultBanner";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -22,21 +22,27 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, isLoading } = useAuth();
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const [mounted, setMounted] = useState(false);
+    
+    const isClient = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false
+    );
+
+    const isCollapsed = useSyncExternalStore(
+        (callback) => {
+            window.addEventListener('sidebar-collapsed-change', callback);
+            return () => window.removeEventListener('sidebar-collapsed-change', callback);
+        },
+        () => localStorage.getItem('sidebar-collapsed') === 'true',
+        () => false
+    );
+
     const isAuthPage = pathname === '/login' || pathname === '/signup';
 
-    useEffect(() => {
-        const saved = localStorage.getItem('sidebar-collapsed');
-        if (saved !== null) {
-            setIsCollapsed(saved === 'true');
-        }
-        setMounted(true);
-    }, []);
-
     const toggleCollapse = (value: boolean) => {
-        setIsCollapsed(value);
         localStorage.setItem('sidebar-collapsed', String(value));
+        window.dispatchEvent(new Event('sidebar-collapsed-change'));
     };
 
     useEffect(() => {
@@ -45,7 +51,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
         }
     }, [user, isLoading, isAuthPage, router]);
 
-    if (isLoading || !mounted) {
+    if (isLoading || !isClient) {
         return <div className="flex h-screen w-screen items-center justify-center">Loading...</div>;
     }
 

@@ -190,14 +190,15 @@ export const db = {
             Query.orderAsc('order')
         ]);
     },
-    async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false) {
+    async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string) {
         const task = await databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
             projectId,
             title,
             completed: false,
             order,
             kanbanStatus: 'todo',
-            isEncrypted
+            isEncrypted,
+            parentId
         });
         await this.logActivity({
             type: 'create',

@@ -30,11 +30,21 @@ interface TaskItemProps {
     onUpdate: (id: string, data: Partial<Task> & { workDuration?: string }) => void;
     onAddSubtask: (title: string) => void;
     subtasks?: Task[];
+    isExpanded?: boolean;
+    onToggleExpanded?: () => void;
 }
 
-export function TaskItem({ task, onToggle, onDelete, onUpdate, onAddSubtask, subtasks = [] }: TaskItemProps) {
+export function TaskItem({ 
+    task, 
+    onToggle, 
+    onDelete, 
+    onUpdate, 
+    onAddSubtask, 
+    subtasks = [],
+    isExpanded = false,
+    onToggleExpanded
+}: TaskItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.$id });
-    const [isExpanded, setIsExpanded] = useState(false);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [currentTime, setCurrentTime] = useState(task.timeSpent || 0);
     const [prevTaskTime, setPrevTaskTime] = useState(task.timeSpent);
@@ -157,7 +167,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         variant="ghost" 
                         isIconOnly 
                         className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground/30 hover:text-foreground'}`}
-                        onPress={() => setIsExpanded(!isExpanded)}
+                        onPress={onToggleExpanded}
                     >
                         {isExpanded ? <ChevronDown size={18} weight="Bold" /> : <ChevronRight size={18} weight="Bold" />}
                     </Button>

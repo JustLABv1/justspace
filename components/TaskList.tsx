@@ -24,6 +24,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
+
+    const toggleTaskExpansion = (taskId: string) => {
+        setExpandedTaskIds(prev => 
+            prev.includes(taskId) 
+                ? prev.filter(id => id !== taskId) 
+                : [...prev, taskId]
+        );
+    };
     const { user, privateKey } = useAuth();
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
 
@@ -39,7 +48,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     );
 
     const fetchTasks = useCallback(async () => {
-        setIsLoading(true);
+        if (tasks.length === 0) setIsLoading(true);
         try {
             const projectRes = await db.getProject(projectId);
             const res = await db.listTasks(projectId);
@@ -65,7 +74,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                             const titleData = JSON.parse(task.title);
                             const decryptedTitle = await decryptData(titleData, docKey);
                             return { ...task, title: decryptedTitle };
-                        } catch (e) {
+                        } catch {
                             return { ...task, title: 'Decryption Error' };
                         }
                     }
@@ -136,8 +145,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 finalTitle = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            const task = await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted); 
-            await db.updateTask(task.$id, { parentId });
+            await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId);
             fetchTasks();
         } catch (error) {
             console.error(error);
@@ -168,14 +176,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
 
     const updateTask = async (taskId: string, data: Partial<Task> & { workDuration?: string }) => {
         try {
-            let updateData = { ...data };
+            const updateData = { ...data };
             if (documentKey && data.title) {
                 updateData.title = JSON.stringify(await encryptData(data.title, documentKey));
                 updateData.isEncrypted = true;
             }
             await db.updateTask(taskId, updateData);
-            const { workDuration, ...taskData } = updateData;
-            const updatedTaskTitle = data.title || (tasks.find(t => t.$id === taskId)?.title);
+            const taskData: Partial<Task> & { workDuration?: string } = { ...updateData };
+            delete taskData.workDuration;
+            const updatedTaskTitle = data.title || (tasks.find(t => t.$id === taskId)?.title) || '';
             setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
         } catch (error) {
             console.error(error);
@@ -281,6 +290,8 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                             onUpdate={updateTask}
                                             onAddSubtask={(title) => handleAddSubtask(task.$id, title)}
                                             subtasks={tasks.filter(t => t.parentId === task.$id)}
+                                            isExpanded={expandedTaskIds.includes(task.$id)}
+                                            onToggleExpanded={() => toggleTaskExpansion(task.$id)}
                                         />
                                     ))}
                                 </div>
