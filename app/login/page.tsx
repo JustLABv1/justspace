@@ -22,12 +22,15 @@ export default function LoginPage() {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-        console.log('Login attempt with:', { email, endpoint: typeof window !== 'undefined' ? (window as unknown as { _env_?: { NEXT_PUBLIC_APPWRITE_ENDPOINT: string } })._env_?.NEXT_PUBLIC_APPWRITE_ENDPOINT : 'Server' });
+        
         try {
             await login(email, password);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Login error detailed:', err);
-            setError(err instanceof Error ? err.message : 'Invalid credentials');
+            // Extract the most descriptive error message possible
+            const errorMessage = err?.response?.message || err?.message || 'Invalid credentials';
+            setError(errorMessage);
+        } finally {
             setIsLoading(false);
         }
     };
@@ -108,15 +111,20 @@ export default function LoginPage() {
                     className="w-full max-w-[420px]"
                 >
                     <div className="space-y-3 mb-10">
-                        <h2 className="text-3xl font-bold tracking-tight">Identity Check_</h2>
+                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Identity Check_</h2>
                         <p className="text-muted-foreground text-sm font-medium opacity-60">Authenticate to gain access to the OS core.</p>
                     </div>
 
                     <Form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
-                            <Surface className="p-4 rounded-xl bg-danger/5 border border-danger/20 text-danger text-[10px] font-bold uppercase tracking-widest text-center">
-                                {error}
-                            </Surface>
+                            <motion.div 
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-4 rounded-2xl bg-danger/5 border border-danger/20 flex flex-col gap-1 items-center justify-center text-center backdrop-blur-sm"
+                            >
+                                <span className="text-danger text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Authentication Error_</span>
+                                <span className="text-danger/90 text-xs font-semibold">{error}</span>
+                            </motion.div>
                         )}
                         
                         <div className="space-y-4">

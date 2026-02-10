@@ -76,14 +76,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const login = async (email: string, pass: string) => {
         setIsLoading(true);
         try {
+            // Check if a session already exists to avoid conflict
+            try {
+                const session = await account.getSession('current');
+                if (session) {
+                    await account.deleteSession('current');
+                }
+            } catch (e) {
+                // No active session, safe to proceed
+            }
+
             await account.createEmailPasswordSession(email, pass);
             const currentUser = await account.get();
             setUser(currentUser);
-            const keys = await db.getUserKeys(currentUser.$id);
-            setHasVault(!!keys);
-            setUserKeys(keys || null);
+            
+            try {
+                const keys = await db.getUserKeys(currentUser.$id);
+                setHasVault(!!keys);
+                setUserKeys(keys || null);
+            } catch (dbError) {
+                console.error('Non-critical login error (fetching vault keys):', dbError);
+                // We continue even if keys fail, as the user is authenticated with Appwrite
+                setHasVault(false);
+                setUserKeys(null);
+            }
+            
             router.push('/');
         } catch (error) {
+            console.error('Core authentication failure:', error);
             throw error;
         } finally {
             setIsLoading(false);
