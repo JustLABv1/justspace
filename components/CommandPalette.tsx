@@ -24,6 +24,12 @@ export function CommandPalette() {
     const router = useRouter();
 
     useEffect(() => {
+        const handleOpen = () => setOpen(true);
+        window.addEventListener('open-command-palette', handleOpen);
+        return () => window.removeEventListener('open-command-palette', handleOpen);
+    }, []);
+
+    useEffect(() => {
         const down = (e: KeyboardEvent) => {
             if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();

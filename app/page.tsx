@@ -154,7 +154,7 @@ export default function Home() {
         <div className="lg:col-span-8 space-y-8">
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
+            <Surface className="p-6 rounded-2xl md:rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
               <div className="flex flex-col h-full justify-between gap-6">
                 <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
                   <Target size={20} weight="Bold" />
@@ -171,7 +171,7 @@ export default function Home() {
               </div>
             </Surface>
 
-            <Surface className="p-6 rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
+            <Surface className="p-6 rounded-2xl md:rounded-[2rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
               <div className="flex flex-col h-full justify-between gap-6">
                 <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
                   <Book size={20} weight="Bold" />
@@ -259,7 +259,7 @@ export default function Home() {
           </section>
 
           {/* Productivity Highlight */}
-          <Surface className="p-12 rounded-[2rem] bg-accent text-white border-none overflow-hidden relative group shadow-2xl shadow-accent/10">
+          <Surface className="p-8 md:p-12 rounded-2xl md:rounded-[2rem] bg-accent text-white border-none overflow-hidden relative group shadow-2xl shadow-accent/10">
             <div className="relative z-10 max-w-lg space-y-8">
               <div className="w-16 h-16 rounded-[1.25rem] bg-white/20 border border-white/30 flex items-center justify-center text-white shadow-inner">
                 <Sparkles size={32} weight="Bold" className="animate-pulse" />

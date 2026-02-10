@@ -89,7 +89,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
     return (
         <ScrollShadow className="pb-6 -mx-6 px-6" orientation="horizontal" hideScrollBar>
-            <div className="flex gap-6 min-w-[1200px]">
+            <div className="flex gap-6 min-w-max md:min-w-[1200px]">
                 {COLUMNS.map(column => {
                     const columnTasks = mainTasks.filter(t => (t.kanbanStatus || 'todo') === column.id);
                     return (

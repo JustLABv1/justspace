@@ -19,9 +19,11 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 interface SidebarProps {
     isCollapsed: boolean;
     setIsCollapsed: (value: boolean) => void;
+    isMobileOpen?: boolean;
+    setIsMobileOpen?: (value: boolean) => void;
 }
 
-const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
+const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }: SidebarProps) => {
     const pathname = usePathname();
     const { logout } = useAuth();
 
@@ -35,15 +37,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
     return (
         <Surface 
             variant="secondary" 
-            className={`h-full flex flex-col border border-border/50 rounded-[2rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-hidden ${
+            className={`fixed md:relative z-50 md:z-auto h-full flex flex-col border border-border/50 rounded-none md:rounded-[2rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-hidden ${
                 isCollapsed ? 'w-20 p-4' : 'w-72 p-6'
+            } ${
+                isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
             }`}
         >
             <div className={`mb-10 flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
                 <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-6`}>
                     {!isCollapsed && (
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-foreground flex items-center justify-center text-background shadow-lg shadow-black/10">
+                            <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
                                 <span className="font-bold text-xl leading-none">J</span>
                             </div>
                             <div>
@@ -54,7 +58,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                     )}
                     {isCollapsed && (
                         <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
-                            <span className="font-bold text-lg">J</span>
+                            <span className="font-bold text-xl leading-none">J</span>
                         </div>
                     )}
                     
