@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
-import { db } from '@/lib/db';
+import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { DEPLOYMENT_TEMPLATES } from '@/lib/templates';
 import { Task } from '@/types';
 import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -55,8 +56,8 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         })
     );
 
-    const fetchTasks = useCallback(async () => {
-        if (tasks.length === 0) setIsLoading(true);
+    const fetchTasks = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const projectRes = await db.getProject(projectId);
             const res = await db.listTasks(projectId);
@@ -95,13 +96,33 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         } catch (error) {
             console.error(error instanceof Error ? error.message : error);
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, [projectId, privateKey, user]);
 
     useEffect(() => {
-        fetchTasks();
+        fetchTasks(true);
     }, [fetchTasks]);
+
+    useEffect(() => {
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${TASKS_ID}.documents`
+        ], async (response) => {
+            const payload = response.payload as Task;
+            if (payload.projectId !== projectId) return;
+
+            // If it's a delete event, we can handle it immediately without decryption
+            if (response.events.some(e => e.includes('.delete'))) {
+                setTasks(prev => prev.filter(t => t.$id === payload.$id ? false : true));
+                return;
+            }
+
+            // For creates and updates, we trigger a silent fetch to handle decryption correctly
+            await fetchTasks(false);
+        });
+
+        return () => unsubscribe();
+    }, [projectId, fetchTasks]);
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;

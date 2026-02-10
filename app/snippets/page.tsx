@@ -5,8 +5,9 @@ import { SnippetDetailModal } from '@/components/SnippetDetailModal';
 import { SnippetModal } from '@/components/SnippetModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { useAuth } from '@/context/AuthContext';
+import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { db } from '@/lib/db';
+import { db, DB_ID, SNIPPETS_ID } from '@/lib/db';
 import { EncryptedData, ResourceVersion, Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -32,8 +33,8 @@ export default function SnippetsPage() {
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedSnippet, setSelectedSnippet] = useState<Snippet | undefined>(undefined);
 
-    const fetchSnippets = useCallback(async () => {
-        setIsLoading(true);
+    const fetchSnippets = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const data = await db.listSnippets();
             const allSnippets = data.documents;
@@ -78,14 +79,31 @@ export default function SnippetsPage() {
         } catch (error) {
             console.error(error);
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, [privateKey, user]);
 
     useEffect(() => {
         if (user) {
-            fetchSnippets();
+            fetchSnippets(true);
         }
+    }, [user, fetchSnippets]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${SNIPPETS_ID}.documents`
+        ], (response) => {
+            if (response.events.some(e => e.includes('.delete'))) {
+                const payload = response.payload as Snippet;
+                setSnippets(prev => prev.filter(s => s.$id !== payload.$id));
+                return;
+            }
+            fetchSnippets(false);
+        });
+
+        return () => unsubscribe();
     }, [user, fetchSnippets]);
 
     const handleCreateOrUpdate = async (data: Partial<Snippet>) => {

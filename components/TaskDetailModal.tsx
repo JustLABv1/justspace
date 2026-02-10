@@ -1,23 +1,26 @@
 'use client';
 
-import { db } from '@/lib/db';
+import { useAuth } from '@/context/AuthContext';
+import { client } from '@/lib/appwrite';
+import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
+import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { Task } from '@/types';
 import {
-  Button,
-  Checkbox,
-  Input,
-  Modal,
-  ScrollShadow,
-  toast
+    Button,
+    Checkbox,
+    Input,
+    Modal,
+    ScrollShadow,
+    toast
 } from '@heroui/react';
 import {
-  Pen2 as Edit,
-  Letter as Email,
-  History,
-  ChatRoundDots as MessageCircle,
-  PhoneCalling as Phone,
-  AddCircle as Plus,
-  TrashBinMinimalistic as Trash
+    Pen2 as Edit,
+    Letter as Email,
+    History,
+    ChatRoundDots as MessageCircle,
+    PhoneCalling as Phone,
+    AddCircle as Plus,
+    TrashBinMinimalistic as Trash
 } from '@solar-icons/react';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -36,46 +39,114 @@ interface TaskDetailModalProps {
 }
 
 export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdate }: TaskDetailModalProps) {
+    const { user, privateKey } = useAuth();
+    const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
     const [subtasks, setSubtasks] = useState<Task[]>([]);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newNote, setNewNote] = useState('');
     const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
     const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editedTitle, setEditedTitle] = useState(task.title);
+    const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+    const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
+
+    // State sync for editing title
+    const [prevTaskTitle, setPrevTaskTitle] = useState(task.title);
+    if (task.title !== prevTaskTitle) {
+        setPrevTaskTitle(task.title);
+        setEditedTitle(task.title);
+        setIsEditingTitle(false);
+    }
 
     const fetchDetails = useCallback(async () => {
         if (!isOpen) return;
-        setIsLoading(true);
         try {
+            // Get decryption key if project is encrypted
+            let docKey = documentKey;
+            if (task.isEncrypted && privateKey && user && !docKey) {
+                try {
+                    const access = await db.getAccessKey(projectId, user.$id);
+                    if (access) {
+                        docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        setDocumentKey(docKey);
+                    }
+                } catch {
+                    console.error('Failed to decrypt project key');
+                }
+            }
+
             const res = await db.listTasks(projectId);
             const allTasks = res.documents as unknown as Task[];
-            setSubtasks(allTasks.filter(t => t.parentId === task.$id));
+            let filteredSubtasks = allTasks.filter(t => t.parentId === task.$id);
+
+            // Decrypt subtasks if needed
+            filteredSubtasks = await Promise.all(filteredSubtasks.map(async (st) => {
+                if (st.isEncrypted && docKey) {
+                    try {
+                        const titleData = JSON.parse(st.title);
+                        const decryptedTitle = await decryptData(titleData, docKey);
+                        return { ...st, title: decryptedTitle };
+                    } catch {
+                        return { ...st, title: 'Decryption Error' };
+                    }
+                }
+                return st;
+            }));
+
+            setSubtasks(filteredSubtasks);
         } catch (error) {
             console.error('Failed to fetch subtasks:', error);
-        } finally {
-            setIsLoading(false);
         }
-    }, [isOpen, projectId, task.$id]);
+    }, [isOpen, projectId, task.$id, task.isEncrypted, privateKey, user, documentKey]);
 
     useEffect(() => {
-        fetchDetails();
+        const load = async () => {
+            await fetchDetails();
+        };
+        load();
     }, [fetchDetails]);
 
+    useEffect(() => {
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${TASKS_ID}.documents`
+        ], async (response) => {
+            const payload = response.payload as Task;
+            if (payload.parentId !== task.$id && payload.$id !== task.$id) return;
+
+            if (response.events.some(e => e.includes('.delete'))) {
+                if (payload.$id === task.$id) {
+                    onOpenChange(false);
+                } else {
+                    setSubtasks(prev => prev.filter(s => s.$id !== payload.$id));
+                }
+                return;
+            }
+
+            await fetchDetails();
+        });
+
+        return () => unsubscribe();
+    }, [task.$id, fetchDetails, onOpenChange]);
+
     const handleUpdateTask = async (taskId: string, data: Partial<Task>) => {
+        // Optimistic update for subtasks
+        const previousSubtasks = [...subtasks];
+        if (taskId !== task.$id) {
+            setSubtasks(prev => prev.map(s => s.$id === taskId ? { ...s, ...data } : s));
+        }
+
         try {
             await db.updateTask(taskId, data);
-            if (taskId === task.$id) {
-                // The task object passed as prop is stale now, but usually the parent refreshes.
-                // For subtasks, we refresh locally.
-                onUpdate();
-            } else {
-                fetchDetails();
-            }
+            // Realtime will trigger fetchDetails and onUpdate eventually
             if ('completed' in data) {
                 toast.success(data.completed ? 'Task completed' : 'Task reopened');
             }
         } catch (error) {
             console.error('Failed to update task:', error);
+            if (taskId !== task.$id) {
+                setSubtasks(previousSubtasks);
+            }
             toast.danger('Sync failed');
         }
     };
@@ -83,31 +154,108 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const handleAddSubtask = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newSubtaskTitle.trim()) return;
+
+        const originalTitle = newSubtaskTitle;
+        const optimisticId = `temp-${Date.now()}`;
+        
+        // Optimistic update
+        const newTask: Task = {
+            $id: optimisticId,
+            $createdAt: new Date().toISOString(),
+            title: originalTitle,
+            projectId,
+            completed: false,
+            parentId: task.$id,
+            order: subtasks.length,
+            isEncrypted: !!task.isEncrypted
+        } as Task;
+
+        setSubtasks(prev => [...prev, newTask]);
+        setNewSubtaskTitle('');
+
         try {
-            await db.createEmptyTask(projectId, newSubtaskTitle, subtasks.length, !!task.isEncrypted, task.$id);
-            setNewSubtaskTitle('');
-            fetchDetails();
-            onUpdate();
+            let finalTitle = originalTitle;
+            if (task.isEncrypted && documentKey) {
+                const encrypted = await encryptData(originalTitle, documentKey);
+                finalTitle = JSON.stringify(encrypted);
+            }
+            await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.$id);
+            // Realtime will handle the state sync
             toast.success('Subtask added');
         } catch (error) {
             console.error('Failed to add subtask:', error);
+            setSubtasks(prev => prev.filter(s => s.$id !== optimisticId));
+            setNewSubtaskTitle(originalTitle);
             toast.danger('Failed to add subtask');
         }
     };
 
     const handleDeleteTask = async (taskId: string) => {
+        const previousSubtasks = [...subtasks];
+        if (taskId !== task.$id) {
+            setSubtasks(prev => prev.filter(s => s.$id !== taskId));
+        }
+
         try {
             await db.deleteTask(taskId);
             if (taskId === task.$id) {
                 onOpenChange(false);
-            } else {
-                fetchDetails();
             }
+            // Realtime handles the rest
             onUpdate();
             toast.success('Task deleted');
         } catch (error) {
             console.error('Failed to delete task:', error);
+            if (taskId !== task.$id) {
+                setSubtasks(previousSubtasks);
+            }
             toast.danger('Delete failed');
+        }
+    };
+
+    const handleUpdateTitle = async () => {
+        if (!editedTitle.trim() || editedTitle === task.title) {
+            setIsEditingTitle(false);
+            setEditedTitle(task.title);
+            return;
+        }
+
+        try {
+            let finalTitle = editedTitle;
+            if (task.isEncrypted && documentKey) {
+                const encrypted = await encryptData(editedTitle, documentKey);
+                finalTitle = JSON.stringify(encrypted);
+            }
+            await db.updateTask(task.$id, { title: finalTitle });
+            setIsEditingTitle(false);
+            onUpdate();
+            toast.success('Title updated');
+        } catch (error) {
+            console.error('Failed to update title:', error);
+            toast.danger('Failed to update title');
+        }
+    };
+
+    const handleUpdateSubtaskTitle = async (subtask: Task) => {
+        if (!editedSubtaskTitle.trim() || editedSubtaskTitle === subtask.title) {
+            setEditingSubtaskId(null);
+            return;
+        }
+
+        try {
+            let finalTitle = editedSubtaskTitle;
+            if (task.isEncrypted && documentKey) {
+                const encrypted = await encryptData(editedSubtaskTitle, documentKey);
+                finalTitle = JSON.stringify(encrypted);
+            }
+            await db.updateTask(subtask.$id, { title: finalTitle });
+            setEditingSubtaskId(null);
+            fetchDetails();
+            onUpdate();
+            toast.success('Subtask updated');
+        } catch (error) {
+            console.error('Failed to update subtask title:', error);
+            toast.danger('Failed to update subtask');
         }
     };
 
@@ -134,7 +282,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                     type: noteType
                 };
                 const updatedNotes = [...existingNotes, JSON.stringify(note)];
-                const updateData: any = { notes: updatedNotes };
+                const updateData: Partial<Task> = { notes: updatedNotes };
                 
                 if (noteType === 'email' || noteType === 'call') {
                     updateData.kanbanStatus = 'waiting';
@@ -204,9 +352,28 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                 </div>
                                 <span className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest italic">{task.kanbanStatus}</span>
                             </div>
-                            <Modal.Heading className="text-2xl font-black tracking-tight text-foreground leading-tight">
-                                {task.title}
-                            </Modal.Heading>
+                            {isEditingTitle ? (
+                                <form 
+                                    onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}
+                                    className="w-full flex items-center gap-2"
+                                >
+                                    <Input 
+                                        autoFocus
+                                        value={editedTitle}
+                                        onChange={(e) => setEditedTitle(e.target.value)}
+                                        onBlur={handleUpdateTitle}
+                                        className="text-2xl font-black tracking-tight text-foreground leading-tight bg-surface-secondary"
+                                    />
+                                </form>
+                            ) : (
+                                <Modal.Heading 
+                                    className="text-2xl font-black tracking-tight text-foreground leading-tight cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
+                                    onClick={() => setIsEditingTitle(true)}
+                                >
+                                    {task.title}
+                                    <Edit size={18} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                                </Modal.Heading>
+                            )}
                         </Modal.Header>
                         <Modal.Body className="p-0">
                             <div className="flex flex-col md:flex-row h-full max-h-[70vh]">
@@ -256,9 +423,29 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                         <Checkbox.Indicator />
                                                                     </Checkbox.Control>
                                                                 </Checkbox>
-                                                                <span className={`text-xs font-bold transition-all flex-1 ${st.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'}`}>
-                                                                    {st.title}
-                                                                </span>
+                                                                {editingSubtaskId === st.$id ? (
+                                                                    <Input 
+                                                                        autoFocus
+                                                                        value={editedSubtaskTitle}
+                                                                        onChange={(e) => setEditedSubtaskTitle(e.target.value)}
+                                                                        onBlur={() => handleUpdateSubtaskTitle(st)}
+                                                                        className="flex-1 bg-surface font-bold text-xs h-8"
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') handleUpdateSubtaskTitle(st);
+                                                                            if (e.key === 'Escape') setEditingSubtaskId(null);
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span 
+                                                                        className={`text-xs font-bold transition-all flex-1 cursor-pointer hover:text-accent ${st.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'}`}
+                                                                        onClick={() => {
+                                                                            setEditingSubtaskId(st.$id);
+                                                                            setEditedSubtaskTitle(st.title);
+                                                                        }}
+                                                                    >
+                                                                        {st.title}
+                                                                    </span>
+                                                                )}
                                                                 <Button 
                                                                     variant="ghost" 
                                                                     isIconOnly 

@@ -1,6 +1,7 @@
 'use client';
 
-import { db } from "@/lib/db";
+import { client } from "@/lib/appwrite";
+import { ACTIVITY_ID, db, DB_ID } from "@/lib/db";
 import { ActivityLog } from "@/types";
 import { Button, Spinner, Surface } from "@heroui/react";
 import {
@@ -43,9 +44,13 @@ export function ActivityFeed() {
     useEffect(() => {
         fetchActivity();
         
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(() => fetchActivity(true), 30000);
-        return () => clearInterval(interval);
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${ACTIVITY_ID}.documents`
+        ], () => {
+            fetchActivity(true); // Silent refresh on any activity change
+        });
+
+        return () => unsubscribe();
     }, [fetchActivity]);
 
     if (loading) {

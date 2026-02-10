@@ -5,8 +5,9 @@ import { Markdown } from '@/components/Markdown';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
+import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { db } from '@/lib/db';
+import { db, DB_ID, GUIDES_ID } from '@/lib/db';
 import { ResourceVersion, WikiGuide } from '@/types';
 import { Button, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -32,8 +33,8 @@ export default function WikiPage() {
     const [selectedGuide, setSelectedGuide] = useState<WikiGuide | undefined>(undefined);
     const { user, privateKey } = useAuth();
 
-    const fetchGuides = useCallback(async () => {
-        setIsLoading(true);
+    const fetchGuides = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const data = await db.listGuides();
             const rawGuides = data.documents;
@@ -80,12 +81,27 @@ export default function WikiPage() {
         } catch (error) {
             console.error(error);
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, [privateKey, user]);
 
     useEffect(() => {
-        fetchGuides();
+        fetchGuides(true);
+    }, [fetchGuides]);
+
+    useEffect(() => {
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${GUIDES_ID}.documents`
+        ], (response) => {
+            if (response.events.some(e => e.includes('.delete'))) {
+                const payload = response.payload as WikiGuide;
+                setGuides(prev => prev.filter(g => g.$id !== payload.$id));
+                return;
+            }
+            fetchGuides(false);
+        });
+
+        return () => unsubscribe();
     }, [fetchGuides]);
 
     const handleRestore = async (version: ResourceVersion) => {

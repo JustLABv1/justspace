@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
-import { db } from '@/lib/db';
+import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { Task } from '@/types';
 import { Button, ScrollShadow, Surface, toast } from "@heroui/react";
 import { MenuDots as GripVertical, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
@@ -24,8 +25,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-    const fetchTasks = useCallback(async () => {
-        setIsLoading(true);
+    const fetchTasks = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const res = await db.listTasks(projectId);
             const rawTasks = res.documents as unknown as Task[];
@@ -60,13 +61,31 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         } catch (error) {
             console.error(error);
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, [projectId, user, privateKey]);
 
     useEffect(() => {
-        fetchTasks();
+        fetchTasks(true);
     }, [fetchTasks]);
+
+    useEffect(() => {
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${TASKS_ID}.documents`
+        ], async (response) => {
+            const payload = response.payload as Task;
+            if (payload.projectId !== projectId) return;
+
+            if (response.events.some(e => e.includes('.delete'))) {
+                setTasks(prev => prev.filter(t => t.$id !== payload.$id));
+                return;
+            }
+
+            await fetchTasks(false);
+        });
+
+        return () => unsubscribe();
+    }, [projectId, fetchTasks]);
 
     const moveTask = async (taskId: string, newStatus: Task['kanbanStatus']) => {
         const previousTasks = [...tasks];
