@@ -58,7 +58,7 @@ export const db = {
         ]);
     },
     async createSnippet(data: Omit<Snippet, '$id' | '$createdAt'>) {
-        const snippet = await databases.createDocument(DB_ID, SNIPPETS_ID, ID.unique(), data);
+        const snippet = await databases.createDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, ID.unique(), data);
         await this.logActivity({
             type: 'create',
             entityType: 'Snippet',
@@ -68,7 +68,7 @@ export const db = {
         return snippet;
     },
     async updateSnippet(id: string, data: Partial<Snippet>) {
-        const snippet = await databases.updateDocument(DB_ID, SNIPPETS_ID, id, data);
+        const snippet = await databases.updateDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, id, data);
         if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -96,7 +96,7 @@ export const db = {
         return await databases.getDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id);
     },
     async createProject(data: Omit<Project, '$id' | '$createdAt'>) {
-        const project = await databases.createDocument(DB_ID, PROJECTS_ID, ID.unique(), data);
+        const project = await databases.createDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, ID.unique(), data);
         await this.logActivity({
             type: 'create',
             entityType: 'Project',
@@ -106,7 +106,7 @@ export const db = {
         return project;
     },
     async updateProject(id: string, data: Partial<Project>) {
-        const project = await databases.updateDocument(DB_ID, PROJECTS_ID, id, data);
+        const project = await databases.updateDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id, data);
         if (data.name || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -142,7 +142,7 @@ export const db = {
         return { ...guide, installations: installations.documents };
     },
     async createGuide(data: Omit<WikiGuide, '$id' | '$createdAt'>) {
-        const guide = await databases.createDocument(DB_ID, GUIDES_ID, ID.unique(), data);
+        const guide = await databases.createDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, ID.unique(), data);
         await this.logActivity({
             type: 'create',
             entityType: 'Wiki',
@@ -152,7 +152,7 @@ export const db = {
         return guide;
     },
     async updateGuide(id: string, data: Partial<WikiGuide>) {
-        const guide = await databases.updateDocument(DB_ID, GUIDES_ID, id, data);
+        const guide = await databases.updateDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, id, data);
         if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -174,7 +174,7 @@ export const db = {
 
     // Installations
     async createInstallation(data: Omit<InstallationTarget, '$id' | '$createdAt'>) {
-        const inst = await databases.createDocument(DB_ID, INSTALLATIONS_ID, ID.unique(), data);
+        const inst = await databases.createDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, ID.unique(), data);
         await this.logActivity({
             type: 'create',
             entityType: 'Installation',
@@ -183,7 +183,7 @@ export const db = {
         return inst;
     },
     async updateInstallation(id: string, data: Partial<InstallationTarget>) {
-        const inst = await databases.updateDocument(DB_ID, INSTALLATIONS_ID, id, data);
+        const inst = await databases.updateDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, id, data);
         if (data.target) {
             await this.logActivity({
                 type: 'update',
@@ -216,7 +216,7 @@ export const db = {
         ]);
     },
     async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string) {
-        const task = await databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
+        const task = await databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
             projectId,
             title,
             completed: false,
@@ -240,7 +240,7 @@ export const db = {
 
         const tasksCount = titles.length;
         const tasks = await Promise.all(titles.map((title, index) => 
-            databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
+            databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
                 projectId,
                 title,
                 completed: false,
