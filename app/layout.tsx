@@ -18,6 +18,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "justspace | Consultant Portal",
   description: "Project tracking and documentation for consultants",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export const dynamic = 'force-dynamic';
