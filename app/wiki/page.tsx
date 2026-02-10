@@ -272,12 +272,12 @@ export default function WikiPage() {
                                         </div>
                                     </div>
                                     
-                                    <div className="flex gap-1.5 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
+                                    <div className="flex gap-1.5 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 relative z-10">
                                         <Button 
                                             variant="ghost" 
                                             isIconOnly 
                                             className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
-                                            onPress={() => { setSelectedGuide(guide); setIsHistoryModalOpen(true); }}
+                                            onPress={(e) => { setSelectedGuide(guide); setIsHistoryModalOpen(true); }}
                                         >
                                             <History size={14} weight="Bold" />
                                         </Button>
@@ -285,7 +285,7 @@ export default function WikiPage() {
                                             variant="ghost" 
                                             isIconOnly 
                                             className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
-                                            onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
+                                            onPress={(e) => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
                                         >
                                             <Edit size={14} weight="Bold" />
                                         </Button>
@@ -293,7 +293,7 @@ export default function WikiPage() {
                                             variant="ghost" 
                                             isIconOnly 
                                             className="h-8 w-8 rounded-lg text-danger hover:bg-danger/5"
-                                            onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
+                                            onPress={(e) => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
                                         >
                                             <Trash size={14} weight="Bold" />
                                         </Button>

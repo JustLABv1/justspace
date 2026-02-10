@@ -7,8 +7,9 @@ import { ProjectSelectorModal } from '@/components/ProjectSelectorModal';
 import { ShareModal } from '@/components/ShareModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiExport } from '@/components/WikiExport';
+import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
-import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey } from '@/lib/crypto';
+import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { EncryptedData, InstallationTarget, ResourceVersion, WikiGuide } from '@/types';
 import { Button, Spinner, Surface, Tabs } from "@heroui/react";
@@ -36,6 +37,7 @@ export default function WikiDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isDecrypting, setIsDecrypting] = useState(false);
     const [selectedInst, setSelectedInst] = useState<InstallationTarget | undefined>(undefined);
+    const [isWikiModalOpen, setIsWikiModalOpen] = useState(false);
     const [isInstModalOpen, setIsInstModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
@@ -113,6 +115,63 @@ export default function WikiDetailPage() {
     useEffect(() => {
         fetchGuide();
     }, [fetchGuide]);
+
+    const handleUpdateWiki = async (data: Partial<WikiGuide> & { shouldEncrypt?: boolean }) => {
+        if (!guide) return;
+        const { shouldEncrypt, ...guideData } = data;
+        const finalData = { ...guideData };
+
+        if (shouldEncrypt && user) {
+            const userKeys = await db.getUserKeys(user.$id);
+            if (!userKeys) throw new Error('Vault keys not found');
+
+            const docKey = await generateDocumentKey();
+            const encryptedTitle = await encryptData(guideData.title || '', docKey);
+            const encryptedDesc = await encryptData(guideData.description || '', docKey);
+
+            finalData.title = JSON.stringify(encryptedTitle);
+            finalData.description = JSON.stringify(encryptedDesc);
+            finalData.isEncrypted = true;
+
+            const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
+
+            await db.updateGuide(id, finalData);
+            
+            // Create version snapshot
+            await db.createVersion({
+                resourceId: id,
+                resourceType: 'Wiki',
+                content: finalData.description || '',
+                title: finalData.title,
+                isEncrypted: true,
+                metadata: 'Updated'
+            });
+
+            // Also update/add access control if not exists
+            const existingAccess = await db.getAccessKey(id, user.$id);
+            if (!existingAccess) {
+                await db.grantAccess({
+                    resourceId: id,
+                    userId: user.$id,
+                    encryptedKey: encryptedDocKey,
+                    resourceType: 'Wiki'
+                });
+            }
+        } else {
+            await db.updateGuide(id, finalData);
+            await db.createVersion({
+                resourceId: id,
+                resourceType: 'Wiki',
+                content: finalData.description || '',
+                title: finalData.title,
+                isEncrypted: false,
+                metadata: 'Updated'
+            });
+        }
+        
+        setIsWikiModalOpen(false);
+        fetchGuide();
+    };
 
     const handleCreateOrUpdateInst = async (data: Partial<InstallationTarget>) => {
         const finalData = { ...data };
@@ -321,6 +380,14 @@ export default function WikiDetailPage() {
                         onPress={() => setIsHistoryModalOpen(true)}
                     >
                         <History size={18} weight="Bold" />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        isIconOnly 
+                        className="rounded-xl h-9 w-9 border border-border/20 bg-surface/5 backdrop-blur-sm hover:text-blue-500 transition-all"
+                        onPress={() => setIsWikiModalOpen(true)}
+                    >
+                        <Edit size={18} weight="Bold" />
                     </Button>
                     {guide.isEncrypted && (
                         <Button 
@@ -549,6 +616,13 @@ export default function WikiDetailPage() {
                 onSubmit={handleCreateOrUpdateInst}
                 installation={selectedInst}
                 guideId={id}
+            />
+
+            <WikiModal 
+                isOpen={isWikiModalOpen}
+                onClose={() => setIsWikiModalOpen(false)}
+                onSubmit={handleUpdateWiki}
+                guide={guide}
             />
 
             <ShareModal 
