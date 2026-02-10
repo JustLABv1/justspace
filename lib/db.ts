@@ -3,6 +3,7 @@ import {
     ActivityLog,
     InstallationTarget,
     Project,
+    ResourceVersion,
     Snippet,
     Task,
     UserKeys,
@@ -21,8 +22,20 @@ const ACTIVITY_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACTIVITY_COLLECTION_ID');
 const SNIPPETS_ID = getEnv('NEXT_PUBLIC_APPWRITE_SNIPPETS_COLLECTION_ID');
 const USER_KEYS_ID = getEnv('NEXT_PUBLIC_APPWRITE_USER_KEYS_COLLECTION_ID');
 const ACCESS_CONTROL_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACCESS_CONTROL_COLLECTION_ID');
+const VERSIONS_ID = getEnv('NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID');
 
 export const db = {
+    // Versions
+    async listVersions(resourceId: string) {
+        return await databases.listDocuments<ResourceVersion & Models.Document>(DB_ID, VERSIONS_ID, [
+            Query.equal('resourceId', resourceId),
+            Query.orderDesc('$createdAt')
+        ]);
+    },
+    async createVersion(data: Omit<ResourceVersion, '$id' | '$createdAt'>) {
+        return await databases.createDocument(DB_ID, VERSIONS_ID, ID.unique(), data);
+    },
+
     // Activity
     async listActivity() {
         return await databases.listDocuments<ActivityLog & Models.Document>(DB_ID, ACTIVITY_ID, [

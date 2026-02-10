@@ -101,15 +101,28 @@ This document outlines the required database, collections, and attributes for **
 
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
-| `title` | String | 128 | Yes | Title of the snippet. |
-| `content` | String | 16384 | Yes | The code or text content. |
-| `language` | String | 32 | Yes | Programming language for syntax highlighting. |
-| `tags` | String Array | 32 | No | Categorization tags. |
-| `description` | String | 512 | No | Short explanation. |
+| `title` | String | 128 | Yes | Snippet title. |
+| `content` | String | 16384 | Yes | Code or text content. |
+| `blocks` | String | 16384 | No | JSON stringified multi-block content. |
+| `language` | String | 32 | Yes | Programming language for highlighting. |
+| `tags` | String Array | 255 | No | Searchable tags. |
+| `description` | String | 1024 | No | Additional context. |
+| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+
+### 9. Resource Versions
+- **Collection ID:** `resource_versions` (Set via `NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID`)
+
+| Attribute | Type | Size / Options | Required | Description |
+|-----------|------|----------------|----------|-------------|
+| `resourceId` | String | 36 | Yes | ID of the parent resource (Wiki/Snippet). |
+| `resourceType` | String | 16 | Yes | `Wiki`, `Snippet`, or `Installation`. |
+| `content` | String | 16384 | Yes | Content snapshot. |
+| `title` | String | 128 | No | Title snapshot. |
+| `metadata` | String | 1024 | No | Change details. |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
 ---
 
 ## Initialization Tips
-- Ensure your `.env.local` file contains the correct `NEXT_PUBLIC_APPWRITE_PROJECT_ID` and `NEXT_PUBLIC_APPWRITE_DATABASE_ID`.
+- Ensure your `.env.local` file contains the correct `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_DATABASE_ID`, and all `COLLECTION_ID` variables (e.g., `NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID`).
 - You can use the [Appwrite CLI](https://appwrite.io/docs/command-line) to automate the creation of these collections if you have many targets.

@@ -2,21 +2,23 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { SnippetModal } from '@/components/SnippetModal';
+import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { EncryptedData, Snippet } from '@/types';
+import { EncryptedData, ResourceVersion, Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import {
     CodeFile,
     Copy,
     Pen2 as Edit,
+    Restart as History,
     AddCircle as Plus,
-    Magnifier as Search,
+    Magnifer as Search,
     ShieldKeyhole as Shield,
     TrashBinTrash as Trash
 } from "@solar-icons/react";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export default function SnippetsPage() {
     const { user, userKeys, privateKey } = useAuth();
@@ -25,15 +27,10 @@ export default function SnippetsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSnippetModalOpen, setIsSnippetModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedSnippet, setSelectedSnippet] = useState<Snippet | undefined>(undefined);
 
-    useEffect(() => {
-        if (user) {
-            fetchSnippets();
-        }
-    }, [user]);
-
-    const fetchSnippets = async () => {
+    const fetchSnippets = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.listSnippets();
@@ -48,12 +45,14 @@ export default function SnippetsPage() {
                                 const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const titleRaw = JSON.parse(snippet.title) as EncryptedData;
                                 const contentRaw = JSON.parse(snippet.content) as EncryptedData;
+                                const blocksRaw = snippet.blocks ? (JSON.parse(snippet.blocks) as EncryptedData) : null;
                                 const descRaw = snippet.description ? (JSON.parse(snippet.description) as EncryptedData) : null;
 
                                 return {
                                     ...snippet,
                                     title: await decryptData(titleRaw, snippetKey),
                                     content: await decryptData(contentRaw, snippetKey),
+                                    blocks: blocksRaw ? await decryptData(blocksRaw, snippetKey) : snippet.blocks,
                                     description: descRaw ? await decryptData(descRaw, snippetKey) : snippet.description
                                 };
                             }
@@ -79,7 +78,13 @@ export default function SnippetsPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [privateKey, user]);
+
+    useEffect(() => {
+        if (user) {
+            fetchSnippets();
+        }
+    }, [user, fetchSnippets]);
 
     const handleCreateOrUpdate = async (data: Partial<Snippet>) => {
         try {
@@ -92,10 +97,20 @@ export default function SnippetsPage() {
                         const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         if (data.title) updateData.title = JSON.stringify(await encryptData(data.title, snippetKey));
                         if (data.content) updateData.content = JSON.stringify(await encryptData(data.content, snippetKey));
+                        if (data.blocks) updateData.blocks = JSON.stringify(await encryptData(data.blocks, snippetKey));
                         if (data.description) updateData.description = JSON.stringify(await encryptData(data.description, snippetKey));
                     }
                 }
                 await db.updateSnippet(selectedSnippet.$id, updateData);
+                
+                await db.createVersion({
+                    resourceId: selectedSnippet.$id,
+                    resourceType: 'Snippet',
+                    content: updateData.blocks || updateData.content || '',
+                    title: updateData.title,
+                    isEncrypted: data.isEncrypted,
+                    metadata: 'Updated'
+                });
             } else {
                 const createData = { ...data };
                 let snippetId = '';
@@ -104,6 +119,7 @@ export default function SnippetsPage() {
                     const snippetKey = await generateDocumentKey();
                     if (data.title) createData.title = JSON.stringify(await encryptData(createData.title!, snippetKey));
                     if (data.content) createData.content = JSON.stringify(await encryptData(createData.content!, snippetKey));
+                    if (data.blocks) createData.blocks = JSON.stringify(await encryptData(createData.blocks!, snippetKey));
                     if (data.description) createData.description = JSON.stringify(await encryptData(createData.description!, snippetKey));
                     
                     const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
@@ -117,14 +133,57 @@ export default function SnippetsPage() {
                         encryptedKey
                     });
                 } else {
-                    await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
+                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
+                    snippetId = res.$id;
                 }
+
+                await db.createVersion({
+                    resourceId: snippetId,
+                    resourceType: 'Snippet',
+                    content: createData.blocks || createData.content || '',
+                    title: createData.title,
+                    isEncrypted: data.isEncrypted,
+                    metadata: 'Initial version'
+                });
             }
             setIsSnippetModalOpen(false);
             fetchSnippets();
         } catch (error) {
             console.error('Failed to save snippet:', error);
         }
+    };
+
+    const handleRestore = async (version: ResourceVersion) => {
+        if (!selectedSnippet) return;
+        
+        const updateData: Partial<Snippet> = {
+            title: version.title || 'Restored Snippet',
+            content: version.content, 
+            isEncrypted: false
+        };
+
+        if (version.content.startsWith('[')) {
+            updateData.blocks = version.content;
+            try {
+                const b = JSON.parse(version.content);
+                updateData.content = b[0]?.content || '';
+            } catch {}
+        }
+
+        if (selectedSnippet.isEncrypted && user && privateKey) {
+            const access = await db.getAccessKey(selectedSnippet.$id, user.$id);
+            if (access) {
+                const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                updateData.title = JSON.stringify(await encryptData(version.title || 'Restored Snippet', snippetKey));
+                updateData.content = JSON.stringify(await encryptData(updateData.content || '', snippetKey));
+                if (updateData.blocks) updateData.blocks = JSON.stringify(await encryptData(updateData.blocks, snippetKey));
+                updateData.isEncrypted = true;
+            }
+        }
+
+        await db.updateSnippet(selectedSnippet.$id, updateData);
+        setIsHistoryModalOpen(false);
+        fetchSnippets();
     };
 
     const handleDelete = async () => {
@@ -198,6 +257,9 @@ export default function SnippetsPage() {
                                     <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
                                         <Edit size={12} weight="Bold" />
                                     </Button>
+                                    <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsHistoryModalOpen(true); }}>
+                                        <History size={12} weight="Bold" />
+                                    </Button>
                                     <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-danger hover:bg-danger/10 transition-all" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
                                         <Trash size={12} weight="Bold" />
                                     </Button>
@@ -211,18 +273,36 @@ export default function SnippetsPage() {
                             )}
 
                             <div className="bg-surface/80 rounded-[1.5rem] p-5 font-mono text-[11px] border border-border/20 overflow-hidden relative group/code h-40 shadow-inner">
-                                <pre className="text-foreground/90 overflow-hidden line-clamp-6 whitespace-pre-wrap leading-relaxed">
-                                    {snippet.content}
-                                </pre>
+                                <div className="text-foreground/90 overflow-hidden line-clamp-6 whitespace-pre-wrap leading-relaxed">
+                                    {snippet.blocks ? (
+                                        <div className="space-y-4">
+                                            {(() => {
+                                                try {
+                                                    const blocks = JSON.parse(snippet.blocks);
+                                                    return blocks.map((b: { type: string; content: string }, i: number) => (
+                                                        <div key={i} className="space-y-1">
+                                                            <div className="text-[9px] uppercase tracking-widest text-primary/40 font-black">{b.type} component_{i+1}</div>
+                                                            <pre className="line-clamp-3">{b.content}</pre>
+                                                        </div>
+                                                    ));
+                                                } catch {
+                                                    return <pre>{snippet.content}</pre>;
+                                                }
+                                            })()}
+                                        </div>
+                                    ) : (
+                                        <pre>{snippet.content}</pre>
+                                    )}
+                                </div>
                                 <div className="absolute inset-0 bg-primary/10 backdrop-blur-[2px] opacity-0 group-hover/code:opacity-100 transition-all duration-500 flex items-center justify-center">
                                     <Button 
                                         variant="primary" 
                                         size="md" 
                                         className="rounded-xl font-bold px-6 h-10 shadow-xl shadow-primary/20 text-[10px] uppercase tracking-widest" 
-                                        onPress={() => copyToClipboard(snippet.content)}
+                                        onPress={() => copyToClipboard(snippet.blocks ? JSON.parse(snippet.blocks).map((b: { content: string }) => b.content).join('\n\n') : snippet.content)}
                                     >
                                         <Copy size={16} weight="Bold" className="mr-2" />
-                                        Copy Snippet
+                                        Copy Full Bundle
                                     </Button>
                                 </div>
                             </div>
@@ -253,12 +333,20 @@ export default function SnippetsPage() {
                 snippet={selectedSnippet}
             />
 
+            <VersionHistoryModal 
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                resourceId={selectedSnippet?.$id || ''}
+                resourceType="Snippet"
+                onRestore={handleRestore}
+            />
+
             <DeleteModal 
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDelete}
                 title="Delete Snippet"
-                message={`Are you sure you want to delete "${selectedSnippet?.title}"?`}
+                message={`Are you sure you want to delete "${selectedSnippet?.title}"? This action cannot be undone.`}
             />
         </div>
     );

@@ -79,13 +79,32 @@ export interface ActivityLog {
     $createdAt: string;
 }
 
+export interface SnippetBlock {
+    id: string;
+    type: 'code' | 'markdown';
+    content: string;
+    language?: string;
+}
+
 export interface Snippet {
     $id: string;
     title: string;
     content: string;
+    blocks?: string; // JSON stringified SnippetBlock[]
     language: string;
     tags?: string[];
     description?: string;
+    isEncrypted?: boolean;
+    $createdAt: string;
+}
+
+export interface ResourceVersion {
+    $id: string;
+    resourceId: string;
+    resourceType: 'Wiki' | 'Snippet' | 'Installation';
+    content: string; // Full snapshot
+    title?: string;
+    metadata?: string;
     isEncrypted?: boolean;
     $createdAt: string;
 }

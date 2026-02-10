@@ -1,16 +1,18 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { WikiGuide } from '@/types';
-import { Button, SearchField, Spinner, Surface } from "@heroui/react";
+import { ResourceVersion, WikiGuide } from '@/types';
+import { Button, Spinner, Surface } from "@heroui/react";
 import {
     Book,
     Pen2 as Edit,
     ArrowRightUp as ExternalLink,
+    History,
     AddCircle as Plus,
     Magnifer as Search,
     ShieldKeyhole as Shield,
@@ -25,6 +27,7 @@ export default function WikiPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isWikiModalOpen, setIsWikiModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedGuide, setSelectedGuide] = useState<WikiGuide | undefined>(undefined);
     const { user, privateKey } = useAuth();
 
@@ -43,11 +46,18 @@ export default function WikiPage() {
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 
-                                const titleData = JSON.parse(guide.title);
-                                const descData = JSON.parse(guide.description);
-                                
-                                const decryptedTitle = await decryptData(titleData, docKey);
-                                const decryptedDesc = await decryptData(descData, docKey);
+                                let decryptedTitle = guide.title;
+                                let decryptedDesc = guide.description;
+
+                                try {
+                                    const titleData = JSON.parse(guide.title);
+                                    decryptedTitle = await decryptData(titleData, docKey);
+                                } catch {}
+
+                                try {
+                                    const descData = JSON.parse(guide.description);
+                                    decryptedDesc = await decryptData(descData, docKey);
+                                } catch {}
                                 
                                 return { ...guide, title: decryptedTitle, description: decryptedDesc };
                             }
@@ -77,6 +87,30 @@ export default function WikiPage() {
         fetchGuides();
     }, [fetchGuides]);
 
+    const handleRestore = async (version: ResourceVersion) => {
+        if (!selectedGuide) return;
+        
+        const updateData: Partial<WikiGuide> = {
+            title: version.title,
+            description: version.content,
+            isEncrypted: false
+        };
+
+        if (selectedGuide.isEncrypted && user && privateKey) {
+            const access = await db.getAccessKey(selectedGuide.$id, user.$id);
+            if (access) {
+                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                updateData.title = JSON.stringify(await encryptData(version.title || '', docKey));
+                updateData.description = JSON.stringify(await encryptData(version.content, docKey));
+                updateData.isEncrypted = true;
+            }
+        }
+
+        await db.updateGuide(selectedGuide.$id, updateData);
+        setIsHistoryModalOpen(false);
+        fetchGuides();
+    };
+
     const handleCreateOrUpdate = async (data: Partial<WikiGuide> & { shouldEncrypt?: boolean }) => {
         const { shouldEncrypt, ...guideData } = data;
         const finalData = { ...guideData };
@@ -97,6 +131,17 @@ export default function WikiPage() {
 
             if (selectedGuide?.$id) {
                 await db.updateGuide(selectedGuide.$id, finalData);
+                
+                // Create version snapshot
+                await db.createVersion({
+                    resourceId: selectedGuide.$id,
+                    resourceType: 'Wiki',
+                    content: finalData.description || '',
+                    title: finalData.title,
+                    isEncrypted: true,
+                    metadata: 'Updated'
+                });
+
                 // Also update/add access control if not exists
                 const existingAccess = await db.getAccessKey(selectedGuide.$id, user.$id);
                 if (!existingAccess) {
@@ -109,6 +154,16 @@ export default function WikiPage() {
                 }
             } else {
                 const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                
+                await db.createVersion({
+                    resourceId: newGuide.$id,
+                    resourceType: 'Wiki',
+                    content: finalData.description || '',
+                    title: finalData.title,
+                    isEncrypted: true,
+                    metadata: 'Initial version'
+                });
+
                 await db.grantAccess({
                     resourceId: newGuide.$id,
                     userId: user.$id,
@@ -119,8 +174,24 @@ export default function WikiPage() {
         } else {
             if (selectedGuide?.$id) {
                 await db.updateGuide(selectedGuide.$id, finalData);
+                await db.createVersion({
+                    resourceId: selectedGuide.$id,
+                    resourceType: 'Wiki',
+                    content: finalData.description || '',
+                    title: finalData.title,
+                    isEncrypted: false,
+                    metadata: 'Updated'
+                });
             } else {
-                await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                await db.createVersion({
+                    resourceId: newGuide.$id,
+                    resourceType: 'Wiki',
+                    content: finalData.description || '',
+                    title: finalData.title,
+                    isEncrypted: false,
+                    metadata: 'Initial version'
+                });
             }
         }
         
@@ -146,124 +217,102 @@ export default function WikiPage() {
     }
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-12">
-            {/* Refined Header */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-primary font-black tracking-[0.2em] text-xs uppercase opacity-80">
-                        <Book size={14} weight="Bold" className="animate-pulse" />
+        <div className="max-w-[1240px] mx-auto p-6 md:p-12 space-y-12">
+            <header className="flex flex-col md:flex-row justify-between items-center gap-8">
+                <div className="space-y-2 text-center md:text-left">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-primary font-bold tracking-widest text-[10px] opacity-80 uppercase">
+                        <Book size={16} weight="Bold" className="animate-pulse" />
                         Knowledge Base
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Wiki documentation_</h1>
-                    <p className="text-muted-foreground font-medium opacity-70 text-sm">Standardized procedures, deployment guides, and implementation standards.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Wiki Guides</h1>
+                    <p className="text-sm text-muted-foreground font-medium opacity-60">Documentation and deployment guides for your stack.</p>
                 </div>
-                <div className="flex gap-3">
-                    <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
-                        <Plus size={16} weight="Bold" className="mr-2" />
-                        New Guide
-                    </Button>
-                </div>
+                <Button variant="primary" className="rounded-xl h-10 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
+                    <Plus size={18} weight="Bold" className="mr-2" />
+                    New Guide
+                </Button>
             </header>
 
-            {/* Bento-style Search & Controls */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                <div className="lg:col-span-8">
-                    <SearchField 
-                        variant="secondary"
-                        className="w-full"
-                        value={searchTerm}
-                        onChange={setSearchTerm}
-                        aria-label="Search guides"
-                    >
-                        <SearchField.Group className="rounded-3xl border-border/40 bg-surface h-16 px-6 shadow-sm focus-within:border-primary/50 transition-all border">
-                            <Search size={22} weight="Linear" className="text-muted-foreground/40 mr-4" />
-                            <SearchField.Input placeholder="Search knowledge base..." className="text-lg font-black tracking-tighter placeholder:text-muted-foreground/20 uppercase" />
-                            <SearchField.ClearButton />
-                        </SearchField.Group>
-                    </SearchField>
-                </div>
-                <div className="lg:col-span-4 flex justify-end">
-                    <Surface className="px-6 py-4 rounded-2xl border border-border/40 bg-surface flex items-center gap-5 shadow-sm">
-                        <div className="w-10 h-10 rounded-xl bg-accent/5 flex items-center justify-center text-accent border border-accent/10">
-                            <Book size={20} weight="Linear" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground opacity-40">Guide Index</p>
-                            <p className="font-extrabold text-base tracking-tighter uppercase">{filteredGuides.length} Guides Found</p>
-                        </div>
-                    </Surface>
-                </div>
-            </div>
+            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-primary/40 transition-all duration-500">
+                <Search size={20} className="text-muted-foreground/40" />
+                <input 
+                    className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-bold tracking-tight placeholder:text-muted-foreground/20" 
+                    placeholder="Search documentation..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </Surface>
 
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredGuides.length === 0 ? (
-                    <Surface variant="tertiary" className="col-span-full py-32 rounded-[2rem] border border-dashed border-border flex flex-col items-center space-y-8 bg-surface/30">
-                        <div className="w-24 h-24 bg-surface-secondary rounded-[2.5rem] flex items-center justify-center text-muted-foreground/20 border border-border/40">
-                            <Search size={48} weight="Linear" />
+                    <div className="col-span-full py-40 text-center space-y-6">
+                        <div className="w-24 h-24 mx-auto bg-surface-secondary rounded-[3rem] border border-dashed border-border flex items-center justify-center text-muted-foreground/20">
+                            <Search size={40} weight="Linear" />
                         </div>
-                        <div className="space-y-3 text-center">
-                            <h3 className="text-3xl font-black tracking-tighter uppercase">No matching guides</h3>
-                            <p className="text-muted-foreground max-w-sm font-medium opacity-60">Your query did not intersect with any documentation in the current index.</p>
-                        </div>
-                        <Button variant="secondary" className="rounded-2xl font-black uppercase px-10 h-14 border-border/40" onPress={() => { setSearchTerm(''); }}>Reset Filter</Button>
-                    </Surface>
+                        <p className="text-xl font-bold tracking-tight text-muted-foreground/20">No guides found</p>
+                    </div>
                 ) : (
                     filteredGuides.map((guide) => (
                         <Surface 
                             key={guide.$id} 
-                            className="p-8 rounded-[2rem] border border-border/40 bg-surface group relative overflow-hidden transition-all duration-500 hover:border-primary/30 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] flex flex-col justify-between min-h-[320px]"
+                            className="p-0 rounded-[2.5rem] border border-border/30 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-500 hover:border-primary/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5"
                         >
-                            <div className="relative z-10 space-y-8">
+                            <div className="p-8 flex-1 flex flex-col gap-8">
                                 <div className="flex justify-between items-start">
-                                    <div className="w-16 h-16 rounded-[1.5rem] bg-primary/5 border border-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-sm">
-                                        <Book size={32} weight="Linear" />
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-[1.2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground border border-border/20 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-500 shadow-sm">
+                                            <Book size={20} weight="Bold" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-lg font-bold tracking-tight leading-none">{guide.title}</h3>
+                                                {guide.isEncrypted && <Shield size={14} className="text-primary/60" />}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
+                                    
+                                    <div className="flex gap-1.5 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
                                         <Button 
-                                            variant="secondary" 
+                                            variant="ghost" 
                                             isIconOnly 
-                                            className="rounded-lg h-7 w-7 border-border/40 hover:bg-primary/10 hover:text-primary transition-all"
+                                            className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
+                                            onPress={() => { setSelectedGuide(guide); setIsHistoryModalOpen(true); }}
+                                        >
+                                            <History size={14} weight="Bold" />
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            isIconOnly 
+                                            className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
                                             onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
                                         >
-                                            <Edit size={12} weight="Bold" />
+                                            <Edit size={14} weight="Bold" />
                                         </Button>
                                         <Button 
-                                            variant="secondary" 
+                                            variant="ghost" 
                                             isIconOnly 
-                                            className="rounded-lg h-7 w-7 border-border/40 hover:bg-danger/10 hover:text-danger transition-all"
+                                            className="h-8 w-8 rounded-lg text-danger hover:bg-danger/5"
                                             onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
                                         >
-                                            <Trash size={12} weight="Bold" />
+                                            <Trash size={14} weight="Bold" />
                                         </Button>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <h3 className="text-2xl font-black tracking-tight leading-[1.1] transition-colors uppercase">{guide.title}</h3>
-                                        {guide.isEncrypted && (
-                                            <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
-                                                <Shield size={16} weight="Bold" />
-                                            </div>
-                                        )}
+
+                                <p className="text-xs text-muted-foreground font-medium leading-relaxed opacity-80 line-clamp-3">
+                                    {guide.description}
+                                </p>
+
+                                <div className="mt-auto pt-4 flex items-center justify-between border-t border-border/5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-surface-secondary border border-border/10 flex items-center justify-center">
+                                            <ExternalLink size={12} className="text-muted-foreground/40" />
+                                        </div>
+                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest">View Documentation</span>
                                     </div>
-                                    <p className="text-muted-foreground leading-relaxed line-clamp-3 font-medium opacity-60 text-sm">
-                                        {guide.description}
-                                    </p>
+                                    <Link href={`/wiki/${guide.$id}`} className="absolute inset-0 z-0" />
                                 </div>
                             </div>
-                            
-                            <div className="pt-8 relative z-10">
-                                <Link href={`/wiki/${guide.$id}`}>
-                                    <Button variant="secondary" className="w-full rounded-[1.5rem] font-black h-14 border-border/40 group-hover:bg-foreground group-hover:text-background transition-all tracking-tight text-base shadow-sm uppercase">
-                                        Access Information
-                                        <ExternalLink size={20} weight="Bold" className="ml-2" />
-                                    </Button>
-                                </Link>
-                            </div>
-
-                            {/* Decorative background element */}
-                            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-[80px] -mr-24 -mt-24 group-hover:bg-primary/10 transition-colors" />
                         </Surface>
                     ))
                 )}
@@ -282,6 +331,14 @@ export default function WikiPage() {
                 onConfirm={handleDelete}
                 title="Delete Wiki Guide"
                 message={`Are you sure you want to delete "${selectedGuide?.title}"? All associated installation targets will also be removed.`}
+            />
+
+            <VersionHistoryModal 
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                resourceId={selectedGuide?.$id || ''}
+                resourceType="Wiki"
+                onRestore={handleRestore}
             />
         </div>
     );

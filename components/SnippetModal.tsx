@@ -1,9 +1,14 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Snippet } from '@/types';
+import { Snippet, SnippetBlock } from '@/types';
 import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "@heroui/react";
-import { CodeCircle as Code, ShieldKeyhole as Shield } from '@solar-icons/react';
+import {
+    CodeCircle as Code,
+    Notes as MarkdownIcon,
+    ShieldKeyhole as Shield,
+    TrashBinTrash as Trash
+} from '@solar-icons/react';
 import React, { useEffect, useState } from 'react';
 
 interface SnippetModalProps {
@@ -19,6 +24,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
     const [language, setLanguage] = useState('javascript');
     const [description, setDescription] = useState('');
     const [tags, setTags] = useState('');
+    const [blocks, setBlocks] = useState<SnippetBlock[]>([]);
     const [isEncrypted, setIsEncrypted] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const { hasVault } = useAuth();
@@ -26,20 +32,50 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
     useEffect(() => {
         if (snippet) {
             setTitle(snippet.title);
-            setContent(snippet.content);
             setLanguage(snippet.language);
             setDescription(snippet.description || '');
             setTags(snippet.tags?.join(', ') || '');
             setIsEncrypted(snippet.isEncrypted ?? true);
+            
+            if (snippet.blocks) {
+                try {
+                    setBlocks(JSON.parse(snippet.blocks));
+                } catch {
+                    setBlocks([{ id: '1', type: 'code', content: snippet.content, language: snippet.language }]);
+                }
+            } else {
+                setBlocks([{ id: '1', type: 'code', content: snippet.content, language: snippet.language }]);
+            }
         } else {
             setTitle('');
-            setContent('');
             setLanguage('javascript');
             setDescription('');
             setTags('');
+            setBlocks([{ id: '1', type: 'code', content: '', language: 'javascript' }]);
             setIsEncrypted(hasVault);
         }
     }, [snippet, isOpen, hasVault]);
+
+    const addBlock = (type: 'code' | 'markdown') => {
+        setBlocks([...blocks, { 
+            id: Math.random().toString(36).substr(2, 9), 
+            type, 
+            content: '', 
+            language: type === 'code' ? language : undefined 
+        }]);
+    };
+
+    const removeBlock = (id: string) => {
+        setBlocks(blocks.filter(b => b.id !== id));
+    };
+
+    const updateBlock = (id: string, content: string) => {
+        setBlocks(blocks.map(b => b.id === id ? { ...b, content } : b));
+    };
+
+    const updateBlockLanguage = (id: string, lang: string) => {
+        setBlocks(blocks.map(b => b.id === id ? { ...b, language: lang } : b));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,7 +83,8 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
         try {
             await onSubmit({ 
                 title, 
-                content, 
+                content: blocks[0]?.content || '', // Fallback for list view/simple cases
+                blocks: JSON.stringify(blocks),
                 language, 
                 description, 
                 tags: tags.split(',').map(t => t.trim()).filter(Boolean),
@@ -149,13 +186,61 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     </div>
                                 )}
 
-                                <TextField isRequired value={content} onChange={setContent} className="w-full">
-                                    <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Content</Label>
-                                    <TextArea 
-                                        placeholder="Paste your code here..."
-                                        className="rounded-xl bg-surface-secondary border-border/40 hover:border-primary/40 focus:border-primary text-sm font-mono transition-all mt-1.5 min-h-[150px]" 
-                                    />
-                                </TextField>
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Components / Blocks</Label>
+                                        <div className="flex gap-2">
+                                            <Button variant="secondary" size="sm" className="h-7 rounded-lg text-[10px] font-bold uppercase tracking-widest" onPress={() => addBlock('code')}>
+                                                <Code size={12} className="mr-1" />
+                                                Add Code
+                                            </Button>
+                                            <Button variant="secondary" size="sm" className="h-7 rounded-lg text-[10px] font-bold uppercase tracking-widest" onPress={() => addBlock('markdown')}>
+                                                <MarkdownIcon size={12} className="mr-1" />
+                                                Add Text
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {blocks.map((block, index) => (
+                                        <div key={block.id} className="relative group p-4 rounded-2xl bg-surface-secondary/30 border border-border/20 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-lg bg-foreground/5 flex items-center justify-center text-[10px] font-black">
+                                                        {index + 1}
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
+                                                        {block.type} component
+                                                    </span>
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    isIconOnly 
+                                                    className="h-6 w-6 text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onPress={() => removeBlock(block.id)}
+                                                >
+                                                    <Trash size={14} />
+                                                </Button>
+                                            </div>
+
+                                            {block.type === 'code' && (
+                                                <TextField value={block.language} onChange={(l) => updateBlockLanguage(block.id, l)} className="w-fit">
+                                                    <Input 
+                                                        placeholder="Language..." 
+                                                        className="h-7 px-3 rounded-lg bg-surface-secondary border-border/20 text-[10px] font-bold transition-all w-24" 
+                                                    />
+                                                </TextField>
+                                            )}
+
+                                            <TextArea 
+                                                value={block.content} 
+                                                onChange={(c) => updateBlock(block.id, c)}
+                                                placeholder={block.type === 'code' ? 'Paste code component...' : 'Enter documentation block...'}
+                                                className={`rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm transition-all min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
                             </Modal.Body>
 
                             <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
