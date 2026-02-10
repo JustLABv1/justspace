@@ -49,7 +49,7 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Snippet',
-            entityName: data.title
+            entityName: data.isEncrypted ? 'Secure Snippet' : data.title
         });
         return snippet;
     },
@@ -59,7 +59,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Snippet',
-                entityName: data.isEncrypted ? '🔒 Secret Snippet' : (data.title || 'Snippet')
+                entityName: data.isEncrypted ? 'Secure Snippet' : (data.title || 'Snippet')
             });
         }
         return snippet;
@@ -85,7 +85,7 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Project',
-            entityName: data.name
+            entityName: data.isEncrypted ? 'Secure Project' : data.name
         });
         return project;
     },
@@ -95,7 +95,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Project',
-                entityName: project.isEncrypted ? '🔒 Secure Project' : (project.name || 'Project')
+                entityName: project.isEncrypted ? 'Secure Project' : (project.name || 'Project')
             });
         }
         return project;
@@ -129,7 +129,7 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Wiki',
-            entityName: data.isEncrypted ? 'Secure Fragment' : data.title
+            entityName: data.isEncrypted ? 'Secure Document' : data.title
         });
         return guide;
     },
@@ -139,7 +139,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Wiki',
-                entityName: data.isEncrypted ? 'Secure Fragment' : (data.title || 'Guide')
+                entityName: data.isEncrypted ? 'Secure Document' : (data.title || 'Guide')
             });
         }
         return guide;
@@ -202,7 +202,7 @@ export const db = {
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
-            entityName: isEncrypted ? '🔒 Secure Task' : title,
+            entityName: isEncrypted ? 'Secure Task' : title,
             projectId
         });
         return task;
@@ -233,14 +233,14 @@ export const db = {
             await this.logActivity({
                 type: 'complete',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? '🔒 Secure Task' : (task.title || 'Task'),
+                entityName: task.isEncrypted ? 'Secure Task' : (task.title || 'Task'),
                 projectId: task.projectId
             });
         } else if (data.isTimerRunning === false && workDuration) {
             await this.logActivity({
                 type: 'work',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? '🔒 Secure Task' : (task.title || 'Task'),
+                entityName: task.isEncrypted ? 'Secure Task' : (task.title || 'Task'),
                 projectId: task.projectId,
                 metadata: workDuration
             });
@@ -248,7 +248,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Task',
-                entityName: task.isEncrypted ? '🔒 Secure Task' : data.title,
+                entityName: task.isEncrypted ? 'Secure Task' : data.title,
                 projectId: task.projectId
             });
         }

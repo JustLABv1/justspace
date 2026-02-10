@@ -122,15 +122,15 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 </TextField>
 
                                 <TextField value={description} onChange={setDescription} className="w-full">
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Context & Objectives</Label>
+                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Description</Label>
                                     <TextArea 
-                                        placeholder="Briefly describe the mission specs..."
+                                        placeholder="Briefly describe the project objectives..."
                                         className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-2 min-h-[100px] p-5" 
                                     />
                                 </TextField>
 
                                 <div className="space-y-4">
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Operating Frequency Status</Label>
+                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Project Status</Label>
                                     <div className="flex bg-surface-secondary/30 p-1.5 rounded-xl border border-border/20 shadow-inner">
                                         {(['todo', 'in-progress', 'completed'] as const).map((s) => (
                                             <Button

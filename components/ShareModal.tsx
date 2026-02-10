@@ -71,10 +71,10 @@ export const ShareModal = ({ isOpen, onClose, onShare }: ShareModalProps) => {
                                         fullWidth
                                         className="w-full"
                                     >
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Recipient Identity (Email)</Label>
+                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Recipient Email</Label>
                                         <Input 
                                             type="email"
-                                            placeholder="consultant@protocol.io" 
+                                            placeholder="colleague@example.com" 
                                             className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-5" 
                                         />
                                     </TextField>

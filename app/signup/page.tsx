@@ -84,14 +84,14 @@ export default function SignupPage() {
                             </TextField>
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Node Endpoint</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Email Address</Label>
                                 <div className="relative group">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
                                     <Input 
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="consultant@protocol.net" 
+                                        placeholder="consultant@example.com" 
                                         className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-11 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
                                         required
                                     />
@@ -99,7 +99,7 @@ export default function SignupPage() {
                             </TextField>
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Access Secret</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Password</Label>
                                 <div className="relative group">
                                     <Input 
                                         type="password"

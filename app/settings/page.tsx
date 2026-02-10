@@ -91,7 +91,7 @@ export default function SettingsPage() {
             }
 
             // 2. Migrate Wiki & Installations
-            setMigrationProgress('Securing protocols and documentation...');
+            setMigrationProgress('Securing files and documentation...');
             const guides = await db.listGuides();
             for (const g of guides.documents.filter(guide => !guide.isEncrypted)) {
                 const docKey = await generateDocumentKey();
@@ -272,8 +272,8 @@ export default function SettingsPage() {
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-xl font-black tracking-tight mb-2 uppercase italic">Encryption Vault_</h3>
-                                        <p className="text-xs text-muted-foreground">End-to-end encryption management for sensitive project fragments.</p>
+                                        <h3 className="text-xl font-black tracking-tight mb-2 uppercase italic">Encryption Vault</h3>
+                                        <p className="text-xs text-muted-foreground">End-to-end encryption management for sensitive project data.</p>
                                     </div>
                                     <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${
                                         privateKey 
@@ -291,11 +291,11 @@ export default function SettingsPage() {
                                             <Vault size={24} weight="Bold" />
                                         </div>
                                         <div className="space-y-1">
-                                            <h4 className="font-black text-sm uppercase tracking-wider">{hasVault ? 'Unlock your keys' : 'Initialize Vault Protocol'}</h4>
+                                            <h4 className="font-black text-sm uppercase tracking-wider">{hasVault ? 'Unlock your keys' : 'Initialize Vault'}</h4>
                                             <p className="text-xs text-muted-foreground font-medium opacity-60">
                                                 {hasVault 
-                                                    ? 'Enter your vault password to decrypt your RSA keys. This will enable access to encrypted project documentation.' 
-                                                    : 'Setup a master vault password. This will generate a unique RSA key pair used to secure your most sensitive project data.'}
+                                                    ? 'Enter your vault password to decrypt your RSA keys. This will enable access to encrypted project data.' 
+                                                    : 'Set up a master vault password. This will generate a unique RSA key pair used to secure your most sensitive project data.'}
                                             </p>
                                         </div>
                                     </div>

@@ -397,10 +397,10 @@ export default function WikiDetailPage() {
                                             <div className="relative z-10 space-y-4">
                                                 <h4 className="font-bold tracking-tight flex items-center gap-3 text-base">
                                                     <Info size={18} weight="Bold" className="text-accent" />
-                                                    Frequency Tip_
+                                                    Pro Tip
                                                 </h4>
                                                 <p className="text-xs text-muted-foreground font-medium leading-relaxed opacity-60">
-                                                    Infrastructure fragments can be exported as synchronized documentation. Utilize the export registry to maintain local persistence.
+                                                    Documentation can be exported as markdown files. Use the export feature to save documentation locally.
                                                 </p>
                                             </div>
                                             <div className="absolute bottom-0 right-0 w-24 h-24 bg-accent/5 blur-2xl rounded-full group-hover:bg-accent/10 transition-colors -mr-12 -mb-12" />
@@ -417,11 +417,11 @@ export default function WikiDetailPage() {
                         <Plus size={32} weight="Linear" />
                     </div>
                     <div className="space-y-2">
-                        <h2 className="text-2xl font-black tracking-tighter uppercase">No deployment targets defined_</h2>
-                        <p className="text-muted-foreground max-w-md text-sm opacity-60 font-medium">Infrastructure protocols require a target frequency. Initialize your first deployment instance to begin profiling.</p>
+                        <h2 className="text-2xl font-black tracking-tighter uppercase">No targets defined</h2>
+                        <p className="text-muted-foreground max-w-md text-sm opacity-60 font-medium">Guide documents can be linked to setup targets. Initialize your first setup to begin profiling.</p>
                     </div>
                     <Button variant="primary" className="rounded-xl h-12 px-8 font-black uppercase text-sm shadow-xl shadow-primary/10 tracking-tight" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
-                        Init First Target
+                        New Setup Target
                     </Button>
                 </Surface>
             )}

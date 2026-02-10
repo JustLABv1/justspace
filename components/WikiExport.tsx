@@ -43,7 +43,7 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
             <Dropdown.Trigger>
                 <Button variant="secondary" className="rounded-xl h-10 px-4 font-black border border-border/40 opacity-50 hover:opacity-100 transition-all uppercase text-xs tracking-widest">
                     <Download size={16} weight="Bold" className="mr-2" />
-                    Export Segment
+                    Export Document
                 </Button>
             </Dropdown.Trigger>
             <Dropdown.Menu className="bg-surface border border-border/40 rounded-2xl p-2 shadow-2xl">
@@ -52,7 +52,7 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
                     <Dropdown.Item onPress={exportAsMarkdown} className="rounded-xl hover:bg-foreground/5 transition-all">
                         <div className="flex items-center gap-3 p-1 font-black tracking-tight text-sm">
                             <FileText size={18} weight="Bold" className="text-primary" />
-                            MARKDOWN PROTOCOL (.md)
+                            MARKDOWN (.md)
                         </div>
                     </Dropdown.Item>
                     <Dropdown.Item onPress={exportAsPDF} className="rounded-xl hover:bg-foreground/5 transition-all">

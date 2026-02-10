@@ -80,7 +80,7 @@ export function ActivityFeed() {
     };
 
     const formatName = (name: string) => {
-        if (name.startsWith('{"iv":') || name.startsWith('{"ciphertext":')) return '🔒 Protected Logic Fragment';
+        if (name.startsWith('{"iv":') || name.startsWith('{"ciphertext":')) return 'Secure Activity';
         return name;
     };
 
@@ -91,7 +91,7 @@ export function ActivityFeed() {
                     <div className="w-10 h-10 rounded-xl bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner">
                         <Activity size={20} weight="Bold" />
                     </div>
-                    Activity Feed_
+                    Activity Feed
                 </h3>
                 <Button 
                     variant="ghost" 

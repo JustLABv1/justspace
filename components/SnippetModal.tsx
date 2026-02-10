@@ -77,9 +77,9 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                             </div>
                             <div className="space-y-1">
                                 <Modal.Heading className="text-3xl font-black tracking-tighter text-foreground leading-none">
-                                    {snippet?.$id ? 'Edit Fragment_' : 'Init Fragment_'}
+                                    {snippet?.$id ? 'Edit Snippet' : 'New Snippet'}
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-xs uppercase font-black opacity-30 tracking-widest ml-0.5">Capture and encrypt new code block.</p>
+                                <p className="text-muted-foreground text-xs uppercase font-black opacity-30 tracking-widest ml-0.5">Securely store code snippets for your projects.</p>
                             </div>
                         </Modal.Header>
                         

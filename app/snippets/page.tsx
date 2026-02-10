@@ -59,7 +59,7 @@ export default function SnippetsPage() {
                             }
                         } catch (e) {
                             console.error('Failed to decrypt snippet:', snippet.$id, e);
-                            return { ...snippet, title: 'Encrypted Fragment', content: '// Access Denied' };
+                            return { ...snippet, title: 'Encrypted Snippet', content: '// Access Denied' };
                         }
                     }
                     // If vault is locked or no access
@@ -67,7 +67,7 @@ export default function SnippetsPage() {
                         ...snippet, 
                         title: "Encrypted Snippet", 
                         content: "// Unlock vault to view content",
-                        description: "Synchronize vault to access fragment details."
+                        description: "Unlock vault to access snippet details."
                     };
                 }
                 return snippet;
@@ -156,10 +156,10 @@ export default function SnippetsPage() {
                 <div className="space-y-2 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 text-primary font-bold tracking-widest text-[10px] opacity-80 uppercase">
                         <CodeFile size={16} weight="Bold" className="animate-pulse" />
-                        Code Repository
+                        Source Code
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Snippet Library_</h1>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60">Reusable building blocks for high-velocity output.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Snippet Library</h1>
+                    <p className="text-sm text-muted-foreground font-medium opacity-60">Securely store and reuse your code snippets.</p>
                 </div>
                 <Button variant="primary" className="rounded-xl h-12 px-8 font-bold shadow-xl shadow-primary/10 text-sm uppercase tracking-widest" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
                     <Plus size={18} weight="Bold" className="mr-2" />
@@ -171,7 +171,7 @@ export default function SnippetsPage() {
                 <Search size={20} className="text-muted-foreground/40" />
                 <input 
                     className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-bold tracking-tight placeholder:text-muted-foreground/20" 
-                    placeholder="Search by title, tags, or engine..."
+                    placeholder="Search by title, tags, or language..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -222,7 +222,7 @@ export default function SnippetsPage() {
                                         onPress={() => copyToClipboard(snippet.content)}
                                     >
                                         <Copy size={16} weight="Bold" className="mr-2" />
-                                        Copy Block
+                                        Copy Snippet
                                     </Button>
                                 </div>
                             </div>
@@ -241,7 +241,7 @@ export default function SnippetsPage() {
                 {filteredSnippets.length === 0 && (
                     <div className="col-span-full py-32 flex flex-col items-center gap-6 text-muted-foreground/30">
                         <CodeFile size={60} weight="Linear" className="opacity-10" />
-                        <p className="font-bold tracking-tight text-xl">No fragments match the query_</p>
+                        <p className="font-bold tracking-tight text-xl">No snippets found</p>
                     </div>
                 )}
             </div>

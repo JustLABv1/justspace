@@ -129,7 +129,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                     <div className="mt-4 pt-4 border-t border-border/10 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                                            <span className="text-[9px] font-bold uppercase text-muted-foreground/40 tracking-widest">Fragment_{task.$id.slice(-4)}</span>
+                                            <span className="text-[9px] font-bold uppercase text-muted-foreground/40 tracking-widest">Task_{task.$id.slice(-4)}</span>
                                         </div>
                                         {task.timeSpent && task.timeSpent > 0 && (
                                             <span className="text-[9px] font-bold uppercase text-primary/60 tracking-wider bg-primary/5 px-2 py-0.5 rounded-md">
@@ -144,7 +144,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                 variant="ghost" 
                                 className="w-full h-16 border-2 border-dashed border-border/30 hover:border-primary/40 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 hover:text-primary rounded-[2rem] transition-all bg-transparent hover:bg-primary/5"
                                 onPress={async () => {
-                                    const title = prompt('Enter fragment identifier:');
+                                    const title = prompt('Enter task title:');
                                     if (title) {
                                         await db.createEmptyTask(projectId, title, tasks.length);
                                         const res = await db.listTasks(projectId);
@@ -155,7 +155,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                 }}
                             >
                                 <Plus size={20} weight="Bold" className="mr-3 opacity-40 group-hover:opacity-100" />
-                                New Protocol_
+                                New Task
                             </Button>
                         </div>
                     </div>

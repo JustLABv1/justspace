@@ -178,7 +178,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold tracking-tight">{stats.guides}</h3>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Knowledge Fragments</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Knowledge Base</p>
                 </div>
                 <Link href="/wiki">
                   <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-primary transition-colors">
@@ -197,8 +197,8 @@ export default function Home() {
                   <Target size={20} weight="Bold" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Active Pipeline_</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 mt-0.5">Operational target overview</p>
+                  <h2 className="text-2xl font-bold tracking-tight">Active Projects</h2>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 mt-0.5">Project overview</p>
                 </div>
               </div>
               <Link href="/projects">

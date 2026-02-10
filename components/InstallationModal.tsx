@@ -116,7 +116,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         onChange={setDocumentation}
                                         className="md:col-span-2 w-full"
                                     >
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">External Protocol Docs</Label>
+                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">External Documentation</Label>
                                         <Input 
                                             placeholder="https://docs..." 
                                             className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-bold tracking-tight transition-all mt-2 px-4" 
@@ -130,9 +130,9 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                     onChange={setTasksText}
                                     className="w-full"
                                 >
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Automation Manifest (Sequence)</Label>
+                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Deployment Checklist</Label>
                                     <TextArea 
-                                        placeholder="Add mission steps..." 
+                                        placeholder="Add step-by-step instructions..." 
                                         className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-primary/40 focus:border-primary text-sm font-medium transition-all mt-2 min-h-[100px] p-4" 
                                     />
                                 </TextField>

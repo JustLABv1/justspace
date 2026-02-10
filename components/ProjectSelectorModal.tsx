@@ -64,8 +64,8 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                 <Folder size={32} weight="Bold" />
                             </div>
                             <div className="space-y-1">
-                                <Modal.Heading className="text-4xl font-black tracking-tighter uppercase text-foreground leading-none">Target Segment_</Modal.Heading>
-                                <p className="text-muted-foreground text-sm font-medium opacity-60 ml-0.5">Choose a destination project for this fragment sync.</p>
+                                <Modal.Heading className="text-4xl font-black tracking-tighter uppercase text-foreground leading-none">Target Project</Modal.Heading>
+                                <p className="text-muted-foreground text-sm font-medium opacity-60 ml-0.5">Choose a destination project for this data sync.</p>
                             </div>
                         </Modal.Header>
 
@@ -73,7 +73,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                             {isLoading ? (
                                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                                     <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Scanning nodes...</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Loading projects...</p>
                                 </div>
                             ) : projects.length > 0 ? (
                                 <div className="flex flex-col gap-3">

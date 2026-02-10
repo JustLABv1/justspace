@@ -91,7 +91,7 @@ export function CommandPalette() {
                                 <Search size={26} weight="Linear" className="mr-5 text-muted-foreground/60" />
                                 <Command.Input
                                     autoFocus
-                                    placeholder="Search fragments, projects & wiki..."
+                                    placeholder="Search snippets, projects & documents..."
                                     className="flex h-12 w-full rounded-md bg-transparent text-2xl outline-none placeholder:text-muted-foreground/30 disabled:cursor-not-allowed disabled:opacity-50 font-black tracking-tighter"
                                 />
                             </div>
@@ -99,14 +99,14 @@ export function CommandPalette() {
                                 {loading && (
                                     <div className="flex flex-col items-center justify-center py-20 text-sm text-muted-foreground gap-4">
                                         <Spinner size="lg" color="accent" />
-                                        <p className="font-bold uppercase tracking-[0.3em] text-[10px] opacity-40">Syncing frequency...</p>
+                                        <p className="font-bold uppercase tracking-[0.3em] text-[10px] opacity-40">Searching...</p>
                                     </div>
                                 )}
                                 <Command.Empty className="py-24 text-center flex flex-col items-center gap-6">
                                     <div className="w-20 h-20 rounded-[2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground/20 border border-border/40 scale-110">
                                         <Search size={40} weight="Linear" />
                                     </div>
-                                    <p className="text-muted-foreground font-black tracking-tight text-lg">No fragments matching your frequency.</p>
+                                    <p className="text-muted-foreground font-black tracking-tight text-lg">No results found.</p>
                                 </Command.Empty>
 
                                 <Command.Group heading="QUICK NAV" className="px-3 pb-3 text-[10px] font-black tracking-[0.4em] text-muted-foreground/20 mb-2 uppercase">
@@ -149,7 +149,7 @@ export function CommandPalette() {
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="flex-1">Snippet Library</span>
-                                            <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Code Fragments</span>
+                                            <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Code Snippets</span>
                                         </div>
                                         <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-black tracking-widest opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
                                             ⌘S

@@ -91,13 +91,13 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Syncing frequency...</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Loading templates...</p>
                                 </div>
                             )}
 
                             {!isLoading && !selectedGuideId && (
                                 <div className="space-y-4">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 ml-2 leading-none">AVAILABLE PROTOCOLS</h3>
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 ml-2 leading-none">AVAILABLE TEMPLATES</h3>
                                     <div className="grid grid-cols-1 gap-3">
                                         {guides.map(guide => (
                                             <button 
@@ -110,7 +110,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="font-black truncate text-foreground text-sm tracking-tight uppercase">{guide.title}</h4>
-                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-black tracking-widest mt-0.5">Protocol Document</p>
+                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-black tracking-widest mt-0.5">Guide Template</p>
                                                 </div>
                                             </button>
                                         ))}
