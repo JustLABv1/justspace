@@ -134,13 +134,13 @@ export default function Home() {
         </div>
         <div className="flex gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
           <Link href="/wiki">
-            <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all text-sm">
+            <Button variant="ghost" className="rounded-xl h-9 px-5 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all text-xs">
               <Book size={16} weight="Bold" className="mr-2" />
               Wiki
             </Button>
           </Link>
           <Link href="/projects">
-            <Button variant="primary" className="rounded-xl h-10 px-5 font-bold tracking-tight shadow-xl shadow-primary/10 text-sm">
+            <Button variant="primary" className="rounded-xl h-9 px-5 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs">
               <Plus size={16} weight="Bold" className="mr-2" />
               New Project
             </Button>

@@ -67,27 +67,27 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             <Modal.Backdrop 
                 isOpen={isOpen} 
                 onOpenChange={(next) => !next && onClose()}
-                className="bg-black/60 backdrop-blur-xl"
+                className="bg-black/40 backdrop-blur-xl"
                 variant="blur"
             >
-                <Modal.Container className="max-w-xl pt-[10%]" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0">
-                        <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                <Modal.Container size="lg" scroll="inside">
+                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">
-                            <div className="w-12 h-12 rounded-[1.5rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
-                                <Folder size={24} weight="Bold" />
+                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                                <Folder size={20} weight="Bold" />
                             </div>
-                            <div className="space-y-1">
-                                <Modal.Heading className="text-3xl font-black tracking-tighter text-foreground leading-none">
-                                    {project?.$id ? 'Refine Project_' : 'Init Project_'}
+                            <div className="space-y-0">
+                                <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
+                                    {project?.$id ? 'Sync Project_' : 'Init Project_'}
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[11px] font-black uppercase tracking-widest opacity-40 ml-0.5 mt-1">Consultant Workspace Configuration</p>
+                                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest opacity-40 ml-0.5 mt-1">Consultant Workspace Configuration</p>
                             </div>
                         </Modal.Header>
                         
-                        <Form onSubmit={handleSubmit}>
-                            <Modal.Body className="p-8 space-y-6">
+                        <Form onSubmit={handleSubmit} className="flex flex-col min-h-0 overflow-hidden flex-1">
+                            <Modal.Body className="px-8 pt-4 pb-8 space-y-4 overflow-y-auto">
                                 <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-secondary/50 border border-border/10">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -176,16 +176,16 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                             <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
                                 <Button 
                                     variant="ghost" 
-                                    className="rounded-xl h-10 px-8 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity text-sm" 
+                                    className="rounded-xl h-9 px-8 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity text-sm" 
                                     onPress={onClose} 
                                     isDisabled={isLoading}
                                 >
-                                    Abort
+                                    Cancel
                                 </Button>
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-xl h-10 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-primary/20" 
+                                    className="rounded-xl h-9 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-accent/20" 
                                     isPending={isLoading}
                                 >
                                     {project?.$id ? 'Commit Records' : 'Execute Creation'}

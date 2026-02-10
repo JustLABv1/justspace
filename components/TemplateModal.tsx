@@ -74,20 +74,20 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                 variant="blur"
             >
                 <Modal.Container size="md" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0">
-                        <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 py-8 border-b border-border/20 flex flex-col items-start gap-4">
-                            <div className="w-12 h-12 rounded-[1.5rem] bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
-                                <Sparkles size={24} weight="Bold" />
+                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
+                                <Sparkles size={20} weight="Bold" />
                             </div>
-                            <div className="space-y-1">
-                                <Modal.Heading className="text-3xl font-black tracking-tighter uppercase text-foreground leading-none">Apply Roadmap_</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5">Select a guide to populate your project with expert tasks.</p>
+                            <div className="space-y-0">
+                                <Modal.Heading className="text-2xl font-black tracking-tighter uppercase text-foreground leading-none">Apply Roadmap_</Modal.Heading>
+                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5 mt-1">Populate project with expert tasks.</p>
                             </div>
                         </Modal.Header>
                         
-                        <Modal.Body className="p-8 space-y-6">
+                        <Modal.Body className="px-8 pt-4 pb-8 space-y-6 flex-1 overflow-y-auto">
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <Spinner color="accent" size="lg" />
@@ -158,7 +158,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                         <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl h-10 px-6 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
+                                className="rounded-xl h-9 px-6 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
                                 onPress={onClose} 
                                 isDisabled={isApplying}
                             >
@@ -166,7 +166,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-xl h-10 px-8 font-black uppercase tracking-[0.1em] text-[10px] shadow-2xl shadow-accent/20" 
+                                className="rounded-xl h-9 px-8 font-black uppercase tracking-[0.1em] text-[10px] shadow-2xl shadow-accent/20" 
                                 onPress={handleApply}
                                 isDisabled={!selectedInstallation || isApplying}
                                 isPending={isApplying}

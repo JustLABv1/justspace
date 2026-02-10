@@ -55,21 +55,21 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                 className="bg-background/80 backdrop-blur-md"
                 variant="blur"
             >
-                <Modal.Container size="sm">
-                    <Modal.Dialog className="rounded-[3.5rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden">
-                        <Modal.CloseTrigger className="absolute right-8 top-8 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                <Modal.Container size="sm" scroll="inside">
+                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-10 py-10 border-b border-border/20 flex flex-col items-start gap-4">
-                            <div className="w-16 h-16 rounded-[2rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
-                                <Folder size={32} weight="Bold" />
+                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                                <Folder size={20} weight="Bold" />
                             </div>
-                            <div className="space-y-1">
-                                <Modal.Heading className="text-4xl font-black tracking-tighter uppercase text-foreground leading-none">Target Project</Modal.Heading>
-                                <p className="text-muted-foreground text-sm font-medium opacity-60 ml-0.5">Choose a destination project for this data sync.</p>
+                            <div className="space-y-0">
+                                <Modal.Heading className="text-2xl font-black tracking-tighter uppercase text-foreground leading-none">Target Project_</Modal.Heading>
+                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5 mt-1">Destination for data sync.</p>
                             </div>
                         </Modal.Header>
 
-                        <Modal.Body className="p-10">
+                        <Modal.Body className="px-8 pt-4 pb-8 flex-1 overflow-y-auto">
                             {isLoading ? (
                                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                                     <Spinner color="accent" size="lg" />
@@ -110,10 +110,10 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                             )}
                         </Modal.Body>
 
-                        <Modal.Footer className="px-10 py-8 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
+                        <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-2xl h-12 px-8 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-xs" 
+                                className="rounded-xl h-9 px-8 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
                                 onPress={onClose} 
                                 isDisabled={isSubmitting}
                             >
