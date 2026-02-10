@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Alert, Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
+import { Button, Form, Input, Label, Surface, TextField } from "@heroui/react";
 import {
     AltArrowRight as ArrowRight,
     Letter as Mail,
