@@ -43,6 +43,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const keys = await db.getUserKeys(currentUser.$id);
             setHasVault(!!keys);
             setUserKeys(keys || null);
+
+            // Attempt session restoration if vault exists
+            if (keys) {
+                const jwkJson = sessionStorage.getItem('vault_session_key');
+                if (jwkJson) {
+                    try {
+                        const jwk = JSON.parse(jwkJson);
+                        const pk = await crypto.subtle.importKey(
+                            'jwk',
+                            jwk,
+                            { name: 'RSA-OAEP', hash: 'SHA-256' },
+                            true,
+                            ['decrypt']
+                        );
+                        setPrivateKey(pk);
+                    } catch (e) {
+                        console.error('Failed to restore vault session:', e);
+                        sessionStorage.removeItem('vault_session_key');
+                    }
+                }
+            }
         } catch {
             setUser(null);
             setHasVault(false);
@@ -87,6 +108,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setPrivateKey(null);
             setHasVault(false);
+            sessionStorage.removeItem('vault_session_key');
             router.push('/login');
         } catch (error) {
             console.error(error);
@@ -130,6 +152,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             );
             setPrivateKey(pk);
             setUserKeys(keys);
+
+            // Persist session
+            const jwk = await crypto.subtle.exportKey('jwk', pk);
+            sessionStorage.setItem('vault_session_key', JSON.stringify(jwk));
         } catch (error) {
             console.error('Unlock vault error:', error);
             throw error;
