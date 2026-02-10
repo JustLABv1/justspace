@@ -3,8 +3,9 @@
 import { DeleteModal } from '@/components/DeleteModal';
 import { ProjectModal } from '@/components/ProjectModal';
 import { useAuth } from '@/context/AuthContext';
+import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { db } from '@/lib/db';
+import { ACCESS_CONTROL_ID, db, DB_ID, PROJECTS_ID } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -30,8 +31,8 @@ export default function ProjectsPage() {
     const [selectedProject, setSelectedProject] = useState<Project | undefined>(undefined);
     const { user, privateKey } = useAuth();
 
-    const fetchProjects = useCallback(async () => {
-        setIsLoading(true);
+    const fetchProjects = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const data = await db.listProjects();
             const rawProjects = data.documents;
@@ -70,13 +71,33 @@ export default function ProjectsPage() {
         } catch (error) {
             console.error(error);
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, [privateKey, user]);
 
     useEffect(() => {
-        fetchProjects();
+        fetchProjects(true);
     }, [fetchProjects]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const unsubscribe = client.subscribe([
+            `databases.${DB_ID}.collections.${PROJECTS_ID}.documents`,
+            `databases.${DB_ID}.collections.${ACCESS_CONTROL_ID}.documents`
+        ], (response) => {
+            if (response.events.some(e => e.includes('.delete'))) {
+                if (response.events.some(e => e.includes(PROJECTS_ID))) {
+                    const payload = response.payload as Project;
+                    setProjects(prev => prev.filter(p => p.$id !== payload.$id));
+                    return;
+                }
+            }
+            fetchProjects(false);
+        });
+
+        return () => unsubscribe();
+    }, [user, fetchProjects]);
 
     const handleCreateOrUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         const { shouldEncrypt, ...projectData } = data;
@@ -136,7 +157,7 @@ export default function ProjectsPage() {
         }
         
         setIsProjectModalOpen(false);
-        fetchProjects();
+        fetchProjects(false);
     };
 
     const handleDelete = async () => {
@@ -144,7 +165,7 @@ export default function ProjectsPage() {
             try {
                 await db.deleteProject(selectedProject.$id);
                 setIsDeleteModalOpen(false);
-                fetchProjects();
+                fetchProjects(false);
                 toast.success('Project deleted successfully');
             } catch (error) {
                 console.error(error);

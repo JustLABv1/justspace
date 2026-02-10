@@ -7,7 +7,7 @@ import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
 import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { db, DB_ID, GUIDES_ID } from '@/lib/db';
+import { ACCESS_CONTROL_ID, db, DB_ID, GUIDES_ID } from '@/lib/db';
 import { ResourceVersion, WikiGuide } from '@/types';
 import { Button, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -91,12 +91,16 @@ export default function WikiPage() {
 
     useEffect(() => {
         const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${GUIDES_ID}.documents`
+            `databases.${DB_ID}.collections.${GUIDES_ID}.documents`,
+            `databases.${DB_ID}.collections.${ACCESS_CONTROL_ID}.documents`
         ], (response) => {
             if (response.events.some(e => e.includes('.delete'))) {
-                const payload = response.payload as WikiGuide;
-                setGuides(prev => prev.filter(g => g.$id !== payload.$id));
-                return;
+                // If the delete event is from the guides collection, remove it from state
+                if (response.events.some(e => e.includes(GUIDES_ID))) {
+                    const payload = response.payload as WikiGuide;
+                    setGuides(prev => prev.filter(g => g.$id !== payload.$id));
+                    return;
+                }
             }
             fetchGuides(false);
         });

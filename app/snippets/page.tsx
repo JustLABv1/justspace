@@ -7,7 +7,7 @@ import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { useAuth } from '@/context/AuthContext';
 import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { db, DB_ID, SNIPPETS_ID } from '@/lib/db';
+import { ACCESS_CONTROL_ID, db, DB_ID, SNIPPETS_ID } from '@/lib/db';
 import { EncryptedData, ResourceVersion, Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -93,12 +93,16 @@ export default function SnippetsPage() {
         if (!user) return;
 
         const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${SNIPPETS_ID}.documents`
+            `databases.${DB_ID}.collections.${SNIPPETS_ID}.documents`,
+            `databases.${DB_ID}.collections.${ACCESS_CONTROL_ID}.documents`
         ], (response) => {
             if (response.events.some(e => e.includes('.delete'))) {
-                const payload = response.payload as Snippet;
-                setSnippets(prev => prev.filter(s => s.$id !== payload.$id));
-                return;
+                // If its from snippets collection, remove from state
+                if (response.events.some(e => e.includes(SNIPPETS_ID))) {
+                    const payload = response.payload as Snippet;
+                    setSnippets(prev => prev.filter(s => s.$id !== payload.$id));
+                    return;
+                }
             }
             fetchSnippets(false);
         });
