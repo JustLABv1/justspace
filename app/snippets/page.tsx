@@ -1,6 +1,7 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { SnippetDetailModal } from '@/components/SnippetDetailModal';
 import { SnippetModal } from '@/components/SnippetModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { useAuth } from '@/context/AuthContext';
@@ -10,8 +11,8 @@ import { EncryptedData, ResourceVersion, Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface } from "@heroui/react";
 import {
     CodeFile,
-    Copy,
     Pen2 as Edit,
+    Maximize as Expand,
     Restart as History,
     AddCircle as Plus,
     Magnifer as Search,
@@ -26,6 +27,7 @@ export default function SnippetsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSnippetModalOpen, setIsSnippetModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedSnippet, setSelectedSnippet] = useState<Snippet | undefined>(undefined);
@@ -238,7 +240,11 @@ export default function SnippetsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredSnippets.map((snippet) => (
-                    <Surface key={snippet.$id} className="p-0 rounded-[2.5rem] border border-border/40 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5">
+                    <Surface 
+                        key={snippet.$id} 
+                        className="p-0 rounded-[2.5rem] border border-border/40 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5 cursor-pointer"
+                        onClick={() => { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }}
+                    >
                         <div className="p-8 flex-1 space-y-6">
                             <div className="flex justify-between items-start">
                                 <div className="space-y-3">
@@ -251,9 +257,9 @@ export default function SnippetsPage() {
                                         </Chip>
                                         {snippet.isEncrypted && <Shield size={14} className="text-accent/60" />}
                                     </div>
-                                    <h3 className="text-xl font-bold tracking-tight leading-tight">{snippet.title}</h3>
+                                    <h3 className="text-xl font-bold tracking-tight leading-tight group-hover:text-accent transition-colors duration-500">{snippet.title}</h3>
                                 </div>
-                                <div className="flex gap-1.5">
+                                <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                                     <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
                                         <Edit size={12} weight="Bold" />
                                     </Button>
@@ -267,43 +273,41 @@ export default function SnippetsPage() {
                             </div>
 
                             {snippet.description && (
-                                <p className="text-xs text-muted-foreground leading-relaxed font-medium opacity-80 line-clamp-2">
-                                   &quot; {snippet.description} &quot;
+                                <p className="text-xs text-muted-foreground leading-relaxed font-medium opacity-80 line-clamp-2 italic">
+                                   &ldquo; {snippet.description} &rdquo;
                                 </p>
                             )}
 
-                            <div className="bg-surface/80 rounded-[1.5rem] p-5 font-mono text-[11px] border border-border/20 overflow-hidden relative group/code h-40 shadow-inner">
+                            <div className="bg-surface/80 rounded-[1.5rem] p-5 font-mono text-[11px] border border-border/20 overflow-hidden relative group/code h-44 shadow-inner">
                                 <div className="text-foreground/90 overflow-hidden line-clamp-6 whitespace-pre-wrap leading-relaxed">
                                     {snippet.blocks ? (
                                         <div className="space-y-4">
                                             {(() => {
                                                 try {
                                                     const blocks = JSON.parse(snippet.blocks);
-                                                    return blocks.map((b: { type: string; content: string }, i: number) => (
+                                                    return blocks.map((b: { type: string; content: string; language?: string }, i: number) => (
                                                         <div key={i} className="space-y-1">
-                                                            <div className="text-[9px] uppercase tracking-widest text-accent/40 font-black">{b.type} component_{i+1}</div>
-                                                            <pre className="line-clamp-3">{b.content}</pre>
+                                                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-accent/40 flex items-center gap-2">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-accent/20" />
+                                                                {b.type} component {b.language && `| ${b.language}`}
+                                                            </div>
+                                                            <pre className="line-clamp-3 opacity-60 group-hover/code:opacity-100 transition-opacity">{b.content}</pre>
                                                         </div>
                                                     ));
                                                 } catch {
-                                                    return <pre>{snippet.content}</pre>;
+                                                    return <pre className="opacity-60">{snippet.content}</pre>;
                                                 }
                                             })()}
                                         </div>
                                     ) : (
-                                        <pre>{snippet.content}</pre>
+                                        <pre className="opacity-60">{snippet.content}</pre>
                                     )}
                                 </div>
-                                <div className="absolute inset-0 bg-accent/10 backdrop-blur-[2px] opacity-0 group-hover/code:opacity-100 transition-all duration-500 flex items-center justify-center">
-                                    <Button 
-                                        variant="primary" 
-                                        size="md" 
-                                        className="rounded-xl font-bold px-6 h-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest" 
-                                        onPress={() => copyToClipboard(snippet.blocks ? JSON.parse(snippet.blocks).map((b: { content: string }) => b.content).join('\n\n') : snippet.content)}
-                                    >
-                                        <Copy size={16} weight="Bold" className="mr-2" />
-                                        Copy Full Bundle
-                                    </Button>
+                                <div className="absolute inset-0 bg-accent/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-all duration-700 flex flex-col items-center justify-center gap-3">
+                                    <div className="bg-white/80 dark:bg-surface/80 p-3 rounded-2xl shadow-2xl border border-accent/20 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                                        <Expand size={24} className="text-accent" weight="Bold" />
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-accent animate-pulse">Deep Interaction</span>
                                 </div>
                             </div>
                         </div>
@@ -330,6 +334,12 @@ export default function SnippetsPage() {
                 isOpen={isSnippetModalOpen} 
                 onClose={() => setIsSnippetModalOpen(false)} 
                 onSubmit={handleCreateOrUpdate}
+                snippet={selectedSnippet}
+            />
+
+            <SnippetDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
                 snippet={selectedSnippet}
             />
 
