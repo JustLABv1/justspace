@@ -163,7 +163,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                                 />
                                             </Tabs.Panel>
                                             <Tabs.Panel id="preview" className="p-6">
-                                                <div className="min-h-[150px] overflow-auto max-h-[300px] prose prose-neutral dark:prose-invert max-w-none">
+                                                <div className="min-h-[150px] overflow-auto max-h-[300px]">
                                                     {notes ? <Markdown content={notes} /> : <p className="text-muted-foreground/30 font-black text-center py-10 uppercase tracking-widest text-xs">Awaiting manual input...</p>}
                                                 </div>
                                             </Tabs.Panel>

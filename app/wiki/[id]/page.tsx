@@ -326,7 +326,7 @@ export default function WikiDetailPage() {
                             </h1>
                             {isDecrypting && <Spinner size="sm" color="current" />}
                         </div>
-                        <div className="text-muted-foreground font-medium max-w-4xl leading-relaxed text-sm opacity-60">
+                        <div className="max-w-4xl opacity-70">
                             <Markdown content={guide.description} />
                         </div>
                     </div>
@@ -409,7 +409,7 @@ export default function WikiDetailPage() {
                                                     </div>
                                                 </header>
 
-                                                <div className="p-8 md:p-12 prose prose-sm dark:prose-invert max-w-none" ref={contentRef}>
+                                                <div className="p-8 md:p-12" ref={contentRef}>
                                                     {inst.notes ? (
                                                         <Markdown content={inst.notes} />
                                                     ) : (

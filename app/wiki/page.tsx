@@ -300,7 +300,7 @@ export default function WikiPage() {
                                     </div>
                                 </div>
 
-                                <div className="text-xs text-muted-foreground font-medium leading-relaxed opacity-80 line-clamp-3">
+                                <div className="line-clamp-3">
                                     <Markdown content={guide.description} />
                                 </div>
 

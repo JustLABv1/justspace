@@ -145,7 +145,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                                     />
                                                 </Tabs.Panel>
                                                 <Tabs.Panel id="preview" className="p-4">
-                                                    <div className="min-h-[150px] overflow-auto max-h-[300px] prose prose-sm dark:prose-invert max-w-none prose-p:font-medium">
+                                                    <div className="min-h-[150px] overflow-auto max-h-[300px]">
                                                         {description ? <Markdown content={description} /> : <p className="text-muted-foreground/30 font-black text-center py-10 uppercase tracking-widest text-xs">No content to preview...</p>}
                                                     </div>
                                                 </Tabs.Panel>

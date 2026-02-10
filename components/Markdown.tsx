@@ -2,6 +2,7 @@
 
 import { Button } from '@heroui/react';
 import { CheckRead as Check, Copy } from '@solar-icons/react';
+import { clsx } from 'clsx';
 import 'highlight.js/styles/github-dark.css';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -11,11 +12,18 @@ import { Mermaid } from './Mermaid';
 
 interface MarkdownProps {
     content: string;
+    className?: string;
 }
 
-export function Markdown({ content }: MarkdownProps) {
+export function Markdown({ content, className }: MarkdownProps) {
     return (
-        <div className="prose prose-sm dark:prose-invert max-w-none">
+        <div className={clsx(
+            "prose prose-sm dark:prose-invert max-w-none",
+            "prose-p:leading-relaxed prose-headings:font-bold prose-headings:tracking-tight",
+            "prose-pre:bg-transparent prose-pre:p-0",
+            "text-foreground/80 dark:text-foreground/80",
+            className
+        )}>
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
