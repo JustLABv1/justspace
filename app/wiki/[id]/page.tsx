@@ -64,18 +64,35 @@ export default function WikiDetailPage() {
                         processedGuide.title = await decryptData(titleData, docKey);
                         processedGuide.description = await decryptData(descData, docKey);
 
-                        // Decrypt installations notes
+                        // Decrypt installations
                         processedGuide.installations = await Promise.all(processedGuide.installations.map(async (inst) => {
-                            if (inst.notes && inst.notes.startsWith('{')) {
-                                try {
-                                    const notesData = JSON.parse(inst.notes) as EncryptedData;
-                                    const decryptedNotes = await decryptData(notesData, docKey);
-                                    return { ...inst, notes: decryptedNotes };
-                                } catch {
-                                    return inst;
+                            let decryptedInst = { ...inst };
+                            
+                            try {
+                                if (inst.target && inst.target.startsWith('{')) {
+                                    const targetData = JSON.parse(inst.target) as EncryptedData;
+                                    decryptedInst.target = await decryptData(targetData, docKey);
                                 }
+                                
+                                if (inst.notes && inst.notes.startsWith('{')) {
+                                    const notesData = JSON.parse(inst.notes) as EncryptedData;
+                                    decryptedInst.notes = await decryptData(notesData, docKey);
+                                }
+                                
+                                if (inst.tasks && inst.tasks.length > 0 && inst.tasks[0].startsWith('{')) {
+                                    decryptedInst.tasks = await Promise.all(inst.tasks.map(async (t) => {
+                                        if (t.startsWith('{')) {
+                                            const tData = JSON.parse(t) as EncryptedData;
+                                            return await decryptData(tData, docKey);
+                                        }
+                                        return t;
+                                    }));
+                                }
+                            } catch (e) {
+                                console.error('Failed to decrypt installation part:', e);
                             }
-                            return inst;
+                            
+                            return decryptedInst;
                         }));
                     }
                 } catch (e) {
@@ -105,12 +122,27 @@ export default function WikiDetailPage() {
                 const access = await db.getAccessKey(id, user.$id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    const encryptedNotes = await encryptData(data.notes || '', docKey);
-                    finalData.notes = JSON.stringify(encryptedNotes);
+                    
+                    if (data.target) {
+                        const encryptedTarget = await encryptData(data.target, docKey);
+                        finalData.target = JSON.stringify(encryptedTarget);
+                    }
+                    
+                    if (data.notes) {
+                        const encryptedNotes = await encryptData(data.notes, docKey);
+                        finalData.notes = JSON.stringify(encryptedNotes);
+                    }
+                    
+                    if (data.tasks && data.tasks.length > 0) {
+                        finalData.tasks = await Promise.all(data.tasks.map(async (t) => {
+                            return JSON.stringify(await encryptData(t, docKey));
+                        }));
+                    }
+                    
                     finalData.isEncrypted = true;
                 }
             } catch (e) {
-                console.error('Failed to encrypt installation notes:', e);
+                console.error('Failed to encrypt installation parts:', e);
             }
         }
 
@@ -471,11 +503,11 @@ export default function WikiDetailPage() {
 
                                                     <Button 
                                                         variant="primary" 
-                                                        className="w-full h-11 rounded-xl font-bold tracking-tight text-[11px] shadow-sm"
+                                                        className="w-full h-11 rounded-xl font-bold tracking-tight text-[11px] shadow-2xl shadow-accent/20"
                                                         onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
                                                     >
                                                         <Widget size={16} weight="Bold" className="mr-2" />
-                                                        Provision to Project
+                                                        Execute Blueprint Sync
                                                     </Button>
                                                 </div>
                                             </Surface>

@@ -121,12 +121,30 @@ export default function ProjectDetailPage() {
         }
     };
 
-    const handleApplyTemplate = async (tasks: string[]) => {
+    const handleApplyTemplate = async (titles: string[]) => {
         if (project) {
-            await db.createTasks(project.$id, tasks);
-            // TaskList should refresh if it has its own state or we can force a re-render
-            // For now, let's just refresh the project data if needed, or assume TaskList handles it.
-            // Since TaskList handles its own fetching based on projectId, we might need a way to trigger it.
+            if (project.isEncrypted && privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(project.$id, user.$id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        const encryptedTitles = await Promise.all(titles.map(async (t) => {
+                            return JSON.stringify(await encryptData(t, docKey));
+                        }));
+                        await db.createTasks(project.$id, encryptedTitles, true);
+                    } else {
+                        await db.createTasks(project.$id, titles);
+                    }
+                } catch (e) {
+                    console.error('Failed to encrypt tasks from template:', e);
+                    await db.createTasks(project.$id, titles);
+                }
+            } else {
+                await db.createTasks(project.$id, titles);
+            }
+            
+            // Trigger refresh by updating a local state if needed
+            window.dispatchEvent(new CustomEvent('refresh-tasks'));
         }
     };
 

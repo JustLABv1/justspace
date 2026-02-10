@@ -1,10 +1,12 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Modal, Spinner } from "@heroui/react";
 import { Folder } from '@solar-icons/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface ProjectSelectorModalProps {
     isOpen: boolean;
@@ -16,24 +18,50 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { user, privateKey } = useAuth();
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchProjects();
-        }
-    }, [isOpen]);
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.listProjects();
-            setProjects(data.documents);
+            const rawProjects = data.documents;
+
+            const processedProjects = await Promise.all(rawProjects.map(async (project) => {
+                if (project.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(project.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                
+                                const nameData = JSON.parse(project.name);
+                                const decryptedName = await decryptData(nameData, docKey);
+                                
+                                return { ...project, name: decryptedName };
+                            }
+                        } catch (e) {
+                            console.error('Failed to decrypt project info in selector:', e);
+                            return { ...project, name: 'Decryption Error' };
+                        }
+                    }
+                    return { ...project, name: 'Encrypted Project' };
+                }
+                return project;
+            }));
+
+            setProjects(processedProjects);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [privateKey, user]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchProjects();
+        }
+    }, [isOpen, fetchProjects]);
 
     const handleSelect = async (projectId: string) => {
         setIsSubmitting(true);

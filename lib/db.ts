@@ -222,12 +222,16 @@ export const db = {
         return task;
     },
     async createTasks(projectId: string, titles: string[], isEncrypted: boolean = false) {
+        // Get existing tasks to determine the starting order
+        const existing = await this.listTasks(projectId);
+        const startOrder = existing.documents.length;
+
         const tasks = await Promise.all(titles.map((title, index) => 
             databases.createDocument(DB_ID, TASKS_ID, ID.unique(), {
                 projectId,
                 title,
                 completed: false,
-                order: index,
+                order: startOrder + index,
                 kanbanStatus: 'todo',
                 isEncrypted
             })

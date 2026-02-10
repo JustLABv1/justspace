@@ -1,10 +1,12 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { InstallationTarget, WikiGuide } from '@/types';
 import { Button, Modal, Spinner } from "@heroui/react";
 import { BookMinimalistic as Book, Checklist as CheckSquare, MagicStick2 as Sparkles } from '@solar-icons/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface TemplateModalProps {
     isOpen: boolean;
@@ -19,30 +21,86 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
     const [selectedInstallation, setSelectedInstallation] = useState<InstallationTarget | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isApplying, setIsApplying] = useState(false);
+    const { user, privateKey } = useAuth();
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchGuides();
-        }
-    }, [isOpen]);
-
-    const fetchGuides = async () => {
+    const fetchGuides = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await db.listGuides();
-            setGuides(data.documents);
+            const processed = await Promise.all(data.documents.map(async (g) => {
+                if (g.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(g.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                const titleData = JSON.parse(g.title);
+                                return { ...g, title: await decryptData(titleData, docKey) };
+                            }
+                        } catch (e) {
+                            console.error('Template Guide Decrypt error:', e);
+                        }
+                    }
+                    return { ...g, title: 'Encrypted Guide' };
+                }
+                return g;
+            }));
+            setGuides(processed);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [privateKey, user]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchGuides();
+        }
+    }, [isOpen, fetchGuides]);
 
     const fetchInstallations = async (guideId: string) => {
         setIsLoading(true);
         try {
             const guide = await db.getGuide(guideId);
-            setInstallations(guide.installations || []);
+            const insts = guide.installations || [];
+            
+            const processedInsts = await Promise.all(insts.map(async (inst) => {
+                if (guide.isEncrypted || inst.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(guide.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                
+                                let target = inst.target;
+                                if (inst.target.startsWith('{')) {
+                                    try {
+                                        target = await decryptData(JSON.parse(inst.target), docKey);
+                                    } catch (e) { /* fallback to original */ }
+                                }
+                                
+                                let tasks = inst.tasks || [];
+                                if (tasks.length > 0 && tasks[0].startsWith('{')) {
+                                    tasks = await Promise.all(tasks.map(async (t) => {
+                                        try {
+                                            return await decryptData(JSON.parse(t), docKey);
+                                        } catch (e) { return t; }
+                                    }));
+                                }
+
+                                return { ...inst, target, tasks };
+                            }
+                        } catch (e) {
+                            console.error('Template Inst Decrypt error:', e);
+                        }
+                    }
+                    return { ...inst, target: 'Encrypted Installation' };
+                }
+                return inst;
+            }));
+
+            setInstallations(processedInsts);
             setSelectedGuideId(guideId);
         } catch (error) {
             console.error(error);

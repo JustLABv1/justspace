@@ -36,6 +36,11 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 : [...prev, taskId]
         );
     };
+
+    const getSubtasks = (parentId: string) => {
+        return tasks.filter(t => t.parentId === parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
+    };
+
     const { user, privateKey } = useAuth();
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
 
@@ -122,7 +127,23 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         e.preventDefault();
         if (!newTaskTitle.trim()) return;
 
+        const optimisticId = `temp-${Date.now()}`;
+        const previousTasks = [...tasks];
+        
         try {
+            const newTask: Task = {
+                $id: optimisticId,
+                $createdAt: new Date().toISOString(),
+                title: newTaskTitle,
+                projectId,
+                completed: false,
+                order: tasks.length,
+                isEncrypted: !!documentKey
+            } as Task;
+
+            setTasks([...tasks, newTask]);
+            setNewTaskTitle('');
+
             let title = newTaskTitle;
             let isEncrypted = false;
             if (documentKey) {
@@ -130,12 +151,14 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 title = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            await db.createEmptyTask(projectId, title, tasks.length, isEncrypted);
-
-            setNewTaskTitle('');
-            fetchTasks();
+            const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted);
+            
+            // Replace optimistic task with the real one
+            setTasks(prev => prev.map(t => t.$id === optimisticId ? (res as unknown as Task) : t));
+            fetchTasks(); // Refresh to get correct decrypted title if needed
         } catch (error) {
-            console.error(error);
+            console.error('Failed to add task:', error);
+            setTasks(previousTasks);
         }
     };
 
@@ -178,20 +201,35 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     };
 
     const updateTask = async (taskId: string, data: Partial<Task> & { workDuration?: string }) => {
+        const previousTasks = [...tasks];
         try {
+            const taskData: Partial<Task> & { workDuration?: string } = { ...data };
+            delete taskData.workDuration;
+            const updatedTaskTitle = data.title || (tasks.find(t => t.$id === taskId)?.title) || '';
+            
+            // Optimistic update
+            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
+
             const updateData = { ...data };
             if (documentKey && data.title) {
                 updateData.title = JSON.stringify(await encryptData(data.title, documentKey));
                 updateData.isEncrypted = true;
             }
             await db.updateTask(taskId, updateData);
-            const taskData: Partial<Task> & { workDuration?: string } = { ...updateData };
-            delete taskData.workDuration;
-            const updatedTaskTitle = data.title || (tasks.find(t => t.$id === taskId)?.title) || '';
-            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
         } catch (error) {
-            console.error(error);
-            fetchTasks(); 
+            console.error('Task update failed, rolling back:', error);
+            setTasks(previousTasks);
+        }
+    };
+
+    const deleteTask = async (taskId: string) => {
+        const previousTasks = [...tasks];
+        try {
+            setTasks(tasks.filter(t => t.$id !== taskId));
+            await db.deleteTask(taskId);
+        } catch (error) {
+            console.error('Task deletion failed, rolling back:', error);
+            setTasks(previousTasks);
         }
     };
 
@@ -289,10 +327,10 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                             key={task.$id} 
                                             task={task} 
                                             onToggle={(id, completed) => updateTask(id, { completed })}
-                                            onDelete={(id) => db.deleteTask(id).then(fetchTasks)}
+                                            onDelete={deleteTask}
                                             onUpdate={updateTask}
-                                            onAddSubtask={(title) => handleAddSubtask(task.$id, title)}
-                                            subtasks={tasks.filter(t => t.parentId === task.$id)}
+                                            onAddSubtask={handleAddSubtask}
+                                            allTasks={tasks}
                                             isExpanded={expandedTaskIds.includes(task.$id)}
                                             onToggleExpanded={() => toggleTaskExpansion(task.$id)}
                                             onClick={() => {

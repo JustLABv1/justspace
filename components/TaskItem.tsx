@@ -33,11 +33,12 @@ interface TaskItemProps {
     onToggle: (id: string, completed: boolean) => void;
     onDelete: (id: string) => void;
     onUpdate: (id: string, data: Partial<Task> & { workDuration?: string }) => void;
-    onAddSubtask: (title: string) => void;
-    subtasks?: Task[];
+    onAddSubtask: (parentId: string, title: string) => void;
+    allTasks?: Task[];
     isExpanded?: boolean;
     onToggleExpanded?: () => void;
     onClick?: () => void;
+    level?: number;
 }
 
 export function TaskItem({ 
@@ -46,12 +47,14 @@ export function TaskItem({
     onDelete, 
     onUpdate, 
     onAddSubtask, 
-    subtasks = [],
+    allTasks = [],
     isExpanded = false,
     onToggleExpanded,
-    onClick
+    onClick,
+    level = 0
 }: TaskItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.$id });
+    const subtasks = allTasks.filter(t => t.parentId === task.$id).sort((a, b) => (a.order || 0) - (b.order || 0));
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newNote, setNewNote] = useState('');
     const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
@@ -162,7 +165,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 type: noteType
             };
             const updatedNotes = [...existingNotes, JSON.stringify(note)];
-            let updateData: any = { notes: updatedNotes };
+            const updateData: Partial<Task> = { notes: updatedNotes };
             
             if (noteType === 'email' || noteType === 'call') {
                 updateData.kanbanStatus = 'waiting';
@@ -202,7 +205,11 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
     return (
         <Surface 
             ref={setNodeRef} 
-            style={style} 
+            style={{
+                ...style,
+                marginLeft: level > 0 ? `${level * 24}px` : '0',
+                width: level > 0 ? `calc(100% - ${level * 24}px)` : '100%',
+            }} 
             className={`group flex flex-col gap-0 rounded-2xl border transition-all duration-300 overflow-hidden ${
                 isDragging ? 'border-accent shadow-2xl z-50 bg-surface scale-[1.02]' : 'border-border/40 hover:border-accent/20 bg-surface shadow-sm'
             }`}
@@ -346,35 +353,26 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
 
                         <div className="space-y-2">
                             {subtasks.map((sub) => (
-                                <div key={sub.$id} className="flex items-center gap-3 p-2.5 bg-surface-lowest/50 rounded-xl border border-border/10 hover:border-accent/20 transition-all group/sub">
-                                    <Checkbox 
-                                        isSelected={sub.completed} 
-                                        onChange={(val: boolean) => onToggle(sub.$id, val)}
-                                    >
-                                        <Checkbox.Control className="size-4 rounded-md">
-                                            <Checkbox.Indicator />
-                                        </Checkbox.Control>
-                                    </Checkbox>
-                                    <span className={`text-xs font-bold leading-tight flex-grow ${sub.completed ? 'line-through text-muted-foreground/40 font-medium' : 'text-foreground/80'}`}>
-                                        {sub.title}
-                                    </span>
-                                    <Button 
-                                        variant="ghost" 
-                                        isIconOnly 
-                                        className="h-6 w-6 rounded-lg opacity-0 group-hover/sub:opacity-100 hover:text-danger"
-                                        onPress={() => onDelete(sub.$id)}
-                                    >
-                                        <Trash size={12} weight="Linear" />
-                                    </Button>
-                                </div>
+                                <TaskItem 
+                                    key={sub.$id}
+                                    task={sub}
+                                    onToggle={onToggle}
+                                    onDelete={onDelete}
+                                    onUpdate={onUpdate}
+                                    onAddSubtask={onAddSubtask}
+                                    allTasks={allTasks}
+                                    level={level + 1}
+                                    isExpanded={false} // Maybe default to false for deep ones
+                                />
                             ))}
+                        </div>
                         </div>
 
                         <form 
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 if (newSubtaskTitle.trim()) {
-                                    onAddSubtask(newSubtaskTitle);
+                                    onAddSubtask(task.$id, newSubtaskTitle);
                                     setNewSubtaskTitle('');
                                 }
                             }}
@@ -390,7 +388,6 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 <Plus size={16} weight="Linear" />
                             </Button>
                         </form>
-                    </div>
 
                     {/* Communication Log Section */}
                     <div className="space-y-4 pt-4 border-t border-border/10">

@@ -69,12 +69,16 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     }, [fetchTasks]);
 
     const moveTask = async (taskId: string, newStatus: Task['kanbanStatus']) => {
+        const previousTasks = [...tasks];
         try {
             const isCompleted = newStatus === 'done';
-            await db.updateTask(taskId, { kanbanStatus: newStatus, completed: isCompleted });
+            // Optimistic update
             setTasks(prev => prev.map(t => t.$id === taskId ? { ...t, kanbanStatus: newStatus, completed: isCompleted } : t));
+            
+            await db.updateTask(taskId, { kanbanStatus: newStatus, completed: isCompleted });
         } catch (error) {
-            console.error(error);
+            console.error('Failed to move task, rolling back:', error);
+            setTasks(previousTasks);
         }
     };
 

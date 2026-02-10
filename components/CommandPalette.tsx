@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project, Snippet, WikiGuide } from '@/types';
 import { Modal, Spinner } from '@heroui/react';
@@ -13,7 +15,7 @@ import {
 } from '@solar-icons/react';
 import { Command } from 'cmdk';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function CommandPalette() {
     const [open, setOpen] = useState(false);
@@ -22,6 +24,7 @@ export function CommandPalette() {
     const [guides, setGuides] = useState<WikiGuide[]>([]);
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const router = useRouter();
+    const { user, privateKey } = useAuth();
 
     useEffect(() => {
         const handleOpen = () => setOpen(true);
@@ -53,13 +56,7 @@ export function CommandPalette() {
         return () => document.removeEventListener('keydown', down);
     }, [router]);
 
-    useEffect(() => {
-        if (open) {
-            fetchData();
-        }
-    }, [open]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [projectsRes, guidesRes, snippetsRes] = await Promise.all([
@@ -67,15 +64,73 @@ export function CommandPalette() {
                 db.listGuides(),
                 db.listSnippets()
             ]);
-            setProjects(projectsRes.documents);
-            setGuides(guidesRes.documents);
-            setSnippets(snippetsRes.documents);
+
+            const processedProjects = await Promise.all(projectsRes.documents.map(async (p) => {
+                if (p.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(p.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                const nameData = JSON.parse(p.name);
+                                return { ...p, name: await decryptData(nameData, docKey) };
+                            }
+                        } catch (e) { console.error('CP Decrypt Project error:', e); }
+                    }
+                    return { ...p, name: 'Encrypted Project' };
+                }
+                return p;
+            }));
+
+            const processedGuides = await Promise.all(guidesRes.documents.map(async (g) => {
+                if (g.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(g.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                const titleData = JSON.parse(g.title);
+                                return { ...g, title: await decryptData(titleData, docKey) };
+                            }
+                        } catch (e) { console.error('CP Decrypt Guide error:', e); }
+                    }
+                    return { ...g, title: 'Encrypted Guide' };
+                }
+                return g;
+            }));
+
+            const processedSnippets = await Promise.all(snippetsRes.documents.map(async (s) => {
+                if (s.isEncrypted) {
+                    if (privateKey && user) {
+                        try {
+                            const access = await db.getAccessKey(s.$id, user.$id);
+                            if (access) {
+                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                                const titleData = JSON.parse(s.title);
+                                return { ...s, title: await decryptData(titleData, docKey) };
+                            }
+                        } catch (e) { console.error('CP Decrypt Snippet error:', e); }
+                    }
+                    return { ...s, title: 'Encrypted Snippet' };
+                }
+                return s;
+            }));
+
+            setProjects(processedProjects);
+            setGuides(processedGuides);
+            setSnippets(processedSnippets);
         } catch (error) {
             console.error('Failed to fetch command palette data:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [privateKey, user]);
+
+    useEffect(() => {
+        if (open) {
+            fetchData();
+        }
+    }, [open, fetchData]);
 
     const runCommand = (command: () => void) => {
         setOpen(false);
@@ -198,6 +253,27 @@ export function CommandPalette() {
                                                 <div className="flex flex-col flex-1 truncate">
                                                     <span className="truncate font-bold">{guide.title}</span>
                                                     <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Wiki Guide</span>
+                                                </div>
+                                                <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
+                                            </Command.Item>
+                                        ))}
+                                    </Command.Group>
+                                )}
+
+                                {snippets.length > 0 && (
+                                    <Command.Group heading="Code Snippets" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
+                                        {snippets.map((snippet) => (
+                                            <Command.Item
+                                                key={snippet.$id}
+                                                onSelect={() => runCommand(() => router.push(`/snippets`))}
+                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-success aria-selected:text-white transition-all gap-5 group"
+                                            >
+                                                <div className="w-12 h-12 rounded-2xl bg-success/5 text-success flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
+                                                    <Code2 size={24} weight="Linear" />
+                                                </div>
+                                                <div className="flex flex-col flex-1 truncate">
+                                                    <span className="truncate font-bold">{snippet.title}</span>
+                                                    <span className="text-[10px] opacity-40 font-bold tracking-widest uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">{snippet.language} Snippet</span>
                                                 </div>
                                                 <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
                                             </Command.Item>
