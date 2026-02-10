@@ -59,7 +59,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
-    if (isLoading) {
+    if (isLoading && !user) {
         return <div className="flex h-screen w-screen items-center justify-center">Loading...</div>;
     }
 

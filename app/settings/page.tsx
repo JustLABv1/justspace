@@ -18,13 +18,47 @@ import {
     User,
     ShieldKeyhole as Vault
 } from '@solar-icons/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState('General');
+    return (
+        <Suspense fallback={
+            <div className="flex h-screen w-full items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <RefreshIcon size={40} className="animate-spin text-primary opacity-20" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing System_</p>
+                </div>
+            </div>
+        }>
+            <SettingsContent />
+        </Suspense>
+    );
+}
+
+function SettingsContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'General');
+    
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && tab !== activeTab) {
+            setActiveTab(tab);
+        }
+    }, [searchParams, activeTab]);
+
+    const handleTabChange = (tabId: string) => {
+        setActiveTab(tabId);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', tabId);
+        router.push(`?${params.toString()}`, { scroll: false });
+    };
+
     const { user, hasVault, privateKey, userKeys, setupVault, unlockVault } = useAuth();
     const [vaultPassword, setVaultPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [vaultError, setVaultError] = useState<string | null>(null);
     
     // Migration state
     const [isMigrating, setIsMigrating] = useState(false);
@@ -181,6 +215,7 @@ export default function SettingsPage() {
     const handleVaultAction = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setVaultError(null);
         try {
             if (hasVault) {
                 await unlockVault(vaultPassword);
@@ -189,7 +224,9 @@ export default function SettingsPage() {
             }
             setVaultPassword('');
         } catch (error) {
+            const message = error instanceof Error ? error.message : 'Vault operation failed. Please check your connection.';
             console.error(error);
+            setVaultError(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -216,7 +253,7 @@ export default function SettingsPage() {
                     {menuItems.map((item) => (
                         <button 
                             key={item.id}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => handleTabChange(item.id)}
                             className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${
                                 activeTab === item.id 
                                     ? 'bg-foreground text-background shadow-xl shadow-black/10' 
@@ -305,20 +342,25 @@ export default function SettingsPage() {
                                             <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Vault Password</label>
                                             <input 
                                                 type="password"
-                                                className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-primary transition-all"
+                                                className={`w-full h-14 bg-surface rounded-2xl border ${vaultError ? 'border-danger/50' : 'border-border/50'} px-5 font-bold outline-none focus:border-primary transition-all`}
                                                 placeholder="Enter secure vault passphrase..."
                                                 value={vaultPassword}
                                                 onChange={(e) => setVaultPassword(e.target.value)}
                                                 required
+                                                disabled={!!privateKey}
                                             />
+                                            {vaultError && (
+                                                <p className="text-[10px] text-danger font-bold ml-1">{vaultError}</p>
+                                            )}
                                         </div>
                                         <Button 
                                             type="submit" 
                                             className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs" 
-                                            variant="primary"
+                                            variant={privateKey ? "secondary" : "primary"}
                                             isPending={isSubmitting}
+                                            isDisabled={!!privateKey}
                                         >
-                                            {hasVault ? 'Decrypt Keys' : 'Synthesize Vault'}
+                                            {privateKey ? 'Vault Synchronized' : (hasVault ? 'Decrypt Keys' : 'Synthesize Vault')}
                                         </Button>
                                     </Form>
 
@@ -326,6 +368,13 @@ export default function SettingsPage() {
                                         <p className="text-[10px] text-center text-orange-500 font-bold uppercase opacity-60 italic">
                                             Warning: Vault passwords cannot be recovered. Loss of password results in permanent data loss.
                                         </p>
+                                    )}
+
+                                    {privateKey && (
+                                        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-wider">
+                                            <CheckCircleIcon size={20} />
+                                            Vault active and keys decrypted_
+                                        </div>
                                     )}
                                 </Surface>
 
