@@ -95,7 +95,7 @@ export const db = {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Project',
-                entityName: project.isEncrypted ? '🔒 Secure Mission' : (project.name || 'Project')
+                entityName: project.isEncrypted ? '🔒 Secure Project' : (project.name || 'Project')
             });
         }
         return project;

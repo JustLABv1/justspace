@@ -45,7 +45,7 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                             </div>
                             <div className="space-y-1">
                                 <Modal.Heading className="text-3xl font-black tracking-tighter text-foreground leading-none">{title}_</Modal.Heading>
-                                <p className="text-muted-foreground text-xs font-black uppercase opacity-40 ml-0.5 mt-1 tracking-widest">Termination protocol initiated.</p>
+                                <p className="text-muted-foreground text-xs font-black uppercase opacity-40 ml-0.5 mt-1 tracking-widest">This action is permanent.</p>
                             </div>
                         </Modal.Header>
 
@@ -60,7 +60,7 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                                 onPress={onClose} 
                                 isDisabled={isLoading}
                             >
-                                Abort Mission
+                                Cancel
                             </Button>
                             <Button 
                                 variant="danger" 
@@ -68,7 +68,7 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                                 onPress={handleConfirm} 
                                 isPending={isLoading}
                             >
-                                Purge Record
+                                Confirm Delete
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

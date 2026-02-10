@@ -175,10 +175,10 @@ export default function ProjectDetailPage() {
                     <Shield size={48} weight="Bold" className="animate-pulse" />
                 </div>
                 <div className="text-center space-y-3">
-                    <h2 className="text-3xl font-black tracking-tighter uppercase italic text-foreground">Mission Data Locked_</h2>
+                    <h2 className="text-3xl font-black tracking-tighter uppercase italic text-foreground">Secured Mission_</h2>
                     <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
-                        This environment is secured with mission-critical encryption. <br/>
-                        Authorize your vault to access operational archives.
+                        This environment is protected by end-to-end encryption. <br/>
+                        Synchronize your vault to access operational archives.
                     </p>
                 </div>
                 <div className="w-px h-12 bg-gradient-to-b from-primary/40 to-transparent" />

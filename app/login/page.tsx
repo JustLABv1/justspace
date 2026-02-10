@@ -66,8 +66,8 @@ export default function LoginPage() {
                             Elevate your <br/><span className="text-primary">Workflow.</span>
                         </h1>
                         <p className="text-lg text-muted-foreground font-medium leading-relaxed pt-6 opacity-60">
-                            The high-density protocol for technical consultants to orchestrate projects, 
-                            manage fragments, and baseline deployments.
+                            The professional platform for technical consultants to manage projects, 
+                            documentation, and standard implementations.
                         </p>
                     </motion.div>
 
@@ -78,10 +78,10 @@ export default function LoginPage() {
                         className="grid grid-cols-2 gap-6 pt-10"
                     >
                         {[
-                            { label: 'Mission Tracking', icon: 'PROTO-01' },
-                            { label: 'Cloud Fragments', icon: 'PROTO-02' },
-                            { label: 'Protocol Engine', icon: 'PROTO-03' },
-                            { label: 'Telemetry Logs', icon: 'PROTO-04' }
+                            { label: 'Project Pipeline', icon: 'UNIT-01' },
+                            { label: 'Cloud Storage', icon: 'UNIT-02' },
+                            { label: 'Standard Guides', icon: 'UNIT-03' },
+                            { label: 'Activity Logs', icon: 'UNIT-04' }
                         ].map((item) => (
                             <Surface key={item.label} variant="secondary" className="p-4 rounded-2xl border border-border/40 flex flex-col gap-2 bg-surface/50 backdrop-blur-2xl shadow-sm">
                                 <span className="text-[10px] font-bold text-primary uppercase tracking-[0.4em] opacity-40">{item.icon}</span>
@@ -121,14 +121,14 @@ export default function LoginPage() {
                         
                         <div className="space-y-4">
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Access Endpoint</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Account Email</Label>
                                 <div className="relative group">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
                                     <Input 
                                         type="email" 
                                         value={email} 
                                         onChange={(e) => setEmail(e.target.value)} 
-                                        placeholder="user@protocol.net"
+                                        placeholder="user@example.com"
                                         className="w-full bg-surface-secondary/50 border-border/40 rounded-xl h-12 pl-12 font-bold tracking-tight focus:border-primary/50 transition-all shadow-inner text-sm"
                                         required
                                     />
@@ -136,7 +136,7 @@ export default function LoginPage() {
                             </TextField>
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Secure Sequence</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">System Password</Label>
                                 <div className="relative group">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" size={18} weight="Bold" />
                                     <Input 

@@ -53,13 +53,13 @@ export default function WikiPage() {
                             }
                         } catch (e) {
                             console.error('Failed to decrypt guide:', guide.$id, e);
-                            return { ...guide, title: '🔒 [Decryption Error]', description: 'Missing access keys.' };
+                            return { ...guide, title: 'Decryption Error', description: 'Missing access keys.' };
                         }
                     }
                     return { 
                         ...guide, 
-                        title: '🔒 [Locked Protocol]', 
-                        description: 'Vault authentication required.' 
+                        title: 'Encrypted Guide', 
+                        description: 'Synchronize vault to access guide details.' 
                     };
                 }
                 return guide;
@@ -152,15 +152,15 @@ export default function WikiPage() {
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-primary font-black tracking-[0.2em] text-xs uppercase opacity-80">
                         <Book size={14} weight="Bold" className="animate-pulse" />
-                        Infrastructure Fragments
+                        Knowledge Base
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Wiki documentation engine_</h1>
-                    <p className="text-muted-foreground font-medium opacity-70 text-sm">Standardized deployment patterns and architectural infrastructure.</p>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Wiki documentation_</h1>
+                    <p className="text-muted-foreground font-medium opacity-70 text-sm">Standardized procedures, deployment guides, and implementation standards.</p>
                 </div>
                 <div className="flex gap-3">
                     <Button variant="primary" className="rounded-xl h-12 px-6 font-bold shadow-xl shadow-primary/10" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
                         <Plus size={18} weight="Bold" className="mr-2" />
-                        Init New Guide
+                        New Guide
                     </Button>
                 </div>
             </header>
@@ -177,7 +177,7 @@ export default function WikiPage() {
                     >
                         <SearchField.Group className="rounded-3xl border-border/40 bg-surface h-16 px-6 shadow-sm focus-within:border-primary/50 transition-all border">
                             <Search size={22} weight="Linear" className="text-muted-foreground/40 mr-4" />
-                            <SearchField.Input placeholder="Search knowledge frequency..." className="text-lg font-black tracking-tighter placeholder:text-muted-foreground/20 uppercase" />
+                            <SearchField.Input placeholder="Search knowledge base..." className="text-lg font-black tracking-tighter placeholder:text-muted-foreground/20 uppercase" />
                             <SearchField.ClearButton />
                         </SearchField.Group>
                     </SearchField>
@@ -188,8 +188,8 @@ export default function WikiPage() {
                             <Book size={20} weight="Linear" />
                         </div>
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground opacity-40">Frequency Index</p>
-                            <p className="font-extrabold text-base tracking-tighter uppercase">{filteredGuides.length} Fragments Found</p>
+                            <p className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground opacity-40">Guide Index</p>
+                            <p className="font-extrabold text-base tracking-tighter uppercase">{filteredGuides.length} Guides Found</p>
                         </div>
                     </Surface>
                 </div>
@@ -203,10 +203,10 @@ export default function WikiPage() {
                             <Search size={48} weight="Linear" />
                         </div>
                         <div className="space-y-3 text-center">
-                            <h3 className="text-3xl font-black tracking-tighter uppercase">No matching fragments</h3>
-                            <p className="text-muted-foreground max-w-sm font-medium opacity-60">Your query did not intersect with any documentation frequencies in the current index.</p>
+                            <h3 className="text-3xl font-black tracking-tighter uppercase">No matching guides</h3>
+                            <p className="text-muted-foreground max-w-sm font-medium opacity-60">Your query did not intersect with any documentation in the current index.</p>
                         </div>
-                        <Button variant="secondary" className="rounded-2xl font-black uppercase px-10 h-14 border-border/40" onPress={() => { setSearchTerm(''); }}>Reset Frequency</Button>
+                        <Button variant="secondary" className="rounded-2xl font-black uppercase px-10 h-14 border-border/40" onPress={() => { setSearchTerm(''); }}>Reset Filter</Button>
                     </Surface>
                 ) : (
                     filteredGuides.map((guide) => (

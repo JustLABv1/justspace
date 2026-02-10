@@ -54,13 +54,13 @@ export default function ProjectsPage() {
                             }
                         } catch (e) {
                             console.error('Failed to decrypt project:', project.$id, e);
-                            return { ...project, name: '🔒 [Decryption Error]', description: 'Missing access keys.' };
+                            return { ...project, name: 'Decryption Error', description: 'Missing access keys.' };
                         }
                     }
                     return { 
                         ...project, 
-                        name: '🔒 [Locked Project]', 
-                        description: 'Vault authentication required to decrypt metadata.' 
+                        name: 'Encrypted Project', 
+                        description: 'Synchronize vault to access project details.' 
                     };
                 }
                 return project;
@@ -152,10 +152,10 @@ export default function ProjectsPage() {
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-primary font-black tracking-[0.2em] uppercase text-xs opacity-80">
                         <ListTodo size={14} weight="Bold" className="animate-pulse" />
-                        Management Frequency
+                        Project Operations
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Orchestrate mission success_</h1>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60">High-density tracking of consulting pipeline and project lifecycle.</p>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Manage your pipeline_</h1>
+                    <p className="text-sm text-muted-foreground font-medium opacity-60">High-density tracking of consulting engagements and project lifecycle.</p>
                 </div>
                 <div className="flex items-center gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
                     <div className="flex bg-surface-secondary/40 p-1 rounded-xl border border-border/20 shadow-inner">
@@ -165,7 +165,7 @@ export default function ProjectsPage() {
                             className={`h-9 px-4 rounded-lg font-bold tracking-tight transition-all text-xs ${viewMode === 'kanban' ? 'bg-foreground text-background shadow-lg' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
                         >
                             <ListTodo size={14} weight="Bold" className="mr-2" />
-                            Kanban Board
+                            Board View
                         </Button>
                         <Button 
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
@@ -173,12 +173,12 @@ export default function ProjectsPage() {
                             className={`h-9 px-4 rounded-lg font-bold tracking-tight transition-all text-xs ${viewMode === 'grid' ? 'bg-foreground text-background shadow-lg' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
                         >
                             <LayoutGrid size={14} weight="Bold" className="mr-2" />
-                            Grid Overview
+                            Grid View
                         </Button>
                     </div>
                     <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-primary/10 text-xs" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
                         <Plus size={16} weight="Bold" className="mr-2" />
-                        Init Mission
+                        New Project
                     </Button>
                 </div>
             </header>
@@ -285,7 +285,7 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                                     </div>
                                 )}
                             </div>
-                            <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Mission Code: {project.$id.slice(-4).toUpperCase()}</p>
+                            <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Project ID: {project.$id.slice(-4).toUpperCase()}</p>
                         </div>
                     </Link>
                     

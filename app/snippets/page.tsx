@@ -59,15 +59,15 @@ export default function SnippetsPage() {
                             }
                         } catch (e) {
                             console.error('Failed to decrypt snippet:', snippet.$id, e);
-                            return { ...snippet, title: `🔒 Locked: ${snippet.$id.slice(0, 4)}`, content: '// Access Denied' };
+                            return { ...snippet, title: 'Encrypted Fragment', content: '// Access Denied' };
                         }
                     }
                     // If vault is locked or no access
                     return { 
                         ...snippet, 
-                        title: "🔒 [Locked Snippet]", 
+                        title: "Encrypted Snippet", 
                         content: "// Unlock vault to view content",
-                        description: "This fragment is protected by end-to-end encryption."
+                        description: "Synchronize vault to access fragment details."
                     };
                 }
                 return snippet;

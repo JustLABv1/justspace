@@ -44,10 +44,10 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                             const decryptedTitle = await decryptData(encryptedData, documentKey);
                             return { ...task, title: decryptedTitle };
                         } catch (e) {
-                            return { ...task, title: '🔒 [Failed to decrypt]' };
+                            return { ...task, title: 'Decryption Error' };
                         }
                     }
-                    return { ...task, title: '🔒 [Locked Metadata]' };
+                    return { ...task, title: 'Encrypted Task' };
                 }
                 return task;
             }));

@@ -67,11 +67,11 @@ export default function Home() {
             }
             return { 
                 ...p, 
-                name: '🔒 [Locked Mission]',
-                description: 'Vault authentication required.'
+                name: 'Encrypted Project',
+                description: 'Synchronize vault to access project details.'
             };
         }
-        return p;
+        return g;
       }));
 
       const processedGuides = await Promise.all(guides.documents.map(async (g) => {
@@ -95,8 +95,8 @@ export default function Home() {
             }
             return { 
                 ...g, 
-                title: '🔒 [Locked Protocol]',
-                description: 'Vault authentication required.'
+                title: 'Encrypted Guide',
+                description: 'Synchronize vault to access documentation details.'
             };
         }
         return g;
@@ -129,20 +129,20 @@ export default function Home() {
             {greeting}, Justin_
           </h1>
           <p className="text-sm text-muted-foreground font-medium opacity-60">
-            Consultant OS status: optimal. <span className="text-foreground font-bold tracking-widest text-[10px] ml-2 uppercase opacity-40">{stats.projects} Missions Active</span>
+            Consultant OS status: optimal. <span className="text-foreground font-bold tracking-widest text-[10px] ml-2 uppercase opacity-40">{stats.projects} Projects Active</span>
           </p>
         </div>
         <div className="flex gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
           <Link href="/wiki">
             <Button variant="ghost" className="rounded-xl h-10 px-5 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all text-sm">
               <Book size={16} weight="Bold" className="mr-2" />
-              Intel
+              Wiki
             </Button>
           </Link>
           <Link href="/projects">
             <Button variant="primary" className="rounded-xl h-10 px-5 font-bold tracking-tight shadow-xl shadow-primary/10 text-sm">
               <Plus size={16} weight="Bold" className="mr-2" />
-              Init Mission
+              New Project
             </Button>
           </Link>
         </div>
@@ -161,7 +161,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold tracking-tight">{stats.projects}</h3>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Active Missions</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Active Projects</p>
                 </div>
                 <Link href="/projects">
                   <Button variant="ghost" size="sm" className="w-fit h-8 rounded-lg text-xs font-bold p-0 hover:text-primary transition-colors">
@@ -236,7 +236,7 @@ export default function Home() {
                       </div>
                       <Link href={`/projects/${project.$id}`}>
                         <Button variant="secondary" className="w-full rounded-[1.25rem] font-bold h-14 group-hover:bg-foreground group-hover:text-background transition-all border border-border/40 shadow-sm uppercase text-[11px] tracking-widest">
-                          Deep Dive Mission <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
+                          Project Details <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
                         </Button>
                       </Link>
                     </div>
@@ -265,14 +265,14 @@ export default function Home() {
                 <Sparkles size={32} weight="Bold" className="animate-pulse" />
               </div>
               <div className="space-y-4">
-                <h2 className="text-3xl font-black leading-[1.1] tracking-tighter uppercase">Infrastructure Intelligence_</h2>
+                <h2 className="text-3xl font-black leading-[1.1] tracking-tighter uppercase">Infrastructure Knowledge_</h2>
                 <p className="text-xl text-white/80 leading-relaxed font-medium">
-                  Your Knowledge base represents the core logic of your operations. Keep fragments synced to maximize mission output.
+                  Your knowledge base represents the foundation of your practice. Keep guides synced to maximize output.
                 </p>
               </div>
               <Link href="/wiki">
                 <Button variant="secondary" className="bg-white text-primary hover:bg-white/90 rounded-[1.5rem] px-12 h-16 font-black shadow-2xl tracking-tight uppercase border-none">
-                  Deploy Knowledge Engine
+                  Open Documentation
                 </Button>
               </Link>
             </div>

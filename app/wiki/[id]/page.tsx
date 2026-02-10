@@ -190,10 +190,10 @@ export default function WikiDetailPage() {
                     <Shield size={48} weight="Bold" className="animate-pulse" />
                 </div>
                 <div className="text-center space-y-3">
-                    <h2 className="text-3xl font-black tracking-tighter uppercase italic">Fragment Locked_</h2>
+                    <h2 className="text-3xl font-black tracking-tighter uppercase italic">Secured Guide_</h2>
                     <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
-                        This protocol is protected by end-to-end encryption. <br/>
-                        Please synchronize your vault sequence to gain access.
+                        This guide is protected by end-to-end encryption. <br/>
+                        Please synchronize your vault to gain access.
                     </p>
                 </div>
                 <div className="w-px h-12 bg-gradient-to-b from-orange-500/40 to-transparent" />
@@ -226,7 +226,7 @@ export default function WikiDetailPage() {
                         {guide.isEncrypted && (
                             <div className="px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs font-bold uppercase tracking-widest text-orange-500 flex items-center gap-2">
                                 <Shield size={14} weight="Bold" />
-                                Secured Fragment
+                                Secured Guide
                             </div>
                         )}
                         {isDecrypting && <Spinner size="sm" />}
@@ -280,7 +280,7 @@ export default function WikiDetailPage() {
                                                             </div>
                                                             {inst.target} Setup_
                                                         </h2>
-                                                        <p className="text-muted-foreground font-bold tracking-widest opacity-30 uppercase text-xs">Frequency Deployment Protocol</p>
+                                                        <p className="text-muted-foreground font-bold tracking-widest opacity-30 uppercase text-xs">Infrastructure Deployment Guide</p>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <Tooltip>

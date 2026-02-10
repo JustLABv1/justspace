@@ -66,10 +66,10 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                             const decryptedTitle = await decryptData(titleData, docKey);
                             return { ...task, title: decryptedTitle };
                         } catch (e) {
-                            return { ...task, title: '🔒 [Failed to decrypt]' };
+                            return { ...task, title: 'Decryption Error' };
                         }
                     }
-                    return { ...task, title: '🔒 [Locked Metadata]' };
+                    return { ...task, title: 'Encrypted Task' };
                 }
                 return task;
             }));
