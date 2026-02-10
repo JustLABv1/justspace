@@ -16,6 +16,7 @@ import {
     Magnifer as Search
 } from "@solar-icons/react";
 import React, { useCallback, useEffect, useState } from 'react';
+import { TaskDetailModal } from './TaskDetailModal';
 import { TaskItem } from './TaskItem';
 
 export function TaskList({ projectId, hideHeader = false }: { projectId: string, hideHeader?: boolean }) {
@@ -25,6 +26,8 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const toggleTaskExpansion = (taskId: string) => {
         setExpandedTaskIds(prev => 
@@ -292,6 +295,10 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                             subtasks={tasks.filter(t => t.parentId === task.$id)}
                                             isExpanded={expandedTaskIds.includes(task.$id)}
                                             onToggleExpanded={() => toggleTaskExpansion(task.$id)}
+                                            onClick={() => {
+                                                setSelectedTask(task);
+                                                setIsDetailModalOpen(true);
+                                            }}
                                         />
                                     ))}
                                 </div>
@@ -319,6 +326,15 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                     </form>
                 </div>
             </div>
+            {selectedTask && (
+                <TaskDetailModal 
+                    isOpen={isDetailModalOpen}
+                    onOpenChange={setIsDetailModalOpen}
+                    task={tasks.find(t => t.$id === selectedTask.$id) || selectedTask}
+                    projectId={projectId}
+                    onUpdate={fetchTasks}
+                />
+            )}
         </div>
     );
 }

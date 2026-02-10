@@ -37,7 +37,8 @@ This document outlines the required database, collections, and attributes for **
 | `timerStartedAt` | String (ISO) | - | No | Time when current timer started. |
 | `timeEntries` | String Array | 255 | No | Historical log of time entries (JSON stringified). |
 | `order` | Integer | - | No | Display order for DnD. |
-| `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `done` | No | Status for Kanban board. |
+| `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `waiting`, `done` | No | Status for Kanban board. |
+| `notes` | String Array | 16384 | No | Communication log. JSON: `{"date": "ISOString", "text": "string", "type": "note|email|call"}` |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
 ### 3. Wiki Guides

@@ -187,7 +187,7 @@ export default function ProjectDetailPage() {
     }
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
+        <div className={`mx-auto p-6 md:p-8 space-y-8 transition-all duration-500 ${viewMode === 'kanban' ? 'max-w-full' : 'max-w-[1200px]'}`}>
             <header className="flex flex-col gap-6">
                 <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors font-bold text-xs tracking-widest group uppercase">
                     <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />

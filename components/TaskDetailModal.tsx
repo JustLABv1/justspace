@@ -1,0 +1,402 @@
+'use client';
+
+import { db } from '@/lib/db';
+import { Task } from '@/types';
+import {
+  Button,
+  Checkbox,
+  Input,
+  Modal,
+  ScrollShadow
+} from '@heroui/react';
+import {
+  Pen2 as Edit,
+  Letter as Email,
+  History,
+  ChatRoundDots as MessageCircle,
+  PhoneCalling as Phone,
+  AddCircle as Plus,
+  TrashBinMinimalistic as Trash
+} from '@solar-icons/react';
+import dayjs from 'dayjs';
+import duration from 'dayjs/plugin/duration';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { useCallback, useEffect, useState } from 'react';
+
+dayjs.extend(duration);
+dayjs.extend(relativeTime);
+
+interface TaskDetailModalProps {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    task: Task;
+    projectId: string;
+    onUpdate: () => void;
+}
+
+export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdate }: TaskDetailModalProps) {
+    const [subtasks, setSubtasks] = useState<Task[]>([]);
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    const [newNote, setNewNote] = useState('');
+    const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
+    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const fetchDetails = useCallback(async () => {
+        if (!isOpen) return;
+        setIsLoading(true);
+        try {
+            const res = await db.listTasks(projectId);
+            const allTasks = res.documents as unknown as Task[];
+            setSubtasks(allTasks.filter(t => t.parentId === task.$id));
+        } catch (error) {
+            console.error('Failed to fetch subtasks:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isOpen, projectId, task.$id]);
+
+    useEffect(() => {
+        fetchDetails();
+    }, [fetchDetails]);
+
+    const handleUpdateTask = async (taskId: string, data: Partial<Task>) => {
+        try {
+            await db.updateTask(taskId, data);
+            if (taskId === task.$id) {
+                // The task object passed as prop is stale now, but usually the parent refreshes.
+                // For subtasks, we refresh locally.
+                onUpdate();
+            } else {
+                fetchDetails();
+            }
+        } catch (error) {
+            console.error('Failed to update task:', error);
+        }
+    };
+
+    const handleAddSubtask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newSubtaskTitle.trim()) return;
+        try {
+            await db.createEmptyTask(projectId, newSubtaskTitle, subtasks.length, !!task.isEncrypted, task.$id);
+            setNewSubtaskTitle('');
+            fetchDetails();
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to add subtask:', error);
+        }
+    };
+
+    const handleDeleteTask = async (taskId: string) => {
+        try {
+            await db.deleteTask(taskId);
+            if (taskId === task.$id) {
+                onOpenChange(false);
+            } else {
+                fetchDetails();
+            }
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to delete task:', error);
+        }
+    };
+
+    const handleAddNote = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newNote.trim()) return;
+
+        const existingNotes = task.notes || [];
+
+        try {
+            if (editingNoteIndex !== null) {
+                const updatedNotes = [...existingNotes];
+                const parsedNote = JSON.parse(updatedNotes[editingNoteIndex]);
+                parsedNote.text = newNote;
+                parsedNote.type = noteType;
+                updatedNotes[editingNoteIndex] = JSON.stringify(parsedNote);
+                await db.updateTask(task.$id, { notes: updatedNotes });
+                setEditingNoteIndex(null);
+            } else {
+                const note = {
+                    date: new Date().toISOString(),
+                    text: newNote,
+                    type: noteType
+                };
+                const updatedNotes = [...existingNotes, JSON.stringify(note)];
+                const updateData: any = { notes: updatedNotes };
+                
+                if (noteType === 'email' || noteType === 'call') {
+                    updateData.kanbanStatus = 'waiting';
+                }
+                await db.updateTask(task.$id, updateData);
+            }
+            setNewNote('');
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to handle note:', error);
+        }
+    };
+
+    const handleDeleteNote = async (index: number) => {
+        const existingNotes = task.notes || [];
+        const updatedNotes = existingNotes.filter((_, i) => i !== index);
+        try {
+            await db.updateTask(task.$id, { notes: updatedNotes });
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to delete note:', error);
+        }
+    };
+
+    const handleEditNote = (index: number) => {
+        const existingNotes = task.notes || [];
+        try {
+            const note = JSON.parse(existingNotes[index]);
+            setNewNote(note.text);
+            setNoteType(note.type);
+            setEditingNoteIndex(index);
+        } catch (e) {
+            console.error('Failed to parse note for editing:', e);
+        }
+    };
+
+    const formatTime = (seconds: number) => {
+        const dur = dayjs.duration(seconds, 'seconds');
+        if (seconds >= 3600) {
+            return `${Math.floor(dur.asHours())}h ${dur.minutes()}m`;
+        }
+        return `${dur.minutes()}m ${dur.seconds()}s`;
+    };
+
+    const parsedNotes = (task.notes || []).map((n, index) => {
+        try {
+            return { ...(JSON.parse(n) as { date: string, text: string, type: 'note' | 'email' | 'call' }), originalIndex: index };
+        } catch {
+            return { date: new Date().toISOString(), text: n, type: 'note' as const, originalIndex: index };
+        }
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return (
+        <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+            <Modal.Backdrop variant="blur">
+                <Modal.Container size="cover">
+                    <Modal.Dialog className="bg-surface border border-border/40 overflow-hidden">
+                        <Modal.CloseTrigger />
+                        <Modal.Header className="flex flex-col gap-1 items-start">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="px-2 py-0.5 rounded bg-accent/10 border border-accent/20">
+                                    <span className="text-[10px] font-black tracking-widest text-accent uppercase">Task ID: {task.$id.slice(-6)}</span>
+                                </div>
+                                <span className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest italic">{task.kanbanStatus}</span>
+                            </div>
+                            <Modal.Heading className="text-2xl font-black tracking-tight text-foreground leading-tight">
+                                {task.title}
+                            </Modal.Heading>
+                        </Modal.Header>
+                        <Modal.Body className="p-0">
+                            <div className="flex flex-col md:flex-row h-full max-h-[70vh]">
+                                {/* Left Side: Subtasks */}
+                                <div className="flex-1 p-6 border-r border-border/10 bg-surface-secondary/20">
+                                    <div className="space-y-6">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-2">
+                                                    <Plus size={14} /> Sub Objectives
+                                                </h4>
+                                                <span className="text-[10px] font-bold text-muted-foreground/40 tracking-widest">{subtasks.filter(s => s.completed).length}/{subtasks.length} Completed</span>
+                                            </div>
+                                            
+                                            <form onSubmit={handleAddSubtask} className="relative group">
+                                                <Input 
+                                                    placeholder="Add technical milestone..."
+                                                    value={newSubtaskTitle}
+                                                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                                    className="w-full bg-surface-secondary"
+                                                />
+                                                <Button 
+                                                    type="submit" 
+                                                    isIconOnly 
+                                                    size="sm" 
+                                                    variant="ghost" 
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg opacity-0 group-focus-within:opacity-100 transition-opacity"
+                                                >
+                                                    <Plus size={16} />
+                                                </Button>
+                                            </form>
+
+                                            <ScrollShadow className="max-h-[300px] -mx-2 px-2" hideScrollBar>
+                                                <div className="space-y-2">
+                                                    {subtasks.length === 0 ? (
+                                                        <div className="py-8 text-center border-2 border-dashed border-border/10 rounded-2xl">
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">No sub-objectives defined</p>
+                                                        </div>
+                                                    ) : (
+                                                        subtasks.map((st) => (
+                                                            <div key={st.$id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border/20 group hover:border-accent/20 transition-all">
+                                                                <Checkbox 
+                                                                    isSelected={st.completed} 
+                                                                    onChange={(val) => handleUpdateTask(st.$id, { completed: val })}
+                                                                >
+                                                                    <Checkbox.Control className="size-5 rounded-lg border-2">
+                                                                        <Checkbox.Indicator />
+                                                                    </Checkbox.Control>
+                                                                </Checkbox>
+                                                                <span className={`text-xs font-bold transition-all flex-1 ${st.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'}`}>
+                                                                    {st.title}
+                                                                </span>
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    isIconOnly 
+                                                                    size="sm" 
+                                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground/30 hover:text-danger hover:bg-danger/10"
+                                                                    onPress={() => handleDeleteTask(st.$id)}
+                                                                >
+                                                                    <Trash size={12} />
+                                                                </Button>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </ScrollShadow>
+                                        </div>
+
+                                        {task.timeSpent && task.timeSpent > 0 && (
+                                            <div className="pt-6 border-t border-border/10">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-2 mb-4">
+                                                    <History size={14} /> Efficiency History
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="p-3 rounded-xl bg-surface border border-border/20">
+                                                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mb-1">Total Effort</p>
+                                                        <p className="text-lg font-black tracking-tight text-accent font-mono">{formatTime(task.timeSpent)}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Communication Log */}
+                                <div className="flex-1 p-6 bg-surface">
+                                    <div className="h-full flex flex-col gap-6">
+                                        <div className="flex-grow flex flex-col gap-4 min-h-0">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-warning flex items-center gap-2">
+                                                    <MessageCircle size={14} /> Communication Log
+                                                </h4>
+                                            </div>
+
+                                            <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
+                                                <div className="space-y-4">
+                                                    {parsedNotes.length === 0 ? (
+                                                        <div className="py-12 text-center border-2 border-dashed border-border/10 rounded-2xl">
+                                                            <Email size={24} className="mx-auto text-muted-foreground/10 mb-2" />
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">No logged interactions</p>
+                                                        </div>
+                                                    ) : (
+                                                        parsedNotes.map((note) => (
+                                                            <div key={note.originalIndex} className="relative pl-6 pb-4 border-l border-border/20 last:pb-0 group">
+                                                                <div className={`absolute left-[-5px] top-1.5 size-2 rounded-full border-2 border-surface ${
+                                                                    note.type === 'email' ? 'bg-accent' : note.type === 'call' ? 'bg-success' : 'bg-warning'
+                                                                }`} />
+                                                                
+                                                                <div className="p-3 rounded-xl bg-surface-secondary/40 border border-border/20 group-hover:border-warning/20 transition-all">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            {note.type === 'email' && <Email size={10} className="text-accent" />}
+                                                                            {note.type === 'call' && <Phone size={10} className="text-success" />}
+                                                                            {note.type === 'note' && <MessageCircle size={10} className="text-warning" />}
+                                                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">
+                                                                                {dayjs(note.date).fromNow()}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                            <Button 
+                                                                                variant="ghost" 
+                                                                                isIconOnly 
+                                                                                size="sm" 
+                                                                                className="h-6 w-6 rounded-lg text-muted-foreground hover:text-foreground"
+                                                                                onPress={() => handleEditNote(note.originalIndex)}
+                                                                            >
+                                                                                <Edit size={10} />
+                                                                            </Button>
+                                                                            <Button 
+                                                                                variant="ghost" 
+                                                                                isIconOnly 
+                                                                                size="sm" 
+                                                                                className="h-6 w-6 rounded-lg text-muted-foreground hover:text-danger"
+                                                                                onPress={() => handleDeleteNote(note.originalIndex)}
+                                                                            >
+                                                                                <Trash size={10} />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                    <p className="text-xs font-medium text-foreground leading-relaxed whitespace-pre-wrap">{note.text}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </ScrollShadow>
+                                        </div>
+
+                                        <form onSubmit={handleAddNote} className="space-y-3 pt-4 border-t border-border/10">
+                                            <div className="flex gap-2">
+                                                <Button 
+                                                    size="sm" 
+                                                    variant={noteType === 'note' ? 'secondary' : 'ghost'} 
+                                                    className="flex-1 font-bold text-[9px] uppercase tracking-widest h-8"
+                                                    onPress={() => setNoteType('note')}
+                                                >
+                                                    Note
+                                                </Button>
+                                                <Button 
+                                                    size="sm" 
+                                                    variant={noteType === 'email' ? 'secondary' : 'ghost'} 
+                                                    className="flex-1 font-bold text-[9px] uppercase tracking-widest h-8"
+                                                    onPress={() => setNoteType('email')}
+                                                >
+                                                    Email
+                                                </Button>
+                                                <Button 
+                                                    size="sm" 
+                                                    variant={noteType === 'call' ? 'secondary' : 'ghost'} 
+                                                    className="flex-1 font-bold text-[9px] uppercase tracking-widest h-8"
+                                                    onPress={() => setNoteType('call')}
+                                                >
+                                                    Call
+                                                </Button>
+                                            </div>
+                                            <div className="relative">
+                                                <textarea
+                                                    value={newNote}
+                                                    onChange={(e) => setNewNote(e.target.value)}
+                                                    placeholder={editingNoteIndex !== null ? "Modify entry..." : `Log new ${noteType}...`}
+                                                    className="w-full h-24 p-3 rounded-xl bg-surface-secondary border border-border/40 focus:border-warning/40 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs font-medium resize-none"
+                                                />
+                                                <Button 
+                                                    type="submit" 
+                                                    variant="primary" 
+                                                    size="sm" 
+                                                    className="absolute bottom-3 right-3 rounded-lg font-bold text-[10px] uppercase tracking-widest h-7"
+                                                >
+                                                    {editingNoteIndex !== null ? 'Update' : 'Commit'}
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button slot="close" variant="secondary" className="font-bold text-xs uppercase tracking-widest">
+                                Close Terminal
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+    );
+}

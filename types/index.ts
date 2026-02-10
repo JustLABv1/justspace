@@ -21,7 +21,8 @@ export interface Task {
     timerStartedAt?: string;
     order?: number;
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
-    kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'done';
+    kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'waiting' | 'done';
+    notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }
     isEncrypted?: boolean;
 }
 

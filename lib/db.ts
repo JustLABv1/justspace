@@ -258,6 +258,15 @@ export const db = {
                 projectId: task.projectId,
                 metadata: workDuration
             });
+        } else if (data.notes && data.notes.length > (task.notes?.length || 0)) {
+            const lastNote = JSON.parse(data.notes[data.notes.length - 1]);
+            await this.logActivity({
+                type: 'update',
+                entityType: 'Task',
+                entityName: task.isEncrypted ? 'Secure Task' : task.title,
+                projectId: task.projectId,
+                metadata: `Logged ${lastNote.type}: ${lastNote.text.slice(0, 30)}...`
+            });
         } else if (data.title) {
             await this.logActivity({
                 type: 'update',
