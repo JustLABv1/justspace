@@ -6,7 +6,7 @@ import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { Task } from '@/types';
 import { Button, Chip, ScrollShadow, Surface, toast } from "@heroui/react";
-import { MenuDots as GripVertical, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield, History as HistoryIcon } from "@solar-icons/react";
+import { MenuDots as GripVertical, History as HistoryIcon, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
 import { useCallback, useEffect, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
