@@ -8,6 +8,36 @@ This document outlines the required database, collections, and attributes for **
 
 ---
 
+## Automated Setup
+
+You can use the provided setup script to automatically create the database, collections, and attributes.
+
+### Prerequisites
+1.  **Appwrite API Key**: Create an API key in your Appwrite console with the following scopes:
+    - `databases.read`
+    - `databases.write`
+    - `collections.read`
+    - `collections.write`
+    - `attributes.read`
+    - `attributes.write`
+    - `indexes.read`
+    - `indexes.write`
+2.  **Environment Variables**: Ensure your `.env.local` has the following variables:
+    ```env
+    APPWRITE_API_KEY=your_api_key_here
+    NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+    NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
+    NEXT_PUBLIC_APPWRITE_DATABASE_ID=consultant_hub
+    ```
+
+### Running the Script
+Run the following command in your terminal:
+```bash
+pnpm run setup:appwrite
+```
+
+---
+
 ## Collections
 
 ### 1. Projects
