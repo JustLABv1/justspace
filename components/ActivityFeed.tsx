@@ -5,7 +5,7 @@ import { client } from "@/lib/appwrite";
 import { decryptData, decryptDocumentKey } from "@/lib/crypto";
 import { ACTIVITY_ID, db, DB_ID } from "@/lib/db";
 import { ActivityLog } from "@/types";
-import { Button, Chip, Spinner, Surface } from "@heroui/react";
+import { Button, Chip, ScrollShadow, Spinner, Surface } from "@heroui/react";
 import {
     History as Activity,
     CheckCircle,
@@ -151,7 +151,7 @@ export function ActivityFeed() {
                 </Button>
             </div>
 
-            <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <ScrollShadow hideScrollBar className="space-y-8 max-h-[600px] pr-2" size={40}>
                 {Object.keys(groupedActivities).length === 0 ? (
                     <div className="text-center py-12 flex flex-col items-center justify-center space-y-4">
                         <div className="w-16 h-16 rounded-[1.5rem] bg-foreground/5 flex items-center justify-center text-muted-foreground/30 border border-border/30 border-dashed animate-pulse">
@@ -212,7 +212,7 @@ export function ActivityFeed() {
                         </div>
                     ))
                 )}
-            </div>
+            </ScrollShadow>
             
             <div className="mt-8 pt-6 border-t border-border/20">
                 <div className="flex items-center justify-center gap-2 opacity-30">

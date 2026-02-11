@@ -5,7 +5,8 @@ import { Surface, Tooltip } from "@heroui/react";
 import { Bolt as Zap } from "@solar-icons/react";
 
 export function ResourceHeatmap({ projects }: { projects: Project[] }) {
-    const totalDaysPerWeek = projects.reduce((acc, p) => acc + (p.daysPerWeek || 0), 0);
+    const activeProjects = projects.filter(p => p.status === 'in-progress');
+    const totalDaysPerWeek = activeProjects.reduce((acc, p) => acc + (p.daysPerWeek || 0), 0);
     const loadPercentage = (totalDaysPerWeek / 5) * 100;
     
     const days = ['M', 'T', 'W', 'T', 'F'];
