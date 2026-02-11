@@ -9,7 +9,7 @@ import {
     UserKeys,
     WikiGuide
 } from '@/types';
-import { ID, Query, type Models } from 'appwrite';
+import { ID, Permission, Query, Role, type Models } from 'appwrite';
 import { databases } from './appwrite';
 import { getEnv } from './env-config';
 
@@ -24,6 +24,12 @@ export const USER_KEYS_ID = getEnv('NEXT_PUBLIC_APPWRITE_USER_KEYS_COLLECTION_ID
 export const ACCESS_CONTROL_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACCESS_CONTROL_COLLECTION_ID');
 export const VERSIONS_ID = getEnv('NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID');
 
+const getOwnerPermissions = (userId: string) => [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+];
+
 export const db = {
     // Versions
     async listVersions(resourceId: string) {
@@ -32,8 +38,9 @@ export const db = {
             Query.orderDesc('$createdAt')
         ]);
     },
-    async createVersion(data: Omit<ResourceVersion, '$id' | '$createdAt'>) {
-        return await databases.createDocument(DB_ID, VERSIONS_ID, ID.unique(), data);
+    async createVersion(data: Omit<ResourceVersion, '$id' | '$createdAt'>, userId?: string) {
+        const permissions = userId ? getOwnerPermissions(userId) : [];
+        return await databases.createDocument(DB_ID, VERSIONS_ID, ID.unique(), data, permissions);
     },
 
     // Activity
@@ -43,9 +50,10 @@ export const db = {
             Query.limit(10)
         ]);
     },
-    async logActivity(data: Omit<ActivityLog, '$id' | '$createdAt'>) {
+    async logActivity(data: Omit<ActivityLog, '$id' | '$createdAt'>, userId?: string) {
         try {
-            return await databases.createDocument(DB_ID, ACTIVITY_ID, ID.unique(), data);
+            const permissions = userId ? getOwnerPermissions(userId) : [];
+            return await databases.createDocument(DB_ID, ACTIVITY_ID, ID.unique(), data, permissions);
         } catch (e) {
             console.error('Failed to log activity:', e);
         }
@@ -57,14 +65,15 @@ export const db = {
             Query.orderDesc('$createdAt')
         ]);
     },
-    async createSnippet(data: Omit<Snippet, '$id' | '$createdAt'>) {
-        const snippet = await databases.createDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, ID.unique(), data);
+    async createSnippet(data: Omit<Snippet, '$id' | '$createdAt'>, userId?: string) {
+        const permissions = userId ? getOwnerPermissions(userId) : [];
+        const snippet = await databases.createDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Snippet',
             entityName: data.title,
             projectId: snippet.$id // Treat Snippet ID as a segment for access
-        });
+        }, userId);
         return snippet;
     },
     async updateSnippet(id: string, data: Partial<Snippet>) {
@@ -95,14 +104,15 @@ export const db = {
     async getProject(id: string) {
         return await databases.getDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id);
     },
-    async createProject(data: Omit<Project, '$id' | '$createdAt'>) {
-        const project = await databases.createDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, ID.unique(), data);
+    async createProject(data: Omit<Project, '$id' | '$createdAt'>, userId?: string) {
+        const permissions = userId ? getOwnerPermissions(userId) : [];
+        const project = await databases.createDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Project',
             entityName: project.name,
             projectId: project.$id
-        });
+        }, userId);
         return project;
     },
     async updateProject(id: string, data: Partial<Project>) {
@@ -141,14 +151,15 @@ export const db = {
         );
         return { ...guide, installations: installations.documents };
     },
-    async createGuide(data: Omit<WikiGuide, '$id' | '$createdAt'>) {
-        const guide = await databases.createDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, ID.unique(), data);
+    async createGuide(data: Omit<WikiGuide, '$id' | '$createdAt'>, userId?: string) {
+        const permissions = userId ? getOwnerPermissions(userId) : [];
+        const guide = await databases.createDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Wiki',
             entityName: guide.title,
             projectId: guide.$id
-        });
+        }, userId);
         return guide;
     },
     async updateGuide(id: string, data: Partial<WikiGuide>) {
@@ -173,13 +184,14 @@ export const db = {
     },
 
     // Installations
-    async createInstallation(data: Omit<InstallationTarget, '$id' | '$createdAt'>) {
-        const inst = await databases.createDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, ID.unique(), data);
+    async createInstallation(data: Omit<InstallationTarget, '$id' | '$createdAt'>, userId?: string) {
+        const permissions = userId ? getOwnerPermissions(userId) : [];
+        const inst = await databases.createDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Installation',
             entityName: data.target
-        });
+        }, userId);
         return inst;
     },
     async updateInstallation(id: string, data: Partial<InstallationTarget>) {
@@ -215,7 +227,8 @@ export const db = {
             Query.orderAsc('order')
         ]);
     },
-    async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string, kanbanStatus: Task['kanbanStatus'] = 'todo') {
+    async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string, kanbanStatus: Task['kanbanStatus'] = 'todo', userId?: string) {
+        const permissions = userId ? getOwnerPermissions(userId) : [];
         const task = await databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
             projectId,
             title,
@@ -225,21 +238,22 @@ export const db = {
             kanbanStatus,
             isEncrypted,
             parentId
-        });
+        }, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
             entityName: task.title,
             projectId
-        });
+        }, userId);
         return task;
     },
-    async createTasks(projectId: string, titles: string[], isEncrypted: boolean = false) {
+    async createTasks(projectId: string, titles: string[], isEncrypted: boolean = false, userId?: string) {
         // Get existing tasks to determine the starting order
         const existing = await this.listTasks(projectId);
         const startOrder = existing.documents.length;
 
         const tasksCount = titles.length;
+        const permissions = userId ? getOwnerPermissions(userId) : [];
         const tasks = await Promise.all(titles.map((title, index) => 
             databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
                 projectId,
@@ -249,14 +263,14 @@ export const db = {
                 priority: 'medium',
                 kanbanStatus: 'todo',
                 isEncrypted
-            })
+            }, permissions)
         ));
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
             entityName: isEncrypted ? JSON.stringify({ ciphertext: "Batch Creation", iv: "N/A" }) : `${tasksCount} tasks`,
             projectId
-        });
+        }, userId);
         return tasks;
     },
     async updateTask(id: string, data: Partial<Task> & { workDuration?: string }) {
@@ -322,7 +336,12 @@ export const db = {
     },
     async createUserKeys(data: Omit<UserKeys, '$id'>) {
         if (!USER_KEYS_ID) throw new Error('User Keys Collection ID is not configured');
-        return await databases.createDocument(DB_ID, USER_KEYS_ID, ID.unique(), data);
+        const permissions = [
+            Permission.read(Role.user(data.userId)),
+            Permission.update(Role.user(data.userId)),
+            Permission.delete(Role.user(data.userId)),
+        ];
+        return await databases.createDocument(DB_ID, USER_KEYS_ID, ID.unique(), data, permissions);
     },
     async getAccessKey(resourceId: string, userId: string) {
         if (!ACCESS_CONTROL_ID) return null;
@@ -334,6 +353,11 @@ export const db = {
     },
     async grantAccess(data: Omit<AccessControl, '$id'>) {
         if (!ACCESS_CONTROL_ID) throw new Error('Access Control Collection ID is not configured');
-        return await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), data);
+        const permissions = [
+            Permission.read(Role.user(data.userId)),
+            Permission.update(Role.user(data.userId)),
+            Permission.delete(Role.user(data.userId)),
+        ];
+        return await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), data, permissions);
     }
 };

@@ -138,16 +138,16 @@ export default function ProjectDetailPage() {
                             const encryptedTitles = await Promise.all(titles.map(async (t) => {
                                 return JSON.stringify(await encryptData(t, docKey));
                             }));
-                            await db.createTasks(project.$id, encryptedTitles, true);
+                            await db.createTasks(project.$id, encryptedTitles, true, user.$id);
                         } else {
-                            await db.createTasks(project.$id, titles);
+                            await db.createTasks(project.$id, titles, false, user.$id);
                         }
                     } catch (e) {
                         console.error('Failed to encrypt tasks from template:', e);
-                        await db.createTasks(project.$id, titles);
+                        await db.createTasks(project.$id, titles, false, user.$id);
                     }
                 } else {
-                    await db.createTasks(project.$id, titles);
+                    await db.createTasks(project.$id, titles, false, user?.$id);
                 }
                 
                 toast.success('Template applied', {

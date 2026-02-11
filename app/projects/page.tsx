@@ -131,7 +131,7 @@ export default function ProjectsPage() {
                     }
                     toast.success('Project updated successfully');
                 } else {
-                    const newProject = await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
+                    const newProject = await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>, user.$id);
                     await db.grantAccess({
                         resourceId: newProject.$id,
                         userId: user.$id,
@@ -140,12 +140,12 @@ export default function ProjectsPage() {
                     });
                     toast.success('Project created successfully');
                 }
-            } else {
+            } else if (user) {
                 if (selectedProject?.$id) {
                     await db.updateProject(selectedProject.$id, finalData);
                     toast.success('Project updated successfully');
                 } else {
-                    await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>);
+                    await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>, user.$id);
                     toast.success('Project created successfully');
                 }
             }

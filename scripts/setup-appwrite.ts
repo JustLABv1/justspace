@@ -233,7 +233,14 @@ async function setup() {
     console.log(`\n📦 Processing collection: ${collection.name} (${collection.id})`);
     try {
       await databases.getCollection(config.databaseId, collection.id);
-      console.log(`  ✅ Collection exists.`);
+      console.log(`  ✅ Collection exists. Syncing permissions...`);
+      await databases.updateCollection(
+        config.databaseId,
+        collection.id,
+        collection.name,
+        [Permission.create(Role.users())],
+        true // Enable Document Level Security
+      );
     } catch (error: unknown) {
       const appwriteError = error as AppwriteError;
       if (appwriteError.code === 404) {
@@ -241,14 +248,10 @@ async function setup() {
           config.databaseId,
           collection.id,
           collection.name,
-          [
-            Permission.read(Role.users()),
-            Permission.create(Role.users()),
-            Permission.update(Role.users()),
-            Permission.delete(Role.users()),
-          ]
+          [Permission.create(Role.users())],
+          true // Enable Document Level Security
         );
-        console.log(`  ✅ Collection created.`);
+        console.log(`  ✅ Collection created with document-level security.`);
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         console.error(`  ❌ Error fetching collection ${collection.id}:`, appwriteError.message);
@@ -277,42 +280,52 @@ async function setup() {
 
       console.log(`  ${(exists && isAvailable) ? '🔄 Syncing' : '➕ Creating'} attribute "${attr.key}"...`);
       try {
-        const defaultValue = attr.default !== undefined ? attr.default : undefined;
+        const defaultValue = attr.default !== undefined ? attr.default : null;
         
         switch (attr.type) {
           case 'string':
             if (exists && isAvailable) {
-              await databases.updateStringAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as string | undefined);
+              // @ts-expect-error appwrite typings issue
+              await databases.updateStringAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as string | null);
             } else {
-              await databases.createStringAttribute(config.databaseId, collection.id, attr.key, attr.size || 255, attr.required, defaultValue as string | undefined, attr.array);
+              // @ts-expect-error appwrite typings issue
+              await databases.createStringAttribute(config.databaseId, collection.id, attr.key, attr.size || 255, attr.required, defaultValue as string | null, attr.array);
             }
             break;
           case 'integer':
             if (exists && isAvailable) {
-              await databases.updateIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined);
+              // @ts-expect-error appwrite typings issue
+              await databases.updateIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue as number | null);
             } else {
-              await databases.createIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined, attr.array);
+              // @ts-expect-error appwrite typings issue
+              await databases.createIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | null, attr.array);
             }
             break;
           case 'float':
             if (exists && isAvailable) {
-              await databases.updateFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined);
+              // @ts-expect-error appwrite typings issue
+              await databases.updateFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue as number | null);
             } else {
-              await databases.createFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined, attr.array);
+              // @ts-expect-error appwrite typings issue
+              await databases.createFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | null, attr.array);
             }
             break;
           case 'boolean':
             if (exists && isAvailable) {
-              await databases.updateBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as boolean | undefined);
+              // @ts-expect-error appwrite typings issue
+              await databases.updateBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as boolean | null);
             } else {
-              await databases.createBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as boolean | undefined, attr.array);
+              // @ts-expect-error appwrite typings issue
+              await databases.createBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as boolean | null, attr.array);
             }
             break;
           case 'enum':
             if (exists && isAvailable) {
-              await databases.updateEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue as string | undefined);
+              // @ts-expect-error appwrite typings issue
+              await databases.updateEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue as string | null);
             } else {
-              await databases.createEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue as string | undefined, attr.array);
+              // @ts-expect-error appwrite typings issue
+              await databases.createEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue as string | null, attr.array);
             }
             break;
         }

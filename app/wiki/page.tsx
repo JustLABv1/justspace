@@ -162,7 +162,7 @@ export default function WikiPage() {
                         title: finalData.title,
                         isEncrypted: true,
                         metadata: 'Updated'
-                    });
+                    }, user.$id);
 
                     // Also update/add access control if not exists
                     const existingAccess = await db.getAccessKey(selectedGuide.$id, user.$id);
@@ -176,7 +176,7 @@ export default function WikiPage() {
                     }
                     toast.success('Wiki updated');
                 } else {
-                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>, user.$id);
                     
                     await db.createVersion({
                         resourceId: newGuide.$id,
@@ -185,7 +185,7 @@ export default function WikiPage() {
                         title: finalData.title,
                         isEncrypted: true,
                         metadata: 'Initial version'
-                    });
+                    }, user.$id);
 
                     await db.grantAccess({
                         resourceId: newGuide.$id,
@@ -205,10 +205,10 @@ export default function WikiPage() {
                         title: finalData.title,
                         isEncrypted: false,
                         metadata: 'Updated'
-                    });
+                    }, user?.$id);
                     toast.success('Wiki updated');
                 } else {
-                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>);
+                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>, user?.$id);
                     await db.createVersion({
                         resourceId: newGuide.$id,
                         resourceType: 'Wiki',
@@ -216,7 +216,7 @@ export default function WikiPage() {
                         title: finalData.title,
                         isEncrypted: false,
                         metadata: 'Initial version'
-                    });
+                    }, user?.$id);
                     toast.success('Wiki created');
                 }
             }

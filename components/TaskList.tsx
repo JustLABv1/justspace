@@ -172,7 +172,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 title = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted);
+            const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted, undefined, 'todo', user?.$id);
             
             // Replace optimistic task with the real one
             setTasks(prev => prev.map(t => t.$id === optimisticId ? (res as unknown as Task) : t));

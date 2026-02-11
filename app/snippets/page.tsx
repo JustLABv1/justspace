@@ -134,7 +134,7 @@ export default function SnippetsPage() {
                     title: updateData.title,
                     isEncrypted: data.isEncrypted,
                     metadata: 'Updated'
-                });
+                }, user?.$id);
                 toast.success('Snippet updated');
             } else {
                 const createData = { ...data };
@@ -147,7 +147,7 @@ export default function SnippetsPage() {
                     if (data.blocks) createData.blocks = JSON.stringify(await encryptData(createData.blocks!, snippetKey));
                     if (data.description) createData.description = JSON.stringify(await encryptData(createData.description!, snippetKey));
                     
-                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
+                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>, user.$id);
                     snippetId = res.$id;
 
                     const encryptedKey = await encryptDocumentKey(snippetKey, userKeys.publicKey);
@@ -158,7 +158,7 @@ export default function SnippetsPage() {
                         encryptedKey
                     });
                 } else {
-                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>);
+                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>, user?.$id);
                     snippetId = res.$id;
                 }
 
@@ -169,7 +169,7 @@ export default function SnippetsPage() {
                     title: createData.title,
                     isEncrypted: data.isEncrypted,
                     metadata: 'Initial version'
-                });
+                }, user?.$id);
                 toast.success('Snippet created');
             }
             setIsSnippetModalOpen(false);

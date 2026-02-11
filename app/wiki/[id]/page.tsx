@@ -167,7 +167,7 @@ export default function WikiDetailPage() {
                 title: finalData.title,
                 isEncrypted: false,
                 metadata: 'Updated'
-            });
+            }, user?.$id);
             toast.success('Wiki updated');
         }
         
@@ -217,13 +217,13 @@ export default function WikiDetailPage() {
                 title: finalData.target,
                 isEncrypted: !!finalData.isEncrypted,
                 metadata: 'Updated'
-            });
+            }, user?.$id);
             toast.success('Installation updated');
         } else {
             const newInst = await db.createInstallation({
                 ...finalData,
                 guideId: id
-            } as Omit<InstallationTarget, '$id' | '$createdAt'>);
+            } as Omit<InstallationTarget, '$id' | '$createdAt'>, user?.$id);
             // Create version snapshot
             await db.createVersion({
                 resourceId: newInst.$id,
@@ -232,7 +232,7 @@ export default function WikiDetailPage() {
                 title: finalData.target,
                 isEncrypted: !!finalData.isEncrypted,
                 metadata: 'Initial version'
-            });
+            }, user?.$id);
             toast.success('Installation created');
         }
         setIsInstModalOpen(false);
