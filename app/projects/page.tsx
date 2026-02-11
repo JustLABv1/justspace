@@ -232,7 +232,11 @@ export default function ProjectsPage() {
                                         {column.label} 
                                     </h3>
                                 </span>
-                                <Chip size="sm" variant="soft" color={column.color} className="font-bold text-[10px]">{projects.filter(p => p.status === column.status).length}</Chip>
+                                <Chip size="sm" variant="soft" color={column.color} className="h-4 border border-current/10">
+                                    <Chip.Label className="font-bold text-[10px]">
+                                        {projects.filter(p => p.status === column.status).length}
+                                    </Chip.Label>
+                                </Chip>
                             </Surface>
                             
                             <div className="space-y-4">

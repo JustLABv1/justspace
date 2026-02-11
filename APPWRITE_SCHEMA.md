@@ -60,13 +60,14 @@ pnpm run setup:appwrite
 |-----------|------|----------------|----------|-------------|
 | `projectId` | String | 36 | Yes | ID of the parent project. |
 | `title` | String | 256 | Yes | Task title. |
-| `completed` | Boolean | - | Yes | Task completion status. |
+| `completed` | Boolean | - | No | Task completion status. |
 | `parentId` | String | 36 | No | ID of parent task for nesting. |
 | `timeSpent` | Integer | - | No | Seconds spent on task. |
 | `isTimerRunning` | Boolean | - | No | Active timer status. |
 | `timerStartedAt` | String (ISO) | - | No | Time when current timer started. |
 | `timeEntries` | String Array | 255 | No | Historical log of time entries (JSON stringified). |
 | `order` | Integer | - | No | Display order for DnD. |
+| `priority` | String (Enum) | `low`, `medium`, `high`, `urgent` | No | Task priority level. |
 | `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `waiting`, `done` | No | Status for Kanban board. |
 | `notes` | String Array | 16384 | No | Communication log. JSON: `{"date": "ISOString", "text": "string", "type": "note|email|call"}` |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |

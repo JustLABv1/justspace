@@ -20,6 +20,7 @@ export interface Task {
     isTimerRunning?: boolean;
     timerStartedAt?: string;
     order?: number;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
     kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'waiting' | 'done';
     notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }

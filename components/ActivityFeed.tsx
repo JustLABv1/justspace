@@ -186,9 +186,11 @@ export function ActivityFeed() {
                                                             size="sm" 
                                                             variant="soft" 
                                                             color={getActionColor(activity.type)}
-                                                            className="h-4 px-1 text-[8px] font-bold uppercase tracking-widest rounded-md"
+                                                            className="h-4 px-1 rounded-md border border-current/10"
                                                         >
-                                                            {activity.type}
+                                                            <Chip.Label className="text-[8px] font-bold uppercase tracking-widest leading-none">
+                                                                {activity.type}
+                                                            </Chip.Label>
                                                         </Chip>
                                                         <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest">
                                                             {activity.entityType}

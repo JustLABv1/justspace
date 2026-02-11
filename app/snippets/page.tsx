@@ -289,8 +289,10 @@ export default function SnippetsPage() {
                                         <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-500 shadow-sm border border-border/20">
                                             <CodeFile size={20} weight="Bold" />
                                         </div>
-                                        <Chip size="sm" variant="soft" color="accent" className="font-bold text-[9px] uppercase tracking-widest px-2.5 h-5 rounded-lg">
-                                            {snippet.language}
+                                        <Chip size="sm" variant="soft" color="accent" className="h-5 px-2.5 rounded-lg border border-accent/10">
+                                            <Chip.Label className="font-bold text-[9px] uppercase tracking-widest">
+                                                {snippet.language}
+                                            </Chip.Label>
                                         </Chip>
                                         {snippet.isEncrypted && <Shield size={14} className="text-accent/60" />}
                                     </div>

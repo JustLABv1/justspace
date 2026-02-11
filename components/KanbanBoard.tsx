@@ -2,19 +2,19 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { client } from '@/lib/appwrite';
-import { decryptData, decryptDocumentKey } from '@/lib/crypto';
+import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { Task } from '@/types';
-import { Button, ScrollShadow, Surface, toast } from "@heroui/react";
-import { MenuDots as GripVertical, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
+import { Button, Chip, ScrollShadow, Surface, toast } from "@heroui/react";
+import { MenuDots as GripVertical, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield, History as HistoryIcon } from "@solar-icons/react";
 import { useCallback, useEffect, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
-const COLUMNS: { id: Task['kanbanStatus']; label: string; color: 'accent' | 'success' | 'warning' | 'default' | 'primary' }[] = [
+const COLUMNS: { id: Task['kanbanStatus']; label: string; color: 'accent' | 'success' | 'warning' | 'default' }[] = [
     { id: 'todo', label: 'Backlog_', color: 'default' },
     { id: 'in-progress', label: 'Active Sync_', color: 'accent' },
     { id: 'review', label: 'Analysis_', color: 'warning' },
-    { id: 'waiting', label: 'Awaiting Response_', color: 'primary' },
+    { id: 'waiting', label: 'Awaiting Response_', color: 'accent' },
     { id: 'done', label: 'Archived_', color: 'success' },
 ];
 
@@ -24,6 +24,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isEncrypted, setIsEncrypted] = useState(false);
+    const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
 
     const fetchTasks = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -33,22 +35,25 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
             // Get decryption key if project is encrypted
             const project = await db.getProject(projectId);
-            let documentKey: CryptoKey | null = null;
-            if (project.isEncrypted && privateKey && user) {
+            setIsEncrypted(!!project.isEncrypted);
+            
+            let docKey = documentKey;
+            if (project.isEncrypted && privateKey && user && !docKey) {
                 const access = await db.getAccessKey(projectId, user.$id);
                 if (access) {
-                    documentKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    setDocumentKey(docKey);
                 }
             }
 
             const decryptedTasks = await Promise.all(rawTasks.map(async (task) => {
                 if (task.isEncrypted) {
-                    if (documentKey) {
+                    if (docKey) {
                         try {
                             const encryptedData = JSON.parse(task.title);
-                            const decryptedTitle = await decryptData(encryptedData, documentKey);
+                            const decryptedTitle = await decryptData(encryptedData, docKey);
                             return { ...task, title: decryptedTitle };
-                        } catch (e) {
+                        } catch {
                             return { ...task, title: 'Decryption Error' };
                         }
                     }
@@ -63,7 +68,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey]);
+    }, [projectId, user, privateKey, documentKey]);
 
     useEffect(() => {
         fetchTasks(true);
@@ -180,20 +185,50 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                             
                                             <div className="mt-4 pt-4 border-t border-border/10 flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-accent/40" />
-                                                    <span className="text-[9px] font-bold uppercase text-muted-foreground/40 tracking-widest">Task_{task.$id.slice(-4)}</span>
+                                                    {task.priority && (
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="soft"
+                                                            color={
+                                                                task.priority === 'urgent' ? 'danger' :
+                                                                task.priority === 'high' ? 'warning' :
+                                                                task.priority === 'medium' ? 'accent' :
+                                                                'default'
+                                                            }
+                                                            className="h-5 min-w-0 px-2 border border-border/10"
+                                                        >
+                                                            <Chip.Label className="text-[9px] font-black uppercase tracking-widest px-0">
+                                                                {task.priority}
+                                                            </Chip.Label>
+                                                        </Chip>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1.5">
                                                     {task.notes && task.notes.length > 0 && (
-                                                        <div className="flex items-center gap-1 bg-warning/10 px-1.5 py-0.5 rounded-md border border-warning/20">
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="soft"
+                                                            color="warning"
+                                                            className="h-5 min-w-0 px-2 border border-warning/10"
+                                                        >
                                                             <MessageCircle size={10} className="text-warning" />
-                                                            <span className="text-[9px] font-bold text-warning">{task.notes.length}</span>
-                                                        </div>
+                                                            <Chip.Label className="text-[9px] font-black px-0">
+                                                                {task.notes.length}
+                                                            </Chip.Label>
+                                                        </Chip>
                                                     )}
                                                     {task.timeSpent && task.timeSpent > 0 && (
-                                                        <span className="text-[9px] font-bold uppercase text-accent/60 tracking-wider bg-accent/5 px-2 py-0.5 rounded-md">
-                                                            {Math.floor(task.timeSpent / 3600)}H {Math.floor((task.timeSpent % 3600) / 60)}M
-                                                        </span>
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="soft"
+                                                            color="accent"
+                                                            className="h-5 min-w-0 px-2 border border-accent/10"
+                                                        >
+                                                            <HistoryIcon size={10} className="text-accent" />
+                                                            <Chip.Label className="text-[9px] font-black uppercase tracking-wider px-0">
+                                                                {Math.floor(task.timeSpent / 3600)}H {Math.floor((task.timeSpent % 3600) / 60)}M
+                                                            </Chip.Label>
+                                                        </Chip>
                                                     )}
                                                 </div>
                                             </div>
@@ -207,11 +242,18 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                 onPress={async () => {
                                     const title = prompt('Enter task title:');
                                     if (title) {
-                                        await db.createEmptyTask(projectId, title, tasks.length);
-                                        const res = await db.listTasks(projectId);
-                                        const last = res.documents[res.documents.length - 1];
-                                        await db.updateTask(last.$id, { kanbanStatus: column.id });
-                                        fetchTasks();
+                                        try {
+                                            let finalTitle = title;
+                                            if (isEncrypted && documentKey) {
+                                                const encrypted = await encryptData(title, documentKey);
+                                                finalTitle = JSON.stringify(encrypted);
+                                            }
+                                            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, column.id);
+                                            fetchTasks();
+                                        } catch (error) {
+                                            console.error('Failed to create task:', error);
+                                            toast.danger('Failed to create task');
+                                        }
                                     }
                                 }}
                             >

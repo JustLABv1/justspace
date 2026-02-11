@@ -3,7 +3,7 @@
 import { Task } from '@/types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, Checkbox, Input, ScrollShadow, Surface, Tooltip } from '@heroui/react';
+import { Button, Checkbox, Chip, Input, ScrollShadow, Surface, Tooltip } from '@heroui/react';
 import {
     Calendar,
     CheckCircle as CheckCircleIcon,
@@ -231,7 +231,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     </Checkbox>
                 </div>
 
-                <div className="flex-grow min-w-0 cursor-pointer" onClick={onClick}>
+                <div className="flex-grow min-w-0 cursor-pointer flex items-center gap-2" onClick={onClick}>
                     <span className={`text-[16px] font-bold tracking-tight leading-tight block truncate transition-all ${
                         task.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'
                     }`}>
@@ -261,28 +261,62 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
 
             {/* Interaction / Metadata Row */}
             <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
-                <div className="flex items-center gap-2 flex-grow overflow-hidden">
-                    <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-foreground/[0.03] border border-border/40 whitespace-nowrap">
+                <div className="flex items-center gap-1.5 flex-grow overflow-hidden">
+                    {task.priority && (
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            color={
+                                task.priority === 'urgent' ? 'danger' :
+                                task.priority === 'high' ? 'warning' :
+                                task.priority === 'medium' ? 'accent' :
+                                'default'
+                            }
+                            className="h-6 px-2.5 border border-border/10"
+                        >
+                            <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
+                                {task.priority}
+                            </Chip.Label>
+                        </Chip>
+                    )}
+
+                    <Chip
+                        size="sm"
+                        variant="soft"
+                        className="h-6 px-2.5 bg-foreground/[0.03] border border-border/40"
+                    >
                         <Plus size={10} weight="Bold" className="text-accent" />
-                        <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground/60">{subtasks.length} sub objectives</span>
-                    </div>
+                        <Chip.Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                            {subtasks.length} sub objectives
+                        </Chip.Label>
+                    </Chip>
                     
                     {task.notes && task.notes.length > 0 && (
-                        <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-warning/5 border border-warning/20 whitespace-nowrap overflow-hidden">
-                            <MessageCircle size={10} weight="Bold" className="text-warning" />
-                            <span className="text-xs uppercase font-bold tracking-widest text-warning truncate">
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            color="warning"
+                            className="h-6 px-2.5 border border-warning/10"
+                        >
+                            <MessageCircle size={10} weight="Bold" />
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-widest">
                                 {task.notes.length} log entry
-                            </span>
-                        </div>
+                            </Chip.Label>
+                        </Chip>
                     )}
                     
                     {task.timeSpent && task.timeSpent > 0 && (
-                        <div className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-accent/5 border border-accent/20 whitespace-nowrap overflow-hidden">
-                            <History size={10} weight="Bold" className="text-accent" />
-                            <span className="text-xs uppercase font-bold tracking-widest text-accent truncate">
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            color="accent"
+                            className="h-6 px-2.5 border border-accent/10"
+                        >
+                            <History size={10} weight="Bold" />
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-widest">
                                 {formatTime(task.timeSpent)} cumulative
-                            </span>
-                        </div>
+                            </Chip.Label>
+                        </Chip>
                     )}
                 </div>
 

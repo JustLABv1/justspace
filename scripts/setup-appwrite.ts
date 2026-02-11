@@ -16,6 +16,7 @@ interface Attribute {
   required: boolean;
   elements?: string[];
   array?: boolean;
+  default?: any;
 }
 
 interface Index {
@@ -113,14 +114,15 @@ async function setup() {
       attributes: [
         { key: 'projectId', type: 'string', size: 36, required: true },
         { key: 'title', type: 'string', size: 256, required: true },
-        { key: 'completed', type: 'boolean', required: true },
+        { key: 'completed', type: 'boolean', required: false, default: false },
         { key: 'parentId', type: 'string', size: 36, required: false },
         { key: 'timeSpent', type: 'integer', required: false },
         { key: 'isTimerRunning', type: 'boolean', required: false },
         { key: 'timerStartedAt', type: 'string', size: 64, required: false },
         { key: 'timeEntries', type: 'string', size: 16384, required: false, array: true },
         { key: 'order', type: 'integer', required: false },
-        { key: 'kanbanStatus', type: 'enum', elements: ['todo', 'in-progress', 'review', 'waiting', 'done'], required: false },
+        { key: 'priority', type: 'enum', elements: ['low', 'medium', 'high', 'urgent'], required: false, default: 'medium' },
+        { key: 'kanbanStatus', type: 'enum', elements: ['todo', 'in-progress', 'review', 'waiting', 'done'], required: false, default: 'todo' },
         { key: 'notes', type: 'string', size: 16384, required: false, array: true },
         { key: 'isEncrypted', type: 'boolean', required: false },
       ],
@@ -255,37 +257,68 @@ async function setup() {
     }
 
     const currentCollection = await databases.getCollection(config.databaseId, collection.id);
-    const existingKeys = currentCollection.attributes.map((a: { key: string }) => a.key);
+    const existingAttributes = currentCollection.attributes as any[];
     const existingIndexes = currentCollection.indexes.map((i: { key: string }) => i.key);
 
     for (const attr of collection.attributes) {
-      if (existingKeys.includes(attr.key)) {
-        console.log(`  🟡 Attribute "${attr.key}" already exists.`);
-        continue;
+      const existingAttr = existingAttributes.find(a => a.key === attr.key);
+      const exists = !!existingAttr;
+      const isAvailable = existingAttr?.status === 'available';
+
+      if (exists && !isAvailable) {
+        console.log(`  ⚠️ Attribute "${attr.key}" exists but is in status "${existingAttr.status}". Attempting cleanup...`);
+        try {
+          await databases.deleteAttribute(config.databaseId, collection.id, attr.key);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (e) {
+          console.error(`  ❌ Failed to cleanup broken attribute "${attr.key}"`);
+        }
       }
 
-      console.log(`  ➕ Creating attribute "${attr.key}"...`);
+      console.log(`  ${(exists && isAvailable) ? '🔄 Syncing' : '➕ Creating'} attribute "${attr.key}"...`);
       try {
+        const defaultValue = attr.default !== undefined ? attr.default : null;
+        
         switch (attr.type) {
           case 'string':
-            await databases.createStringAttribute(config.databaseId, collection.id, attr.key, attr.size || 255, attr.required, undefined, attr.array);
+            if (exists && isAvailable) {
+              await databases.updateStringAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue);
+            } else {
+              await databases.createStringAttribute(config.databaseId, collection.id, attr.key, attr.size || 255, attr.required, defaultValue, attr.array);
+            }
             break;
           case 'integer':
-            await databases.createIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, undefined, attr.array);
+            if (exists && isAvailable) {
+              await databases.updateIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue);
+            } else {
+              await databases.createIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue, attr.array);
+            }
             break;
           case 'float':
-            await databases.createFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, undefined, attr.array);
+            if (exists && isAvailable) {
+              await databases.updateFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue);
+            } else {
+              await databases.createFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue, attr.array);
+            }
             break;
           case 'boolean':
-            await databases.createBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, attr.array);
+            if (exists && isAvailable) {
+              await databases.updateBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue);
+            } else {
+              await databases.createBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue, attr.array);
+            }
             break;
           case 'enum':
-            await databases.createEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, undefined, attr.array);
+            if (exists && isAvailable) {
+              await databases.updateEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue);
+            } else {
+              await databases.createEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue, attr.array);
+            }
             break;
         }
       } catch (error: unknown) {
         const appwriteError = error as AppwriteError;
-        console.error(`  ❌ Failed to create attribute "${attr.key}":`, appwriteError.message);
+        console.error(`  ❌ Failed to process attribute "${attr.key}":`, appwriteError.message);
       }
     }
 

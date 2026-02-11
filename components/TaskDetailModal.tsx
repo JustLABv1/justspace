@@ -8,12 +8,15 @@ import { Task } from '@/types';
 import {
     Button,
     Checkbox,
+    Chip,
+    Dropdown,
     Input,
     Modal,
     ScrollShadow,
     toast
 } from '@heroui/react';
 import {
+    AltArrowDown,
     Pen2 as Edit,
     Letter as Email,
     History,
@@ -259,6 +262,17 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
+    const handleUpdatePriority = async (priority: 'low' | 'medium' | 'high' | 'urgent') => {
+        try {
+            await db.updateTask(task.$id, { priority });
+            onUpdate();
+            toast.success('Priority updated');
+        } catch (error) {
+            console.error('Failed to update priority:', error);
+            toast.danger('Failed to update priority');
+        }
+    };
+
     const handleAddNote = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newNote.trim()) return;
@@ -345,13 +359,72 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 <Modal.Container size="cover">
                     <Modal.Dialog className="bg-surface border border-border/40 overflow-hidden">
                         <Modal.CloseTrigger />
-                        <Modal.Header className="flex flex-col gap-1 items-start">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="px-2 py-0.5 rounded bg-accent/10 border border-accent/20">
-                                    <span className="text-[10px] font-black tracking-widest text-accent uppercase">Task ID: {task.$id.slice(-6)}</span>
+                        <Modal.Header className="flex flex-col gap-6 items-start pb-8">
+                            <div className="flex items-center justify-between w-full border-b border-border/10 pb-6">
+                                <div className="flex items-center gap-3">
+                                    {/* Status Badge */}
+                                    <Chip 
+                                        size="sm" 
+                                        variant="soft" 
+                                        color={
+                                            task.kanbanStatus === 'done' ? 'success' :
+                                            task.kanbanStatus === 'review' ? 'warning' :
+                                            task.kanbanStatus === 'in-progress' ? 'accent' :
+                                            task.kanbanStatus === 'waiting' ? 'accent' :
+                                            'default'
+                                        }
+                                        className="h-8 px-3 border border-current/10 rounded-xl"
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                            task.kanbanStatus === 'done' ? 'bg-success' :
+                                            task.kanbanStatus === 'review' ? 'bg-warning' :
+                                            task.kanbanStatus === 'in-progress' ? 'bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]' :
+                                            'bg-muted-foreground/40'
+                                        }`} />
+                                        <Chip.Label className="text-[10px] font-black tracking-[0.2em] uppercase">
+                                            {task.kanbanStatus?.replace('-', ' ')}
+                                        </Chip.Label>
+                                    </Chip>
+
+                                    {/* Priority Selector */}
+                                    <div className="flex items-center gap-2 bg-foreground/[0.03] border border-border/40 pl-3 pr-1 py-1 rounded-2xl h-8">
+                                        <span className="text-[9px] font-black tracking-[0.15em] text-muted-foreground/40 uppercase">Priority</span>
+                                        <Dropdown>
+                                            <Button 
+                                                size="sm" 
+                                                variant="secondary" 
+                                                className={`h-6 px-2.5 text-[10px] font-black uppercase tracking-widest border transition-all rounded-xl ${
+                                                    task.priority === 'urgent' ? 'text-danger bg-danger/10 border-danger/20' :
+                                                    task.priority === 'high' ? 'text-warning bg-warning/10 border-warning/20' :
+                                                    task.priority === 'medium' ? 'text-accent bg-accent/10 border-accent/20' :
+                                                    'text-muted-foreground/60 bg-muted-foreground/10 border-border/10'
+                                                }`}
+                                            >
+                                                {task.priority || 'NONE'}
+                                                <AltArrowDown size={14} className="ml-1 opacity-50" />
+                                            </Button>
+                                            <Dropdown.Popover>
+                                                <Dropdown.Menu 
+                                                    className="bg-surface border border-border/40 p-1"
+                                                    onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
+                                                >
+                                                    <Dropdown.Item id="low" className="text-[10px] font-black uppercase tracking-widest">Low</Dropdown.Item>
+                                                    <Dropdown.Item id="medium" className="text-[10px] font-black uppercase tracking-widest text-accent">Medium</Dropdown.Item>
+                                                    <Dropdown.Item id="high" className="text-[10px] font-black uppercase tracking-widest text-warning">High</Dropdown.Item>
+                                                    <Dropdown.Item id="urgent" className="text-[10px] font-black uppercase tracking-widest text-danger">Urgent</Dropdown.Item>
+                                                </Dropdown.Menu>
+                                            </Dropdown.Popover>
+                                        </Dropdown>
+                                    </div>
                                 </div>
-                                <span className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest italic">{task.kanbanStatus}</span>
+
+                                {/* Task Identity (Right Aligned) */}
+                                <div className="flex flex-col items-end pr-10">
+                                    <span className="text-[8px] font-black tracking-[0.3em] text-muted-foreground/20 uppercase">Identity Reference</span>
+                                    <span className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground/40 tabular-nums">#{task.$id.slice(-8).toUpperCase()}</span>
+                                </div>
                             </div>
+                            
                             {isEditingTitle ? (
                                 <form 
                                     onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}

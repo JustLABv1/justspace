@@ -8,15 +8,15 @@ import { db } from '@/lib/db';
 import { Project, Snippet, Task } from '@/types';
 import { Button, Chip, Spinner, Surface, Tooltip } from "@heroui/react";
 import {
-  AltArrowRight as ArrowRightAlt,
-  Book,
-  CodeCircle as Code,
-  LockPassword as LockIcon,
-  AddCircle as Plus,
-  StarsLine as Sparkles,
-  Target,
-  Checklist as TaskIcon,
-  ShieldKeyhole as VaultIcon
+    AltArrowRight as ArrowRightAlt,
+    Book,
+    CodeCircle as Code,
+    LockPassword as LockIcon,
+    AddCircle as Plus,
+    StarsLine as Sparkles,
+    Target,
+    Checklist as TaskIcon,
+    ShieldKeyhole as VaultIcon
 } from "@solar-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
@@ -278,8 +278,10 @@ export default function Home() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-accent" />
-                            <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="font-bold text-[10px] uppercase tracking-widest px-2.5 h-6 rounded-lg opacity-80">
-                                {project.status}
+                            <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="h-6 px-2.5 rounded-lg opacity-80 border border-current/10">
+                                <Chip.Label className="font-bold text-[10px] uppercase tracking-widest">
+                                    {project.status}
+                                </Chip.Label>
                             </Chip>
                           </div>
                           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
