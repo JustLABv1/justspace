@@ -16,7 +16,7 @@ interface Attribute {
   required: boolean;
   elements?: string[];
   array?: boolean;
-  default?: any;
+  default?: string | number | boolean | string[] | null;
 }
 
 interface Index {
@@ -257,7 +257,7 @@ async function setup() {
     }
 
     const currentCollection = await databases.getCollection(config.databaseId, collection.id);
-    const existingAttributes = currentCollection.attributes as any[];
+    const existingAttributes = currentCollection.attributes as unknown as { key: string; status: string }[];
     const existingIndexes = currentCollection.indexes.map((i: { key: string }) => i.key);
 
     for (const attr of collection.attributes) {
@@ -270,49 +270,49 @@ async function setup() {
         try {
           await databases.deleteAttribute(config.databaseId, collection.id, attr.key);
           await new Promise(resolve => setTimeout(resolve, 3000));
-        } catch (e) {
+        } catch {
           console.error(`  ❌ Failed to cleanup broken attribute "${attr.key}"`);
         }
       }
 
       console.log(`  ${(exists && isAvailable) ? '🔄 Syncing' : '➕ Creating'} attribute "${attr.key}"...`);
       try {
-        const defaultValue = attr.default !== undefined ? attr.default : null;
+        const defaultValue = attr.default !== undefined ? attr.default : undefined;
         
         switch (attr.type) {
           case 'string':
             if (exists && isAvailable) {
-              await databases.updateStringAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue);
+              await databases.updateStringAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as string | undefined);
             } else {
-              await databases.createStringAttribute(config.databaseId, collection.id, attr.key, attr.size || 255, attr.required, defaultValue, attr.array);
+              await databases.createStringAttribute(config.databaseId, collection.id, attr.key, attr.size || 255, attr.required, defaultValue as string | undefined, attr.array);
             }
             break;
           case 'integer':
             if (exists && isAvailable) {
-              await databases.updateIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue);
+              await databases.updateIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined);
             } else {
-              await databases.createIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue, attr.array);
+              await databases.createIntegerAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined, attr.array);
             }
             break;
           case 'float':
             if (exists && isAvailable) {
-              await databases.updateFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue);
+              await databases.updateFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined);
             } else {
-              await databases.createFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, null, null, defaultValue, attr.array);
+              await databases.createFloatAttribute(config.databaseId, collection.id, attr.key, attr.required, undefined, undefined, defaultValue as number | undefined, attr.array);
             }
             break;
           case 'boolean':
             if (exists && isAvailable) {
-              await databases.updateBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue);
+              await databases.updateBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as boolean | undefined);
             } else {
-              await databases.createBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue, attr.array);
+              await databases.createBooleanAttribute(config.databaseId, collection.id, attr.key, attr.required, defaultValue as boolean | undefined, attr.array);
             }
             break;
           case 'enum':
             if (exists && isAvailable) {
-              await databases.updateEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue);
+              await databases.updateEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue as string | undefined);
             } else {
-              await databases.createEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue, attr.array);
+              await databases.createEnumAttribute(config.databaseId, collection.id, attr.key, attr.elements!, attr.required, defaultValue as string | undefined, attr.array);
             }
             break;
         }

@@ -211,7 +211,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                                             color="warning"
                                                             className="h-5 min-w-0 px-2 border border-warning/10"
                                                         >
-                                                            <MessageCircle size={10} className="text-warning" />
+                                                            <MessageCircle size={10} weight="Bold" className="text-warning" />
                                                             <Chip.Label className="text-[9px] font-black px-0">
                                                                 {task.notes.length}
                                                             </Chip.Label>
@@ -224,7 +224,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                                             color="accent"
                                                             className="h-5 min-w-0 px-2 border border-accent/10"
                                                         >
-                                                            <HistoryIcon size={10} className="text-accent" />
+                                                            <HistoryIcon size={10} weight="Bold" className="text-accent" />
                                                             <Chip.Label className="text-[9px] font-black uppercase tracking-wider px-0">
                                                                 {Math.floor(task.timeSpent / 3600)}H {Math.floor((task.timeSpent % 3600) / 60)}M
                                                             </Chip.Label>
