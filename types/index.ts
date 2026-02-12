@@ -6,7 +6,6 @@ export interface Project {
     daysPerWeek?: number;
     allocatedDays?: number;
     isEncrypted?: boolean;
-    teamId?: string;
     $createdAt: string;
 }
 
@@ -68,7 +67,7 @@ export interface AccessControl {
     $id: string;
     resourceId: string;
     userId: string;
-    encryptedKey: string; // The AES document key encrypted with user's RSA public key
+    encryptedKey: string; // The AES document key encrypted with owner's public key
     resourceType: string;
 }
 

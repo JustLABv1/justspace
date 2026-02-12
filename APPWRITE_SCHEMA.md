@@ -101,7 +101,7 @@ pnpm run setup:appwrite
 | Attribute | Type | Size / Options | Required | Description |
 |-----------|------|----------------|----------|-------------|
 | `userId` | String | 36 | Yes | ID of the user. |
-| `email` | String | 128 | No | Email of the user for sharing search. |
+| `email` | String | 128 | No | Email of the user. |
 | `publicKey` | String | 1024 | Yes | Public RSA key (SPKI format). |
 | `encryptedPrivateKey` | String | 2048 | Yes | Private RSA key encrypted with vault password. |
 | `salt` | String | 32 | Yes | Salt used for password derivation. |
@@ -114,7 +114,7 @@ pnpm run setup:appwrite
 |-----------|------|----------------|----------|-------------|
 | `resourceId` | String | 36 | Yes | ID of the encrypted resource (e.g., Wiki Guide). |
 | `userId` | String | 36 | Yes | ID of the user who has access. |
-| `encryptedKey` | String | 1024 | Yes | Resource AES key encrypted with user's public key. |
+| `encryptedKey` | String | 1024 | Yes | Resource AES key encrypted with owner's public key for persistence. |
 | `resourceType` | String | 32 | Yes | `Wiki`, `Snippet`, etc. |
 
 ### 5. Activity
@@ -157,19 +157,15 @@ pnpm run setup:appwrite
 
 ## Permissions Strategy
 
-This project uses **Document Level Security (DLS)** combined with specific collection-level permissions to enable secure, decentralized encryption key sharing.
+This project uses **Document Level Security (DLS)** to ensure that data only belongs to the user that created it.
 
 ### Collection-Level Permissions
 Permissions are automatically managed by `scripts/setup-appwrite.ts`.
 
-- **User Keys (`user_keys`)**: 
-  - `create(Role.users())`: Any logged-in user can create their vault.
-  - `read(Role.users())`: Required so sharers can find recipients' public keys by email.
-- **Access Control (`access_control`)**:
-  - `create(Role.users())`: Any logged-in user can share a document with another.
-  - `read(Role.users())`: Required so recipients can find the document keys shared with them.
-- **All other collections**:
-  - `create(Role.users())`: Only creators have access by default via DLS.
+- **All collections**:
+  - `create(Role.users())`: Any logged-in user can create documents. 
+  - Once created, only the owner has access by default via DLS rules.
+  - Sharing is disabled. All data is private to the creator.
 
 ---
 

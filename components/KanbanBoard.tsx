@@ -248,7 +248,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                                 const encrypted = await encryptData(title, documentKey);
                                                 finalTitle = JSON.stringify(encrypted);
                                             }
-                                            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, column.id);
+                                            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, column.id, user?.$id);
                                             fetchTasks();
                                         } catch (error) {
                                             console.error('Failed to create task:', error);

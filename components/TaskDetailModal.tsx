@@ -182,7 +182,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(originalTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.$id);
+            await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.$id, 'todo', user?.$id);
             // Realtime will handle the state sync
             toast.success('Subtask added');
         } catch (error) {
@@ -451,9 +451,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                         <Modal.Body className="p-0">
                             <div className="flex flex-col md:flex-row h-full max-h-[70vh]">
                                 {/* Left Side: Subtasks */}
-                                <div className="flex-1 p-6 border-r border-border/10 bg-surface-secondary/20">
-                                    <div className="space-y-6">
-                                        <div className="space-y-4">
+                                <div className="flex-1 p-6 border-r border-border/10 bg-surface-secondary/20 h-full">
+                                    <div className="h-full flex flex-col gap-6">
+                                        <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-2">
                                                     <Plus size={14} /> Sub Objectives
@@ -479,7 +479,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 </Button>
                                             </form>
 
-                                            <ScrollShadow className="max-h-[300px] -mx-2 px-2" hideScrollBar>
+                                            <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
                                                 <div className="space-y-2">
                                                     {subtasks.length === 0 ? (
                                                         <div className="py-8 text-center border-2 border-dashed border-border/10 rounded-2xl">

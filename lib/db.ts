@@ -10,7 +10,7 @@ import {
     WikiGuide
 } from '@/types';
 import { ID, Permission, Query, Role, type Models } from 'appwrite';
-import { account, databases, teams } from './appwrite';
+import { databases } from './appwrite';
 import { getEnv } from './env-config';
 
 export const DB_ID = getEnv('NEXT_PUBLIC_APPWRITE_DATABASE_ID');
@@ -24,39 +24,15 @@ export const USER_KEYS_ID = getEnv('NEXT_PUBLIC_APPWRITE_USER_KEYS_COLLECTION_ID
 export const ACCESS_CONTROL_ID = getEnv('NEXT_PUBLIC_APPWRITE_ACCESS_CONTROL_COLLECTION_ID');
 export const VERSIONS_ID = getEnv('NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID');
 
-const getOwnerPermissions = (userId: string, teamId?: string) => {
-    const permissions = [
+const getOwnerPermissions = (userId: string) => {
+    return [
         Permission.read(Role.user(userId)),
         Permission.update(Role.user(userId)),
         Permission.delete(Role.user(userId)),
     ];
-
-    if (teamId) {
-        permissions.push(Permission.read(Role.team(teamId)));
-        permissions.push(Permission.update(Role.team(teamId)));
-    }
-
-    return permissions;
 };
 
 export const db = {
-    // Teams
-    async createTeam(name: string) {
-        return await teams.create(ID.unique(), name);
-    },
-    async addTeamMember(teamId: string, email: string) {
-        // Appwrite requires a URL for the invitation, but for internal use 
-        // we can use a dummy one if we just want to grant access.
-        // Memberships are only official once accepted, but we can also use 
-        // the Appwrite Console to auto-confirm or use the API if we were admin.
-        // Since we are client-side, this sends an invite.
-        const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        return await teams.createMembership(teamId, [], email, undefined, undefined, origin);
-    },
-    async listTeams() {
-        return await teams.list();
-    },
-
     // Versions
     async listVersions(resourceId: string) {
         return await databases.listDocuments<ResourceVersion & Models.Document>(DB_ID, VERSIONS_ID, [
@@ -92,7 +68,7 @@ export const db = {
         ]);
     },
     async createSnippet(data: Omit<Snippet, '$id' | '$createdAt'>, userId?: string) {
-        const permissions = userId ? getOwnerPermissions(userId, data.teamId) : [];
+        const permissions = userId ? getOwnerPermissions(userId) : [];
         const snippet = await databases.createDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
@@ -103,18 +79,7 @@ export const db = {
         return snippet;
     },
     async updateSnippet(id: string, data: Partial<Snippet>) {
-        // If teamId is provided, we might need to update permissions
-        let permissions: string[] | undefined;
-        if (data.teamId) {
-            try {
-                const user = await account.get();
-                permissions = getOwnerPermissions(user.$id, data.teamId);
-            } catch (e) {
-                // Not logged in or background
-            }
-        }
-
-        const snippet = await databases.updateDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, id, data, permissions);
+        const snippet = await databases.updateDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, id, data);
         if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -142,7 +107,7 @@ export const db = {
         return await databases.getDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id);
     },
     async createProject(data: Omit<Project, '$id' | '$createdAt'>, userId?: string) {
-        const permissions = userId ? getOwnerPermissions(userId, data.teamId) : [];
+        const permissions = userId ? getOwnerPermissions(userId) : [];
         const project = await databases.createDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
@@ -153,21 +118,10 @@ export const db = {
         return project;
     },
     async updateProject(id: string, data: Partial<Project>) {
-        // If teamId is provided, we might need to update permissions
-        let permissions: string[] | undefined;
-        if (data.teamId) {
-            try {
-                const user = await account.get();
-                permissions = getOwnerPermissions(user.$id, data.teamId);
-            } catch (e) {
-                // Not logged in or background
-            }
-        }
-
-        const project = await databases.updateDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id, data, permissions);
+        const project = await databases.updateDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id, data);
         
         // Log activity
-        if (data.name || data.isEncrypted || data.teamId) {
+        if (data.name || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Project',
@@ -202,7 +156,7 @@ export const db = {
         return { ...guide, installations: installations.documents };
     },
     async createGuide(data: Omit<WikiGuide, '$id' | '$createdAt'>, userId?: string) {
-        const permissions = userId ? getOwnerPermissions(userId, data.teamId) : [];
+        const permissions = userId ? getOwnerPermissions(userId) : [];
         const guide = await databases.createDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, ID.unique(), data, permissions);
         await this.logActivity({
             type: 'create',
@@ -213,19 +167,7 @@ export const db = {
         return guide;
     },
     async updateGuide(id: string, data: Partial<WikiGuide>) {
-        // If teamId is provided, we might need to update permissions
-        let permissions: string[] | undefined;
-        if (data.teamId) {
-            // Get current user to maintain ownership
-            try {
-                const user = await account.get();
-                permissions = getOwnerPermissions(user.$id, data.teamId);
-            } catch (e) {
-                // Not logged in or background
-            }
-        }
-
-        const guide = await databases.updateDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, id, data, permissions);
+        const guide = await databases.updateDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, id, data);
         if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -290,9 +232,7 @@ export const db = {
         ]);
     },
     async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string, kanbanStatus: Task['kanbanStatus'] = 'todo', userId?: string) {
-        // Get project to check for teamId
-        const project = await this.getProject(projectId);
-        const permissions = userId ? getOwnerPermissions(userId, project.teamId) : [];
+        const permissions = userId ? getOwnerPermissions(userId) : [];
         
         const task = await databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
             projectId,
@@ -392,29 +332,19 @@ export const db = {
         ]);
         return res.documents[0];
     },
-    async findUserKeysByEmail(email: string) {
-        if (!USER_KEYS_ID) return null;
-        
-        // 1. Try normalized search (primary)
-        const normalizedRes = await databases.listDocuments<UserKeys & Models.Document>(DB_ID, USER_KEYS_ID, [
-            Query.equal('email', email.toLowerCase())
-        ]);
-        if (normalizedRes.documents.length > 0) return normalizedRes.documents[0];
-
-        // 2. Try exact match fallback (for legacy data not yet migrated)
-        const exactRes = await databases.listDocuments<UserKeys & Models.Document>(DB_ID, USER_KEYS_ID, [
-            Query.equal('email', email)
-        ]);
-        return exactRes.documents[0];
-    },
     async createUserKeys(data: Omit<UserKeys, '$id'>) {
         if (!USER_KEYS_ID) throw new Error('User Keys Collection ID is not configured');
         const finalData = {
             ...data,
             email: data.email?.toLowerCase()
         };
-        // Permissions are handled at the collection level via setup script
-        return await databases.createDocument(DB_ID, USER_KEYS_ID, ID.unique(), finalData);
+        const permissions = [
+            Permission.read(Role.user(data.userId)),
+            Permission.update(Role.user(data.userId)),
+            Permission.delete(Role.user(data.userId)),
+        ];
+        // Permissions are handled at the document level
+        return await databases.createDocument(DB_ID, USER_KEYS_ID, ID.unique(), finalData, permissions);
     },
     async updateUserKeys(id: string, data: Partial<UserKeys>) {
         if (!USER_KEYS_ID) throw new Error('User Keys Collection ID is not configured');
@@ -436,47 +366,22 @@ export const db = {
         ]);
         return res.documents[0];
     },
-    async listAccess(resourceId: string) {
-        if (!ACCESS_CONTROL_ID) return [];
-        const res = await databases.listDocuments<AccessControl & Models.Document>(DB_ID, ACCESS_CONTROL_ID, [
-            Query.equal('resourceId', resourceId)
-        ]);
-        return res.documents;
-    },
     async grantAccess(data: Omit<AccessControl, '$id'>) {
         if (!ACCESS_CONTROL_ID) throw new Error('Access Control Collection ID is not configured');
         
         // 1. Check if access already exists
         const existing = await this.getAccessKey(data.resourceId, data.userId);
         if (existing) {
-            await databases.updateDocument(DB_ID, ACCESS_CONTROL_ID, existing.$id, {
+            return await databases.updateDocument(DB_ID, ACCESS_CONTROL_ID, existing.$id, {
                 encryptedKey: data.encryptedKey
             });
         } else {
-            // 2. Create the access record (key distribution)
-            // Permissions: Owner (sharer) and Recipient can read/update the key record
             const permissions = [
                 Permission.read(Role.user(data.userId)),
                 Permission.update(Role.user(data.userId)),
-                // The current user already has access via DLS creator rules usually, 
-                // but we might want to be explicit. However, Appwrite client SDK 
-                // forbids us from assigning permissions to OTHERS.
+                Permission.delete(Role.user(data.userId)),
             ];
-            
-            // We use standard createDocument without permissions if it fails,
-            // or we stick to collection-level read for AccessControl as configured in setup.
-            await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), data);
+            return await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), data, permissions);
         }
-
-        // 3. Document Visibility
-        // Instead of Server Actions which are currently failing due to SDK conflicts,
-        // we rely on the Collection-level "read(Role.users())" for discovery 
-        // until the user manually triggers a sync or we fix the server-side environment.
-        
-        return { success: true };
-    },
-    async revokeAccess(accessId: string, resourceId: string, resourceType: 'Project' | 'Wiki', userId: string) {
-        if (!ACCESS_CONTROL_ID) throw new Error('Access Control Collection ID is not configured');
-        await databases.deleteDocument(DB_ID, ACCESS_CONTROL_ID, accessId);
     }
 };

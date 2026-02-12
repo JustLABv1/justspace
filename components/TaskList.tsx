@@ -194,7 +194,7 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 finalTitle = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId);
+            await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId, 'todo', user?.$id);
             fetchTasks();
             toast.success('Subtask added');
         } catch (error) {
@@ -213,9 +213,9 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 const encryptedTitles = await Promise.all(titles.map(async (t) => {
                     return JSON.stringify(await encryptData(t, documentKey));
                 }));
-                await db.createTasks(projectId, encryptedTitles, true);
+                await db.createTasks(projectId, encryptedTitles, true, user?.$id);
             } else {
-                await db.createTasks(projectId, titles);
+                await db.createTasks(projectId, titles, false, user?.$id);
             }
             fetchTasks();
             toast.success('Template applied', {

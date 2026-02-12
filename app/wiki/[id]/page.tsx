@@ -4,7 +4,6 @@ import { DeleteModal } from '@/components/DeleteModal';
 import { InstallationModal } from '@/components/InstallationModal';
 import { Markdown } from '@/components/Markdown';
 import { ProjectSelectorModal } from '@/components/ProjectSelectorModal';
-import { ShareModal } from '@/components/ShareModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiExport } from '@/components/WikiExport';
 import { WikiModal } from '@/components/WikiModal';
@@ -21,7 +20,6 @@ import {
     Restart as History,
     InfoCircle as Info,
     AddCircle as Plus,
-    ShareCircle as Share,
     ShieldKeyhole as Shield,
     Target,
     TrashBinTrash as Trash,
@@ -41,7 +39,6 @@ export default function WikiDetailPage() {
     const [isInstModalOpen, setIsInstModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
-    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [isInstHistoryModalOpen, setIsInstHistoryModalOpen] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -68,7 +65,7 @@ export default function WikiDetailPage() {
 
                         // Decrypt installations
                         processedGuide.installations = await Promise.all(processedGuide.installations.map(async (inst) => {
-                            let decryptedInst = { ...inst };
+                            const decryptedInst = { ...inst };
                             
                             try {
                                 if (inst.target && inst.target.startsWith('{')) {
@@ -309,51 +306,16 @@ export default function WikiDetailPage() {
                     const encryptedTitles = await Promise.all(titles.map(async (t) => {
                         return JSON.stringify(await encryptData(t, projectKey));
                     }));
-                    await db.createTasks(projectId, encryptedTitles, true);
+                    await db.createTasks(projectId, encryptedTitles, true, user?.$id);
                 } else {
-                    await db.createTasks(projectId, titles);
+                    await db.createTasks(projectId, titles, false, user?.$id);
                 }
             } else {
-                await db.createTasks(projectId, titles);
+                await db.createTasks(projectId, titles, false, user?.$id);
             }
             toast.success('Tasks applied to project');
         }
         setIsProjectSelectorOpen(false);
-    };
-
-    const handleShare = async (email: string) => {
-        if (!guide || !privateKey || !user) return;
-
-        try {
-            // 1. Find recipient's public key
-            const recipientKeys = await db.findUserKeysByEmail(email);
-            if (!recipientKeys) throw new Error('Recipient has no vault setup');
-
-            // 2. Decrypt doc key for ourselves first
-            const access = await db.getAccessKey(id, user.$id);
-            if (!access) throw new Error('You do not have access to this document');
-            const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-
-            // 3. Encrypt doc key with recipient's public key
-            const encryptedForRecipient = await encryptDocumentKey(docKey, recipientKeys.publicKey);
-
-            // 4. Create access control record
-            await db.grantAccess({
-                resourceId: id,
-                userId: recipientKeys.userId,
-                encryptedKey: encryptedForRecipient,
-                resourceType: 'Wiki'
-            });
-            toast.success('Wiki shared', {
-                description: `Access granted to ${email}`
-            });
-        } catch (error) {
-            console.error(error);
-            toast.danger('Sharing failed', {
-                description: error instanceof Error ? error.message : 'Unknown error'
-            });
-            throw error;
-        }
     };
 
     if (isLoading) {
@@ -408,16 +370,6 @@ export default function WikiDetailPage() {
                     >
                         <Edit size={18} weight="Bold" />
                     </Button>
-                    {guide.isEncrypted && (
-                        <Button 
-                            variant="ghost" 
-                            isIconOnly
-                            className="rounded-xl h-9 w-9 border border-border/20 bg-surface/5 backdrop-blur-sm text-orange-500 hover:bg-orange-500/5 transition-all"
-                            onPress={() => setIsShareModalOpen(true)}
-                        >
-                            <Share size={18} weight="Bold" />
-                        </Button>
-                    )}
                     <Button 
                         variant="primary" 
                         className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" 
@@ -642,15 +594,6 @@ export default function WikiDetailPage() {
                 onClose={() => setIsWikiModalOpen(false)}
                 onSubmit={handleUpdateWiki}
                 guide={guide}
-            />
-
-            <ShareModal 
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                onShare={handleShare}
-                resourceId={id}
-                resourceType="Wiki"
-                currentUserId={user?.$id || ''}
             />
 
             <VersionHistoryModal 

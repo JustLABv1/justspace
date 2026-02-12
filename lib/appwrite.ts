@@ -1,4 +1,4 @@
-import { Account, Client, Databases, Teams } from 'appwrite';
+import { Account, Client, Databases } from 'appwrite';
 import { getEnv } from './env-config';
 
 const client = new Client();
@@ -9,5 +9,4 @@ client
 
 export const account = new Account(client);
 export const databases = new Databases(client);
-export const teams = new Teams(client);
 export { client };

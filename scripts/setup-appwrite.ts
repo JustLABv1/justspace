@@ -106,7 +106,6 @@ async function setup() {
         { key: 'daysPerWeek', type: 'float', required: false },
         { key: 'allocatedDays', type: 'integer', required: false },
         { key: 'isEncrypted', type: 'boolean', required: false },
-        { key: 'teamId', type: 'string', size: 36, required: false },
       ]
     },
     {
@@ -138,7 +137,6 @@ async function setup() {
         { key: 'title', type: 'string', size: 512, required: true },
         { key: 'description', type: 'string', size: 16384, required: true },
         { key: 'isEncrypted', type: 'boolean', required: false },
-        { key: 'teamId', type: 'string', size: 36, required: false },
       ]
     },
     {
@@ -212,7 +210,6 @@ async function setup() {
         { key: 'tags', type: 'string', size: 255, required: false, array: true },
         { key: 'description', type: 'string', size: 1024, required: false },
         { key: 'isEncrypted', type: 'boolean', required: false },
-        { key: 'teamId', type: 'string', size: 36, required: false },
       ]
     },
     {
@@ -238,12 +235,10 @@ async function setup() {
       await databases.getCollection(config.databaseId, collection.id);
       console.log(`  ✅ Collection exists. Syncing permissions...`);
       
-      // Special permissions for specific collections
-      let permissions = [Permission.create(Role.users())];
-      
-      // Moving to Team-based model. Broad read is removed.
+      // Default permissions: Any authenticated user can create. 
       // DLS handles specific access via creation/update permissions.
-
+      const permissions = [Permission.create(Role.users())];
+      
       await databases.updateCollection(
         config.databaseId,
         collection.id,
@@ -254,7 +249,7 @@ async function setup() {
     } catch (error: unknown) {
       const appwriteError = error as AppwriteError;
       if (appwriteError.code === 404) {
-        let permissions = [Permission.create(Role.users())];
+        const permissions = [Permission.create(Role.users())];
         
         await databases.createCollection(
           config.databaseId,

@@ -3,7 +3,6 @@
 import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ProjectModal } from '@/components/ProjectModal';
-import { ShareModal } from '@/components/ShareModal';
 import { TaskList } from '@/components/TaskList';
 import { TemplateModal } from '@/components/TemplateModal';
 import { useAuth } from '@/context/AuthContext';
@@ -17,7 +16,6 @@ import {
     Pen2 as Edit,
     Widget as LayoutGrid,
     Checklist as ListTodo,
-    ShareCircle as Share,
     ShieldKeyhole as Shield,
     MagicStick as Sparkles,
     TrashBinMinimalistic as Trash
@@ -34,7 +32,6 @@ export default function ProjectDetailPage() {
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
     const { user, privateKey } = useAuth();
 
@@ -176,37 +173,6 @@ export default function ProjectDetailPage() {
         }
     };
 
-    const handleShare = async (email: string) => {
-        if (!project || !privateKey || !user) return;
-
-        try {
-            const recipientKeys = await db.findUserKeysByEmail(email);
-            if (!recipientKeys) throw new Error('Recipient has no vault setup');
-
-            const access = await db.getAccessKey(id, user.$id);
-            if (!access) throw new Error('You do not have keys for this project');
-
-            const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-            const wrappedKeyForRecipient = await encryptDocumentKey(docKey, recipientKeys.publicKey);
-
-            await db.grantAccess({
-                resourceId: id,
-                resourceType: 'Project',
-                userId: recipientKeys.userId,
-                encryptedKey: wrappedKeyForRecipient
-            });
-            toast.success('Project shared', {
-                description: `Access granted to ${email}`
-            });
-        } catch (error) {
-            console.error('Sharing failed:', error);
-            toast.danger('Sharing failed', {
-                description: error instanceof Error ? error.message : 'Unknown error'
-            });
-            throw error;
-        }
-    };
-
     if (isLoading) {
         return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
     }
@@ -294,12 +260,6 @@ export default function ProjectDetailPage() {
                     </div>
                     
                     <div className="flex gap-2 shrink-0">
-                        {project.isEncrypted && (
-                            <Button variant="primary" className="rounded-xl h-10 px-6 font-bold text-xs uppercase" onPress={() => setIsShareModalOpen(true)}>
-                                <Share size={16} className="mr-2" />
-                                Share
-                            </Button>
-                        )}
                         <Button variant="secondary" className="rounded-xl h-10 px-6 font-bold text-xs uppercase border border-border/40" onPress={() => setIsProjectModalOpen(true)}>
                             <Edit size={16} className="mr-2" />
                             Modify
@@ -383,13 +343,6 @@ export default function ProjectDetailPage() {
                 title="Archive Project"
                 message={`Are you sure you want to archive "${project.name}"? This will move it from the active pipeline.`}
             />
-            <ShareModal 
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                onShare={handleShare}
-                resourceId={id}
-                resourceType="Project"
-                currentUserId={user?.$id || ''}
-            />        </div>
+        </div>
     );
 }
