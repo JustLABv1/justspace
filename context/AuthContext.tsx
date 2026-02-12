@@ -44,6 +44,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setHasVault(!!keys);
             setUserKeys(keys || null);
 
+            // Ensure vault is discoverable for sharing (fix permissions/email casing)
+            if (keys) {
+                const migrationKey = `v_migrated_${keys.$id}`;
+                const needsMigration = !sessionStorage.getItem(migrationKey) || !keys.email || keys.email !== currentUser.email.toLowerCase();
+                
+                if (needsMigration) {
+                    try {
+                        const updatedKeys = await db.updateUserKeys(keys.$id, { 
+                            email: currentUser.email,
+                            userId: currentUser.$id 
+                        });
+                        setUserKeys(updatedKeys as any);
+                        sessionStorage.setItem(migrationKey, 'true');
+                    } catch (e) {
+                        console.error('Vault migration failed:', e);
+                    }
+                }
+            }
+
             // Attempt session restoration if vault exists
             if (keys) {
                 const jwkJson = sessionStorage.getItem('vault_session_key');

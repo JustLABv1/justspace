@@ -155,6 +155,24 @@ pnpm run setup:appwrite
 
 ---
 
+## Permissions Strategy
+
+This project uses **Document Level Security (DLS)** combined with specific collection-level permissions to enable secure, decentralized encryption key sharing.
+
+### Collection-Level Permissions
+Permissions are automatically managed by `scripts/setup-appwrite.ts`.
+
+- **User Keys (`user_keys`)**: 
+  - `create(Role.users())`: Any logged-in user can create their vault.
+  - `read(Role.users())`: Required so sharers can find recipients' public keys by email.
+- **Access Control (`access_control`)**:
+  - `create(Role.users())`: Any logged-in user can share a document with another.
+  - `read(Role.users())`: Required so recipients can find the document keys shared with them.
+- **All other collections**:
+  - `create(Role.users())`: Only creators have access by default via DLS.
+
+---
+
 ## Initialization Tips
 - Ensure your `.env.local` file contains the correct `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_DATABASE_ID`, and all `COLLECTION_ID` variables (e.g., `NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID`).
 - You can use the [Appwrite CLI](https://appwrite.io/docs/command-line) to automate the creation of these collections if you have many targets.

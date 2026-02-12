@@ -6,6 +6,7 @@ export interface Project {
     daysPerWeek?: number;
     allocatedDays?: number;
     isEncrypted?: boolean;
+    teamId?: string;
     $createdAt: string;
 }
 

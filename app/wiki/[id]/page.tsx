@@ -648,6 +648,9 @@ export default function WikiDetailPage() {
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 onShare={handleShare}
+                resourceId={id}
+                resourceType="Wiki"
+                currentUserId={user?.$id || ''}
             />
 
             <VersionHistoryModal 

@@ -387,6 +387,9 @@ export default function ProjectDetailPage() {
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 onShare={handleShare}
+                resourceId={id}
+                resourceType="Project"
+                currentUserId={user?.$id || ''}
             />        </div>
     );
 }
