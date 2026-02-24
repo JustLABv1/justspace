@@ -10,6 +10,7 @@ import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor,
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
+import { ZonedDateTime } from "@internationalized/date";
 import {
     Filter as FilterIcon,
     Checklist as ListChecks,
@@ -37,13 +38,12 @@ export function TaskList({
     const [isLoading, setIsLoading] = useState(true);
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
+    const [newTaskDeadline, setNewTaskDeadline] = useState<ZonedDateTime | null>(null);
     const [internalSearchQuery, setInternalSearchQuery] = useState('');
     const [internalHideCompleted, setInternalHideCompleted] = useState(false);
     
     const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
     const hideCompleted = externalHideCompleted !== undefined ? externalHideCompleted : internalHideCompleted;
-    const setSearchQuery = externalSearchQuery !== undefined ? () => {} : setInternalSearchQuery;
-    const setHideCompleted = externalHideCompleted !== undefined ? () => {} : setInternalHideCompleted;
     
     const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -191,8 +191,16 @@ export function TaskList({
             }
             const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted, undefined, 'todo');
             
+            if (newTaskDeadline) {
+                const deadlineStr = typeof (newTaskDeadline as any).toAbsoluteString === 'function' 
+                    ? (newTaskDeadline as any).toAbsoluteString() 
+                    : newTaskDeadline.toString();
+                await db.updateTask(res.id, { deadline: deadlineStr });
+            }
+
             // Replace optimistic task with the real one
             setTasks(prev => prev.map(t => t.id === optimisticId ? (res as unknown as Task) : t));
+            setNewTaskDeadline(null);
             fetchTasks(); // Refresh to get correct decrypted title if needed
             toast.success('Task added');
         } catch (error) {
@@ -318,10 +326,10 @@ export function TaskList({
                             <ListChecks size={20} weight="Bold" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold tracking-tight text-foreground">Project Roadmap</h2>
+                            <h2 className="text-xl font-bold tracking-tight text-foreground">Project Tasked</h2>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/40">
-                                    {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
+                                    {tasks.filter(t => t.completed).length} of {tasks.length} tasked synced
                                 </p>
                                 <div className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
                                 <Dropdown>
@@ -360,7 +368,7 @@ export function TaskList({
                             <div className="relative flex-grow group">
                                 <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-accent transition-colors" />
                                 <Input 
-                                    placeholder="Filter tasks..." 
+                                    placeholder="Filter tasked..." 
                                     value={internalSearchQuery}
                                     onChange={(e) => { setInternalSearchQuery(e.target.value); setCurrentPage(1); }}
                                     className="w-full h-10 bg-surface border-border/40 hover:border-accent/20 focus:border-accent/40 rounded-xl pl-9 text-xs font-medium transition-all"
@@ -389,7 +397,7 @@ export function TaskList({
                             </div>
                             <div>
                                 <h3 className="text-sm font-bold text-foreground/60">No tasks identified</h3>
-                                <p className="text-xs text-muted-foreground font-medium mt-1">Start by adding your first milestone below.</p>
+                                <p className="text-xs text-muted-foreground font-medium mt-1">Start by adding your first task below.</p>
                             </div>
                         </div>
                     ) : (
@@ -443,21 +451,23 @@ export function TaskList({
                 </div>
 
                 <div className="p-3 bg-surface-secondary/30 border-t border-border/20">
-                    <form onSubmit={handleAddTask} className="relative group">
-                        <Input 
-                            value={newTaskTitle}
-                            onChange={(e) => setNewTaskTitle(e.target.value)}
-                            placeholder="Add a new milestone..." 
-                            className="h-11 bg-surface border border-border/40 hover:border-accent/30 focus:border-accent rounded-xl pl-5 pr-14 text-sm font-bold transition-all"
-                        />
-                        <Button 
-                            type="submit" 
-                            variant="primary" 
-                            isIconOnly 
-                            className="absolute right-1.5 top-1.5 h-8 w-8 rounded-lg shadow-md"
-                        >
-                            <Plus size={18} weight="Bold" />
-                        </Button>
+                    <form onSubmit={handleAddTask} className="flex flex-col gap-2 group">
+                        <div className="relative flex-grow">
+                            <Input 
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                placeholder="Add a new task..." 
+                                className="h-11 bg-surface border border-border/40 hover:border-accent/30 focus:border-accent rounded-xl pl-5 pr-14 text-sm font-bold transition-all"
+                            />
+                            <Button 
+                                type="submit" 
+                                variant="primary" 
+                                isIconOnly 
+                                className="absolute right-1.5 top-1.5 h-8 w-8 rounded-lg shadow-md"
+                            >
+                                <Plus size={18} weight="Bold" />
+                            </Button>
+                        </div>
                     </form>
                 </div>
             </div>

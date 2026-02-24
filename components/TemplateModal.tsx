@@ -140,7 +140,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                 <Sparkles size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">Apply Roadmap</Modal.Heading>
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">Apply Project Tasked</Modal.Heading>
                                 <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Populate project with expert tasks.</p>
                             </div>
                         </Modal.Header>
