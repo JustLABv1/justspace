@@ -255,7 +255,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
         try {
             let finalTitle = editedSubtaskTitle;
-            if (task.isEncrypted && documentKey) {
+            if (subtask.isEncrypted && documentKey) {
                 const encrypted = await encryptData(editedSubtaskTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }

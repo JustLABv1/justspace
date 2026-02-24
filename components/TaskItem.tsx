@@ -35,9 +35,9 @@ interface TaskItemProps {
     onUpdate: (id: string, data: Partial<Task> & { workDuration?: string }) => void;
     onAddSubtask: (parentId: string, title: string) => void;
     allTasks?: Task[];
-    isExpanded?: boolean;
-    onToggleExpanded?: () => void;
-    onClick?: () => void;
+    expandedTaskIds?: string[];
+    onToggleExpanded?: (id: string) => void;
+    onClick?: (task: Task) => void;
     level?: number;
 }
 
@@ -48,13 +48,14 @@ export function TaskItem({
     onUpdate, 
     onAddSubtask, 
     allTasks = [],
-    isExpanded = false,
+    expandedTaskIds = [],
     onToggleExpanded,
     onClick,
     level = 0
 }: TaskItemProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
     const subtasks = allTasks.filter(t => t.parentId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+    const isExpanded = expandedTaskIds.includes(task.id);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newNote, setNewNote] = useState('');
     const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
@@ -231,7 +232,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     </Checkbox>
                 </div>
 
-                <div className="flex-grow min-w-0 cursor-pointer flex items-center gap-2" onClick={onClick}>
+                <div className="flex-grow min-w-0 cursor-pointer flex items-center gap-2" onClick={() => onClick && onClick(task)}>
                     <span className={`text-[16px] font-bold tracking-tight leading-tight block truncate transition-all ${
                         task.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'
                     }`}>
@@ -239,12 +240,12 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex-items-center gap-1">
                     <Button 
                         variant="ghost" 
                         isIconOnly 
                         className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-accent/10 text-accent' : 'text-muted-foreground/30 hover:text-foreground'}`}
-                        onPress={onToggleExpanded}
+                        onPress={() => onToggleExpanded && onToggleExpanded(task.id)}
                     >
                         {isExpanded ? <ChevronDown size={18} weight="Bold" /> : <ChevronRight size={18} weight="Bold" />}
                     </Button>
@@ -426,8 +427,10 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                     onUpdate={onUpdate}
                                     onAddSubtask={onAddSubtask}
                                     allTasks={allTasks}
+                                    expandedTaskIds={expandedTaskIds}
                                     level={level + 1}
-                                    isExpanded={false} // Maybe default to false for deep ones
+                                    onToggleExpanded={onToggleExpanded}
+                                    onClick={onClick}
                                 />
                             ))}
                         </div>

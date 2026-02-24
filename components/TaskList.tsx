@@ -410,10 +410,10 @@ export function TaskList({
                                             onUpdate={updateTask}
                                             onAddSubtask={handleAddSubtask}
                                             allTasks={tasks}
-                                            isExpanded={expandedTaskIds.includes(task.id)}
-                                            onToggleExpanded={() => toggleTaskExpansion(task.id)}
-                                            onClick={() => {
-                                                setSelectedTask(task);
+                                            expandedTaskIds={expandedTaskIds}
+                                            onToggleExpanded={toggleTaskExpansion}
+                                            onClick={(t) => {
+                                                setSelectedTask(t);
                                                 setIsDetailModalOpen(true);
                                             }}
                                         />
