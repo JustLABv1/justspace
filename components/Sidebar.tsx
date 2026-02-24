@@ -29,7 +29,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     const pathname = usePathname();
     const { user, logout } = useAuth();
     // Use safe access for workspaceName as preferences are dynamic
-    const prefs = user?.prefs as Record<string, string | undefined>;
+    const prefs = (user?.preferences || {}) as Record<string, string | undefined>;
     const workspaceName = prefs?.workspaceName || 'justspace_';
     const firstLetter = workspaceName.charAt(0).toUpperCase();
 

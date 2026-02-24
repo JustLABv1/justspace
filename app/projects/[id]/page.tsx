@@ -48,7 +48,7 @@ export default function ProjectDetailPage() {
 
             if (processedProject.isEncrypted && privateKey && user) {
                 try {
-                    const access = await db.getAccessKey(id as string, user.$id);
+                    const access = await db.getAccessKey(id as string);
                     if (access) {
                         const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         
@@ -86,7 +86,7 @@ export default function ProjectDetailPage() {
                 if (shouldEncrypt && user) {
                     // If turning on encryption for existing project
                     // (Note: This is simplified, usually we'd need to re-encrypt old data if it wasn't encrypted)
-                    const userKeys = await db.getUserKeys(user.$id);
+                    const userKeys = await db.getUserKeys(user.id);
                     if (userKeys) {
                         const docKey = await generateDocumentKey();
                         const encryptedName = await encryptData(projectData.name || project.name, docKey);
@@ -98,15 +98,15 @@ export default function ProjectDetailPage() {
 
                         const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                         await db.grantAccess({
-                            resourceId: project.$id,
-                            userId: user.$id,
+                            resourceId: project.id,
+                            userId: user.id,
                             encryptedKey: encryptedDocKey,
                             resourceType: 'Project'
                         });
                     }
                 } else if (project.isEncrypted && privateKey && user) {
                     // Keep encrypted if it already was
-                    const access = await db.getAccessKey(project.$id, user.$id);
+                    const access = await db.getAccessKey(project.id);
                     if (access) {
                         const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         if (projectData.name) {
@@ -118,7 +118,7 @@ export default function ProjectDetailPage() {
                     }
                 }
 
-                await db.updateProject(project.$id, finalData);
+                await db.updateProject(project.id, finalData);
                 fetchProject();
                 setIsProjectModalOpen(false);
                 toast.success('Project updated');
@@ -134,22 +134,22 @@ export default function ProjectDetailPage() {
             try {
                 if (project.isEncrypted && privateKey && user) {
                     try {
-                        const access = await db.getAccessKey(project.$id, user.$id);
+                        const access = await db.getAccessKey(project.id);
                         if (access) {
                             const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                             const encryptedTitles = await Promise.all(titles.map(async (t) => {
                                 return JSON.stringify(await encryptData(t, docKey));
                             }));
-                            await db.createTasks(project.$id, encryptedTitles, true, user.$id);
+                            await db.createTasks(project.id, encryptedTitles, true);
                         } else {
-                            await db.createTasks(project.$id, titles, false, user.$id);
+                            await db.createTasks(project.id, titles, false);
                         }
                     } catch (e) {
                         console.error('Failed to encrypt tasks from template:', e);
-                        await db.createTasks(project.$id, titles, false, user.$id);
+                        await db.createTasks(project.id, titles, false);
                     }
                 } else {
-                    await db.createTasks(project.$id, titles, false, user?.$id);
+                    await db.createTasks(project.id, titles, false);
                 }
                 
                 toast.success('Template applied', {
@@ -168,7 +168,7 @@ export default function ProjectDetailPage() {
     const handleDelete = async () => {
         if (project) {
             try {
-                await db.deleteProject(project.$id);
+                await db.deleteProject(project.id);
                 toast.success('Project deleted');
                 router.push('/projects');
             } catch (error) {
@@ -227,7 +227,7 @@ export default function ProjectDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
                                     <Calendar size={14} weight="Bold" className="text-accent/50" />
-                                    <span>Initialized Phase: {new Date(project.$createdAt).toLocaleDateString()}</span>
+                                    <span>Initialized Phase: {new Date(project.createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         </div>
@@ -348,14 +348,14 @@ export default function ProjectDetailPage() {
                     <div className="p-6">
                         {viewMode === 'list' ? (
                             <TaskList 
-                                projectId={project.$id} 
+                                projectId={project.id} 
                                 hideHeader 
                                 searchQuery={searchQuery}
                                 hideCompleted={hideCompleted}
                             />
                         ) : (
                             <KanbanBoard 
-                                projectId={project.$id} 
+                                projectId={project.id} 
                                 searchQuery={searchQuery}
                                 hideCompleted={hideCompleted}
                             />

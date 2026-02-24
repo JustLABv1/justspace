@@ -30,7 +30,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                 if (project.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(project.$id, user.$id);
+                            const access = await db.getAccessKey(project.id, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 
@@ -107,8 +107,8 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                 <div className="flex flex-col gap-3">
                                     {projects.map((project) => (
                                         <button 
-                                            key={project.$id}
-                                            onClick={() => handleSelect(project.$id)}
+                                            key={project.id}
+                                            onClick={() => handleSelect(project.id)}
                                             disabled={isSubmitting}
                                             className="flex items-center gap-5 p-5 rounded-[2.5rem] border border-border/40 bg-surface-secondary/20 text-left hover:border-accent/40 hover:bg-surface-secondary/40 transition-all group disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                                         >

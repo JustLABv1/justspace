@@ -187,7 +187,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                         {blocks.length} Components
                                     </div>
                                     <div className="w-1 h-1 rounded-full bg-border" />
-                                    <div>Created {new Date(snippet.$createdAt).toLocaleDateString()}</div>
+                                    <div>Created {new Date(snippet.createdAt).toLocaleDateString()}</div>
                                 </div>
                                 <Button slot="close" variant="secondary" className="rounded-xl font-bold px-8">Close</Button>
                             </Modal.Footer>

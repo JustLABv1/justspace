@@ -53,7 +53,7 @@ export default function WikiDetailPage() {
             if (processedGuide.isEncrypted && privateKey && user) {
                 setIsDecrypting(true);
                 try {
-                    const access = await db.getAccessKey(id, user.$id);
+                    const access = await db.getAccessKey(id);
                     if (access) {
                         const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         
@@ -119,7 +119,7 @@ export default function WikiDetailPage() {
         const finalData = { ...guideData };
 
         if (shouldEncrypt && user) {
-            const userKeys = await db.getUserKeys(user.$id);
+            const userKeys = await db.getUserKeys(user.id);
             if (!userKeys) throw new Error('Vault keys not found');
 
             const docKey = await generateDocumentKey();
@@ -145,11 +145,11 @@ export default function WikiDetailPage() {
             });
 
             // Also update/add access control if not exists
-            const existingAccess = await db.getAccessKey(id, user.$id);
+            const existingAccess = await db.getAccessKey(id);
             if (!existingAccess) {
                 await db.grantAccess({
                     resourceId: id,
-                    userId: user.$id,
+                    userId: user.id,
                     encryptedKey: encryptedDocKey,
                     resourceType: 'Wiki'
                 });
@@ -164,7 +164,7 @@ export default function WikiDetailPage() {
                 title: finalData.title,
                 isEncrypted: false,
                 metadata: 'Updated'
-            }, user?.$id);
+            });
             toast.success('Wiki updated');
         }
         
@@ -177,7 +177,7 @@ export default function WikiDetailPage() {
 
         if (guide?.isEncrypted && privateKey && user) {
             try {
-                const access = await db.getAccessKey(id, user.$id);
+                const access = await db.getAccessKey(id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                     
@@ -204,32 +204,32 @@ export default function WikiDetailPage() {
             }
         }
 
-        if (selectedInst?.$id) {
-            await db.updateInstallation(selectedInst.$id, finalData);
+        if (selectedInst?.id) {
+            await db.updateInstallation(selectedInst.id, finalData);
             // Create version snapshot
             await db.createVersion({
-                resourceId: selectedInst.$id,
+                resourceId: selectedInst.id,
                 resourceType: 'Installation',
                 content: finalData.notes || '',
                 title: finalData.target,
                 isEncrypted: !!finalData.isEncrypted,
                 metadata: 'Updated'
-            }, user?.$id);
+            });
             toast.success('Installation updated');
         } else {
             const newInst = await db.createInstallation({
                 ...finalData,
                 guideId: id
-            } as Omit<InstallationTarget, '$id' | '$createdAt'>, user?.$id);
+            } as Omit<InstallationTarget, 'id' | 'createdAt'>);
             // Create version snapshot
             await db.createVersion({
-                resourceId: newInst.$id,
+                resourceId: newInst.id,
                 resourceType: 'Installation',
                 content: finalData.notes || '',
                 title: finalData.target,
                 isEncrypted: !!finalData.isEncrypted,
                 metadata: 'Initial version'
-            }, user?.$id);
+            });
             toast.success('Installation created');
         }
         setIsInstModalOpen(false);
@@ -246,7 +246,7 @@ export default function WikiDetailPage() {
         };
 
         if (guide.isEncrypted && user && privateKey) {
-            const access = await db.getAccessKey(id, user.$id);
+            const access = await db.getAccessKey(id);
             if (access) {
                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                 updateData.title = JSON.stringify(await encryptData(version.title || '', docKey));
@@ -271,7 +271,7 @@ export default function WikiDetailPage() {
         };
 
         if (guide?.isEncrypted && user && privateKey) {
-            const access = await db.getAccessKey(id, user.$id);
+            const access = await db.getAccessKey(id);
             if (access) {
                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                 updateData.notes = JSON.stringify(await encryptData(version.content, docKey));
@@ -279,7 +279,7 @@ export default function WikiDetailPage() {
             }
         }
 
-        await db.updateInstallation(selectedInst.$id, updateData);
+        await db.updateInstallation(selectedInst.id, updateData);
         setIsInstHistoryModalOpen(false);
         fetchGuide();
         toast.success('Installation restored');
@@ -287,7 +287,7 @@ export default function WikiDetailPage() {
 
     const handleDeleteInst = async () => {
         if (selectedInst) {
-            await db.deleteInstallation(selectedInst.$id);
+            await db.deleteInstallation(selectedInst.id);
             setIsDeleteModalOpen(false);
             fetchGuide();
             toast.success('Installation deleted');
@@ -300,18 +300,18 @@ export default function WikiDetailPage() {
             const titles = selectedInst.tasks;
 
             if (project.isEncrypted && user && privateKey) {
-                const access = await db.getAccessKey(projectId, user.$id);
+                const access = await db.getAccessKey(projectId);
                 if (access) {
                     const projectKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                     const encryptedTitles = await Promise.all(titles.map(async (t) => {
                         return JSON.stringify(await encryptData(t, projectKey));
                     }));
-                    await db.createTasks(projectId, encryptedTitles, true, user?.$id);
+                    await db.createTasks(projectId, encryptedTitles, true);
                 } else {
-                    await db.createTasks(projectId, titles, false, user?.$id);
+                    await db.createTasks(projectId, titles, false);
                 }
             } else {
-                await db.createTasks(projectId, titles, false, user?.$id);
+                await db.createTasks(projectId, titles, false);
             }
             toast.success('Tasks applied to project');
         }
@@ -417,11 +417,11 @@ export default function WikiDetailPage() {
 
             {guide.installations.length > 0 ? (
                 <div className="space-y-12">
-                    <Tabs defaultSelectedKey={guide.installations[0].$id} variant="secondary">
+                    <Tabs defaultSelectedKey={guide.installations[0].id} variant="secondary">
                         <Tabs.ListContainer className="p-1 bg-surface-secondary/50 backdrop-blur-md rounded-2xl border border-border/30 w-fit">
                             <Tabs.List aria-label="Installation targets" className="gap-1">
                                 {guide.installations.map((inst) => (
-                                    <Tabs.Tab key={inst.$id} id={inst.$id} className="rounded-xl font-bold px-6 py-2.5 tracking-tight text-[11px] data-[selected=true]:bg-foreground data-[selected=true]:text-background transition-all uppercase">
+                                    <Tabs.Tab key={inst.id} id={inst.id} className="rounded-xl font-bold px-6 py-2.5 tracking-tight text-[11px] data-[selected=true]:bg-foreground data-[selected=true]:text-background transition-all uppercase">
                                         {inst.target}
                                         <Tabs.Indicator className="hidden" />
                                     </Tabs.Tab>
@@ -430,7 +430,7 @@ export default function WikiDetailPage() {
                         </Tabs.ListContainer>
 
                         {guide.installations.map((inst) => (
-                            <Tabs.Panel key={inst.$id} id={inst.$id} className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <Tabs.Panel key={inst.id} id={inst.id} className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                                     <div className="lg:col-span-8">
                                         <Surface className="p-0 rounded-[2rem] border border-border/30 bg-white/40 dark:bg-surface/40 backdrop-blur-xl relative overflow-hidden shadow-sm">
@@ -607,7 +607,7 @@ export default function WikiDetailPage() {
             <VersionHistoryModal 
                 isOpen={isInstHistoryModalOpen}
                 onClose={() => setIsInstHistoryModalOpen(false)}
-                resourceId={selectedInst?.$id || ''}
+                resourceId={selectedInst?.id || ''}
                 resourceType="Installation"
                 accessResourceId={id}
                 onRestore={handleRestoreInst}

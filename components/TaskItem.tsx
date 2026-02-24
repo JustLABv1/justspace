@@ -53,8 +53,8 @@ export function TaskItem({
     onClick,
     level = 0
 }: TaskItemProps) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.$id });
-    const subtasks = allTasks.filter(t => t.parentId === task.$id).sort((a, b) => (a.order || 0) - (b.order || 0));
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
+    const subtasks = allTasks.filter(t => t.parentId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newNote, setNewNote] = useState('');
     const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
@@ -111,7 +111,7 @@ export function TaskItem({
                 ? `${Math.floor(dur.asHours())}h ${dur.minutes()}m`
                 : `${dur.minutes()}m ${dur.seconds()}s`;
 
-            onUpdate(task.$id, {
+            onUpdate(task.id, {
                 isTimerRunning: false,
                 timeSpent: totalTime,
                 timerStartedAt: undefined,
@@ -119,7 +119,7 @@ export function TaskItem({
                 workDuration: `Worked ${workDuration}`
             });
         } else {
-            onUpdate(task.$id, {
+            onUpdate(task.id, {
                 isTimerRunning: true,
                 timerStartedAt: now.toISOString()
             });
@@ -155,7 +155,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             parsedNote.text = newNote;
             parsedNote.type = noteType;
             updatedNotes[editingNoteIndex] = JSON.stringify(parsedNote);
-            onUpdate(task.$id, { notes: updatedNotes });
+            onUpdate(task.id, { notes: updatedNotes });
             setEditingNoteIndex(null);
         } else {
             // Add new note
@@ -170,7 +170,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             if (noteType === 'email' || noteType === 'call') {
                 updateData.kanbanStatus = 'waiting';
             }
-            onUpdate(task.$id, updateData);
+            onUpdate(task.id, updateData);
         }
 
         setNewNote('');
@@ -179,7 +179,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
     const handleDeleteNote = (index: number) => {
         const existingNotes = task.notes || [];
         const updatedNotes = existingNotes.filter((_, i) => i !== index);
-        onUpdate(task.$id, { notes: updatedNotes });
+        onUpdate(task.id, { notes: updatedNotes });
     };
 
     const handleEditNote = (index: number) => {
@@ -223,7 +223,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 <div className="flex-shrink-0">
                     <Checkbox 
                         isSelected={task.completed} 
-                        onChange={(val: boolean) => onToggle(task.$id, val)}
+                        onChange={(val: boolean) => onToggle(task.id, val)}
                     >
                         <Checkbox.Control className="size-6 rounded-lg border-2">
                             <Checkbox.Indicator />
@@ -252,7 +252,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         variant="ghost" 
                         isIconOnly 
                         className="h-8 w-8 rounded-xl text-muted-foreground/10 hover:text-danger hover:bg-danger/10 transition-all opacity-0 group-hover:opacity-100"
-                        onPress={() => onDelete(task.$id)}
+                        onPress={() => onDelete(task.id)}
                     >
                         <Trash size={14} weight="Linear" />
                     </Button>
@@ -419,7 +419,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         <div className="space-y-2">
                             {subtasks.map((sub) => (
                                 <TaskItem 
-                                    key={sub.$id}
+                                    key={sub.id}
                                     task={sub}
                                     onToggle={onToggle}
                                     onDelete={onDelete}
@@ -437,7 +437,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 if (newSubtaskTitle.trim()) {
-                                    onAddSubtask(task.$id, newSubtaskTitle);
+                                    onAddSubtask(task.id, newSubtaskTitle);
                                     setNewSubtaskTitle('');
                                 }
                             }}

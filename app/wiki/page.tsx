@@ -5,9 +5,9 @@ import { Markdown } from '@/components/Markdown';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
-import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { ACCESS_CONTROL_ID, db, DB_ID, GUIDES_ID } from '@/lib/db';
+import { db } from '@/lib/db';
+import { wsClient, WSEvent } from '@/lib/ws';
 import { ResourceVersion, WikiGuide } from '@/types';
 import { Button, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -44,7 +44,7 @@ export default function WikiPage() {
                 if (guide.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(guide.$id, user.$id);
+                            const access = await db.getAccessKey(guide.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 
@@ -64,7 +64,7 @@ export default function WikiPage() {
                                 return { ...guide, title: decryptedTitle, description: decryptedDesc };
                             }
                         } catch (e) {
-                            console.error('Failed to decrypt guide:', guide.$id, e);
+                            console.error('Failed to decrypt guide:', guide.id, e);
                             return { ...guide, title: 'Decryption Error', description: 'Missing access keys.' };
                         }
                     }
@@ -90,22 +90,18 @@ export default function WikiPage() {
     }, [fetchGuides]);
 
     useEffect(() => {
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${GUIDES_ID}.documents`,
-            `databases.${DB_ID}.collections.${ACCESS_CONTROL_ID}.documents`
-        ], (response) => {
-            if (response.events.some(e => e.includes('.delete'))) {
-                // If the delete event is from the guides collection, remove it from state
-                if (response.events.some(e => e.includes(GUIDES_ID))) {
-                    const payload = response.payload as WikiGuide;
-                    setGuides(prev => prev.filter(g => g.$id !== payload.$id));
+        const unsub = wsClient.subscribe((event: WSEvent) => {
+            if (event.collection === 'wiki_guides' || event.collection === 'access_control') {
+                if (event.type === 'delete' && event.collection === 'wiki_guides') {
+                    const payload = event.document as unknown as WikiGuide;
+                    setGuides(prev => prev.filter(g => g.id !== payload.id));
                     return;
                 }
+                fetchGuides(false);
             }
-            fetchGuides(false);
         });
 
-        return () => unsubscribe();
+        return () => unsub();
     }, [fetchGuides]);
 
     const handleRestore = async (version: ResourceVersion) => {
@@ -118,7 +114,7 @@ export default function WikiPage() {
         };
 
         if (selectedGuide.isEncrypted && user && privateKey) {
-            const access = await db.getAccessKey(selectedGuide.$id, user.$id);
+            const access = await db.getAccessKey(selectedGuide.id);
             if (access) {
                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                 updateData.title = JSON.stringify(await encryptData(version.title || '', docKey));
@@ -127,7 +123,7 @@ export default function WikiPage() {
             }
         }
 
-        await db.updateGuide(selectedGuide.$id, updateData);
+        await db.updateGuide(selectedGuide.id, updateData);
         setIsHistoryModalOpen(false);
         fetchGuides();
     };
@@ -138,7 +134,7 @@ export default function WikiPage() {
 
         try {
             if (shouldEncrypt && user) {
-                const userKeys = await db.getUserKeys(user.$id);
+                const userKeys = await db.getUserKeys(user.id);
                 if (!userKeys) throw new Error('Vault keys not found');
 
                 const docKey = await generateDocumentKey();
@@ -151,72 +147,72 @@ export default function WikiPage() {
 
                 const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
 
-                if (selectedGuide?.$id) {
-                    await db.updateGuide(selectedGuide.$id, finalData);
+                if (selectedGuide?.id) {
+                    await db.updateGuide(selectedGuide.id, finalData);
                     
                     // Create version snapshot
                     await db.createVersion({
-                        resourceId: selectedGuide.$id,
+                        resourceId: selectedGuide.id,
                         resourceType: 'Wiki',
                         content: finalData.description || '',
                         title: finalData.title,
                         isEncrypted: true,
                         metadata: 'Updated'
-                    }, user.$id);
+                    });
 
                     // Also update/add access control if not exists
-                    const existingAccess = await db.getAccessKey(selectedGuide.$id, user.$id);
+                    const existingAccess = await db.getAccessKey(selectedGuide.id);
                     if (!existingAccess) {
                         await db.grantAccess({
-                            resourceId: selectedGuide.$id,
-                            userId: user.$id,
+                            resourceId: selectedGuide.id,
+                            userId: user.id,
                             encryptedKey: encryptedDocKey,
                             resourceType: 'Wiki'
                         });
                     }
                     toast.success('Wiki updated');
                 } else {
-                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>, user.$id);
+                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, 'id' | 'createdAt'>);
                     
                     await db.createVersion({
-                        resourceId: newGuide.$id,
+                        resourceId: newGuide.id,
                         resourceType: 'Wiki',
                         content: finalData.description || '',
                         title: finalData.title,
                         isEncrypted: true,
                         metadata: 'Initial version'
-                    }, user.$id);
+                    });
 
                     await db.grantAccess({
-                        resourceId: newGuide.$id,
-                        userId: user.$id,
+                        resourceId: newGuide.id,
+                        userId: user.id,
                         encryptedKey: encryptedDocKey,
                         resourceType: 'Wiki'
                     });
                     toast.success('Wiki created');
                 }
             } else {
-                if (selectedGuide?.$id) {
-                    await db.updateGuide(selectedGuide.$id, finalData);
+                if (selectedGuide?.id) {
+                    await db.updateGuide(selectedGuide.id, finalData);
                     await db.createVersion({
-                        resourceId: selectedGuide.$id,
+                        resourceId: selectedGuide.id,
                         resourceType: 'Wiki',
                         content: finalData.description || '',
                         title: finalData.title,
                         isEncrypted: false,
                         metadata: 'Updated'
-                    }, user?.$id);
+                    });
                     toast.success('Wiki updated');
                 } else {
-                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, '$id' | '$createdAt'>, user?.$id);
+                    const newGuide = await db.createGuide(finalData as Omit<WikiGuide, 'id' | 'createdAt'>);
                     await db.createVersion({
-                        resourceId: newGuide.$id,
+                        resourceId: newGuide.id,
                         resourceType: 'Wiki',
                         content: finalData.description || '',
                         title: finalData.title,
                         isEncrypted: false,
                         metadata: 'Initial version'
-                    }, user?.$id);
+                    });
                     toast.success('Wiki created');
                 }
             }
@@ -232,7 +228,7 @@ export default function WikiPage() {
     const handleDelete = async () => {
         if (selectedGuide) {
             try {
-                await db.deleteGuide(selectedGuide.$id);
+                await db.deleteGuide(selectedGuide.id);
                 setIsDeleteModalOpen(false);
                 fetchGuides();
                 toast.success('Wiki deleted');
@@ -290,7 +286,7 @@ export default function WikiPage() {
                 ) : (
                     filteredGuides.map((guide) => (
                         <Surface 
-                            key={guide.$id} 
+                            key={guide.id} 
                             className="p-0 rounded-[2.5rem] border border-border/30 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-500 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5"
                         >
                             <div className="p-8 flex-1 flex flex-col gap-8">
@@ -346,7 +342,7 @@ export default function WikiPage() {
                                         </div>
                                         <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest">View Documentation</span>
                                     </div>
-                                    <Link href={`/wiki/${guide.$id}`} className="absolute inset-0 z-0" />
+                                    <Link href={`/wiki/${guide.id}`} className="absolute inset-0 z-0" />
                                 </div>
                             </div>
                         </Surface>
@@ -372,7 +368,7 @@ export default function WikiPage() {
             <VersionHistoryModal 
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
-                resourceId={selectedGuide?.$id || ''}
+                resourceId={selectedGuide?.id || ''}
                 resourceType="Wiki"
                 onRestore={handleRestore}
             />

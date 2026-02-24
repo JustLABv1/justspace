@@ -115,7 +115,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                             </div>
                             <div className="space-y-0">
                                 <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
-                                    {snippet?.$id ? 'Sync Snippet_' : 'Init Snippet_'}
+                                    {snippet?.id ? 'Sync Snippet_' : 'Init Snippet_'}
                                 </Modal.Heading>
                                 <p className="text-muted-foreground text-[10px] font-black uppercase opacity-40 ml-0.5 mt-1 tracking-widest">Code Inventory</p>
                             </div>
@@ -257,7 +257,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     className="rounded-xl h-9 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-accent/20" 
                                     isPending={isLoading}
                                 >
-                                    {snippet?.$id ? 'Commit Sync' : 'Execute Init'}
+                                    {snippet?.id ? 'Commit Sync' : 'Execute Init'}
                                 </Button>
                             </Modal.Footer>
                         </Form>

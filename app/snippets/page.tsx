@@ -5,9 +5,9 @@ import { SnippetDetailModal } from '@/components/SnippetDetailModal';
 import { SnippetModal } from '@/components/SnippetModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { useAuth } from '@/context/AuthContext';
-import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { ACCESS_CONTROL_ID, db, DB_ID, SNIPPETS_ID } from '@/lib/db';
+import { db } from '@/lib/db';
+import { wsClient, WSEvent } from '@/lib/ws';
 import { EncryptedData, ResourceVersion, Snippet } from '@/types';
 import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -43,7 +43,7 @@ export default function SnippetsPage() {
                 if (snippet.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(snippet.$id, user.$id);
+                            const access = await db.getAccessKey(snippet.id);
                             if (access) {
                                 const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const titleRaw = JSON.parse(snippet.title) as EncryptedData;
@@ -60,7 +60,7 @@ export default function SnippetsPage() {
                                 };
                             }
                         } catch (e) {
-                            console.error('Failed to decrypt snippet:', snippet.$id, e);
+                            console.error('Failed to decrypt snippet:', snippet.id, e);
                             return { ...snippet, title: 'Encrypted Snippet', content: '// Access Denied' };
                         }
                     }
@@ -92,31 +92,27 @@ export default function SnippetsPage() {
     useEffect(() => {
         if (!user) return;
 
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${SNIPPETS_ID}.documents`,
-            `databases.${DB_ID}.collections.${ACCESS_CONTROL_ID}.documents`
-        ], (response) => {
-            if (response.events.some(e => e.includes('.delete'))) {
-                // If its from snippets collection, remove from state
-                if (response.events.some(e => e.includes(SNIPPETS_ID))) {
-                    const payload = response.payload as Snippet;
-                    setSnippets(prev => prev.filter(s => s.$id !== payload.$id));
+        const unsub = wsClient.subscribe((event: WSEvent) => {
+            if (event.collection === 'snippets' || event.collection === 'access_control') {
+                if (event.type === 'delete' && event.collection === 'snippets') {
+                    const payload = event.document as unknown as Snippet;
+                    setSnippets(prev => prev.filter(s => s.id !== payload.id));
                     return;
                 }
+                fetchSnippets(false);
             }
-            fetchSnippets(false);
         });
 
-        return () => unsubscribe();
+        return () => unsub();
     }, [user, fetchSnippets]);
 
     const handleCreateOrUpdate = async (data: Partial<Snippet>) => {
         try {
-            if (selectedSnippet?.$id) {
+            if (selectedSnippet?.id) {
                 const updateData = { ...data };
                 if (data.isEncrypted && privateKey && user) {
                     // Get existing key
-                    const access = await db.getAccessKey(selectedSnippet.$id, user.$id);
+                    const access = await db.getAccessKey(selectedSnippet.id);
                     if (access) {
                         const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         if (data.title) updateData.title = JSON.stringify(await encryptData(data.title, snippetKey));
@@ -125,16 +121,16 @@ export default function SnippetsPage() {
                         if (data.description) updateData.description = JSON.stringify(await encryptData(data.description, snippetKey));
                     }
                 }
-                await db.updateSnippet(selectedSnippet.$id, updateData);
+                await db.updateSnippet(selectedSnippet.id, updateData);
                 
                 await db.createVersion({
-                    resourceId: selectedSnippet.$id,
+                    resourceId: selectedSnippet.id,
                     resourceType: 'Snippet',
                     content: updateData.blocks || updateData.content || '',
                     title: updateData.title,
                     isEncrypted: data.isEncrypted,
                     metadata: 'Updated'
-                }, user?.$id);
+                });
                 toast.success('Snippet updated');
             } else {
                 const createData = { ...data };
@@ -147,19 +143,19 @@ export default function SnippetsPage() {
                     if (data.blocks) createData.blocks = JSON.stringify(await encryptData(createData.blocks!, snippetKey));
                     if (data.description) createData.description = JSON.stringify(await encryptData(createData.description!, snippetKey));
                     
-                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>, user.$id);
-                    snippetId = res.$id;
+                    const res = await db.createSnippet(createData as Omit<Snippet, 'id' | 'createdAt'>);
+                    snippetId = res.id;
 
                     const encryptedKey = await encryptDocumentKey(snippetKey, userKeys.publicKey);
                     await db.grantAccess({
                         resourceId: snippetId,
                         resourceType: 'snippet',
-                        userId: user.$id,
+                        userId: user.id,
                         encryptedKey
                     });
                 } else {
-                    const res = await db.createSnippet(createData as Omit<Snippet, '$id' | '$createdAt'>, user?.$id);
-                    snippetId = res.$id;
+                    const res = await db.createSnippet(createData as Omit<Snippet, 'id' | 'createdAt'>);
+                    snippetId = res.id;
                 }
 
                 await db.createVersion({
@@ -169,7 +165,7 @@ export default function SnippetsPage() {
                     title: createData.title,
                     isEncrypted: data.isEncrypted,
                     metadata: 'Initial version'
-                }, user?.$id);
+                });
                 toast.success('Snippet created');
             }
             setIsSnippetModalOpen(false);
@@ -199,7 +195,7 @@ export default function SnippetsPage() {
             }
 
             if (selectedSnippet.isEncrypted && user && privateKey) {
-                const access = await db.getAccessKey(selectedSnippet.$id, user.$id);
+                const access = await db.getAccessKey(selectedSnippet.id);
                 if (access) {
                     const snippetKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                     updateData.title = JSON.stringify(await encryptData(version.title || 'Restored Snippet', snippetKey));
@@ -209,7 +205,7 @@ export default function SnippetsPage() {
                 }
             }
 
-            await db.updateSnippet(selectedSnippet.$id, updateData);
+            await db.updateSnippet(selectedSnippet.id, updateData);
             setIsHistoryModalOpen(false);
             fetchSnippets();
             toast.success('Version restored');
@@ -222,7 +218,7 @@ export default function SnippetsPage() {
     const handleDelete = async () => {
         if (selectedSnippet) {
             try {
-                await db.deleteSnippet(selectedSnippet.$id);
+                await db.deleteSnippet(selectedSnippet.id);
                 setIsDeleteModalOpen(false);
                 fetchSnippets();
                 toast.success('Snippet deleted');
@@ -278,7 +274,7 @@ export default function SnippetsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredSnippets.map((snippet) => (
                     <Surface 
-                        key={snippet.$id} 
+                        key={snippet.id} 
                         className="p-0 rounded-[2.5rem] border border-border/40 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5 cursor-pointer"
                         onClick={() => { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }}
                     >
@@ -385,7 +381,7 @@ export default function SnippetsPage() {
             <VersionHistoryModal 
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
-                resourceId={selectedSnippet?.$id || ''}
+                resourceId={selectedSnippet?.id || ''}
                 resourceType="Snippet"
                 onRestore={handleRestore}
             />

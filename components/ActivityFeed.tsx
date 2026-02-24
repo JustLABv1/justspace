@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from "@/context/AuthContext";
-import { client } from "@/lib/appwrite";
 import { decryptData, decryptDocumentKey } from "@/lib/crypto";
-import { ACTIVITY_ID, db, DB_ID } from "@/lib/db";
+import { db } from "@/lib/db";
+import { wsClient, WSEvent } from "@/lib/ws";
 import { ActivityLog } from "@/types";
 import { Button, Chip, ScrollShadow, Spinner, Surface } from "@heroui/react";
 import {
@@ -56,7 +56,7 @@ export function ActivityFeed() {
                         // Use projectId for decryption key lookup
                         const resourceId = activity.projectId;
                         if (resourceId) {
-                            const access = await db.getAccessKey(resourceId, user.$id);
+                            const access = await db.getAccessKey(resourceId, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const nameData = JSON.parse(activity.entityName);
@@ -65,7 +65,7 @@ export function ActivityFeed() {
                             }
                         }
                     } catch (e) {
-                        console.error('Failed to decrypt activity name:', activity.$id, e);
+                        console.error('Failed to decrypt activity name:', activity.id, e);
                     }
                     return { ...activity, entityName: 'Secure Activity' };
                 }
@@ -79,18 +79,18 @@ export function ActivityFeed() {
     useEffect(() => {
         fetchActivity();
         
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${ACTIVITY_ID}.documents`
-        ], () => {
-            fetchActivity(true); // Silent refresh on any activity change
+        const unsub = wsClient.subscribe((event: WSEvent) => {
+            if (event.collection === 'activity') {
+                fetchActivity(true); // Silent refresh on any activity change
+            }
         });
 
-        return () => unsubscribe();
+        return () => unsub();
     }, [fetchActivity]);
 
     // Grouping logic
     const groupedActivities = decryptedActivities.reduce((groups: Record<string, ActivityLog[]>, activity) => {
-        const date = dayjs(activity.$createdAt);
+        const date = dayjs(activity.createdAt);
         let groupKey = '';
         if (date.isToday()) groupKey = 'Today';
         else if (date.isYesterday()) groupKey = 'Yesterday';
@@ -169,7 +169,7 @@ export function ActivityFeed() {
                             
                             <div className="space-y-4 pl-1">
                                 {items.map((activity) => (
-                                    <div key={activity.$id} className="group relative pr-2">
+                                    <div key={activity.id} className="group relative pr-2">
                                         <div className="flex items-start gap-4">
                                             {/* Minimalist dot/icon indicator */}
                                             <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-lg bg-surface-secondary border border-border/40 flex items-center justify-center z-10 group-hover:border-accent/50 transition-all duration-300">
@@ -196,7 +196,7 @@ export function ActivityFeed() {
                                                             {activity.entityType}
                                                         </span>
                                                         <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-widest flex items-center gap-1">
-                                                            • {dayjs(activity.$createdAt).format('HH:mm')}
+                                                            • {dayjs(activity.createdAt).format('HH:mm')}
                                                         </span>
                                                     </div>
                                                     

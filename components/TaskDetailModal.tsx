@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
-import { db, DB_ID, TASKS_ID } from '@/lib/db';
+import { db } from '@/lib/db';
+import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import {
     Button,
@@ -77,7 +77,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             let docKey = documentKey;
             if (task.isEncrypted && privateKey && user && !docKey) {
                 try {
-                    const access = await db.getAccessKey(projectId, user.$id);
+                    const access = await db.getAccessKey(projectId);
                     if (access) {
                         docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         setDocumentKey(docKey);
@@ -89,7 +89,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
             const res = await db.listTasks(projectId);
             const allTasks = res.documents as unknown as Task[];
-            let filteredSubtasks = allTasks.filter(t => t.parentId === task.$id);
+            let filteredSubtasks = allTasks.filter(t => t.parentId === task.id);
 
             // Decrypt subtasks if needed
             filteredSubtasks = await Promise.all(filteredSubtasks.map(async (st) => {
@@ -109,7 +109,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch (error) {
             console.error('Failed to fetch subtasks:', error);
         }
-    }, [isOpen, projectId, task.$id, task.isEncrypted, privateKey, user, documentKey]);
+    }, [isOpen, projectId, task.id, task.isEncrypted, privateKey, user, documentKey]);
 
     useEffect(() => {
         const load = async () => {
@@ -119,32 +119,32 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     }, [fetchDetails]);
 
     useEffect(() => {
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${TASKS_ID}.documents`
-        ], async (response) => {
-            const payload = response.payload as Task;
-            if (payload.parentId !== task.$id && payload.$id !== task.$id) return;
+        const unsub = wsClient.subscribe(async (event: WSEvent) => {
+            if (event.collection === 'tasks') {
+                const payload = event.document as unknown as Task;
+                if (payload.parentId !== task.id && payload.id !== task.id) return;
 
-            if (response.events.some(e => e.includes('.delete'))) {
-                if (payload.$id === task.$id) {
-                    onOpenChange(false);
-                } else {
-                    setSubtasks(prev => prev.filter(s => s.$id !== payload.$id));
+                if (event.type === 'delete') {
+                    if (payload.id === task.id) {
+                        onOpenChange(false);
+                    } else {
+                        setSubtasks(prev => prev.filter(s => s.id !== payload.id));
+                    }
+                    return;
                 }
-                return;
-            }
 
-            await fetchDetails();
+                await fetchDetails();
+            }
         });
 
-        return () => unsubscribe();
-    }, [task.$id, fetchDetails, onOpenChange]);
+        return () => unsub();
+    }, [task.id, fetchDetails, onOpenChange]);
 
     const handleUpdateTask = async (taskId: string, data: Partial<Task>) => {
         // Optimistic update for subtasks
         const previousSubtasks = [...subtasks];
-        if (taskId !== task.$id) {
-            setSubtasks(prev => prev.map(s => s.$id === taskId ? { ...s, ...data } : s));
+        if (taskId !== task.id) {
+            setSubtasks(prev => prev.map(s => s.id === taskId ? { ...s, ...data } : s));
         }
 
         try {
@@ -155,7 +155,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             }
         } catch (error) {
             console.error('Failed to update task:', error);
-            if (taskId !== task.$id) {
+            if (taskId !== task.id) {
                 setSubtasks(previousSubtasks);
             }
             toast.danger('Sync failed');
@@ -171,12 +171,12 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         
         // Optimistic update
         const newTask: Task = {
-            $id: optimisticId,
-            $createdAt: new Date().toISOString(),
+            id: optimisticId,
+            createdAt: new Date().toISOString(),
             title: originalTitle,
             projectId,
             completed: false,
-            parentId: task.$id,
+            parentId: task.id,
             order: subtasks.length,
             isEncrypted: !!task.isEncrypted
         } as Task;
@@ -190,12 +190,12 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(originalTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.$id, 'todo', user?.$id);
+            await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.id, 'todo');
             // Realtime will handle the state sync
             toast.success('Subtask added');
         } catch (error) {
             console.error('Failed to add subtask:', error);
-            setSubtasks(prev => prev.filter(s => s.$id !== optimisticId));
+            setSubtasks(prev => prev.filter(s => s.id !== optimisticId));
             setNewSubtaskTitle(originalTitle);
             toast.danger('Failed to add subtask');
         }
@@ -203,13 +203,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
     const handleDeleteTask = async (taskId: string) => {
         const previousSubtasks = [...subtasks];
-        if (taskId !== task.$id) {
-            setSubtasks(prev => prev.filter(s => s.$id !== taskId));
+        if (taskId !== task.id) {
+            setSubtasks(prev => prev.filter(s => s.id !== taskId));
         }
 
         try {
             await db.deleteTask(taskId);
-            if (taskId === task.$id) {
+            if (taskId === task.id) {
                 onOpenChange(false);
             }
             // Realtime handles the rest
@@ -217,7 +217,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             toast.success('Task deleted');
         } catch (error) {
             console.error('Failed to delete task:', error);
-            if (taskId !== task.$id) {
+            if (taskId !== task.id) {
                 setSubtasks(previousSubtasks);
             }
             toast.danger('Delete failed');
@@ -237,7 +237,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(editedTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.updateTask(task.$id, { title: finalTitle });
+            await db.updateTask(task.id, { title: finalTitle });
             setIsEditingTitle(false);
             onUpdate();
             toast.success('Title updated');
@@ -259,7 +259,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(editedSubtaskTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.updateTask(subtask.$id, { title: finalTitle });
+            await db.updateTask(subtask.id, { title: finalTitle });
             setEditingSubtaskId(null);
             fetchDetails();
             onUpdate();
@@ -272,7 +272,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
     const handleUpdatePriority = async (priority: 'low' | 'medium' | 'high' | 'urgent') => {
         try {
-            await db.updateTask(task.$id, { priority });
+            await db.updateTask(task.id, { priority });
             onUpdate();
             toast.success('Priority updated');
         } catch (error) {
@@ -285,7 +285,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         try {
             // Using dayjs with the string representation is more robust for conversion
             const dateStr = val ? dayjs(val.toString()).toISOString() : undefined;
-            await db.updateTask(task.$id, { deadline: dateStr });
+            await db.updateTask(task.id, { deadline: dateStr });
             onUpdate();
             toast.success('Deadline updated');
         } catch (error) {
@@ -307,7 +307,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 parsedNote.text = newNote;
                 parsedNote.type = noteType;
                 updatedNotes[editingNoteIndex] = JSON.stringify(parsedNote);
-                await db.updateTask(task.$id, { notes: updatedNotes });
+                await db.updateTask(task.id, { notes: updatedNotes });
                 setEditingNoteIndex(null);
                 toast.success('Note updated');
             } else {
@@ -322,7 +322,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 if (noteType === 'email' || noteType === 'call') {
                     updateData.kanbanStatus = 'waiting';
                 }
-                await db.updateTask(task.$id, updateData);
+                await db.updateTask(task.id, updateData);
                 toast.success('Note added');
             }
             setNewNote('');
@@ -337,7 +337,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         const existingNotes = task.notes || [];
         const updatedNotes = existingNotes.filter((_, i) => i !== index);
         try {
-            await db.updateTask(task.$id, { notes: updatedNotes });
+            await db.updateTask(task.id, { notes: updatedNotes });
             onUpdate();
             toast.success('Note deleted');
         } catch (error) {
@@ -384,7 +384,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                             <div className="flex items-center justify-between w-full border-b border-border/10 pb-6">
                                 <div className="flex flex-col">
                                     <span className="text-[8px] font-black tracking-[0.3em] text-muted-foreground/20 uppercase">Identity Reference</span>
-                                    <span className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground/40 tabular-nums">#{task.$id.slice(-8).toUpperCase()}</span>
+                                    <span className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground/40 tabular-nums">#{task.id.slice(-8).toUpperCase()}</span>
                                 </div>
                                 <Modal.CloseTrigger className="relative top-0 right-0" />
                             </div>
@@ -585,16 +585,16 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         </div>
                                                     ) : (
                                                         subtasks.map((st) => (
-                                                            <div key={st.$id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border/20 group hover:border-accent/20 transition-all">
+                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border/20 group hover:border-accent/20 transition-all">
                                                                 <Checkbox 
                                                                     isSelected={st.completed} 
-                                                                    onChange={(val) => handleUpdateTask(st.$id, { completed: val })}
+                                                                    onChange={(val) => handleUpdateTask(st.id, { completed: val })}
                                                                 >
                                                                     <Checkbox.Control className="size-5 rounded-lg border-2">
                                                                         <Checkbox.Indicator />
                                                                     </Checkbox.Control>
                                                                 </Checkbox>
-                                                                {editingSubtaskId === st.$id ? (
+                                                                {editingSubtaskId === st.id ? (
                                                                     <Input 
                                                                         autoFocus
                                                                         value={editedSubtaskTitle}
@@ -610,7 +610,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                     <span 
                                                                         className={`text-xs font-bold transition-all flex-1 cursor-pointer hover:text-accent ${st.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'}`}
                                                                         onClick={() => {
-                                                                            setEditingSubtaskId(st.$id);
+                                                                            setEditingSubtaskId(st.id);
                                                                             setEditedSubtaskTitle(st.title);
                                                                         }}
                                                                     >
@@ -622,7 +622,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                     isIconOnly 
                                                                     size="sm" 
                                                                     className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground/30 hover:text-danger hover:bg-danger/10"
-                                                                    onPress={() => handleDeleteTask(st.$id)}
+                                                                    onPress={() => handleDeleteTask(st.id)}
                                                                 >
                                                                     <Trash size={12} />
                                                                 </Button>

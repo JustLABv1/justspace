@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { account } from '@/lib/appwrite';
+import { api } from '@/lib/api';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Button, Form, Surface, toast } from '@heroui/react';
@@ -69,7 +69,7 @@ function SettingsContent() {
     useEffect(() => {
         if (user) {
             setUserName(user.name || '');
-            const prefs = user.prefs as Record<string, string | undefined>;
+            const prefs = (user.preferences || {}) as Record<string, string | undefined>;
             setWorkspaceName(prefs?.workspaceName || 'justspace_');
         }
     }, [user]);
@@ -105,12 +105,12 @@ function SettingsContent() {
     const handleSaveChanges = async () => {
         setIsSubmitting(true);
         try {
-            if (userName !== user?.name) {
-                await account.updateName(userName);
-            }
-            await account.updatePrefs({
-                ...(user?.prefs || {}),
-                workspaceName,
+            await api.updateProfile({
+                ...(userName !== user?.name ? { name: userName } : {}),
+                preferences: {
+                    ...(user?.preferences || {}),
+                    workspaceName,
+                },
             });
             toast.success('Settings synchronized');
         } catch (error) {
@@ -129,7 +129,7 @@ function SettingsContent() {
         }
         setIsMigrating(true);
         setMigrationProgress('Initializing migration batch...');
-        console.log('Starting migration for user:', user.$id);
+        console.log('Starting migration for user:', user.id);
 
         try {
             // 1. Migrate Snippets
@@ -141,7 +141,7 @@ function SettingsContent() {
                 const encContent = await encryptData(s.content, docKey);
                 const encDesc = s.description ? await encryptData(s.description, docKey) : null;
                 
-                await db.updateSnippet(s.$id, {
+                await db.updateSnippet(s.id, {
                     title: JSON.stringify(encTitle),
                     content: JSON.stringify(encContent),
                     description: encDesc ? JSON.stringify(encDesc) : undefined,
@@ -150,8 +150,8 @@ function SettingsContent() {
                 
                 const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                 await db.grantAccess({
-                    resourceId: s.$id,
-                    userId: user.$id,
+                    resourceId: s.id,
+                    userId: user.id,
                     encryptedKey: encKey,
                     resourceType: 'Snippet'
                 });
@@ -165,7 +165,7 @@ function SettingsContent() {
                 const encTitle = await encryptData(g.title, docKey);
                 const encDesc = await encryptData(g.description, docKey);
                 
-                await db.updateGuide(g.$id, {
+                await db.updateGuide(g.id, {
                     title: JSON.stringify(encTitle),
                     description: JSON.stringify(encDesc),
                     isEncrypted: true
@@ -174,18 +174,18 @@ function SettingsContent() {
                 // Wrap key for access control
                 const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                 await db.grantAccess({
-                    resourceId: g.$id,
-                    userId: user.$id,
+                    resourceId: g.id,
+                    userId: user.id,
                     encryptedKey: encKey,
                     resourceType: 'Wiki'
                 });
 
                 // Also migrate installations
-                const fullGuide = await db.getGuide(g.$id);
-                for (const inst of fullGuide.installations) {
+                const fullGuide = await db.getGuide(g.id);
+                for (const inst of (fullGuide.installations || [])) {
                     if (inst.notes) {
                         const encNotes = await encryptData(inst.notes, docKey);
-                        await db.updateInstallation(inst.$id, {
+                        await db.updateInstallation(inst.id, {
                             notes: JSON.stringify(encNotes),
                             isEncrypted: true
                         });
@@ -201,7 +201,7 @@ function SettingsContent() {
                 const encName = await encryptData(p.name, docKey);
                 const encDesc = await encryptData(p.description, docKey);
                 
-                await db.updateProject(p.$id, {
+                await db.updateProject(p.id, {
                     name: JSON.stringify(encName),
                     description: JSON.stringify(encDesc),
                     isEncrypted: true
@@ -209,17 +209,17 @@ function SettingsContent() {
 
                 const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                 await db.grantAccess({
-                    resourceId: p.$id,
-                    userId: user.$id,
+                    resourceId: p.id,
+                    userId: user.id,
                     encryptedKey: encKey,
                     resourceType: 'Project'
                 });
 
                 // Tasks
-                const tasks = await db.listTasks(p.$id);
+                const tasks = await db.listTasks(p.id);
                 for (const t of tasks.documents) {
                     const encTaskTitle = await encryptData(t.title, docKey);
-                    await db.updateTask(t.$id, {
+                    await db.updateTask(t.id, {
                         title: JSON.stringify(encTaskTitle),
                         isEncrypted: true
                     });
@@ -355,7 +355,7 @@ function SettingsContent() {
                                     </div>
                                     <div className="pt-4 p-6 rounded-2xl bg-surface-tertiary border border-border/50 space-y-2">
                                         <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">System Identity</h4>
-                                        <p className="text-xs font-mono text-muted-foreground truncate">{user?.$id}</p>
+                                        <p className="text-xs font-mono text-muted-foreground truncate">{user?.id}</p>
                                     </div>
                                 </div>
                             </div>

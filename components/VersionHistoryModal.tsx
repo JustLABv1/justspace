@@ -32,7 +32,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
             const processedVersions = await Promise.all(rawVersions.map(async (v) => {
                 if (v.isEncrypted && privateKey && user) {
                     try {
-                        const access = await db.getAccessKey(accessResourceId || resourceId, user.$id);
+                        const access = await db.getAccessKey(accessResourceId || resourceId, user.id);
                         if (access) {
                             const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                             
@@ -105,7 +105,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                             ) : (
                                 <div className="space-y-3">
                                     {versions.map((v) => (
-                                        <div key={v.$id} className="p-4 rounded-2xl bg-surface-secondary/50 border border-border/10 flex items-center justify-between group hover:bg-surface-secondary transition-colors">
+                                        <div key={v.id} className="p-4 rounded-2xl bg-surface-secondary/50 border border-border/10 flex items-center justify-between group hover:bg-surface-secondary transition-colors">
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-sm font-black text-foreground">
@@ -116,7 +116,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                                                    <span>{format(new Date(v.$createdAt), 'MMM d, yyyy HH:mm')}</span>
+                                                    <span>{format(new Date(v.createdAt), 'MMM d, yyyy HH:mm')}</span>
                                                     {v.metadata && <span>• {v.metadata}</span>}
                                                 </div>
                                             </div>

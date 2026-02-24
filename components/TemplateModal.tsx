@@ -31,7 +31,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                 if (g.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(g.$id, user.$id);
+                            const access = await db.getAccessKey(g.id, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const titleData = JSON.parse(g.title);
@@ -63,13 +63,13 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
         setIsLoading(true);
         try {
             const guide = await db.getGuide(guideId);
-            const insts = guide.installations || [];
+            const insts: InstallationTarget[] = guide.installations || [];
             
-            const processedInsts = await Promise.all(insts.map(async (inst) => {
+            const processedInsts = await Promise.all(insts.map(async (inst: InstallationTarget) => {
                 if (guide.isEncrypted || inst.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(guide.$id, user.$id);
+                            const access = await db.getAccessKey(guide.id, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 
@@ -82,7 +82,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                 
                                 let tasks = inst.tasks || [];
                                 if (tasks.length > 0 && tasks[0].startsWith('{')) {
-                                    tasks = await Promise.all(tasks.map(async (t) => {
+                                    tasks = await Promise.all(tasks.map(async (t: string) => {
                                         try {
                                             return await decryptData(JSON.parse(t), docKey);
                                         } catch (e) { return t; }
@@ -159,9 +159,9 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                     <div className="grid grid-cols-1 gap-3">
                                         {guides.map(guide => (
                                             <button 
-                                                key={guide.$id} 
+                                                key={guide.id} 
                                                 className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-surface-secondary/20 text-left hover:border-accent/40 hover:bg-surface-secondary/40 transition-all group active:scale-[0.98]"
-                                                onClick={() => fetchInstallations(guide.$id)}
+                                                onClick={() => fetchInstallations(guide.id)}
                                             >
                                                 <div className="w-10 h-10 rounded-xl bg-foreground/5 border border-border/40 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform shrink-0 shadow-sm">
                                                     <Book size={20} weight="Bold" />

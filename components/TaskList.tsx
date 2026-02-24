@@ -1,10 +1,10 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
-import { db, DB_ID, TASKS_ID } from '@/lib/db';
+import { db } from '@/lib/db';
 import { DEPLOYMENT_TEMPLATES } from '@/lib/templates';
+import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
@@ -83,7 +83,7 @@ export function TaskList({
 
             if (projectRes.isEncrypted && privateKey && user) {
                 try {
-                    const access = await db.getAccessKey(projectId, user.$id);
+                    const access = await db.getAccessKey(projectId);
                     if (access) {
                         docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         setDocumentKey(docKey);
@@ -122,38 +122,38 @@ export function TaskList({
     }, [fetchTasks]);
 
     useEffect(() => {
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${TASKS_ID}.documents`
-        ], async (response) => {
-            const payload = response.payload as Task;
-            if (payload.projectId !== projectId) return;
+        const unsub = wsClient.subscribe(async (event: WSEvent) => {
+            if (event.collection === 'tasks') {
+                const payload = event.document as unknown as Task;
+                if (payload.projectId !== projectId) return;
 
-            // If it's a delete event, we can handle it immediately without decryption
-            if (response.events.some(e => e.includes('.delete'))) {
-                setTasks(prev => prev.filter(t => t.$id === payload.$id ? false : true));
-                return;
+                // If it's a delete event, we can handle it immediately without decryption
+                if (event.type === 'delete') {
+                    setTasks(prev => prev.filter(t => t.id === payload.id ? false : true));
+                    return;
+                }
+
+                // For creates and updates, we trigger a silent fetch to handle decryption correctly
+                await fetchTasks(false);
             }
-
-            // For creates and updates, we trigger a silent fetch to handle decryption correctly
-            await fetchTasks(false);
         });
 
-        return () => unsubscribe();
+        return () => unsub();
     }, [projectId, fetchTasks]);
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (over && active.id !== over.id) {
-            const oldIndex = tasks.findIndex((t) => t.$id === active.id);
-            const newIndex = tasks.findIndex((t) => t.$id === over.id);
+            const oldIndex = tasks.findIndex((t) => t.id === active.id);
+            const newIndex = tasks.findIndex((t) => t.id === over.id);
             
             const newTasks = arrayMove(tasks, oldIndex, newIndex);
             setTasks(newTasks);
 
             try {
                 await Promise.all(newTasks.map((task, index) => 
-                    db.updateTask(task.$id, { order: index })
+                    db.updateTask(task.id, { order: index })
                 ));
             } catch (error) {
                 console.error('Failed to update task order:', error);
@@ -170,8 +170,8 @@ export function TaskList({
         
         try {
             const newTask: Task = {
-                $id: optimisticId,
-                $createdAt: new Date().toISOString(),
+                id: optimisticId,
+                createdAt: new Date().toISOString(),
                 title: newTaskTitle,
                 projectId,
                 completed: false,
@@ -189,10 +189,10 @@ export function TaskList({
                 title = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted, undefined, 'todo', user?.$id);
+            const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted, undefined, 'todo');
             
             // Replace optimistic task with the real one
-            setTasks(prev => prev.map(t => t.$id === optimisticId ? (res as unknown as Task) : t));
+            setTasks(prev => prev.map(t => t.id === optimisticId ? (res as unknown as Task) : t));
             fetchTasks(); // Refresh to get correct decrypted title if needed
             toast.success('Task added');
         } catch (error) {
@@ -211,7 +211,7 @@ export function TaskList({
                 finalTitle = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId, 'todo', user?.$id);
+            await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId, 'todo');
             fetchTasks();
             toast.success('Subtask added');
         } catch (error) {
@@ -230,9 +230,9 @@ export function TaskList({
                 const encryptedTitles = await Promise.all(titles.map(async (t) => {
                     return JSON.stringify(await encryptData(t, documentKey));
                 }));
-                await db.createTasks(projectId, encryptedTitles, true, user?.$id);
+                await db.createTasks(projectId, encryptedTitles, true);
             } else {
-                await db.createTasks(projectId, titles, false, user?.$id);
+                await db.createTasks(projectId, titles, false);
             }
             fetchTasks();
             toast.success('Template applied', {
@@ -251,10 +251,10 @@ export function TaskList({
         try {
             const taskData: Partial<Task> & { workDuration?: string } = { ...data };
             delete taskData.workDuration;
-            const updatedTaskTitle = data.title || (tasks.find(t => t.$id === taskId)?.title) || '';
+            const updatedTaskTitle = data.title || (tasks.find(t => t.id === taskId)?.title) || '';
             
             // Optimistic update
-            setTasks(tasks.map(t => t.$id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
+            setTasks(tasks.map(t => t.id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
 
             const updateData = { ...data };
             if (documentKey && data.title) {
@@ -277,7 +277,7 @@ export function TaskList({
     const deleteTask = async (taskId: string) => {
         const previousTasks = [...tasks];
         try {
-            setTasks(tasks.filter(t => t.$id !== taskId));
+            setTasks(tasks.filter(t => t.id !== taskId));
             await db.deleteTask(taskId);
             toast.success('Task deleted');
         } catch (error) {
@@ -296,7 +296,7 @@ export function TaskList({
     const allMainTasks = tasks.filter(t => !t.parentId);
     const filteredMainTasks = allMainTasks.filter(t => {
         // Search matches if title matches OR if any subtask matches
-        const subtasks = tasks.filter(st => st.parentId === t.$id);
+        const subtasks = tasks.filter(st => st.parentId === t.id);
         const anySubtaskMatches = subtasks.some(st => st.title.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || anySubtaskMatches;
         
@@ -399,19 +399,19 @@ export function TaskList({
                             onDragEnd={handleDragEnd}
                             modifiers={[restrictToVerticalAxis]}
                         >
-                            <SortableContext items={paginatedTasks.map(t => t.$id)} strategy={verticalListSortingStrategy}>
+                            <SortableContext items={paginatedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-3">
                                     {paginatedTasks.map((task) => (
                                         <TaskItem 
-                                            key={task.$id} 
+                                            key={task.id} 
                                             task={task} 
                                             onToggle={(id, completed) => updateTask(id, { completed })}
                                             onDelete={deleteTask}
                                             onUpdate={updateTask}
                                             onAddSubtask={handleAddSubtask}
                                             allTasks={tasks}
-                                            isExpanded={expandedTaskIds.includes(task.$id)}
-                                            onToggleExpanded={() => toggleTaskExpansion(task.$id)}
+                                            isExpanded={expandedTaskIds.includes(task.id)}
+                                            onToggleExpanded={() => toggleTaskExpansion(task.id)}
                                             onClick={() => {
                                                 setSelectedTask(task);
                                                 setIsDetailModalOpen(true);
@@ -465,7 +465,7 @@ export function TaskList({
                 <TaskDetailModal 
                     isOpen={isDetailModalOpen}
                     onOpenChange={setIsDetailModalOpen}
-                    task={tasks.find(t => t.$id === selectedTask.$id) || selectedTask}
+                    task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
                     projectId={projectId}
                     onUpdate={fetchTasks}
                 />

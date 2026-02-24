@@ -63,7 +63,7 @@ export default function Home() {
         if (p.isEncrypted) {
             if (privateKey && user) {
                 try {
-                    const access = await db.getAccessKey(p.$id, user.$id);
+                    const access = await db.getAccessKey(p.id, user.id);
                     if (access) {
                         const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                         const nameData = JSON.parse(p.name);
@@ -75,7 +75,7 @@ export default function Home() {
                         };
                     }
                 } catch (e) {
-                    console.error('Failed to decrypt project on dashboard:', p.$id, e);
+                    console.error('Failed to decrypt project on dashboard:', p.id, e);
                 }
             }
             return { 
@@ -90,14 +90,14 @@ export default function Home() {
       const processedSnippets = await Promise.all(snippets.documents.slice(0, 3).map(async (s) => {
         if (s.isEncrypted && privateKey && user) {
             try {
-                const access = await db.getAccessKey(s.$id, user.$id);
+                const access = await db.getAccessKey(s.id, user.id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                     const titleData = JSON.parse(s.title);
                     return { ...s, title: await decryptData(titleData, docKey) };
                 }
             } catch (e) {
-                console.error('Failed to decrypt snippet:', s.$id, e);
+                console.error('Failed to decrypt snippet:', s.id, e);
             }
             return { ...s, title: 'Secure Snippet' };
         }
@@ -107,14 +107,14 @@ export default function Home() {
       const processedTasksData = await Promise.all(allTasks.documents.filter(t => !t.completed).map(async (t) => {
         if (t.isEncrypted && privateKey && user) {
             try {
-                const access = await db.getAccessKey(t.projectId, user.$id);
+                const access = await db.getAccessKey(t.projectId, user.id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                     const titleData = JSON.parse(t.title);
                     return { ...t, title: await decryptData(titleData, docKey) };
                 }
             } catch (e) {
-                console.error('Failed to decrypt task:', t.$id, e);
+                console.error('Failed to decrypt task:', t.id, e);
             }
             return { ...t, title: 'Secure Task' };
         }
@@ -262,9 +262,9 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {tasksDueToday.map(task => {
-                    const project = allProjects.find(p => p.$id === task.projectId);
+                    const project = allProjects.find(p => p.id === task.projectId);
                     return (
-                      <Link href={`/projects/${task.projectId}`} key={task.$id}>
+                      <Link href={`/projects/${task.projectId}`} key={task.id}>
                         <Surface className="p-4 rounded-2xl border border-warning/20 bg-warning/5 hover:bg-warning/10 transition-all group cursor-pointer flex items-center justify-between">
                           <div className="flex flex-col gap-1.5">
                             <span className="text-sm font-bold text-foreground">{task.title}</span>
@@ -322,7 +322,7 @@ export default function Home() {
                 ))
               ) : recentProjects.length > 0 ? (
                 recentProjects.map((project) => (
-                  <Surface key={project.$id} className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-accent/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5">
+                  <Surface key={project.id} className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-accent/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5">
                     <div className="relative z-10 flex flex-col h-full justify-between gap-6">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -335,13 +335,13 @@ export default function Home() {
                             </Chip>
                           </div>
                           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
-                             {new Date(project.$createdAt).toLocaleDateString()}
+                             {new Date(project.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                         <h3 className="text-2xl font-bold tracking-tight group-hover:text-accent transition-colors">{project.name}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed font-medium opacity-80">{project.description}</p>
                       </div>
-                      <Link href={`/projects/${project.$id}`}>
+                      <Link href={`/projects/${project.id}`}>
                         <Button variant="secondary" className="w-full rounded-[1.25rem] font-bold h-14 group-hover:bg-foreground group-hover:text-background transition-all border border-border/40 shadow-sm uppercase text-[11px] tracking-widest">
                           Project Details <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
                         </Button>
@@ -375,7 +375,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-2">
                     {recentSnippets.length > 0 ? recentSnippets.map(snippet => (
-                        <Link key={snippet.$id} href="/snippets">
+                        <Link key={snippet.id} href="/snippets">
                             <Surface className="p-3 rounded-xl border border-border/40 hover:border-accent/40 bg-surface/50 transition-all flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center">
@@ -400,7 +400,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-2">
                     {recentTasks.length > 0 ? recentTasks.map(task => (
-                        <Link key={task.$id} href={`/projects/${task.projectId}`}>
+                        <Link key={task.id} href={`/projects/${task.projectId}`}>
                             <Surface className="p-3 rounded-xl border border-border/40 hover:border-accent/40 bg-surface/50 transition-all flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center">

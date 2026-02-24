@@ -1,15 +1,14 @@
 'use client';
 
-import { account } from '@/lib/appwrite';
 import { decryptPrivateKey, generateUserKeyPair } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { api, AuthUser } from '@/lib/api';
 import { UserKeys } from '@/types';
-import { Models } from 'appwrite';
 import { useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
-    user: Models.User<Models.Preferences> | null;
+    user: AuthUser | null;
     isLoading: boolean;
     privateKey: CryptoKey | null;
     userKeys: UserKeys | null;
@@ -24,7 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
     const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
     const [userKeys, setUserKeys] = useState<UserKeys | null>(null);
     const [hasVault, setHasVault] = useState(false);
@@ -37,25 +36,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const checkUser = async () => {
         try {
-            const currentUser = await account.get();
+            const currentUser = await api.getMe();
             setUser(currentUser);
             // Check for vault keys
-            const keys = await db.getUserKeys(currentUser.$id);
+            const keys = await db.getUserKeys(currentUser.id);
             setHasVault(!!keys);
             setUserKeys(keys || null);
 
             // Ensure vault is discoverable for sharing (fix permissions/email casing)
             if (keys) {
-                const migrationKey = `v_migrated_${keys.$id}`;
+                const migrationKey = `v_migrated_${keys.id}`;
                 const needsMigration = !sessionStorage.getItem(migrationKey) || !keys.email || keys.email !== currentUser.email.toLowerCase();
                 
                 if (needsMigration) {
                     try {
-                        const updatedKeys = await db.updateUserKeys(keys.$id, { 
+                        const updatedKeys = await db.updateUserKeys(keys.id, { 
                             email: currentUser.email,
-                            userId: currentUser.$id 
+                            userId: currentUser.id 
                         });
-                        setUserKeys(updatedKeys as any);
+                        setUserKeys(updatedKeys as UserKeys);
                         sessionStorage.setItem(migrationKey, 'true');
                     } catch (e) {
                         console.error('Vault migration failed:', e);
@@ -95,27 +94,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const login = async (email: string, pass: string) => {
         setIsLoading(true);
         try {
-            // Check if a session already exists to avoid conflict
-            try {
-                const session = await account.getSession('current');
-                if (session) {
-                    await account.deleteSession('current');
-                }
-            } catch (e) {
-                // No active session, safe to proceed
-            }
-
-            await account.createEmailPasswordSession(email, pass);
-            const currentUser = await account.get();
-            setUser(currentUser);
+            const authResp = await api.login(email, pass);
+            setUser(authResp.user);
             
             try {
-                const keys = await db.getUserKeys(currentUser.$id);
+                const keys = await db.getUserKeys(authResp.user.id);
                 setHasVault(!!keys);
                 setUserKeys(keys || null);
             } catch (dbError) {
                 console.error('Non-critical login error (fetching vault keys):', dbError);
-                // We continue even if keys fail, as the user is authenticated with Appwrite
                 setHasVault(false);
                 setUserKeys(null);
             }
@@ -132,8 +119,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const signup = async (email: string, pass: string, name: string) => {
         setIsLoading(true);
         try {
-            await account.create('unique()', email, pass, name);
-            await login(email, pass);
+            const authResp = await api.signup(email, pass, name);
+            setUser(authResp.user);
+            router.push('/');
         } catch (error) {
             throw error;
         } finally {
@@ -143,7 +131,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const logout = async () => {
         try {
-            await account.deleteSession('current');
+            await api.logout();
             setUser(null);
             setPrivateKey(null);
             setHasVault(false);
@@ -160,12 +148,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const keyPair = await generateUserKeyPair(password);
             const keys = await db.createUserKeys({
-                userId: user.$id,
+                userId: user.id,
                 email: user.email,
                 ...keyPair
             });
             setHasVault(true);
-            setUserKeys(keys as any);
+            setUserKeys(keys as UserKeys);
             // Also unlock it immediately
             await unlockVault(password);
         } catch (error) {
@@ -180,7 +168,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!user) return;
         setIsLoading(true);
         try {
-            const keys = await db.getUserKeys(user.$id);
+            const keys = await db.getUserKeys(user.id);
             if (!keys) throw new Error('No vault found');
 
             const pk = await decryptPrivateKey(

@@ -69,7 +69,7 @@ export function CommandPalette() {
                 if (p.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(p.$id, user.$id);
+                            const access = await db.getAccessKey(p.id, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const nameData = JSON.parse(p.name);
@@ -86,7 +86,7 @@ export function CommandPalette() {
                 if (g.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(g.$id, user.$id);
+                            const access = await db.getAccessKey(g.id, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const titleData = JSON.parse(g.title);
@@ -103,7 +103,7 @@ export function CommandPalette() {
                 if (s.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(s.$id, user.$id);
+                            const access = await db.getAccessKey(s.id, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const titleData = JSON.parse(s.title);
@@ -222,8 +222,8 @@ export function CommandPalette() {
                                     <Command.Group heading="Workspace Projects" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
                                         {projects.map((project) => (
                                             <Command.Item
-                                                key={project.$id}
-                                                onSelect={() => runCommand(() => router.push(`/projects/${project.$id}`))}
+                                                key={project.id}
+                                                onSelect={() => runCommand(() => router.push(`/projects/${project.id}`))}
                                                 className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
                                             >
                                                 <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
@@ -243,8 +243,8 @@ export function CommandPalette() {
                                     <Command.Group heading="Knowledge Base" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
                                         {guides.map((guide) => (
                                             <Command.Item
-                                                key={guide.$id}
-                                                onSelect={() => runCommand(() => router.push(`/wiki/${guide.$id}`))}
+                                                key={guide.id}
+                                                onSelect={() => runCommand(() => router.push(`/wiki/${guide.id}`))}
                                                 className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
                                             >
                                                 <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
@@ -264,7 +264,7 @@ export function CommandPalette() {
                                     <Command.Group heading="Code Snippets" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
                                         {snippets.map((snippet) => (
                                             <Command.Item
-                                                key={snippet.$id}
+                                                key={snippet.id}
                                                 onSelect={() => runCommand(() => router.push(`/snippets`))}
                                                 className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-success aria-selected:text-white transition-all gap-5 group"
                                             >

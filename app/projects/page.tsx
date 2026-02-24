@@ -3,9 +3,9 @@
 import { DeleteModal } from '@/components/DeleteModal';
 import { ProjectModal } from '@/components/ProjectModal';
 import { useAuth } from '@/context/AuthContext';
-import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
-import { ACCESS_CONTROL_ID, db, DB_ID, PROJECTS_ID } from '@/lib/db';
+import { db } from '@/lib/db';
+import { wsClient, WSEvent } from '@/lib/ws';
 import { Project } from '@/types';
 import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
 import {
@@ -41,7 +41,7 @@ export default function ProjectsPage() {
                 if (project.isEncrypted) {
                     if (privateKey && user) {
                         try {
-                            const access = await db.getAccessKey(project.$id, user.$id);
+                            const access = await db.getAccessKey(project.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 
@@ -54,7 +54,7 @@ export default function ProjectsPage() {
                                 return { ...project, name: decryptedName, description: decryptedDesc };
                             }
                         } catch (e) {
-                            console.error('Failed to decrypt project:', project.$id, e);
+                            console.error('Failed to decrypt project:', project.id, e);
                             return { ...project, name: 'Decryption Error', description: 'Missing access keys.' };
                         }
                     }
@@ -82,21 +82,18 @@ export default function ProjectsPage() {
     useEffect(() => {
         if (!user) return;
 
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${PROJECTS_ID}.documents`,
-            `databases.${DB_ID}.collections.${ACCESS_CONTROL_ID}.documents`
-        ], (response) => {
-            if (response.events.some(e => e.includes('.delete'))) {
-                if (response.events.some(e => e.includes(PROJECTS_ID))) {
-                    const payload = response.payload as Project;
-                    setProjects(prev => prev.filter(p => p.$id !== payload.$id));
+        const unsub = wsClient.subscribe((event: WSEvent) => {
+            if (event.collection === 'projects' || event.collection === 'access_control') {
+                if (event.type === 'delete' && event.collection === 'projects') {
+                    const payload = event.document as unknown as Project;
+                    setProjects(prev => prev.filter(p => p.id !== payload.id));
                     return;
                 }
+                fetchProjects(false);
             }
-            fetchProjects(false);
         });
 
-        return () => unsubscribe();
+        return () => unsub();
     }, [user, fetchProjects]);
 
     const handleCreateOrUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
@@ -105,7 +102,7 @@ export default function ProjectsPage() {
 
         try {
             if (shouldEncrypt && user) {
-                const userKeys = await db.getUserKeys(user.$id);
+                const userKeys = await db.getUserKeys(user.id);
                 if (!userKeys) throw new Error('Vault keys not found');
 
                 const docKey = await generateDocumentKey();
@@ -118,34 +115,34 @@ export default function ProjectsPage() {
 
                 const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
 
-                if (selectedProject?.$id) {
-                    await db.updateProject(selectedProject.$id, finalData);
-                    const existingAccess = await db.getAccessKey(selectedProject.$id, user.$id);
+                if (selectedProject?.id) {
+                    await db.updateProject(selectedProject.id, finalData);
+                    const existingAccess = await db.getAccessKey(selectedProject.id);
                     if (!existingAccess) {
                         await db.grantAccess({
-                            resourceId: selectedProject.$id,
-                            userId: user.$id,
+                            resourceId: selectedProject.id,
+                            userId: user.id,
                             encryptedKey: encryptedDocKey,
                             resourceType: 'Project'
                         });
                     }
                     toast.success('Project updated successfully');
                 } else {
-                    const newProject = await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>, user.$id);
+                    const newProject = await db.createProject(finalData as Omit<Project, 'id' | 'createdAt'>);
                     await db.grantAccess({
-                        resourceId: newProject.$id,
-                        userId: user.$id,
+                        resourceId: newProject.id,
+                        userId: user.id,
                         encryptedKey: encryptedDocKey,
                         resourceType: 'Project'
                     });
                     toast.success('Project created successfully');
                 }
             } else if (user) {
-                if (selectedProject?.$id) {
-                    await db.updateProject(selectedProject.$id, finalData);
+                if (selectedProject?.id) {
+                    await db.updateProject(selectedProject.id, finalData);
                     toast.success('Project updated successfully');
                 } else {
-                    await db.createProject(finalData as Omit<Project, '$id' | '$createdAt'>, user.$id);
+                    await db.createProject(finalData as Omit<Project, 'id' | 'createdAt'>);
                     toast.success('Project created successfully');
                 }
             }
@@ -163,7 +160,7 @@ export default function ProjectsPage() {
     const handleDelete = async () => {
         if (selectedProject) {
             try {
-                await db.deleteProject(selectedProject.$id);
+                await db.deleteProject(selectedProject.id);
                 setIsDeleteModalOpen(false);
                 fetchProjects(false);
                 toast.success('Project deleted successfully');
@@ -244,7 +241,7 @@ export default function ProjectsPage() {
                                     .filter((p) => p.status === column.status)
                                     .map((project) => (
                                         <ProjectCard 
-                                            key={project.$id} 
+                                            key={project.id} 
                                             project={project} 
                                             onEdit={() => { setSelectedProject(project); setIsProjectModalOpen(true); }}
                                             onDelete={() => { setSelectedProject(project); setIsDeleteModalOpen(true); }}
@@ -274,7 +271,7 @@ export default function ProjectsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {projects.map((project) => (
                         <ProjectCard 
-                            key={project.$id} 
+                            key={project.id} 
                             project={project} 
                             onEdit={() => { setSelectedProject(project); setIsProjectModalOpen(true); }}
                             onDelete={() => { setSelectedProject(project); setIsDeleteModalOpen(true); }}
@@ -314,7 +311,7 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
         <Surface className="p-4 rounded-[1.25rem] border border-border/40 bg-surface/40 backdrop-blur-xl group relative overflow-hidden transition-all duration-300 hover:border-accent/50 hover:bg-surface/60">
             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                 <div className="flex items-start justify-between gap-3">
-                    <Link href={`/projects/${project.$id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                    <Link href={`/projects/${project.id}`} className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="w-9 h-9 rounded-lg bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner group-hover:scale-105 transition-transform duration-500 shrink-0">
                             <Widget size={16} weight="Linear" />
                         </div>
@@ -327,7 +324,7 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                                     </div>
                                 )}
                             </div>
-                            <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Project ID: {project.$id.slice(-4).toUpperCase()}</p>
+                            <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Project ID: {project.id.slice(-4).toUpperCase()}</p>
                         </div>
                     </Link>
                     

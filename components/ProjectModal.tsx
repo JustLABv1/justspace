@@ -80,7 +80,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                             </div>
                             <div className="space-y-0">
                                 <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
-                                    {project?.$id ? 'Sync Project_' : 'Init Project_'}
+                                    {project?.id ? 'Sync Project_' : 'Init Project_'}
                                 </Modal.Heading>
                                 <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest opacity-40 ml-0.5 mt-1">Consultant Workspace Configuration</p>
                             </div>
@@ -188,7 +188,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     className="rounded-xl h-9 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-accent/20" 
                                     isPending={isLoading}
                                 >
-                                    {project?.$id ? 'Commit Records' : 'Execute Creation'}
+                                    {project?.id ? 'Commit Records' : 'Execute Creation'}
                                 </Button>
                             </Modal.Footer>
                         </Form>

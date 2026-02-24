@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { client } from '@/lib/appwrite';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
-import { db, DB_ID, TASKS_ID } from '@/lib/db';
+import { db } from '@/lib/db';
+import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import { Button, Chip, ScrollShadow, Surface, toast } from "@heroui/react";
 import { Calendar, MenuDots as GripVertical, History as HistoryIcon, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
@@ -48,7 +48,7 @@ export function KanbanBoard({
             
             let docKey = documentKey;
             if (project.isEncrypted && privateKey && user && !docKey) {
-                const access = await db.getAccessKey(projectId, user.$id);
+                const access = await db.getAccessKey(projectId);
                 if (access) {
                     docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                     setDocumentKey(docKey);
@@ -91,21 +91,21 @@ export function KanbanBoard({
     }, [fetchTasks]);
 
     useEffect(() => {
-        const unsubscribe = client.subscribe([
-            `databases.${DB_ID}.collections.${TASKS_ID}.documents`
-        ], async (response) => {
-            const payload = response.payload as Task;
-            if (payload.projectId !== projectId) return;
+        const unsub = wsClient.subscribe(async (event: WSEvent) => {
+            if (event.collection === 'tasks') {
+                const payload = event.document as unknown as Task;
+                if (payload.projectId !== projectId) return;
 
-            if (response.events.some(e => e.includes('.delete'))) {
-                setTasks(prev => prev.filter(t => t.$id !== payload.$id));
-                return;
+                if (event.type === 'delete') {
+                    setTasks(prev => prev.filter(t => t.id !== payload.id));
+                    return;
+                }
+
+                await fetchTasks(false);
             }
-
-            await fetchTasks(false);
         });
 
-        return () => unsubscribe();
+        return () => unsub();
     }, [projectId, fetchTasks]);
 
     const moveTask = async (taskId: string, newStatus: Task['kanbanStatus']) => {
@@ -113,7 +113,7 @@ export function KanbanBoard({
         try {
             const isCompleted = newStatus === 'done';
             // Optimistic update
-            setTasks(prev => prev.map(t => t.$id === taskId ? { ...t, kanbanStatus: newStatus, completed: isCompleted } : t));
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, kanbanStatus: newStatus, completed: isCompleted } : t));
             
             await db.updateTask(taskId, { kanbanStatus: newStatus, completed: isCompleted });
             toast.success(`Task moved to ${COLUMNS.find(c => c.id === newStatus)?.label.replace('_', '')}`);
@@ -162,15 +162,15 @@ export function KanbanBoard({
                                 }}
                             >
                                 {columnTasks.map(task => {
-                                    const subtasks = tasks.filter(st => st.parentId === task.$id);
+                                    const subtasks = tasks.filter(st => st.parentId === task.id);
                                     const completedSubtasks = subtasks.filter(st => st.completed).length;
 
                                     return (
                                         <Surface 
-                                            key={task.$id} 
+                                            key={task.id} 
                                             draggable
                                             onDragStart={(e) => {
-                                                e.dataTransfer.setData('taskId', task.$id);
+                                                e.dataTransfer.setData('taskId', task.id);
                                             }}
                                             onClick={() => {
                                                 setSelectedTask(task);
@@ -277,7 +277,7 @@ export function KanbanBoard({
                                                 const encrypted = await encryptData(title, documentKey);
                                                 finalTitle = JSON.stringify(encrypted);
                                             }
-                                            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, column.id, user?.$id);
+                                            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, column.id);
                                             fetchTasks();
                                         } catch (error) {
                                             console.error('Failed to create task:', error);
@@ -298,7 +298,7 @@ export function KanbanBoard({
                 <TaskDetailModal 
                     isOpen={isDetailModalOpen}
                     onOpenChange={setIsDetailModalOpen}
-                    task={tasks.find(t => t.$id === selectedTask.$id) || selectedTask}
+                    task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
                     projectId={projectId}
                     onUpdate={fetchTasks}
                 />
