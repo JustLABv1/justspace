@@ -1,16 +1,19 @@
 # Release Notes
 
-## [Version 0.8.0] - 2026-02-24
+## [Version 0.8.1] - 2026-02-24
 
 ### Added
-Intitial release
 
 ### Changed
 
 ### Fixed
+- Komische 0 am Ende von Tasks
+- DateTime Picker
+- Sidebar Scroll
+- Theme Switch nicht in eingeklappter Sidebar
 
 ### Known Issues
 
 ---
 
-*Thank you for using JustFlow!*
+*Thank you for using JustSpace!*

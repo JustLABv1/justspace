@@ -283,7 +283,7 @@ export default function ProjectDetailPage() {
                                 <ListTodo size={24} weight="Bold" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">Roadmap</h2>
+                                <h2 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">Project Tasked</h2>
                                 <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-30">Execution Pipeline</p>
                             </div>
                         </div>

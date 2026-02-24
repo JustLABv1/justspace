@@ -43,23 +43,23 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     return (
         <Surface 
             variant="secondary" 
-            className={`fixed md:relative z-50 md:z-auto h-full flex flex-col border border-border/50 rounded-none md:rounded-[2rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-hidden ${
+            className={`fixed md:relative z-50 md:z-auto h-full flex flex-col border border-border/50 rounded-none md:rounded-[2rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-x-hidden overflow-y-auto no-scrollbar ${
                 isCollapsed ? 'w-20 p-4' : 'w-72 p-6'
             } ${
                 isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
             }`}
         >
-            <div className={`mb-10 flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
+            <div className={`mb-10 flex flex-col min-w-0 ${isCollapsed ? 'items-center' : ''}`}>
                 <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-6`}>
                     {!isCollapsed && (
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20 border border-white/10 ring-1 ring-accent/30">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20 border border-white/10 ring-1 ring-accent/30 shrink-0">
                                 <span className="font-bold text-xl leading-none tracking-tighter">{firstLetter}</span>
                             </div>
-                            <div className="flex flex-col">
-                                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none truncate max-w-[120px]">{workspaceName}</h1>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-accent/80 mt-1.5 flex items-center gap-1">
-                                    <span className="w-1 h-1 rounded-full bg-accent animate-pulse" />
+                            <div className="flex flex-col min-w-0">
+                                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none truncate">{workspaceName}</h1>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-accent/80 mt-1.5 flex items-center gap-1 truncate">
+                                    <span className="w-1 h-1 rounded-full bg-accent animate-pulse shrink-0" />
                                     Consultant OS
                                 </span>
                             </div>
