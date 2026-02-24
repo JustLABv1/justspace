@@ -1,0 +1,79 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-beta.*'
+      - 'v*.*.*-alpha.*'
+      - 'v*.*.*-rc.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Frontend Docker Image (Stable)
+        if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
+        run: docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:frontend-latest --tag ghcr.io/justlabv1/justspace:frontend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
+
+      - name: Build Frontend Docker Image (Pre-release)
+        if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+        run: docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:frontend-beta --tag ghcr.io/justlabv1/justspace:frontend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
+
+      - name: Build Backend Docker Image (Stable)
+        if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
+        run: cd backend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:backend-latest --tag ghcr.io/justlabv1/justspace:backend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
+
+      - name: Build Backend Docker Image (Pre-release)
+        if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+        run: cd backend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:backend-beta --tag ghcr.io/justlabv1/justspace:backend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
+
+      - name: 'Login to GitHub Container Registry'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Push Docker Images (Stable)
+        if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
+        run: |
+          docker push ghcr.io/justlabv1/justspace:frontend-latest
+          docker push ghcr.io/justlabv1/justspace:frontend-${{ github.sha }}
+          docker push ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
+          docker push ghcr.io/justlabv1/justspace:backend-latest
+          docker push ghcr.io/justlabv1/justspace:backend-${{ github.sha }}
+          docker push ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
+
+      - name: Push Docker Images (Pre-release)
+        if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+        run: |
+          docker push ghcr.io/justlabv1/justspace:frontend-beta
+          docker push ghcr.io/justlabv1/justspace:frontend-${{ github.sha }}
+          docker push ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
+          docker push ghcr.io/justlabv1/justspace:backend-beta
+          docker push ghcr.io/justlabv1/justspace:backend-${{ github.sha }}
+          docker push ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
+
+  release:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Create Release
+        id: create_release
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ contains(github.ref_name, '-beta') && format('🚧 Beta Release {0}', github.ref_name) || contains(github.ref_name, '-alpha') && format('🔬 Alpha Release {0}', github.ref_name) || contains(github.ref_name, '-rc') && format('🎯 Release Candidate {0}', github.ref_name) || format('🚀 Release {0}', github.ref_name) }}
+          tag: ${{ github.ref_name }}
+          skipIfReleaseExists: true
+          generateReleaseNotes: true
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+          bodyFile: release-notes.md
