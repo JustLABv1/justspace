@@ -97,28 +97,37 @@ export default function ProjectsPage() {
     }, [user, fetchProjects]);
 
     const handleCreateOrUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
-        const { shouldEncrypt, ...projectData } = data;
-        const finalData = { ...projectData };
+        const { isEncrypted: targetEncrypted, ...projectData } = data;
+        const finalData = { ...projectData, isEncrypted: targetEncrypted };
 
         try {
-            if (shouldEncrypt && user) {
+            if (targetEncrypted && user && privateKey) {
                 const userKeys = await db.getUserKeys(user.id);
                 if (!userKeys) throw new Error('Vault keys not found');
 
-                const docKey = await generateDocumentKey();
+                let docKey: CryptoKey;
+                let isNewKey = false;
+
+                // Try to reuse existing key if we're updating an already encrypted project
+                const existingAccess = selectedProject?.id ? await db.getAccessKey(selectedProject.id) : null;
+                
+                if (existingAccess && selectedProject?.isEncrypted) {
+                    docKey = await decryptDocumentKey(existingAccess.encryptedKey, privateKey);
+                } else {
+                    docKey = await generateDocumentKey();
+                    isNewKey = true;
+                }
+
                 const encryptedName = await encryptData(projectData.name || '', docKey);
                 const encryptedDesc = await encryptData(projectData.description || '', docKey);
 
                 finalData.name = JSON.stringify(encryptedName);
                 finalData.description = JSON.stringify(encryptedDesc);
-                finalData.isEncrypted = true;
-
-                const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
 
                 if (selectedProject?.id) {
                     await db.updateProject(selectedProject.id, finalData);
-                    const existingAccess = await db.getAccessKey(selectedProject.id);
-                    if (!existingAccess) {
+                    if (isNewKey) {
+                        const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                         await db.grantAccess({
                             resourceId: selectedProject.id,
                             userId: user.id,
@@ -129,6 +138,7 @@ export default function ProjectsPage() {
                     toast.success('Project updated successfully');
                 } else {
                     const newProject = await db.createProject(finalData as Omit<Project, 'id' | 'createdAt'>);
+                    const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                     await db.grantAccess({
                         resourceId: newProject.id,
                         userId: user.id,
@@ -138,6 +148,7 @@ export default function ProjectsPage() {
                     toast.success('Project created successfully');
                 }
             } else if (user) {
+                // Not encrypted or missing vault access
                 if (selectedProject?.id) {
                     await db.updateProject(selectedProject.id, finalData);
                     toast.success('Project updated successfully');
@@ -185,11 +196,11 @@ export default function ProjectsPage() {
         <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-accent font-black tracking-[0.2em] uppercase text-xs opacity-80">
+                    <div className="flex items-center gap-2 text-accent font-bold tracking-wider uppercase text-xs opacity-80">
                         <ListTodo size={14} weight="Bold" className="animate-pulse" />
                         Project Operations
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">Manage your projects_</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-none">Manage your projects</h1>
                     <p className="text-sm text-muted-foreground font-medium opacity-60">High-density tracking of consulting engagements and project lifecycle.</p>
                 </div>
                 <div className="flex items-center gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
@@ -260,7 +271,7 @@ export default function ProjectsPage() {
                                         <div className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-accent transition-all">
                                             <Plus size={14} weight="Linear" />
                                         </div>
-                                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover:text-accent">Initiate New Project</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-accent">Initiate New Project</span>
                                     </div>
                                 </Button>
                             </div>
@@ -317,14 +328,14 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                                <h3 className={`font-black tracking-tighter uppercase leading-tight truncate ${isFull ? 'text-xl' : 'text-base'}`}>{project.name}</h3>
+                                <h3 className={`font-bold tracking-tight uppercase leading-tight truncate ${isFull ? 'text-xl' : 'text-base'}`}>{project.name}</h3>
                                 {project.isEncrypted && (
                                     <div className="p-1 rounded-md bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
                                         <Shield size={12} weight="Bold" />
                                     </div>
                                 )}
                             </div>
-                            <p className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest mt-0.5">Project ID: {project.id.slice(-4).toUpperCase()}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider mt-0.5">Project ID: {project.id.slice(-4).toUpperCase()}</p>
                         </div>
                     </Link>
                     
@@ -344,11 +355,11 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                          <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{project.status.replace('-', ' ')}</span>
+                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">{project.status.replace('-', ' ')}</span>
                     </div>
 
                     {project.daysPerWeek && (
-                         <div className="px-2 py-0.5 rounded-md bg-foreground/5 border border-border/50 text-xs font-black uppercase tracking-tighter">
+                         <div className="px-2 py-0.5 rounded-md bg-foreground/5 border border-border/50 text-xs font-bold uppercase tracking-wider">
                              {project.daysPerWeek}D/W
                          </div>
                     )}

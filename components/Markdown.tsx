@@ -66,7 +66,7 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
     return (
         <div className="group relative my-4 overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
             <div className="flex items-center justify-between bg-black/5 dark:bg-black/20 px-4 py-2 border-b border-border">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     {language}
                 </span>
                 <Button

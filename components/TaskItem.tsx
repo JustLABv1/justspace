@@ -270,7 +270,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             className="h-6 px-2.5 border border-border/10"
                         >
                             <Calendar size={12} weight="Bold" className="mr-1" />
-                            <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
                                 {dayjs(task.deadline).format('MMM D, HH:mm')}
                             </Chip.Label>
                         </Chip>
@@ -288,7 +288,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             }
                             className="h-6 px-2.5 border border-border/10"
                         >
-                            <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
                                 {task.priority}
                             </Chip.Label>
                         </Chip>
@@ -305,7 +305,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             }
                             className="h-6 px-2.5 border border-border/10 ml-0"
                         >
-                            <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
                                 {task.kanbanStatus.replace('-', ' ')}
                             </Chip.Label>
                         </Chip>
@@ -317,7 +317,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         className="h-6 px-2.5 bg-foreground/[0.03] border border-border/40"
                     >
                         <Plus size={10} weight="Bold" className="text-accent" />
-                        <Chip.Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                        <Chip.Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">
                             {subtasks.length} sub objectives
                         </Chip.Label>
                     </Chip>
@@ -330,7 +330,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             className="h-6 px-2.5 border border-warning/10"
                         >
                             <MessageCircle size={10} weight="Bold" />
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-widest">
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
                                 {task.notes.length} log entry
                             </Chip.Label>
                         </Chip>
@@ -344,7 +344,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             className="h-6 px-2.5 border border-accent/10"
                         >
                             <History size={10} weight="Bold" />
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-widest">
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
                                 {formatTime(task.timeSpent)} cumulative
                             </Chip.Label>
                         </Chip>
@@ -384,7 +384,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 <Tooltip.Arrow />
                                 <div className="p-3 space-y-3 min-w-[220px]">
                                     <div className="flex items-center justify-between border-b border-border/20 pb-2">
-                                        <p className="text-xs font-bold uppercase tracking-widest text-accent">Time Records</p>
+                                        <p className="text-xs font-bold uppercase tracking-wider text-accent">Time Records</p>
                                         <span className="text-xs font-bold text-muted-foreground/60">{parsedTimeEntries.length} entries</span>
                                     </div>
                                     <div className="space-y-1 max-h-48 overflow-y-auto pr-1 flex flex-col">
@@ -412,7 +412,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     {/* Subtasks Section */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Sub-Task Management</h5>
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Sub-Task Management</h5>
                             <span className="text-[10px] font-bold text-accent/60 bg-accent/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Resolved</span>
                         </div>
 
@@ -457,7 +457,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     {/* Communication Log Section */}
                     <div className="space-y-4 pt-4 border-t border-border/10">
                         <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Communication Log</h5>
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Communication Log</h5>
                             <span className="text-[10px] font-bold text-warning/60 bg-warning/5 px-2 py-0.5 rounded-full">{parsedNotes.length} Entries</span>
                         </div>
 
@@ -465,7 +465,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             {parsedNotes.length === 0 ? (
                                 <div className="py-8 flex flex-col items-center justify-center gap-2 opacity-30">
                                     <MessageCircle size={24} weight="Linear" />
-                                    <p className="text-[10px] font-bold uppercase tracking-widest">No activity logged_</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider">No activity logged</p>
                                 </div>
                             ) : (
                                 <ScrollShadow className="space-y-2.5 max-h-60" hideScrollBar>
@@ -484,7 +484,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                             </div>
                                             <div className="flex-1 space-y-1">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-40">
                                                         {note.type} • {dayjs(note.date).fromNow()}
                                                     </span>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
@@ -521,7 +521,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                                 key={type}
                                                 variant="ghost"
                                                 size="sm"
-                                                className={`h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                className={`h-8 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
                                                     noteType === type 
                                                         ? 'bg-accent text-white border-accent shadow-sm' 
                                                         : 'bg-surface-lowest text-muted-foreground/40 hover:text-foreground border-border/10'
@@ -536,7 +536,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
-                                            className="h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider text-danger hover:bg-danger/10"
+                                            className="h-8 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider text-danger hover:bg-danger/10"
                                             onPress={() => {
                                                 setEditingNoteIndex(null);
                                                 setNewNote('');

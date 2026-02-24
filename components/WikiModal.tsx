@@ -65,10 +65,10 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                 <Book size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
-                                    {guide ? 'Sync Guide_' : 'Init Guide_'}
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">
+                                    {guide ? 'Sync Guide' : 'Init Guide'}
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] font-black uppercase opacity-40 ml-0.5 mt-1 tracking-widest">Knowledge Base Integration</p>
+                                <p className="text-muted-foreground text-[10px] font-bold uppercase opacity-40 ml-0.5 mt-1 tracking-wider">Knowledge Base Integration</p>
                             </div>
                         </Modal.Header>
                         
@@ -81,7 +81,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                                 <Shield size={20} weight="Bold" />
                                             </div>
                                             <div className="space-y-0.5">
-                                                <p className="text-xs font-black uppercase tracking-widest">End-to-End Encryption</p>
+                                                <p className="text-xs font-bold uppercase tracking-wider">End-to-End Encryption</p>
                                                 <p className="text-[10px] text-muted-foreground font-medium opacity-60">Vault-based client-side security</p>
                                             </div>
                                         </div>
@@ -112,7 +112,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                         fullWidth
                                         className="w-full"
                                     >
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Document Title</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Document Title</Label>
                                         <Input 
                                             placeholder="e.g. System Architecture Guide" 
                                             className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
@@ -120,7 +120,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                     </TextField>
 
                                     <div className="flex flex-col gap-4">
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Content Editor (Markdown)</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Content Editor (Markdown)</Label>
                                         <div className="border border-border/20 rounded-2xl overflow-hidden bg-surface-secondary/20 shadow-inner">
                                             <Tabs 
                                                 selectedKey={activeTab} 
@@ -130,8 +130,8 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                             >
                                                 <Tabs.ListContainer className="p-2 border-b border-border/10">
                                                     <Tabs.List className="gap-2">
-                                                        <Tabs.Tab id="edit" className="rounded-lg px-6 h-8 text-[9px] font-black tracking-[0.2em] data-[selected=true]:bg-foreground data-[selected=true]:text-background uppercase">Editor</Tabs.Tab>
-                                                        <Tabs.Tab id="preview" className="rounded-lg px-6 h-8 text-[9px] font-black tracking-[0.2em] data-[selected=true]:bg-foreground data-[selected=true]:text-background uppercase">Preview</Tabs.Tab>
+                                                        <Tabs.Tab id="edit" className="rounded-lg px-6 h-8 text-[9px] font-bold tracking-wider data-[selected=true]:bg-foreground data-[selected=true]:text-background uppercase">Editor</Tabs.Tab>
+                                                        <Tabs.Tab id="preview" className="rounded-lg px-6 h-8 text-[9px] font-bold tracking-wider data-[selected=true]:bg-foreground data-[selected=true]:text-background uppercase">Preview</Tabs.Tab>
                                                     </Tabs.List>
                                                 </Tabs.ListContainer>
 
@@ -146,7 +146,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                                 </Tabs.Panel>
                                                 <Tabs.Panel id="preview" className="p-4">
                                                     <div className="min-h-[150px] overflow-auto max-h-[300px]">
-                                                        {description ? <Markdown content={description} /> : <p className="text-muted-foreground/30 font-black text-center py-10 uppercase tracking-widest text-xs">No content to preview...</p>}
+                                                        {description ? <Markdown content={description} /> : <p className="text-muted-foreground/30 font-bold text-center py-10 uppercase tracking-wider text-xs">No content to preview...</p>}
                                                     </div>
                                                 </Tabs.Panel>
                                             </Tabs>

@@ -4,13 +4,13 @@ import { Markdown } from '@/components/Markdown';
 import { Snippet, SnippetBlock } from '@/types';
 import { Button, Checkbox, CheckboxGroup, Chip, Modal, ScrollShadow, Tooltip } from "@heroui/react";
 import {
-  CheckRead as Check,
-  CodeCircle as CodeIcon,
-  Widget as ComponentsIcon,
-  Copy,
-  SettingsMinimalistic as Gear,
-  SidebarCode as LayoutIcon,
-  Notes as MarkdownIcon
+    CheckRead as Check,
+    CodeCircle as CodeIcon,
+    Widget as ComponentsIcon,
+    Copy,
+    SettingsMinimalistic as Gear,
+    SidebarCode as LayoutIcon,
+    Notes as MarkdownIcon
 } from '@solar-icons/react';
 import { useState } from 'react';
 
@@ -73,17 +73,17 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                     </div>
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-1">
-                                            <Chip size="sm" variant="soft" color="accent" className="font-bold text-[10px] uppercase tracking-widest px-3">
+                                            <Chip size="sm" variant="soft" color="accent" className="font-bold text-[10px] uppercase tracking-wider px-3">
                                                 {snippet.language}
                                             </Chip>
                                             {snippet.isEncrypted && (
-                                                <div className="flex items-center gap-1.5 text-accent/60 text-[10px] font-bold uppercase tracking-widest bg-accent/5 px-2 py-0.5 rounded-md border border-accent/10">
+                                                <div className="flex items-center gap-1.5 text-accent/60 text-[10px] font-bold uppercase tracking-wider bg-accent/5 px-2 py-0.5 rounded-md border border-accent/10">
                                                     <Gear size={12} />
                                                     Encrypted
                                                 </div>
                                             )}
                                         </div>
-                                        <Modal.Heading className="text-3xl font-black tracking-tight leading-none uppercase">
+                                        <Modal.Heading className="text-3xl font-bold tracking-tight leading-none uppercase">
                                             {snippet.title}
                                         </Modal.Heading>
                                     </div>
@@ -116,7 +116,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                 {snippet.tags && snippet.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
                                         {snippet.tags.map(tag => (
-                                            <span key={tag} className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/50 hover:text-accent transition-colors">
+                                            <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-accent/50 hover:text-accent transition-colors">
                                                 #{tag}
                                             </span>
                                         ))}
@@ -143,7 +143,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                                             <div className="w-8 h-8 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground">
                                                                 {block.type === 'code' ? <CodeIcon size={18} /> : <MarkdownIcon size={18} />}
                                                             </div>
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                                                                 {block.type} component {block.language && `| ${block.language}`}
                                                             </span>
                                                         </div>

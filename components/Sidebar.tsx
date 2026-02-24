@@ -30,7 +30,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     const { user, logout } = useAuth();
     // Use safe access for workspaceName as preferences are dynamic
     const prefs = (user?.preferences || {}) as Record<string, string | undefined>;
-    const workspaceName = prefs?.workspaceName || 'justspace_';
+    const workspaceName = prefs?.workspaceName || 'justspace';
     const firstLetter = workspaceName.charAt(0).toUpperCase();
 
     const navItems = [
@@ -58,7 +58,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                             </div>
                             <div className="flex flex-col">
                                 <h1 className="text-xl font-bold tracking-tight text-foreground leading-none truncate max-w-[120px]">{workspaceName}</h1>
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/80 mt-1.5 flex items-center gap-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-accent/80 mt-1.5 flex items-center gap-1">
                                     <span className="w-1 h-1 rounded-full bg-accent animate-pulse" />
                                     Consultant OS
                                 </span>
@@ -98,7 +98,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
             <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
                 {!isCollapsed && (
                     <div className="flex items-center justify-between px-4 mb-4">
-                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground opacity-40">Main Menu</p>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Main Menu</p>
                         <div className="flex items-center gap-1.5 opacity-30">
                              <kbd className="text-[10px] font-mono border border-border/50 px-1 rounded bg-surface">⌘</kbd>
                              <kbd className="text-[10px] font-mono border border-border/50 px-1 rounded bg-surface">K</kbd>
@@ -118,8 +118,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                                 isCollapsed ? 'justify-center px-0 py-3' : 'px-4 py-3'
                             } ${
                                 isActive 
-                                    ? 'bg-foreground text-background font-black shadow-lg shadow-black/20 scale-[1.02]' 
-                                    : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground font-black opacity-60 hover:opacity-100'
+                                    ? 'bg-foreground text-background font-bold shadow-lg shadow-black/20 scale-[1.02]' 
+                                    : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground font-bold opacity-60 hover:opacity-100'
                             }`}
                         >
                             <Icon 
@@ -156,7 +156,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                 <div className={`flex flex-col gap-2 ${isCollapsed ? 'items-center px-0' : ''}`}>
                     {!isCollapsed && (
                         <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-surface/30 border border-border/40 backdrop-blur-sm group/theme">
-                            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground/50 group-hover/theme:text-foreground transition-colors">Interface</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 group-hover/theme:text-foreground transition-colors">Interface</span>
                             <ThemeSwitcher />
                         </div>
                     )}
@@ -171,14 +171,14 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                             >
                                 <div className={`flex items-center gap-3 w-full ${isCollapsed ? 'justify-center' : ''}`}>
                                     <Avatar size={isCollapsed ? "md" : "sm"} className="shadow-lg">
-                                        <Avatar.Fallback className="bg-accent text-accent-foreground font-black text-xs">
+                                        <Avatar.Fallback className="bg-accent text-accent-foreground font-bold text-xs">
                                             {user?.name?.charAt(0).toUpperCase() || <User size={14} />}
                                         </Avatar.Fallback>
                                     </Avatar>
                                     
                                     {!isCollapsed && (
                                         <div className="flex flex-col items-start overflow-hidden mr-auto">
-                                            <span className="text-xs font-black text-foreground truncate w-full tracking-tight">
+                                            <span className="text-xs font-bold text-foreground truncate w-full tracking-tight">
                                                 {user?.name || 'Guest User'}
                                             </span>
                                             <span className="text-[10px] font-bold text-muted-foreground truncate w-full opacity-60">

@@ -90,10 +90,10 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                                 <History size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
-                                    Version History_
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">
+                                    Version History
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] font-black uppercase opacity-40 ml-0.5 mt-1 tracking-widest">Chronological Snapshots</p>
+                                <p className="text-muted-foreground text-[10px] font-bold uppercase opacity-40 ml-0.5 mt-1 tracking-wider">Chronological Snapshots</p>
                             </div>
                         </Modal.Header>
 
@@ -101,21 +101,21 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                             {isLoading ? (
                                 <div className="py-12 flex justify-center"><Spinner /></div>
                             ) : versions.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground font-bold uppercase tracking-widest text-xs opacity-40">No snapshots found</div>
+                                <div className="text-center py-12 text-muted-foreground font-bold uppercase tracking-wider text-xs opacity-40">No snapshots found</div>
                             ) : (
                                 <div className="space-y-3">
                                     {versions.map((v) => (
                                         <div key={v.id} className="p-4 rounded-2xl bg-surface-secondary/50 border border-border/10 flex items-center justify-between group hover:bg-surface-secondary transition-colors">
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-black text-foreground">
+                                                    <p className="text-sm font-bold text-foreground">
                                                         {v.title || 'Untitled Snapshot'}
                                                     </p>
                                                     {v.isEncrypted && (
                                                         <Shield size={12} className="text-accent" />
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
                                                     <span>{format(new Date(v.createdAt), 'MMM d, yyyy HH:mm')}</span>
                                                     {v.metadata && <span>• {v.metadata}</span>}
                                                 </div>
@@ -123,7 +123,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                                             <Button 
                                                 variant="ghost" 
                                                 size="sm"
-                                                className="rounded-lg font-black text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="rounded-lg font-bold text-[10px] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
                                                 onPress={() => onRestore(v)}
                                             >
                                                 Restore

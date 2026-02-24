@@ -252,7 +252,7 @@ export default function WikiPage() {
         <div className="max-w-[1240px] mx-auto p-6 md:p-12 space-y-12">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-widest text-[10px] opacity-80 uppercase">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-wider text-[10px] opacity-80 uppercase">
                         <Book size={16} weight="Bold" className="animate-pulse" />
                         Knowledge Base
                     </div>
@@ -340,7 +340,7 @@ export default function WikiPage() {
                                         <div className="w-6 h-6 rounded-full bg-surface-secondary border border-border/10 flex items-center justify-center">
                                             <ExternalLink size={12} className="text-muted-foreground/40" />
                                         </div>
-                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest">View Documentation</span>
+                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider">View Documentation</span>
                                     </div>
                                     <Link href={`/wiki/${guide.id}`} className="absolute inset-0 z-0" />
                                 </div>

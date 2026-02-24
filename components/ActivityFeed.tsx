@@ -157,13 +157,13 @@ export function ActivityFeed() {
                         <div className="w-16 h-16 rounded-[1.5rem] bg-foreground/5 flex items-center justify-center text-muted-foreground/30 border border-border/30 border-dashed animate-pulse">
                             <Activity size={32} weight="Linear" />
                         </div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-[0.3em] text-[10px] opacity-40">Zero telemetry records.</p>
+                        <p className="text-muted-foreground font-bold uppercase tracking-wider text-[10px] opacity-40">Zero telemetry records</p>
                     </div>
                 ) : (
                     Object.entries(groupedActivities).map(([day, items]) => (
                         <div key={day} className="space-y-4">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40">{day}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">{day}</span>
                                 <div className="h-px flex-1 bg-border/20" />
                             </div>
                             
@@ -188,14 +188,14 @@ export function ActivityFeed() {
                                                             color={getActionColor(activity.type)}
                                                             className="h-4 px-1 rounded-md border border-current/10"
                                                         >
-                                                            <Chip.Label className="text-[8px] font-bold uppercase tracking-widest leading-none">
+                                                            <Chip.Label className="text-[8px] font-bold uppercase tracking-wider leading-none">
                                                                 {activity.type}
                                                             </Chip.Label>
                                                         </Chip>
-                                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest">
+                                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider">
                                                             {activity.entityType}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-widest flex items-center gap-1">
+                                                        <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-wider flex items-center gap-1">
                                                             • {dayjs(activity.createdAt).format('HH:mm')}
                                                         </span>
                                                     </div>
@@ -219,7 +219,7 @@ export function ActivityFeed() {
             <div className="mt-8 pt-6 border-t border-border/20">
                 <div className="flex items-center justify-center gap-2 opacity-30">
                     <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
-                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em]">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
                         Live Telemetry Active
                     </p>
                 </div>

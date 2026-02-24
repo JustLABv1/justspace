@@ -140,8 +140,8 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                 <Sparkles size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter uppercase text-foreground leading-none">Apply Roadmap_</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5 mt-1">Populate project with expert tasks.</p>
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">Apply Roadmap</Modal.Heading>
+                                <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Populate project with expert tasks.</p>
                             </div>
                         </Modal.Header>
                         
@@ -149,13 +149,13 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-accent/40">Loading templates...</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-accent/40">Loading templates...</p>
                                 </div>
                             )}
 
                             {!isLoading && !selectedGuideId && (
                                 <div className="space-y-4">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 ml-2 leading-none">AVAILABLE TEMPLATES</h3>
+                                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30 ml-2 leading-none">AVAILABLE TEMPLATES</h3>
                                     <div className="grid grid-cols-1 gap-3">
                                         {guides.map(guide => (
                                             <button 
@@ -167,8 +167,8 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                                     <Book size={20} weight="Bold" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="font-black truncate text-foreground text-sm tracking-tight uppercase">{guide.title}</h4>
-                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-black tracking-widest mt-0.5">Guide Template</p>
+                                                    <h4 className="font-bold truncate text-foreground text-sm tracking-tight uppercase">{guide.title}</h4>
+                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-bold tracking-wider mt-0.5">Guide Template</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -179,8 +179,8 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             {!isLoading && selectedGuideId && (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between px-2">
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/30">SELECT TARGET NODE</h3>
-                                        <Button variant="ghost" className="text-[10px] font-black uppercase tracking-widest h-8 px-4 rounded-xl opacity-40 hover:opacity-100" onPress={() => setSelectedGuideId(null)}>Restart Scan</Button>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30">SELECT TARGET NODE</h3>
+                                        <Button variant="ghost" className="text-[10px] font-bold uppercase tracking-wider h-8 px-4 rounded-xl opacity-40 hover:opacity-100" onPress={() => setSelectedGuideId(null)}>Restart Scan</Button>
                                     </div>
                                     <div className="grid grid-cols-1 gap-3">
                                         {installations.map(inst => (
@@ -201,10 +201,10 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                                     <CheckSquare size={20} weight="Bold" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className={`font-black truncate text-sm tracking-tight uppercase ${
+                                                    <h4 className={`font-bold truncate text-sm tracking-tight uppercase ${
                                                         selectedInstallation?.target === inst.target ? 'text-accent' : 'text-foreground'
                                                     }`}>{inst.target}</h4>
-                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-black tracking-widest mt-0.5">{inst.tasks?.length || 0} Sub-routines Detected</p>
+                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-bold tracking-wider mt-0.5">{inst.tasks?.length || 0} Sub-routines Detected</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -216,7 +216,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                         <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl h-9 px-6 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
+                                className="rounded-xl h-9 px-6 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
                                 onPress={onClose} 
                                 isDisabled={isApplying}
                             >
@@ -224,7 +224,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-xl h-9 px-8 font-black uppercase tracking-[0.1em] text-[10px] shadow-2xl shadow-accent/20" 
+                                className="rounded-xl h-9 px-8 font-bold uppercase tracking-wider text-[10px] shadow-2xl shadow-accent/20" 
                                 onPress={handleApply}
                                 isDisabled={!selectedInstallation || isApplying}
                                 isPending={isApplying}

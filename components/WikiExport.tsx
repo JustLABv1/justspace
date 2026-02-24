@@ -41,7 +41,7 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
     return (
         <Dropdown>
             <Dropdown.Trigger>
-                <Button variant="secondary" className="rounded-xl h-9 px-4 font-black border border-border/40 opacity-50 hover:opacity-100 transition-all uppercase text-xs tracking-widest shadow-sm shrink-0">
+                <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 opacity-50 hover:opacity-100 transition-all uppercase text-xs tracking-wider shadow-sm shrink-0">
                     <Download size={16} weight="Bold" className="mr-2" />
                     Export Document
                 </Button>
@@ -49,15 +49,15 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
             <Dropdown.Popover placement="bottom end" className="min-w-[220px] bg-surface border border-border/40 rounded-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-200 z-50">
                 <Dropdown.Menu className="outline-none">
                     <Dropdown.Section>
-                        <Label className="px-3 py-2 text-xs font-black uppercase tracking-[0.4em] text-muted-foreground/60">Output Formats</Label>
+                        <Label className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Output Formats</Label>
                         <Dropdown.Item onPress={exportAsMarkdown} className="rounded-xl hover:bg-foreground/5 transition-all outline-none">
-                            <div className="flex items-center gap-3 p-1 font-black tracking-tight text-sm">
+                            <div className="flex items-center gap-3 p-1 font-bold tracking-tight text-sm">
                                 <FileText size={18} weight="Bold" className="text-accent" />
                                 MARKDOWN (.md)
                             </div>
                         </Dropdown.Item>
                         <Dropdown.Item onPress={exportAsPDF} className="rounded-xl hover:bg-foreground/5 transition-all outline-none">
-                            <div className="flex items-center gap-3 p-1 font-black tracking-tight text-sm">
+                            <div className="flex items-center gap-3 p-1 font-bold tracking-tight text-sm">
                                 <FileText size={18} weight="Bold" className="text-danger" />
                                 PDF DOCUMENT (.pdf)
                             </div>

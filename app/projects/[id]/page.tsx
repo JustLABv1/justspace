@@ -78,24 +78,34 @@ export default function ProjectDetailPage() {
     }, [id, fetchProject]);
 
     const handleUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
-        if (project) {
-            const { shouldEncrypt, ...projectData } = data;
-            const finalData = { ...projectData };
+        if (project && user && privateKey) {
+            const { shouldEncrypt: targetEncrypted, ...projectData } = data;
+            const finalData = { ...projectData, isEncrypted: targetEncrypted };
 
             try {
-                if (shouldEncrypt && user) {
-                    // If turning on encryption for existing project
-                    // (Note: This is simplified, usually we'd need to re-encrypt old data if it wasn't encrypted)
-                    const userKeys = await db.getUserKeys(user.id);
-                    if (userKeys) {
-                        const docKey = await generateDocumentKey();
-                        const encryptedName = await encryptData(projectData.name || project.name, docKey);
-                        const encryptedDesc = await encryptData(projectData.description || project.description, docKey);
+                const userKeys = await db.getUserKeys(user.id);
+                if (!userKeys) throw new Error('Vault keys not found');
 
-                        finalData.name = JSON.stringify(encryptedName);
-                        finalData.description = JSON.stringify(encryptedDesc);
-                        finalData.isEncrypted = true;
+                if (targetEncrypted) {
+                    let docKey: CryptoKey;
+                    let isNewKey = false;
 
+                    const existingAccess = await db.getAccessKey(project.id);
+                    if (existingAccess && project.isEncrypted) {
+                        docKey = await decryptDocumentKey(existingAccess.encryptedKey, privateKey);
+                    } else {
+                        docKey = await generateDocumentKey();
+                        isNewKey = true;
+                    }
+
+                    if (projectData.name || project.name) {
+                        finalData.name = JSON.stringify(await encryptData(projectData.name || project.name, docKey));
+                    }
+                    if (projectData.description || project.description) {
+                        finalData.description = JSON.stringify(await encryptData(projectData.description || project.description, docKey));
+                    }
+
+                    if (isNewKey) {
                         const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                         await db.grantAccess({
                             resourceId: project.id,
@@ -103,18 +113,6 @@ export default function ProjectDetailPage() {
                             encryptedKey: encryptedDocKey,
                             resourceType: 'Project'
                         });
-                    }
-                } else if (project.isEncrypted && privateKey && user) {
-                    // Keep encrypted if it already was
-                    const access = await db.getAccessKey(project.id);
-                    if (access) {
-                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                        if (projectData.name) {
-                            finalData.name = JSON.stringify(await encryptData(projectData.name, docKey));
-                        }
-                        if (projectData.description) {
-                            finalData.description = JSON.stringify(await encryptData(projectData.description, docKey));
-                        }
                     }
                 }
 
@@ -191,7 +189,7 @@ export default function ProjectDetailPage() {
                     <Shield size={48} weight="Bold" className="animate-pulse" />
                 </div>
                 <div className="text-center space-y-3">
-                    <h2 className="text-3xl font-black tracking-tighter uppercase italic text-foreground">Secured Project</h2>
+                    <h2 className="text-3xl font-bold tracking-tight uppercase italic text-foreground">Secured Project</h2>
                     <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
                         This project is protected by end-to-end encryption. <br/>
                         Unlock your vault to access project details.
@@ -205,7 +203,7 @@ export default function ProjectDetailPage() {
     return (
         <div className={`mx-auto p-6 md:p-8 space-y-8 transition-all duration-500 ${viewMode === 'kanban' ? 'max-w-full' : 'max-w-[1200px]'}`}>
             <header className="flex flex-col gap-6">
-                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors font-bold text-xs tracking-widest group uppercase">
+                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors font-bold text-xs tracking-wider group uppercase">
                     <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
                     Back to Matrix
                 </Link>
@@ -225,7 +223,7 @@ export default function ProjectDetailPage() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
+                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-wider opacity-60">
                                     <Calendar size={14} weight="Bold" className="text-accent/50" />
                                     <span>Initialized Phase: {new Date(project.createdAt).toLocaleDateString()}</span>
                                 </div>
@@ -235,24 +233,24 @@ export default function ProjectDetailPage() {
                         {/* Metadata & Allocation Strip */}
                         <div className="flex flex-wrap gap-3">
                             <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Operational Status</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 leading-none">Operational Status</span>
                                 <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                                    <span className="text-xs font-bold uppercase tracking-widest">{project.status.replace('-', ' ')}</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">{project.status.replace('-', ' ')}</span>
                                 </div>
                             </div>
                             
                             {project.daysPerWeek && (
                                 <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Resource Allocation</span>
-                                    <span className="text-xs font-bold uppercase tracking-widest text-accent">{project.daysPerWeek}D / Weekly</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 leading-none">Resource Allocation</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-accent">{project.daysPerWeek}D / Weekly</span>
                                 </div>
                             )}
 
                             {project.allocatedDays && (
                                 <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 leading-none">Allocated Cycle</span>
-                                    <span className="text-xs font-bold uppercase tracking-widest">{project.allocatedDays} Days Total</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 leading-none">Allocated Cycle</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">{project.allocatedDays} Days Total</span>
                                 </div>
                             )}
                         </div>
@@ -285,8 +283,8 @@ export default function ProjectDetailPage() {
                                 <ListTodo size={24} weight="Bold" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black tracking-tight text-foreground leading-none mb-1">Roadmap</h2>
-                                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Execution Pipeline</p>
+                                <h2 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">Roadmap</h2>
+                                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-30">Execution Pipeline</p>
                             </div>
                         </div>
 
@@ -299,14 +297,14 @@ export default function ProjectDetailPage() {
                                         placeholder="SEARCH TASKS..." 
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="bg-transparent border-none focus:ring-0 text-[10px] font-black uppercase tracking-widest placeholder:text-muted-foreground/20 w-32 md:w-64"
+                                        className="bg-transparent border-none focus:ring-0 text-[10px] font-bold uppercase tracking-wider placeholder:text-muted-foreground/20 w-32 md:w-64"
                                     />
                                 </div>
                                 <div className="w-px h-4 bg-border/40 mx-2" />
                                 <Button 
                                     variant={hideCompleted ? 'primary' : 'secondary'} 
                                     size="sm" 
-                                    className={`h-7 px-4 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${hideCompleted ? 'shadow-lg shadow-accent/40 bg-accent text-white border-transparent' : 'bg-transparent text-muted-foreground hover:bg-surface-secondary'}`}
+                                    className={`h-7 px-4 rounded-xl font-bold text-[9px] uppercase tracking-wider transition-all ${hideCompleted ? 'shadow-lg shadow-accent/40 bg-accent text-white border-transparent' : 'bg-transparent text-muted-foreground hover:bg-surface-secondary'}`}
                                     onPress={() => setHideCompleted(!hideCompleted)}
                                 >
                                     <FilterIcon size={14} weight="Bold" className="mr-2" />
@@ -336,7 +334,7 @@ export default function ProjectDetailPage() {
                             <Button 
                                 variant="primary" 
                                 size="sm" 
-                                className="h-10 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-accent/30 bg-accent text-white border-none" 
+                                className="h-10 px-6 rounded-2xl font-bold text-[10px] uppercase tracking-wider shadow-xl shadow-accent/30 bg-accent text-white border-none" 
                                 onPress={() => setIsTemplateModalOpen(true)}
                             >
                                 <Sparkles size={18} weight="Bold" className="mr-2" />

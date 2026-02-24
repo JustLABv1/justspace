@@ -150,7 +150,7 @@ export function KanbanBoard({
                                     }`} />
                                     <h3 className="font-bold tracking-tight text-sm text-foreground whitespace-nowrap">{column.label}</h3>
                                 </div>
-                                <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest ml-2">{columnTasks.length}</span>
+                                <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider ml-2">{columnTasks.length}</span>
                             </Surface>
 
                             <div 
@@ -192,7 +192,7 @@ export function KanbanBoard({
                                                                     style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-[9px] font-bold text-muted-foreground/40 tracking-widest">{completedSubtasks}/{subtasks.length}</span>
+                                                            <span className="text-[9px] font-bold text-muted-foreground/40 tracking-wider">{completedSubtasks}/{subtasks.length}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -209,7 +209,7 @@ export function KanbanBoard({
                                                             className="h-5 px-2 border border-border/10"
                                                         >
                                                             <Calendar size={10} weight="Bold" className="mr-1" />
-                                                            <Chip.Label className="text-[9px] font-black uppercase tracking-widest px-0">
+                                                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider px-0">
                                                                 {dayjs(task.deadline).format('MMM D, HH:mm')}
                                                             </Chip.Label>
                                                         </Chip>
@@ -226,7 +226,7 @@ export function KanbanBoard({
                                                             }
                                                             className="h-5 min-w-0 px-2 border border-border/10"
                                                         >
-                                                            <Chip.Label className="text-[9px] font-black uppercase tracking-widest px-0">
+                                                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider px-0">
                                                                 {task.priority}
                                                             </Chip.Label>
                                                         </Chip>
@@ -241,7 +241,7 @@ export function KanbanBoard({
                                                             className="h-5 min-w-0 px-2 border border-warning/10"
                                                         >
                                                             <MessageCircle size={10} weight="Bold" className="text-warning" />
-                                                            <Chip.Label className="text-[9px] font-black px-0">
+                                                            <Chip.Label className="text-[9px] font-bold px-0">
                                                                 {task.notes.length}
                                                             </Chip.Label>
                                                         </Chip>
@@ -254,7 +254,7 @@ export function KanbanBoard({
                                                             className="h-5 min-w-0 px-2 border border-accent/10"
                                                         >
                                                             <HistoryIcon size={10} weight="Bold" className="text-accent" />
-                                                            <Chip.Label className="text-[9px] font-black uppercase tracking-wider px-0">
+                                                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider px-0">
                                                                 {Math.floor(task.timeSpent / 3600)}H {Math.floor((task.timeSpent % 3600) / 60)}M
                                                             </Chip.Label>
                                                         </Chip>

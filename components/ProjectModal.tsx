@@ -79,10 +79,10 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 <Folder size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
-                                    {project?.id ? 'Sync Project_' : 'Init Project_'}
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">
+                                    {project?.id ? 'Sync Project' : 'Init Project'}
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest opacity-40 ml-0.5 mt-1">Consultant Workspace Configuration</p>
+                                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-40 ml-0.5 mt-1">Consultant Workspace Configuration</p>
                             </div>
                         </Modal.Header>
                         
@@ -94,7 +94,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             <Shield size={20} weight="Bold" />
                                         </div>
                                         <div className="space-y-0.5">
-                                            <p className="text-xs font-black uppercase tracking-widest">End-to-End Encryption</p>
+                                            <p className="text-xs font-bold uppercase tracking-wider">End-to-End Encryption</p>
                                             <p className="text-[10px] text-muted-foreground font-medium opacity-60">Secure project metadata & details</p>
                                         </div>
                                     </div>
@@ -117,7 +117,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 )}
 
                                 <TextField autoFocus isRequired value={name} onChange={setName} className="w-full">
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Project Identifier</Label>
+                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Project Identifier</Label>
                                     <Input 
                                         placeholder="Enter project name..." 
                                         className="h-12 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-5" 
@@ -125,7 +125,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 </TextField>
 
                                 <TextField value={description} onChange={setDescription} className="w-full">
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Description</Label>
+                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Description</Label>
                                     <TextArea 
                                         placeholder="Briefly describe the project objectives..."
                                         className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-medium transition-all mt-2 min-h-[100px] p-5" 
@@ -133,7 +133,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 </TextField>
 
                                 <div className="space-y-4">
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Project Status</Label>
+                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Project Status</Label>
                                     <div className="flex bg-surface-secondary/30 p-1.5 rounded-xl border border-border/20 shadow-inner">
                                         {(['todo', 'in-progress', 'completed'] as const).map((s) => (
                                             <Button
@@ -141,7 +141,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                                 type="button"
                                                 variant={status === s ? 'secondary' : 'ghost'}
                                                 onPress={() => setStatus(s)}
-                                                className={`flex-1 h-9 rounded-lg text-[10px] font-black uppercase tracking-[0.1em] transition-all ${
+                                                className={`flex-1 h-9 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
                                                     status === s ? 'shadow-lg text-foreground bg-surface border border-border/40' : 'text-muted-foreground opacity-40 hover:opacity-100'
                                                 }`}
                                             >
@@ -153,7 +153,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
 
                                 <div className="grid grid-cols-2 gap-6">
                                     <TextField value={daysPerWeek} onChange={setDaysPerWeek} className="w-full">
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Days / Week</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Days / Week</Label>
                                         <Input 
                                             type="number"
                                             step="0.5"
@@ -163,7 +163,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     </TextField>
 
                                     <TextField value={allocatedDays} onChange={setAllocatedDays} className="w-full">
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Total Allocation</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Total Allocation</Label>
                                         <Input 
                                             type="number"
                                             placeholder="e.g. 100" 
@@ -185,7 +185,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-xl h-9 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-accent/20" 
+                                    className="rounded-xl h-9 px-8 font-bold tracking-tight text-sm shadow-2xl shadow-accent/20" 
                                     isPending={isLoading}
                                 >
                                     {project?.id ? 'Commit Records' : 'Execute Creation'}

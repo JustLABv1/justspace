@@ -63,16 +63,29 @@ export default function Home() {
         if (p.isEncrypted) {
             if (privateKey && user) {
                 try {
-                    const access = await db.getAccessKey(p.id, user.id);
+                    const access = await db.getAccessKey(p.id);
                     if (access) {
                         const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                        const nameData = JSON.parse(p.name);
-                        const descData = JSON.parse(p.description);
-                        return { 
-                            ...p, 
-                            name: await decryptData(nameData, docKey),
-                            description: await decryptData(descData, docKey)
-                        };
+                        let name = 'Encrypted Project';
+                        let description = 'Resource is encrypted with vault key.';
+                        
+                        try {
+                           const nameData = JSON.parse(p.name);
+                           name = await decryptData(nameData, docKey);
+                        } catch (e) {
+                           console.warn('Failed to parse encrypted name for project:', p.id);
+                        }
+
+                        if (p.description) {
+                            try {
+                                const descData = JSON.parse(p.description);
+                                description = await decryptData(descData, docKey);
+                            } catch (e) {
+                                console.warn('Failed to parse encrypted description for project:', p.id);
+                            }
+                        }
+                        
+                        return { ...p, name, description };
                     }
                 } catch (e) {
                     console.error('Failed to decrypt project on dashboard:', p.id, e);
@@ -81,7 +94,7 @@ export default function Home() {
             return { 
                 ...p, 
                 name: 'Encrypted Project',
-                description: 'Synchronize vault to access project details.'
+                description: 'Unlock vault to access project details.'
             };
         }
         return p;
@@ -90,11 +103,15 @@ export default function Home() {
       const processedSnippets = await Promise.all(snippets.documents.slice(0, 3).map(async (s) => {
         if (s.isEncrypted && privateKey && user) {
             try {
-                const access = await db.getAccessKey(s.id, user.id);
+                const access = await db.getAccessKey(s.id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    const titleData = JSON.parse(s.title);
-                    return { ...s, title: await decryptData(titleData, docKey) };
+                    try {
+                        const titleData = JSON.parse(s.title);
+                        return { ...s, title: await decryptData(titleData, docKey) };
+                    } catch (e) {
+                        console.warn('Failed to parse snippet title:', s.id);
+                    }
                 }
             } catch (e) {
                 console.error('Failed to decrypt snippet:', s.id, e);
@@ -107,11 +124,16 @@ export default function Home() {
       const processedTasksData = await Promise.all(allTasks.documents.filter(t => !t.completed).map(async (t) => {
         if (t.isEncrypted && privateKey && user) {
             try {
-                const access = await db.getAccessKey(t.projectId, user.id);
+                // Tasks are usually encrypted with the project key
+                const access = await db.getAccessKey(t.projectId);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    const titleData = JSON.parse(t.title);
-                    return { ...t, title: await decryptData(titleData, docKey) };
+                    try {
+                        const titleData = JSON.parse(t.title);
+                        return { ...t, title: await decryptData(titleData, docKey) };
+                    } catch (e) {
+                        console.warn('Failed to parse task title:', t.id);
+                    }
                 }
             } catch (e) {
                 console.error('Failed to decrypt task:', t.id, e);
@@ -144,12 +166,12 @@ export default function Home() {
       {/* Refined Header */}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-accent font-bold tracking-[0.2em] text-[10px] opacity-60 uppercase">
+          <div className="flex items-center gap-2 text-accent font-bold tracking-wider text-[10px] opacity-60 uppercase">
             <Sparkles size={14} weight="Bold" className="animate-pulse" />
             Control Hub
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">
-            {greeting}, {user?.name || 'Justin'}_
+            {greeting}, {user?.name || 'Justin'}
           </h1>
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-muted-foreground font-medium opacity-60">
@@ -159,7 +181,7 @@ export default function Home() {
                 <Tooltip.Trigger aria-label="Vault status">
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-sm transition-all cursor-help ${privateKey ? 'bg-success/5 border-success/20 text-success' : 'bg-warning/5 border-warning/20 text-warning'}`}>
                         {privateKey ? <VaultIcon size={12} weight="Bold" /> : <LockIcon size={12} weight="Bold" />}
-                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">
                             Vault {privateKey ? 'Active' : 'Locked'}
                         </span>
                     </div>
@@ -169,7 +191,7 @@ export default function Home() {
                     {privateKey ? "Vault Unlocked" : "Vault Locked - Some data hidden"}
                 </Tooltip.Content>
             </Tooltip>
-            <span className="text-foreground font-bold tracking-widest text-[10px] uppercase opacity-40">{stats.projects} Projects Active</span>
+            <span className="text-foreground font-bold tracking-wider text-[10px] uppercase opacity-40">{stats.projects} Projects Active</span>
           </div>
         </div>
         <div className="flex gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
@@ -206,7 +228,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold tracking-tight">{stats.projects}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Projects</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Projects</p>
                 </div>
               </div>
             </Surface>
@@ -218,7 +240,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold tracking-tight">{stats.guides}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Wiki Pages</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Wiki Pages</p>
                 </div>
               </div>
             </Surface>
@@ -230,7 +252,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold tracking-tight">{stats.snippets}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Snippets</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Snippets</p>
                 </div>
               </div>
             </Surface>
@@ -242,7 +264,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold tracking-tight">{stats.tasks}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-40">Pending</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Pending</p>
                 </div>
               </div>
             </Surface>
@@ -257,7 +279,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold tracking-tight text-foreground">Due Today</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-60">Action Required</p>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider opacity-60">Action Required</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -269,11 +291,11 @@ export default function Home() {
                           <div className="flex flex-col gap-1.5">
                             <span className="text-sm font-bold text-foreground">{task.title}</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-foreground/40 font-black uppercase tracking-widest bg-foreground/5 px-1.5 py-0.5 rounded">
+                                <span className="text-[9px] text-foreground/40 font-bold uppercase tracking-wider bg-foreground/5 px-1.5 py-0.5 rounded">
                                     {project ? project.name : 'Unknown Project'}
                                 </span>
                                 {task.priority && (
-                                    <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                                         task.priority === 'urgent' ? 'text-danger bg-danger/10' :
                                         task.priority === 'high' ? 'text-warning bg-warning/10' :
                                         'text-accent bg-accent/10'
@@ -303,7 +325,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight">Active Projects</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 mt-0.5">Project overview</p>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider opacity-40 mt-0.5">Project overview</p>
                 </div>
               </div>
               <Link href="/projects">
@@ -329,12 +351,12 @@ export default function Home() {
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-accent" />
                             <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="h-6 px-2.5 rounded-lg opacity-80 border border-current/10">
-                                <Chip.Label className="font-bold text-[10px] uppercase tracking-widest">
+                                <Chip.Label className="font-bold text-[10px] uppercase tracking-wider">
                                     {project.status}
                                 </Chip.Label>
                             </Chip>
                           </div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30">
                              {new Date(project.createdAt).toLocaleDateString()}
                           </span>
                         </div>
@@ -342,7 +364,7 @@ export default function Home() {
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed font-medium opacity-80">{project.description}</p>
                       </div>
                       <Link href={`/projects/${project.id}`}>
-                        <Button variant="secondary" className="w-full rounded-[1.25rem] font-bold h-14 group-hover:bg-foreground group-hover:text-background transition-all border border-border/40 shadow-sm uppercase text-[11px] tracking-widest">
+                        <Button variant="secondary" className="w-full rounded-[1.25rem] font-bold h-14 group-hover:bg-foreground group-hover:text-background transition-all border border-border/40 shadow-sm uppercase text-[11px] tracking-wider">
                           Project Details <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
                         </Button>
                       </Link>
@@ -370,7 +392,7 @@ export default function Home() {
             {/* Recent Snippets */}
             <section className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold uppercase tracking-widest opacity-40">Recent Snippets</h2>
+                    <h2 className="text-sm font-bold uppercase tracking-wider opacity-40">Recent Snippets</h2>
                     <Link href="/snippets" className="text-[10px] font-bold text-accent">View all</Link>
                 </div>
                 <div className="space-y-2">
@@ -395,7 +417,7 @@ export default function Home() {
             {/* Active Tasks */}
             <section className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold uppercase tracking-widest opacity-40">Top Tasks</h2>
+                    <h2 className="text-sm font-bold uppercase tracking-wider opacity-40">Top Tasks</h2>
                     <Link href="/projects" className="text-[10px] font-bold text-accent">Go to board</Link>
                 </div>
                 <div className="space-y-2">

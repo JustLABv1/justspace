@@ -28,7 +28,7 @@ export default function SettingsPage() {
             <div className="flex h-screen w-full items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <RefreshIcon size={40} className="animate-spin text-accent opacity-20" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Initializing System_</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground animate-pulse">Initializing System</p>
                 </div>
             </div>
         }>
@@ -70,7 +70,7 @@ function SettingsContent() {
         if (user) {
             setUserName(user.name || '');
             const prefs = (user.preferences || {}) as Record<string, string | undefined>;
-            setWorkspaceName(prefs?.workspaceName || 'justspace_');
+            setWorkspaceName(prefs?.workspaceName || 'justspace');
         }
     }, [user]);
 
@@ -276,12 +276,12 @@ function SettingsContent() {
     return (
         <div className="max-w-[1200px] mx-auto p-6 md:p-12 space-y-12">
             <header className="space-y-3">
-                <div className="flex items-center gap-3 text-accent font-black tracking-[0.2em] text-[10px] opacity-80 uppercase">
+                <div className="flex items-center gap-3 text-accent font-bold tracking-wider text-[10px] opacity-80 uppercase">
                     <SettingsIcon size={14} weight="Bold" className="animate-pulse" />
                     System Configuration
                 </div>
-                <h1 className="text-3xl font-black tracking-tighter text-foreground leading-tight">
-                    Settings_
+                <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">
+                    Settings
                 </h1>
                 <p className="text-sm text-muted-foreground font-medium opacity-60">
                     Configure your workspace, security, and global defaults.
@@ -313,13 +313,13 @@ function SettingsContent() {
                         {activeTab === 'General' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div>
-                                    <h3 className="text-xl font-black tracking-tight mb-2">General Workspace</h3>
+                                    <h3 className="text-xl font-bold tracking-tight mb-2">General Workspace</h3>
                                     <p className="text-xs text-muted-foreground">Global defaults for your consulting environment.</p>
                                 </div>
                                 
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Workspace Name</label>
+                                        <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Workspace Name</label>
                                         <input 
                                             className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
                                             value={workspaceName}
@@ -334,13 +334,13 @@ function SettingsContent() {
                         {activeTab === 'User' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div>
-                                    <h3 className="text-xl font-black tracking-tight mb-2 uppercase italic">Account Profile</h3>
+                                    <h3 className="text-xl font-bold tracking-tight mb-2 uppercase italic">Account Profile</h3>
                                     <p className="text-xs text-muted-foreground">Manage your personal information and identity.</p>
                                 </div>
                                 
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Full Name</label>
+                                        <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Full Name</label>
                                         <input 
                                             className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
                                             value={userName}
@@ -348,13 +348,13 @@ function SettingsContent() {
                                         />
                                     </div>
                                     <div className="space-y-2 opacity-50">
-                                        <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Email Address</label>
+                                        <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Email Address</label>
                                         <div className="w-full h-14 bg-surface/50 rounded-2xl border border-border/50 px-5 font-bold flex items-center cursor-not-allowed">
                                             {user?.email}
                                         </div>
                                     </div>
                                     <div className="pt-4 p-6 rounded-2xl bg-surface-tertiary border border-border/50 space-y-2">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">System Identity</h4>
+                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">System Identity</h4>
                                         <p className="text-xs font-mono text-muted-foreground truncate">{user?.id}</p>
                                     </div>
                                 </div>
@@ -364,7 +364,7 @@ function SettingsContent() {
                         {activeTab === 'Appearance' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div>
-                                    <h3 className="text-xl font-black tracking-tight mb-2">Visual Interface</h3>
+                                    <h3 className="text-xl font-bold tracking-tight mb-2">Visual Interface</h3>
                                     <p className="text-xs text-muted-foreground">Customize the lighting and theme of your dashboard.</p>
                                 </div>
                                 
@@ -388,7 +388,7 @@ function SettingsContent() {
                                             }`}>
                                                 <t.icon size={24} weight="Bold" />
                                             </div>
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t.label}</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">{t.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -398,7 +398,7 @@ function SettingsContent() {
                         {activeTab === 'Shortcuts' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div>
-                                    <h3 className="text-xl font-black tracking-tight mb-2">Keyboard Shortcuts</h3>
+                                    <h3 className="text-xl font-bold tracking-tight mb-2">Keyboard Shortcuts</h3>
                                     <p className="text-xs text-muted-foreground">Power user commands for rapid navigation.</p>
                                 </div>
                                 
@@ -413,7 +413,7 @@ function SettingsContent() {
                                     ].map((shortcut, i) => (
                                         <div key={i} className="flex items-center justify-between p-4 px-6 rounded-2xl bg-surface/50 border border-border/30">
                                             <span className="text-xs font-bold text-muted-foreground">{shortcut.action}</span>
-                                            <kbd className="px-3 py-1 bg-surface border border-border/50 rounded-lg text-[10px] font-black tracking-wider shadow-sm">
+                                            <kbd className="px-3 py-1 bg-surface border border-border/50 rounded-lg text-[10px] font-bold tracking-wider shadow-sm">
                                                 {shortcut.cmd}
                                             </kbd>
                                         </div>
@@ -426,10 +426,10 @@ function SettingsContent() {
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-xl font-black tracking-tight mb-2 uppercase italic">Encryption Vault</h3>
+                                        <h3 className="text-xl font-bold tracking-tight mb-2 uppercase italic">Encryption Vault</h3>
                                         <p className="text-xs text-muted-foreground">End-to-end encryption management for sensitive project data.</p>
                                     </div>
-                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${
+                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 border ${
                                         privateKey 
                                             ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
                                             : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
@@ -445,7 +445,7 @@ function SettingsContent() {
                                             <Vault size={24} weight="Bold" />
                                         </div>
                                         <div className="space-y-1">
-                                            <h4 className="font-black text-sm uppercase tracking-wider">{hasVault ? 'Unlock your keys' : 'Initialize Vault'}</h4>
+                                            <h4 className="font-bold text-sm uppercase tracking-wider">{hasVault ? 'Unlock your keys' : 'Initialize Vault'}</h4>
                                             <p className="text-xs text-muted-foreground font-medium opacity-60">
                                                 {hasVault 
                                                     ? 'Enter your vault password to decrypt your RSA keys. This will enable access to encrypted project data.' 
@@ -456,7 +456,7 @@ function SettingsContent() {
 
                                     <Form onSubmit={handleVaultAction} className="space-y-4">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black tracking-widest text-muted-foreground ml-1 opacity-60 uppercase">Vault Password</label>
+                                            <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Vault Password</label>
                                             <input 
                                                 type="password"
                                                 className={`w-full h-14 bg-surface rounded-2xl border ${vaultError ? 'border-danger/50' : 'border-border/50'} px-5 font-bold outline-none focus:border-accent transition-all`}
@@ -472,7 +472,7 @@ function SettingsContent() {
                                         </div>
                                         <Button 
                                             type="submit" 
-                                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs" 
+                                            className="w-full h-14 rounded-2xl font-bold uppercase tracking-wider text-xs" 
                                             variant={privateKey ? "secondary" : "primary"}
                                             isPending={isSubmitting}
                                             isDisabled={!!privateKey}
@@ -490,7 +490,7 @@ function SettingsContent() {
                                     {privateKey && (
                                         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-wider">
                                             <CheckCircleIcon size={20} />
-                                            Vault active and keys decrypted_
+                                            Vault active and keys decrypted
                                         </div>
                                     )}
                                 </Surface>
@@ -502,7 +502,7 @@ function SettingsContent() {
                                                 <DatabaseIcon size={24} weight="Bold" />
                                             </div>
                                             <div className="space-y-1">
-                                                <h4 className="font-black text-sm uppercase tracking-wider text-orange-500">Legacy Data Migration</h4>
+                                                <h4 className="font-bold text-sm uppercase tracking-wider text-orange-500">Legacy Data Migration</h4>
                                                 <p className="text-xs text-muted-foreground font-medium opacity-60">
                                                     We detected unencrypted records in your workspace. You can migrate them to your secure vault now.
                                                 </p>
@@ -511,16 +511,16 @@ function SettingsContent() {
 
                                         <div className="grid grid-cols-3 gap-4">
                                             <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
-                                                <div className="text-lg font-black text-orange-500">{stats.projects}</div>
-                                                <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Projects</div>
+                                                <div className="text-lg font-bold text-orange-500">{stats.projects}</div>
+                                                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Projects</div>
                                             </div>
                                             <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
-                                                <div className="text-lg font-black text-orange-500">{stats.wiki}</div>
-                                                <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Wiki Guides</div>
+                                                <div className="text-lg font-bold text-orange-500">{stats.wiki}</div>
+                                                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Wiki Guides</div>
                                             </div>
                                             <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
-                                                <div className="text-lg font-black text-orange-500">{stats.snippets}</div>
-                                                <div className="text-[9px] font-bold uppercase tracking-widest opacity-40">Snippets</div>
+                                                <div className="text-lg font-bold text-orange-500">{stats.snippets}</div>
+                                                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Snippets</div>
                                             </div>
                                         </div>
 
@@ -536,7 +536,7 @@ function SettingsContent() {
                                             </div>
                                         ) : (
                                             <Button 
-                                                className="w-full h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border-none shadow-xl shadow-orange-500/20"
+                                                className="w-full h-12 rounded-xl font-bold uppercase tracking-wider text-[10px] bg-orange-500 text-white border-none shadow-xl shadow-orange-500/20"
                                                 onPress={handleMigrate}
                                                 isDisabled={isMigrating}
                                             >
@@ -549,7 +549,7 @@ function SettingsContent() {
                                 {migrationProgress.includes('complete') && !isMigrating && (
                                     <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-wider">
                                         <CheckCircleIcon size={20} />
-                                        Migration completed successfully_
+                                        Migration completed successfully
                                     </div>
                                 )}
                             </div>
@@ -565,7 +565,7 @@ function SettingsContent() {
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-xl font-black px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-widest"
+                                className="rounded-xl font-bold px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-wider"
                                 onPress={handleSaveChanges}
                                 isPending={isSubmitting}
                             >

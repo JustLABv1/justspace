@@ -29,9 +29,9 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                              <div className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(var(--accent),0.5)]" />
-                             <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground opacity-60">Pulse Telemetry</p>
+                             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground opacity-60">Pulse Telemetry</p>
                         </div>
-                        <h3 className="text-xl font-bold tracking-tight">Capacity Load_</h3>
+                        <h3 className="text-xl font-bold tracking-tight">Capacity Load</h3>
                     </div>
                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center border border-border/50 shadow-inner ${loadPercentage > 100 ? 'bg-danger/10 text-danger border-danger/20' : 'bg-foreground/5 text-foreground'}`}>
                         <Zap size={20} weight="Bold" className={loadPercentage > 100 ? 'animate-bounce' : ''} />
@@ -55,7 +55,7 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
                                                 />
                                             </Tooltip.Trigger>
                                             <Tooltip.Content offset={10}>
-                                                <div className="px-2 py-1 bg-foreground text-background rounded-lg font-bold text-[9px] tracking-widest leading-none">
+                                                <div className="px-2 py-1 bg-foreground text-background rounded-lg font-bold text-[9px] tracking-wider leading-none">
                                                     {day} Index {week}: {adjustedLoad.toFixed(0)}% Load
                                                 </div>
                                             </Tooltip.Content>
@@ -65,7 +65,7 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
                             })}
                         </div>
                     ))}
-                    <div className="flex justify-between px-1 mt-1 text-[9px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30">
+                    <div className="flex justify-between px-1 mt-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/30">
                         {days.map((d, i) => <span key={i}>{d}</span>)}
                     </div>
                 </div>
@@ -73,13 +73,13 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
                 <div className="flex justify-between items-end border-t border-border/20 pt-6 mt-auto">
                     <div className="space-y-1">
                         <p className="text-3xl font-bold tracking-tighter tabular-nums leading-none">{totalDaysPerWeek.toFixed(1)}</p>
-                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] opacity-60">Allocated Days / Week</p>
+                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider opacity-60">Allocated Days / Week</p>
                     </div>
                     <div className="text-right space-y-1">
                         <p className={`text-3xl font-bold tracking-tighter tabular-nums leading-none ${loadPercentage > 100 ? 'text-danger' : 'text-accent'}`}>
                             {loadPercentage.toFixed(0)}%
                         </p>
-                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] opacity-60">System Utilization</p>
+                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider opacity-60">System Utilization</p>
                     </div>
                 </div>
             </div>

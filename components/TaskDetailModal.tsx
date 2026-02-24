@@ -379,14 +379,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             <Modal.Backdrop variant="blur">
                 <Modal.Container size="cover">
                     <Modal.Dialog className="bg-surface border border-border/40 overflow-hidden">
-                        <Modal.CloseTrigger />
                         <Modal.Header className="flex flex-col gap-6 items-start pb-8">
                             <div className="flex items-center justify-between w-full border-b border-border/10 pb-6">
                                 <div className="flex flex-col">
-                                    <span className="text-[8px] font-black tracking-[0.3em] text-muted-foreground/20 uppercase">Identity Reference</span>
-                                    <span className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground/40 tabular-nums">#{task.id.slice(-8).toUpperCase()}</span>
+                                    <span className="text-[8px] font-bold tracking-wider text-muted-foreground/40 uppercase">Identity Reference</span>
+                                    <span className="text-[10px] font-bold tracking-tight text-muted-foreground/60 tabular-nums">#{task.id.slice(-8).toUpperCase()}</span>
                                 </div>
-                                <Modal.CloseTrigger className="relative top-0 right-0" />
+                                <Modal.CloseTrigger />
                             </div>
                             
                             <div className="w-full space-y-6">
@@ -400,12 +399,12 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             value={editedTitle}
                                             onChange={(e) => setEditedTitle(e.target.value)}
                                             onBlur={handleUpdateTitle}
-                                            className="text-2xl font-black tracking-tight text-foreground leading-tight bg-surface-secondary"
+                                            className="text-2xl font-bold tracking-tight text-foreground leading-tight bg-surface-secondary"
                                         />
                                     </form>
                                 ) : (
                                     <Modal.Heading 
-                                        className="text-2xl font-black tracking-tight text-foreground leading-tight cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
+                                        className="text-2xl font-bold tracking-tight text-foreground leading-tight cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
                                         onClick={() => setIsEditingTitle(true)}
                                     >
                                         {task.title}
@@ -422,7 +421,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             task.kanbanStatus === 'in-progress' ? 'bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]' :
                                             'bg-muted-foreground/40'
                                         }`} />
-                                        <span className="text-[9px] font-black tracking-[0.2em] uppercase text-foreground/60 pr-1">
+                                        <span className="text-[9px] font-bold tracking-wider uppercase text-foreground/60 pr-1">
                                             {task.kanbanStatus?.replace('-', ' ')}
                                         </span>
                                     </div>
@@ -434,7 +433,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         <Button 
                                             size="sm" 
                                             variant="secondary" 
-                                            className={`h-8 px-3 text-[9px] font-black uppercase tracking-widest transition-all rounded-xl border border-border/20 ${
+                                            className={`h-8 px-3 text-[9px] font-bold uppercase tracking-wider transition-all rounded-xl border border-border/20 ${
                                                 task.priority === 'urgent' ? 'text-danger bg-danger/10' :
                                                 task.priority === 'high' ? 'text-warning bg-warning/10' :
                                                 task.priority === 'medium' ? 'text-accent bg-accent/10' :
@@ -449,10 +448,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 className="bg-transparent"
                                                 onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
                                             >
-                                                <Dropdown.Item id="low" className="text-[9px] font-black uppercase tracking-[0.2em] rounded-lg">Low</Dropdown.Item>
-                                                <Dropdown.Item id="medium" className="text-[9px] font-black uppercase tracking-[0.2em] text-accent rounded-lg">Medium</Dropdown.Item>
-                                                <Dropdown.Item id="high" className="text-[9px] font-black uppercase tracking-[0.2em] text-warning rounded-lg">High</Dropdown.Item>
-                                                <Dropdown.Item id="urgent" className="text-[9px] font-black uppercase tracking-[0.2em] text-danger rounded-lg">Urgent</Dropdown.Item>
+                                                <Dropdown.Item id="low" className="text-[9px] font-bold uppercase tracking-wider rounded-lg">Low</Dropdown.Item>
+                                                <Dropdown.Item id="medium" className="text-[9px] font-bold uppercase tracking-wider text-accent rounded-lg">Medium</Dropdown.Item>
+                                                <Dropdown.Item id="high" className="text-[9px] font-bold uppercase tracking-wider text-warning rounded-lg">High</Dropdown.Item>
+                                                <Dropdown.Item id="urgent" className="text-[9px] font-bold uppercase tracking-wider text-danger rounded-lg">Urgent</Dropdown.Item>
                                             </Dropdown.Menu>
                                         </Dropdown.Popover>
                                     </Dropdown>
@@ -474,7 +473,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     {(segment) => (
                                                         <DateField.Segment 
                                                             segment={segment} 
-                                                            className="text-[10px] font-black uppercase tracking-widest text-foreground/60 focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" 
+                                                            className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" 
                                                         />
                                                     )}
                                                 </DateField.Input>
@@ -484,8 +483,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <Calendar.Header className="flex items-center justify-between mb-4">
                                                         <Calendar.YearPickerTrigger>
                                                             <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-lg hover:bg-accent/5 transition-colors">
-                                                                <Calendar.YearPickerTriggerHeading className="text-[10px] font-black uppercase tracking-[0.2em] text-accent" />
-                                                                <Calendar.YearPickerTriggerIndicator className="opacity-40 group-hover/trigger:opacity-100 transition-opacity" />
+                                                                <Calendar.YearPickerTriggerHeading className="text-[10px] font-bold uppercase tracking-wider text-accent" />
+                                                                <Calendar.YearPickerTriggerIndicator className="opacity-40 group-trigger:opacity-100 transition-opacity" />
                                                             </div>
                                                         </Calendar.YearPickerTrigger>
                                                         <div className="flex gap-2">
@@ -500,7 +499,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <Calendar.Grid className="w-full">
                                                         <Calendar.GridHeader>
                                                             {(day) => (
-                                                                <Calendar.HeaderCell className="text-[9px] font-black text-muted-foreground/30 uppercase pb-2">
+                                                                <Calendar.HeaderCell className="text-[9px] font-bold text-muted-foreground/30 uppercase pb-2">
                                                                     {day.slice(0, 2)}
                                                                 </Calendar.HeaderCell>
                                                             )}
@@ -510,6 +509,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                 <Calendar.Cell 
                                                                     date={date} 
                                                                     className="text-[10px] font-bold h-9 w-9 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:border border-accent/30" 
+                                                                    aria-label={date.toString()}
                                                                 />
                                                             )}
                                                         </Calendar.GridBody>
@@ -529,13 +529,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 </Calendar>
                                                 <div className="mt-4 pt-4 border-t border-border/10 flex flex-col gap-3">
                                                     <div className="flex items-center justify-between">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Set Time_</Label>
-                                                        <div className="px-2 py-0.5 rounded-md bg-accent/10 text-accent font-black text-[8px] uppercase tracking-widest">24h Format</div>
+                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40">Set Time</Label>
+                                                        <div className="px-2 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[8px] uppercase tracking-wider">24h Format</div>
                                                     </div>
                                                     <TimeField aria-label="Task deadline time" className="w-full">
                                                         <DateField.Group className="bg-foreground/[0.05] border border-border/20 px-3 py-2 rounded-xl h-10 flex items-center">
                                                             <DateField.Input>
-                                                                {(segment) => <DateField.Segment segment={segment} className="text-[11px] font-black uppercase tracking-[0.1em] text-foreground focus:text-accent" />}
+                                                                {(segment) => <DateField.Segment segment={segment} className="text-[11px] font-bold uppercase tracking-wider text-foreground focus:text-accent" />}
                                                             </DateField.Input>
                                                         </DateField.Group>
                                                     </TimeField>
@@ -553,10 +553,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                     <div className="h-full flex flex-col gap-6">
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-2">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-2">
                                                     <Plus size={14} /> Sub Objectives
                                                 </h4>
-                                                <span className="text-[10px] font-bold text-muted-foreground/40 tracking-widest">{subtasks.filter(s => s.completed).length}/{subtasks.length} Completed</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground/40 tracking-wider">{subtasks.filter(s => s.completed).length}/{subtasks.length} Completed</span>
                                             </div>
                                             
                                             <form onSubmit={handleAddSubtask} className="relative group">
@@ -581,7 +581,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <div className="space-y-2">
                                                     {subtasks.length === 0 ? (
                                                         <div className="py-8 text-center border-2 border-dashed border-border/10 rounded-2xl">
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">No sub-objectives defined</p>
+                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30">No sub-objectives defined</p>
                                                         </div>
                                                     ) : (
                                                         subtasks.map((st) => (
@@ -635,13 +635,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
                                         {task.timeSpent && task.timeSpent > 0 && (
                                             <div className="pt-6 border-t border-border/10">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-2 mb-4">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-2 mb-4">
                                                     <History size={14} /> Efficiency History
                                                 </h4>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="p-3 rounded-xl bg-surface border border-border/20">
-                                                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mb-1">Total Effort</p>
-                                                        <p className="text-lg font-black tracking-tight text-accent font-mono">{formatTime(task.timeSpent)}</p>
+                                                        <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider mb-1">Total Effort</p>
+                                                        <p className="text-lg font-bold tracking-tight text-accent font-mono">{formatTime(task.timeSpent)}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -654,7 +654,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                     <div className="h-full flex flex-col gap-6">
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-warning flex items-center gap-2">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-wider text-warning flex items-center gap-2">
                                                     <MessageCircle size={14} /> Communication Log
                                                 </h4>
                                             </div>
@@ -664,7 +664,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     {parsedNotes.length === 0 ? (
                                                         <div className="py-12 text-center border-2 border-dashed border-border/10 rounded-2xl">
                                                             <Email size={24} className="mx-auto text-muted-foreground/10 mb-2" />
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">No logged interactions</p>
+                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30">No logged interactions</p>
                                                         </div>
                                                     ) : (
                                                         parsedNotes.map((note) => (
@@ -679,7 +679,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                             {note.type === 'email' && <Email size={10} className="text-accent" />}
                                                                             {note.type === 'call' && <Phone size={10} className="text-success" />}
                                                                             {note.type === 'note' && <MessageCircle size={10} className="text-warning" />}
-                                                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">
+                                                                            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">
                                                                                 {dayjs(note.date).fromNow()}
                                                                             </span>
                                                                         </div>
@@ -718,7 +718,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <Button 
                                                     size="sm" 
                                                     variant={noteType === 'note' ? 'secondary' : 'ghost'} 
-                                                    className="flex-1 font-bold text-[9px] uppercase tracking-widest h-8"
+                                                    className="flex-1 font-bold text-[9px] uppercase tracking-wider h-8"
                                                     onPress={() => setNoteType('note')}
                                                 >
                                                     Note
@@ -726,7 +726,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <Button 
                                                     size="sm" 
                                                     variant={noteType === 'email' ? 'secondary' : 'ghost'} 
-                                                    className="flex-1 font-bold text-[9px] uppercase tracking-widest h-8"
+                                                    className="flex-1 font-bold text-[9px] uppercase tracking-wider h-8"
                                                     onPress={() => setNoteType('email')}
                                                 >
                                                     Email
@@ -734,7 +734,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <Button 
                                                     size="sm" 
                                                     variant={noteType === 'call' ? 'secondary' : 'ghost'} 
-                                                    className="flex-1 font-bold text-[9px] uppercase tracking-widest h-8"
+                                                    className="flex-1 font-bold text-[9px] uppercase tracking-wider h-8"
                                                     onPress={() => setNoteType('call')}
                                                 >
                                                     Call
@@ -751,7 +751,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     type="submit" 
                                                     variant="primary" 
                                                     size="sm" 
-                                                    className="absolute bottom-3 right-3 rounded-lg font-bold text-[10px] uppercase tracking-widest h-7"
+                                                    className="absolute bottom-3 right-3 rounded-lg font-bold text-[10px] uppercase tracking-wider h-7"
                                                 >
                                                     {editingNoteIndex !== null ? 'Update' : 'Commit'}
                                                 </Button>
@@ -762,8 +762,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                             </div>
                         </Modal.Body>
                         <Modal.Footer>
-                            <Button slot="close" variant="secondary" className="font-bold text-xs uppercase tracking-widest">
-                                Close Terminal
+                            <Button slot="close" variant="secondary" className="font-bold text-xs uppercase tracking-wider">
+                                Close
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

@@ -149,7 +149,7 @@ export default function SnippetsPage() {
                     const encryptedKey = await encryptDocumentKey(snippetKey, userKeys.publicKey);
                     await db.grantAccess({
                         resourceId: snippetId,
-                        resourceType: 'snippet',
+                        resourceType: 'Snippet',
                         userId: user.id,
                         encryptedKey
                     });
@@ -248,7 +248,7 @@ export default function SnippetsPage() {
         <div className="max-w-[1400px] mx-auto p-6 md:p-12 space-y-12">
             <header className="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div className="space-y-2 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-widest text-[10px] opacity-80 uppercase">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-wider text-[10px] opacity-80 uppercase">
                         <CodeFile size={16} weight="Bold" className="animate-pulse" />
                         Source Code
                     </div>
@@ -286,7 +286,7 @@ export default function SnippetsPage() {
                                             <CodeFile size={20} weight="Bold" />
                                         </div>
                                         <Chip size="sm" variant="soft" color="accent" className="h-5 px-2.5 rounded-lg border border-accent/10">
-                                            <Chip.Label className="font-bold text-[9px] uppercase tracking-widest">
+                                            <Chip.Label className="font-bold text-[9px] uppercase tracking-wider">
                                                 {snippet.language}
                                             </Chip.Label>
                                         </Chip>
@@ -322,7 +322,7 @@ export default function SnippetsPage() {
                                                     const blocks = JSON.parse(snippet.blocks);
                                                     return blocks.map((b: { type: string; content: string; language?: string }, i: number) => (
                                                         <div key={i} className="space-y-1">
-                                                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-accent/40 flex items-center gap-2">
+                                                            <div className="text-[8px] font-bold uppercase tracking-wider text-accent/40 flex items-center gap-2">
                                                                 <div className="w-1.5 h-1.5 rounded-full bg-accent/20" />
                                                                 {b.type} component {b.language && `| ${b.language}`}
                                                             </div>
@@ -342,14 +342,14 @@ export default function SnippetsPage() {
                                     <div className="bg-white/80 dark:bg-surface/80 p-3 rounded-2xl shadow-2xl border border-accent/20 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                                         <Expand size={24} className="text-accent" weight="Bold" />
                                     </div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-accent animate-pulse">Deep Interaction</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent animate-pulse">Deep Interaction</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="px-10 py-6 bg-surface-secondary/20 border-t border-border/10 flex flex-wrap gap-3">
                             {snippet.tags?.map(tag => (
-                                <span key={tag} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-accent transition-colors cursor-default">
+                                <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 hover:text-accent transition-colors cursor-default">
                                     #{tag}
                                 </span>
                             ))}

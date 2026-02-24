@@ -71,7 +71,7 @@ export default function LoginPage() {
                             <div className="w-12 h-12 rounded-xl bg-foreground flex items-center justify-center text-background shadow-2xl shadow-black/10">
                                 <span className="font-bold text-2xl mt-0.5 leading-none">J</span>
                             </div>
-                            <span className="text-3xl font-bold tracking-tight">justspace_</span>
+                            <span className="text-3xl font-bold tracking-tight text-foreground">justspace</span>
                         </div>
                         <h1 className="text-5xl font-bold tracking-tight leading-[0.9]">
                             Elevate your <br/><span className="text-accent">Workflow.</span>
@@ -95,8 +95,8 @@ export default function LoginPage() {
                             { label: 'Activity Logs', icon: 'UNIT-04' }
                         ].map((item) => (
                             <Surface key={item.label} variant="secondary" className="p-4 rounded-2xl border border-border/40 flex flex-col gap-2 bg-surface/50 backdrop-blur-2xl shadow-sm">
-                                <span className="text-[10px] font-bold text-accent uppercase tracking-[0.4em] opacity-40">{item.icon}</span>
-                                <span className="font-bold tracking-tight text-[12px]">{item.label}_</span>
+                                <span className="text-[10px] font-bold text-accent uppercase tracking-wider opacity-40">{item.icon}</span>
+                                <span className="font-bold tracking-tight text-[12px]">{item.label}</span>
                             </Surface>
                         ))}
                     </motion.div>
@@ -110,7 +110,7 @@ export default function LoginPage() {
                     <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center text-background shadow-lg">
                         <span className="font-bold text-xl">J</span>
                     </div>
-                    <span className="text-2xl font-bold tracking-tight">justspace_</span>
+                    <span className="text-2xl font-bold tracking-tight text-foreground">justspace</span>
                 </div>
 
                 <motion.div 
@@ -119,7 +119,7 @@ export default function LoginPage() {
                     className="w-full max-w-[420px]"
                 >
                     <div className="space-y-3 mb-10">
-                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Identity Check_</h2>
+                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Identity Check</h2>
                         <p className="text-muted-foreground text-sm font-medium opacity-60">Authenticate to gain access to the OS core.</p>
                     </div>
 
@@ -133,7 +133,7 @@ export default function LoginPage() {
                                 <div className="flex gap-3 items-center">
                                     <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
                                     <div className="flex flex-col">
-                                        <span className="text-danger text-[10px] font-bold uppercase tracking-[0.2em]">Authentication Error_</span>
+                                        <span className="text-danger text-[10px] font-bold uppercase tracking-wider">Authentication Error</span>
                                         <span className="text-danger/90 text-xs font-semibold mt-0.5">{error}</span>
                                     </div>
                                 </div>
@@ -145,7 +145,7 @@ export default function LoginPage() {
                         
                         <div className="space-y-4">
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Account Email</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1 mb-2 block opacity-40">Account Email</Label>
                                 <div className="relative group">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
@@ -160,7 +160,7 @@ export default function LoginPage() {
                             </TextField>
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">System Password</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1 mb-2 block opacity-40">System Password</Label>
                                 <div className="relative group">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
@@ -179,7 +179,7 @@ export default function LoginPage() {
                             <Button 
                                 type="submit" 
                                 variant="primary" 
-                                className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-accent/20 tracking-widest"
+                                className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-accent/20 tracking-wider"
                                 isPending={isLoading}
                             >
                                 Synchronize Credentials
@@ -188,7 +188,7 @@ export default function LoginPage() {
                             
                             <p className="text-center text-xs font-medium text-muted-foreground">
                                 Domain unauthorized?{' '}
-                                <Link href="/signup" className="text-accent font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
+                                <Link href="/signup" className="text-accent font-bold uppercase tracking-wider text-[10px] ml-1 hover:underline underline-offset-4">
                                     Initialize Identity
                                 </Link>
                             </p>

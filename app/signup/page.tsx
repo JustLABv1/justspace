@@ -51,7 +51,7 @@ export default function SignupPage() {
                     <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center text-background shadow-lg">
                         <span className="font-bold text-xl">J</span>
                     </div>
-                    <span className="text-2xl font-bold tracking-tight">justspace_</span>
+                    <span className="text-2xl font-bold tracking-tight text-foreground">justspace</span>
                 </div>
 
                 <motion.div 
@@ -60,11 +60,11 @@ export default function SignupPage() {
                     className="w-full max-w-[420px]"
                 >
                     <div className="space-y-4 mb-10">
-                        <div className="w-fit flex items-center gap-2 px-3 py-1 rounded-full bg-accent/5 text-accent text-[9px] font-bold uppercase tracking-[0.3em] border border-accent/10">
+                        <div className="w-fit flex items-center gap-2 px-3 py-1 rounded-full bg-accent/5 text-accent text-[9px] font-bold uppercase tracking-wider border border-accent/10">
                             <ShieldCheck size={12} weight="Bold" />
                             Secure Enrollment
                         </div>
-                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Create Identity_</h2>
+                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Create Identity</h2>
                         <p className="text-muted-foreground text-sm font-medium opacity-60">Initialize your consultant profile within the OS.</p>
                     </div>
 
@@ -79,7 +79,7 @@ export default function SignupPage() {
                                     <div className="flex gap-3 items-center">
                                         <div className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
                                         <div className="flex flex-col">
-                                            <span className="text-danger text-[10px] font-bold uppercase tracking-[0.2em]">Enrollment Error_</span>
+                                            <span className="text-danger text-[10px] font-bold uppercase tracking-wider">Enrollment Error</span>
                                             <span className="text-danger/90 text-xs font-semibold mt-0.5">{error}</span>
                                         </div>
                                     </div>
@@ -90,7 +90,7 @@ export default function SignupPage() {
                         <Form onSubmit={handleSubmit} className="space-y-4">
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Full Designation</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1 mb-2 block opacity-40">Full Designation</Label>
                                 <div className="relative group">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
@@ -104,7 +104,7 @@ export default function SignupPage() {
                             </TextField>
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Email Address</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1 mb-2 block opacity-40">Email Address</Label>
                                 <div className="relative group">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-accent" size={18} weight="Bold" />
                                     <Input 
@@ -119,7 +119,7 @@ export default function SignupPage() {
                             </TextField>
 
                             <TextField className="w-full">
-                                <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-1 mb-2 block opacity-40">Password</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1 mb-2 block opacity-40">Password</Label>
                                 <div className="relative group">
                                     <Input 
                                         type="password"
@@ -136,7 +136,7 @@ export default function SignupPage() {
                                 <Button 
                                     type="submit" 
                                     variant="primary" 
-                                    className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-accent/20 tracking-widest"
+                                    className="w-full h-12 rounded-xl font-bold uppercase text-xs shadow-2xl shadow-accent/20 tracking-wider"
                                     isPending={isLoading}
                                 >
                                     Establish Identity
@@ -145,7 +145,7 @@ export default function SignupPage() {
                                 
                                 <p className="text-center text-xs font-medium text-muted-foreground">
                                     Already have a node?{' '}
-                                    <Link href="/login" className="text-accent font-bold uppercase tracking-widest text-[10px] ml-1 hover:underline underline-offset-4">
+                                    <Link href="/login" className="text-accent font-bold uppercase tracking-wider text-[10px] ml-1 hover:underline underline-offset-4">
                                         Authenticate
                                     </Link>
                                 </p>
@@ -163,7 +163,7 @@ export default function SignupPage() {
                         <div className="w-12 h-12 rounded-xl bg-foreground flex items-center justify-center text-background shadow-2xl shadow-black/10">
                             <span className="font-bold text-2xl mt-0.5 leading-none">J</span>
                         </div>
-                        <span className="text-3xl font-bold tracking-tight">justspace_</span>
+                        <span className="text-3xl font-bold tracking-tight text-foreground">justspace</span>
                     </div>
                     <h1 className="text-5xl font-bold tracking-tight leading-[0.9]">
                         The Master Console for <br/><span className="text-accent">Engineers.</span>
@@ -175,12 +175,12 @@ export default function SignupPage() {
                     <div className="grid grid-cols-2 gap-4 pt-10">
                         <Surface className="p-6 rounded-2xl bg-foreground text-background border border-foreground relative overflow-hidden group shadow-2xl shadow-black/10">
                             <Sparkles size={24} weight="Bold" className="mb-4 text-accent" />
-                            <h3 className="text-lg font-bold tracking-tight mb-1">Premium OS_</h3>
+                            <h3 className="text-lg font-bold tracking-tight mb-1">Premium OS</h3>
                             <p className="text-[11px] font-medium text-background/60 leading-snug">Designer UI built for high-performance engineers.</p>
                         </Surface>
                         <Surface className="p-6 rounded-2xl border border-border/40 bg-surface/50 backdrop-blur-2xl">
                             <ShieldCheck size={24} weight="Bold" className="mb-4 text-success" />
-                            <h3 className="text-lg font-bold tracking-tight mb-1">Secured Node_</h3>
+                            <h3 className="text-lg font-bold tracking-tight mb-1">Secured Node</h3>
                             <p className="text-[11px] font-medium text-muted-foreground leading-snug">Encrypted identity and telemetry tracking.</p>
                         </Surface>
                     </div>

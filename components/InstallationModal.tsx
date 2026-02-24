@@ -71,10 +71,10 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                 <Cpu size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">
-                                    {installation ? 'Sync Target_' : 'Init Target_'}
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">
+                                    {installation ? 'Sync Target' : 'Init Target'}
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5 mt-1">Environment Instance Configuration</p>
+                                <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Environment Instance Configuration</p>
                             </div>
                         </Modal.Header>
 
@@ -88,7 +88,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         isRequired
                                         className="w-full"
                                     >
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Target Frequency</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Target Frequency</Label>
                                         <Input 
                                             placeholder="e.g. Azure, Linux" 
                                             className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
@@ -102,7 +102,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         onChange={setGitRepo}
                                         className="w-full"
                                     >
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Source Registry</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Source Registry</Label>
                                         <Input 
                                             placeholder="https://..." 
                                             className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
@@ -116,7 +116,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         onChange={setDocumentation}
                                         className="md:col-span-2 w-full"
                                     >
-                                        <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">External Documentation</Label>
+                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">External Documentation</Label>
                                         <Input 
                                             placeholder="https://docs..." 
                                             className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
@@ -130,7 +130,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                     onChange={setTasksText}
                                     className="w-full"
                                 >
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Deployment Checklist</Label>
+                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Deployment Checklist</Label>
                                     <TextArea 
                                         placeholder="Add step-by-step instructions..." 
                                         className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-medium transition-all mt-2 min-h-[100px] p-4" 
@@ -138,7 +138,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                 </TextField>
 
                                 <div className="flex flex-col gap-4">
-                                    <Label className="text-[10px] font-black tracking-[0.3em] text-muted-foreground ml-2 opacity-60 uppercase">Deployment Manual (Markdown)</Label>
+                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Deployment Manual (Markdown)</Label>
                                     <div className="border border-border/20 rounded-2xl overflow-hidden bg-surface-secondary/20 shadow-inner">
                                         <Tabs 
                                             selectedKey={activeTab} 
@@ -148,8 +148,8 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         >
                                             <Tabs.ListContainer className="p-2 border-b border-border/10">
                                                 <Tabs.List className="gap-2">
-                                                <Tabs.Tab id="edit" className="rounded-lg px-4 h-8 text-[10px] font-black tracking-[0.2em] data-[selected=true]:bg-foreground data-[selected=true]:text-background">Write Manual</Tabs.Tab>
-                                                <Tabs.Tab id="preview" className="rounded-lg px-4 h-8 text-[10px] font-black tracking-[0.2em] data-[selected=true]:bg-foreground data-[selected=true]:text-background">Analyze Preview</Tabs.Tab>
+                                                <Tabs.Tab id="edit" className="rounded-lg px-4 h-8 text-[10px] font-bold tracking-wider data-[selected=true]:bg-foreground data-[selected=true]:text-background">Write Manual</Tabs.Tab>
+                                                <Tabs.Tab id="preview" className="rounded-lg px-4 h-8 text-[10px] font-bold tracking-wider data-[selected=true]:bg-foreground data-[selected=true]:text-background">Analyze Preview</Tabs.Tab>
                                                 </Tabs.List>
                                             </Tabs.ListContainer>
 
@@ -164,7 +164,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                             </Tabs.Panel>
                                             <Tabs.Panel id="preview" className="p-6">
                                                 <div className="min-h-[150px] overflow-auto max-h-[300px]">
-                                                    {notes ? <Markdown content={notes} /> : <p className="text-muted-foreground/30 font-black text-center py-10 uppercase tracking-widest text-xs">Awaiting manual input...</p>}
+                                                    {notes ? <Markdown content={notes} /> : <p className="text-muted-foreground/30 font-bold text-center py-10 uppercase tracking-wider text-xs">Awaiting manual input...</p>}
                                                 </div>
                                             </Tabs.Panel>
                                         </Tabs>

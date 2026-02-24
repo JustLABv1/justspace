@@ -37,10 +37,10 @@ export const VaultBanner = () => {
                 <div className="max-w-[1400px] mx-auto px-6 h-12 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Vault size={18} className="text-orange-500 animate-pulse" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">
-                            Vault Locked_
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500">
+                            Vault Locked
                         </span>
-                        <span className="hidden md:inline text-[10px] text-orange-500/60 font-bold uppercase tracking-widest ml-2">
+                        <span className="hidden md:inline text-[10px] text-orange-500/60 font-bold uppercase tracking-wider ml-2">
                             Synchronize vault to access protected archives.
                         </span>
                     </div>
@@ -49,7 +49,7 @@ export const VaultBanner = () => {
                         <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 rounded-lg text-orange-500 border-orange-500/20 hover:bg-orange-500/10 font-black uppercase tracking-widest text-[9px]"
+                            className="h-8 rounded-lg text-orange-500 border-orange-500/20 hover:bg-orange-500/10 font-bold uppercase tracking-wider text-[9px]"
                             onPress={() => setIsExpanded(true)}
                         >
                             Unlock Vault
@@ -71,7 +71,7 @@ export const VaultBanner = () => {
                                 type="submit"
                                 variant="primary" 
                                 size="sm" 
-                                className="h-8 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-black uppercase tracking-widest text-[9px] px-4"
+                                className="h-8 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold uppercase tracking-wider text-[9px] px-4"
                                 isPending={isUnlocking}
                             >
                                 Unlock

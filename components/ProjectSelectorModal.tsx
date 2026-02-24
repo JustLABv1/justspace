@@ -92,8 +92,8 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                 <Folder size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter uppercase text-foreground leading-none">Target Project_</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-black opacity-30 tracking-widest ml-0.5 mt-1">Destination for data sync.</p>
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">Target Project</Modal.Heading>
+                                <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Destination for data sync.</p>
                             </div>
                         </Modal.Header>
 
@@ -101,7 +101,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                             {isLoading ? (
                                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                                     <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-accent/40">Loading projects...</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-accent/40">Loading projects...</p>
                                 </div>
                             ) : projects.length > 0 ? (
                                 <div className="flex flex-col gap-3">
@@ -116,10 +116,10 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                                 <Folder size={28} weight="Bold" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-black truncate text-foreground text-base tracking-tight uppercase">{project.name}</h4>
+                                                <h4 className="font-bold truncate text-foreground text-base tracking-tight uppercase">{project.name}</h4>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                                                    <p className="text-[11px] text-accent/80 truncate uppercase font-black tracking-widest">{project.status}</p>
+                                                    <p className="text-[11px] text-accent/80 truncate uppercase font-bold tracking-wider">{project.status}</p>
                                                 </div>
                                             </div>
                                         </button>
@@ -131,8 +131,8 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                         <Folder size={40} weight="Linear" />
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-foreground font-black uppercase tracking-tight text-lg">Zero Active Nodes</p>
-                                        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest opacity-40">No available synchronization targets.</p>
+                                        <p className="text-foreground font-bold uppercase tracking-tight text-lg">Zero Active Nodes</p>
+                                        <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-40">No available synchronization targets.</p>
                                     </div>
                                 </div>
                             )}
@@ -141,7 +141,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                         <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl h-9 px-8 font-black tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
+                                className="rounded-xl h-9 px-8 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
                                 onPress={onClose} 
                                 isDisabled={isSubmitting}
                             >

@@ -44,8 +44,8 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                                 <Trash size={20} weight="Bold" />
                             </div>
                             <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-black tracking-tighter text-foreground leading-none">{title}_</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] font-black uppercase opacity-40 ml-0.5 mt-1 tracking-widest">This action is permanent.</p>
+                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">{title}</Modal.Heading>
+                                <p className="text-muted-foreground text-[10px] font-bold uppercase opacity-40 ml-0.5 mt-1 tracking-wider">This action is permanent.</p>
                             </div>
                         </Modal.Header>
 

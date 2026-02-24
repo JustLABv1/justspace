@@ -48,7 +48,10 @@ export default function WikiDetailPage() {
         setIsLoading(true);
         try {
             const data = await db.getGuide(id);
-            const processedGuide = data as (WikiGuide & { installations: InstallationTarget[] });
+            const processedGuide = {
+                ...data,
+                installations: data.installations || []
+            } as (WikiGuide & { installations: InstallationTarget[] });
 
             if (processedGuide.isEncrypted && privateKey && user) {
                 setIsDecrypting(true);
@@ -115,22 +118,29 @@ export default function WikiDetailPage() {
 
     const handleUpdateWiki = async (data: Partial<WikiGuide> & { shouldEncrypt?: boolean }) => {
         if (!guide) return;
-        const { shouldEncrypt, ...guideData } = data;
-        const finalData = { ...guideData };
+        const { shouldEncrypt: targetEncrypted, ...guideData } = data;
+        const finalData = { ...guideData, isEncrypted: targetEncrypted };
 
-        if (shouldEncrypt && user) {
+        if (targetEncrypted && user && privateKey) {
             const userKeys = await db.getUserKeys(user.id);
             if (!userKeys) throw new Error('Vault keys not found');
 
-            const docKey = await generateDocumentKey();
+            let docKey: CryptoKey;
+            let isNewKey = false;
+
+            const existingAccess = await db.getAccessKey(id);
+            if (existingAccess && guide.isEncrypted) {
+                docKey = await decryptDocumentKey(existingAccess.encryptedKey, privateKey);
+            } else {
+                docKey = await generateDocumentKey();
+                isNewKey = true;
+            }
+
             const encryptedTitle = await encryptData(guideData.title || '', docKey);
             const encryptedDesc = await encryptData(guideData.description || '', docKey);
 
             finalData.title = JSON.stringify(encryptedTitle);
             finalData.description = JSON.stringify(encryptedDesc);
-            finalData.isEncrypted = true;
-
-            const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
 
             await db.updateGuide(id, finalData);
             
@@ -144,9 +154,8 @@ export default function WikiDetailPage() {
                 metadata: 'Updated'
             });
 
-            // Also update/add access control if not exists
-            const existingAccess = await db.getAccessKey(id);
-            if (!existingAccess) {
+            if (isNewKey) {
+                const encryptedDocKey = await encryptDocumentKey(docKey, userKeys.publicKey);
                 await db.grantAccess({
                     resourceId: id,
                     userId: user.id,
@@ -333,7 +342,7 @@ export default function WikiDetailPage() {
                     <Shield size={48} weight="Bold" className="animate-pulse" />
                 </div>
                 <div className="text-center space-y-3">
-                    <h2 className="text-3xl font-black tracking-tighter uppercase italic">Secured Guide_</h2>
+                    <h2 className="text-3xl font-bold tracking-tight uppercase">Secured Guide</h2>
                     <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
                         This guide is protected by end-to-end encryption. <br/>
                         Please synchronize your vault to gain access.
@@ -348,7 +357,7 @@ export default function WikiDetailPage() {
         <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-12">
             <nav className="flex items-center justify-between">
                 <Link href="/wiki">
-                    <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 group bg-surface/5 backdrop-blur-sm hover:border-accent/30 uppercase text-[10px] tracking-widest transition-all">
+                    <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 group bg-surface/5 backdrop-blur-sm hover:border-accent/30 uppercase text-[10px] tracking-wider transition-all">
                         <ArrowLeft size={16} weight="Bold" className="mr-2 group-hover:-translate-x-1 transition-transform" />
                         Back to Wiki
                     </Button>
@@ -388,7 +397,7 @@ export default function WikiDetailPage() {
                              <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
                                 <Info size={14} weight="Bold" />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-accent/60">Documentation Guide</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-accent/60">Documentation Guide</span>
                         </div>
                         <div className="flex items-center gap-4">
                             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -402,11 +411,11 @@ export default function WikiDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-2 p-1.5 rounded-xl border border-border/20 bg-surface shadow-sm">
-                        <div className="px-3 py-1.5 rounded-lg bg-surface-secondary text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <div className="px-3 py-1.5 rounded-lg bg-surface-secondary text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                             {guide.installations.length} Segments
                         </div>
                         {guide.isEncrypted && (
-                            <div className="px-3 py-1.5 rounded-lg bg-orange-500/5 text-[9px] font-bold uppercase tracking-widest text-orange-500 flex items-center gap-1.5">
+                            <div className="px-3 py-1.5 rounded-lg bg-orange-500/5 text-[9px] font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
                                 <Shield size={12} weight="Bold" />
                                 Encrypted
                             </div>
@@ -442,7 +451,7 @@ export default function WikiDetailPage() {
                                                         </div>
                                                         <div>
                                                             <h2 className="text-xl font-bold tracking-tight leading-none">{inst.target}</h2>
-                                                            <p className="text-[9px] font-bold tracking-widest text-muted-foreground/40 uppercase mt-1.5">Module Documentation</p>
+                                                            <p className="text-[9px] font-bold tracking-wider text-muted-foreground/40 uppercase mt-1.5">Module Documentation</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
@@ -485,7 +494,7 @@ export default function WikiDetailPage() {
                                                     ) : (
                                                         <div className="py-20 flex flex-col items-center justify-center space-y-3 opacity-20">
                                                             <Edit size={32} weight="Linear" />
-                                                            <p className="font-bold uppercase tracking-widest text-[10px]">Registry is empty</p>
+                                                            <p className="font-bold uppercase tracking-wider text-[10px]">Registry is empty</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -519,7 +528,7 @@ export default function WikiDetailPage() {
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-1">
                                                             <h3 className="text-lg font-bold tracking-tight">Tasks Pipeline</h3>
-                                                            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Sync to Projects</p>
+                                                            <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Sync to Projects</p>
                                                         </div>
                                                         <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold text-xs">
                                                             {inst.tasks.length}
@@ -554,7 +563,7 @@ export default function WikiDetailPage() {
                                         <div className="p-6 rounded-2xl border border-border/20 bg-black/[0.02] dark:bg-white/[0.02] space-y-4">
                                             <div className="flex items-center gap-3">
                                                 <Shield size={18} weight="Bold" className="text-muted-foreground/40" />
-                                                <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-widest">Version Auditing</h4>
+                                                <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Version Auditing</h4>
                                             </div>
                                             <p className="text-[11px] text-muted-foreground/60 leading-relaxed font-medium">
                                                 All segments are snapshots. Use the history icon to audit changes or revert to a stable state.

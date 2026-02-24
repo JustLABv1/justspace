@@ -318,9 +318,9 @@ export function TaskList({
                             <ListChecks size={20} weight="Bold" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold tracking-tight text-foreground">Project Roadmap_</h2>
+                            <h2 className="text-xl font-bold tracking-tight text-foreground">Project Roadmap</h2>
                             <div className="flex items-center gap-2 mt-0.5">
-                                <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/40">
+                                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/40">
                                     {tasks.filter(t => t.completed).length} of {tasks.length} tasks synced
                                 </p>
                                 <div className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
@@ -329,7 +329,7 @@ export function TaskList({
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
-                                            className="h-4 px-1.5 text-[8px] uppercase font-bold tracking-widest text-accent hover:bg-accent/5 border-none"
+                                            className="h-4 px-1.5 text-[8px] uppercase font-bold tracking-wider text-accent hover:bg-accent/5 border-none"
                                             isPending={isApplyingTemplate}
                                         >
                                             Templates
@@ -369,7 +369,7 @@ export function TaskList({
                             <Button 
                                 variant={internalHideCompleted ? 'primary' : 'secondary'} 
                                 size="sm" 
-                                className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-border/40 ${internalHideCompleted ? 'shadow-lg shadow-accent/20' : ''}`}
+                                className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase tracking-wider border border-border/40 ${internalHideCompleted ? 'shadow-lg shadow-accent/20' : ''}`}
                                 onPress={() => { setInternalHideCompleted(!internalHideCompleted); setCurrentPage(1); }}
                             >
                                 <FilterIcon size={14} weight="Bold" className="mr-1.5" />
@@ -434,7 +434,7 @@ export function TaskList({
                                 color="accent"
                                 size="sm"
                                 classNames={{
-                                    cursor: "shadow-xl shadow-accent/20 font-black",
+                                    cursor: "shadow-xl shadow-accent/20 font-bold",
                                     item: "font-bold text-[10px] w-8 h-8 rounded-lg border-border/20",
                                 }}
                             />

@@ -102,7 +102,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                         <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
                             <span className="font-bold text-sm">J</span>
                         </div>
-                        <span className="font-bold tracking-tight text-sm">justspace_</span>
+                        <span className="font-bold tracking-tight text-sm">justspace</span>
                     </div>
                     <button 
                         onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
