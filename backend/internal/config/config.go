@@ -19,8 +19,12 @@ type Config struct {
 }
 
 func Load() *Config {
+	port := getEnvInt("PORT", 0)
+	if port == 0 {
+		port = getEnvInt("BACKEND_PORT", 8080)
+	}
 	return &Config{
-		Port:       getEnvInt("PORT", 8080),
+		Port:       port,
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnvInt("DB_PORT", 5432),
 		DBUser:     getEnv("DB_USER", "justspace"),
