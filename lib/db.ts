@@ -32,6 +32,54 @@ const getOwnerPermissions = (userId: string) => {
     ];
 };
 
+/**
+ * Sanitizes a document object before sending to Appwrite.
+ * Ensures only fields present in the schema are sent, and removes any
+ * legacy or read-only attributes ($id, $createdAt, etc.) that cause
+ * "Unknown attribute" errors.
+ */
+const sanitizeData = <T extends Record<string, unknown>>(data: Record<string, unknown>, allowedKeys: string[]): T => {
+    const sanitized: Record<string, unknown> = {};
+    Object.keys(data).forEach(key => {
+        if (allowedKeys.includes(key)) {
+            sanitized[key] = data[key];
+        }
+    });
+    return sanitized as T;
+};
+
+const SCHEMAS = {
+    Task: [
+        'projectId', 'title', 'completed', 'parentId', 'timeSpent', 
+        'isTimerRunning', 'timerStartedAt', 'timeEntries', 'order', 
+        'priority', 'kanbanStatus', 'deadline', 'notes', 'isEncrypted'
+    ],
+    Project: [
+        'name', 'description', 'status', 'daysPerWeek', 'allocatedDays', 'isEncrypted'
+    ],
+    Snippet: [
+        'title', 'content', 'blocks', 'language', 'tags', 'description', 'isEncrypted'
+    ],
+    WikiGuide: [
+        'title', 'description', 'isEncrypted'
+    ],
+    Installation: [
+        'guideId', 'target', 'gitRepo', 'documentation', 'notes', 'tasks', 'isEncrypted', 'iv'
+    ],
+    UserKeys: [
+        'userId', 'email', 'publicKey', 'encryptedPrivateKey', 'salt', 'iv'
+    ],
+    AccessControl: [
+        'resourceId', 'userId', 'encryptedKey', 'resourceType'
+    ],
+    Version: [
+        'resourceId', 'resourceType', 'content', 'title', 'metadata', 'isEncrypted'
+    ],
+    Activity: [
+        'type', 'entityType', 'entityName', 'projectId', 'metadata'
+    ]
+};
+
 export const db = {
     // Versions
     async listVersions(resourceId: string) {
@@ -42,7 +90,8 @@ export const db = {
     },
     async createVersion(data: Omit<ResourceVersion, '$id' | '$createdAt'>, userId?: string) {
         const permissions = userId ? getOwnerPermissions(userId) : [];
-        return await databases.createDocument(DB_ID, VERSIONS_ID, ID.unique(), data, permissions);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Version);
+        return await databases.createDocument(DB_ID, VERSIONS_ID, ID.unique(), finalData, permissions);
     },
 
     // Activity
@@ -55,7 +104,8 @@ export const db = {
     async logActivity(data: Omit<ActivityLog, '$id' | '$createdAt'>, userId?: string) {
         try {
             const permissions = userId ? getOwnerPermissions(userId) : [];
-            return await databases.createDocument(DB_ID, ACTIVITY_ID, ID.unique(), data, permissions);
+            const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Activity);
+            return await databases.createDocument(DB_ID, ACTIVITY_ID, ID.unique(), finalData, permissions);
         } catch (e) {
             console.error('Failed to log activity:', e);
         }
@@ -69,7 +119,8 @@ export const db = {
     },
     async createSnippet(data: Omit<Snippet, '$id' | '$createdAt'>, userId?: string) {
         const permissions = userId ? getOwnerPermissions(userId) : [];
-        const snippet = await databases.createDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, ID.unique(), data, permissions);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Snippet);
+        const snippet = await databases.createDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, ID.unique(), finalData as unknown as Snippet, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Snippet',
@@ -79,7 +130,8 @@ export const db = {
         return snippet;
     },
     async updateSnippet(id: string, data: Partial<Snippet>) {
-        const snippet = await databases.updateDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, id, data);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Snippet);
+        const snippet = await databases.updateDocument<Snippet & Models.Document>(DB_ID, SNIPPETS_ID, id, finalData);
         if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -108,7 +160,8 @@ export const db = {
     },
     async createProject(data: Omit<Project, '$id' | '$createdAt'>, userId?: string) {
         const permissions = userId ? getOwnerPermissions(userId) : [];
-        const project = await databases.createDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, ID.unique(), data, permissions);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Project);
+        const project = await databases.createDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, ID.unique(), finalData as unknown as Project, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Project',
@@ -118,10 +171,11 @@ export const db = {
         return project;
     },
     async updateProject(id: string, data: Partial<Project>) {
-        const project = await databases.updateDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id, data);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Project);
+        const project = await databases.updateDocument<Project & Models.Document>(DB_ID, PROJECTS_ID, id, finalData);
         
         // Log activity
-        if (data.name || data.isEncrypted) {
+        if (data.name || data.isEncrypted || data.status) {
             await this.logActivity({
                 type: 'update',
                 entityType: 'Project',
@@ -157,7 +211,8 @@ export const db = {
     },
     async createGuide(data: Omit<WikiGuide, '$id' | '$createdAt'>, userId?: string) {
         const permissions = userId ? getOwnerPermissions(userId) : [];
-        const guide = await databases.createDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, ID.unique(), data, permissions);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.WikiGuide);
+        const guide = await databases.createDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, ID.unique(), finalData as unknown as WikiGuide, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Wiki',
@@ -167,7 +222,8 @@ export const db = {
         return guide;
     },
     async updateGuide(id: string, data: Partial<WikiGuide>) {
-        const guide = await databases.updateDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, id, data);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.WikiGuide);
+        const guide = await databases.updateDocument<WikiGuide & Models.Document>(DB_ID, GUIDES_ID, id, finalData);
         if (data.title || data.isEncrypted) {
             await this.logActivity({
                 type: 'update',
@@ -190,7 +246,8 @@ export const db = {
     // Installations
     async createInstallation(data: Omit<InstallationTarget, '$id' | '$createdAt'>, userId?: string) {
         const permissions = userId ? getOwnerPermissions(userId) : [];
-        const inst = await databases.createDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, ID.unique(), data, permissions);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Installation);
+        const inst = await databases.createDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, ID.unique(), finalData as unknown as InstallationTarget, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Installation',
@@ -199,7 +256,8 @@ export const db = {
         return inst;
     },
     async updateInstallation(id: string, data: Partial<InstallationTarget>) {
-        const inst = await databases.updateDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, id, data);
+        const finalData = sanitizeData(data as Record<string, unknown>, SCHEMAS.Installation);
+        const inst = await databases.updateDocument<InstallationTarget & Models.Document>(DB_ID, INSTALLATIONS_ID, id, finalData);
         if (data.target) {
             await this.logActivity({
                 type: 'update',
@@ -234,7 +292,7 @@ export const db = {
     async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string, kanbanStatus: Task['kanbanStatus'] = 'todo', userId?: string) {
         const permissions = userId ? getOwnerPermissions(userId) : [];
         
-        const task = await databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
+        const taskData = sanitizeData({
             projectId,
             title,
             completed: false,
@@ -243,7 +301,9 @@ export const db = {
             kanbanStatus,
             isEncrypted,
             parentId
-        }, permissions);
+        }, SCHEMAS.Task);
+        
+        const task = await databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), taskData as unknown as Task, permissions);
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
@@ -259,8 +319,8 @@ export const db = {
 
         const tasksCount = titles.length;
         const permissions = userId ? getOwnerPermissions(userId) : [];
-        const tasks = await Promise.all(titles.map((title, index) => 
-            databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), {
+        const tasks = await Promise.all(titles.map((title, index) => {
+            const taskData = sanitizeData({
                 projectId,
                 title,
                 completed: false,
@@ -268,8 +328,9 @@ export const db = {
                 priority: 'medium',
                 kanbanStatus: 'todo',
                 isEncrypted
-            }, permissions)
-        ));
+            }, SCHEMAS.Task);
+            return databases.createDocument<Task & Models.Document>(DB_ID, TASKS_ID, ID.unique(), taskData as unknown as Task, permissions);
+        }));
         await this.logActivity({
             type: 'create',
             entityType: 'Task',
@@ -279,12 +340,10 @@ export const db = {
         return tasks;
     },
     async updateTask(id: string, data: Partial<Task> & { workDuration?: string }) {
-        const { workDuration, ...updateData } = data;
+        const { workDuration, ...rest } = data;
+        const updateData = sanitizeData(rest as Record<string, unknown>, SCHEMAS.Task);
         
-        // Clean up any stale attributes that might cause schema errors after migration
-        if ('dueDate' in (updateData as any)) {
-            delete (updateData as any).dueDate;
-        }
+        console.log(`[DB] Updating Task ${id} with:`, updateData);
 
         const task = await databases.updateDocument<Task & Models.Document>(DB_ID, TASKS_ID, id, updateData);
         if (data.completed === true) {
@@ -340,9 +399,10 @@ export const db = {
     },
     async createUserKeys(data: Omit<UserKeys, '$id'>) {
         if (!USER_KEYS_ID) throw new Error('User Keys Collection ID is not configured');
+        const sanitized = sanitizeData(data as Record<string, unknown>, SCHEMAS.UserKeys);
         const finalData = {
-            ...data,
-            email: data.email?.toLowerCase()
+            ...sanitized,
+            email: (sanitized as unknown as UserKeys).email?.toLowerCase()
         };
         const permissions = [
             Permission.read(Role.user(data.userId)),
@@ -354,11 +414,12 @@ export const db = {
     },
     async updateUserKeys(id: string, data: Partial<UserKeys>) {
         if (!USER_KEYS_ID) throw new Error('User Keys Collection ID is not configured');
+        const sanitized = sanitizeData(data as Record<string, unknown>, SCHEMAS.UserKeys);
         const finalData = {
-            ...data,
+            ...sanitized,
         };
         if (finalData.email) {
-            finalData.email = finalData.email.toLowerCase();
+            finalData.email = (finalData.email as string).toLowerCase();
         }
         
         // Permissions are handled at the collection level or inherited from creator
@@ -377,9 +438,10 @@ export const db = {
         
         // 1. Check if access already exists
         const existing = await this.getAccessKey(data.resourceId, data.userId);
+        const sanitized = sanitizeData(data as Record<string, unknown>, SCHEMAS.AccessControl);
         if (existing) {
             return await databases.updateDocument(DB_ID, ACCESS_CONTROL_ID, existing.$id, {
-                encryptedKey: data.encryptedKey
+                encryptedKey: sanitized.encryptedKey
             });
         } else {
             const permissions = [
@@ -387,7 +449,7 @@ export const db = {
                 Permission.update(Role.user(data.userId)),
                 Permission.delete(Role.user(data.userId)),
             ];
-            return await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), data, permissions);
+            return await databases.createDocument(DB_ID, ACCESS_CONTROL_ID, ID.unique(), sanitized, permissions);
         }
     }
 };

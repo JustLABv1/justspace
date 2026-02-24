@@ -271,6 +271,22 @@ async function setup() {
     const existingAttributes = currentCollection.attributes as unknown as { key: string; status: string }[];
     const existingIndexes = currentCollection.indexes.map((i: { key: string }) => i.key);
 
+    const plannedKeys = collection.attributes.map(a => a.key);
+
+    // 🔴 NEW: Cleanup attributes that are not in the planned schema
+    for (const existingAttr of existingAttributes) {
+      if (!plannedKeys.includes(existingAttr.key)) {
+        console.log(`  🗑️ Removing unplanned attribute "${existingAttr.key}" from collection "${collection.id}"...`);
+        try {
+          await databases.deleteAttribute(config.databaseId, collection.id, existingAttr.key);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (e: any) {
+          console.error(`  ❌ Failed to remove unplanned attribute "${existingAttr.key}":`, e.message);
+        }
+      }
+    }
+
+    // 🟢 SYNC intended attributes
     for (const attr of collection.attributes) {
       const existingAttr = existingAttributes.find(a => a.key === attr.key);
       const exists = !!existingAttr;

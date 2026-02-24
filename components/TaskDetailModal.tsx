@@ -9,7 +9,6 @@ import {
     Button,
     Calendar,
     Checkbox,
-    Chip,
     DateField,
     DatePicker,
     Dropdown,
@@ -383,46 +382,101 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                         <Modal.CloseTrigger />
                         <Modal.Header className="flex flex-col gap-6 items-start pb-8">
                             <div className="flex items-center justify-between w-full border-b border-border/10 pb-6">
-                                <div className="flex items-center gap-2 bg-surface-secondary/50 p-1 rounded-2xl border border-border/20 shadow-inner">
-                                    {/* Status Badge */}
-                                    <Chip 
-                                        size="sm" 
-                                        variant="soft" 
-                                        color={
-                                            task.kanbanStatus === 'done' ? 'success' :
-                                            task.kanbanStatus === 'review' ? 'warning' :
-                                            task.kanbanStatus === 'in-progress' ? 'accent' :
-                                            task.kanbanStatus === 'waiting' ? 'accent' :
-                                            'default'
-                                        }
-                                        className="h-8 px-3 border border-current/10 rounded-xl"
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] font-black tracking-[0.3em] text-muted-foreground/20 uppercase">Identity Reference</span>
+                                    <span className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground/40 tabular-nums">#{task.$id.slice(-8).toUpperCase()}</span>
+                                </div>
+                                <Modal.CloseTrigger className="relative top-0 right-0" />
+                            </div>
+                            
+                            <div className="w-full space-y-6">
+                                {isEditingTitle ? (
+                                    <form 
+                                        onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}
+                                        className="w-full flex items-center gap-2"
                                     >
-                                        <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                        <Input 
+                                            autoFocus
+                                            value={editedTitle}
+                                            onChange={(e) => setEditedTitle(e.target.value)}
+                                            onBlur={handleUpdateTitle}
+                                            className="text-2xl font-black tracking-tight text-foreground leading-tight bg-surface-secondary"
+                                        />
+                                    </form>
+                                ) : (
+                                    <Modal.Heading 
+                                        className="text-2xl font-black tracking-tight text-foreground leading-tight cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
+                                        onClick={() => setIsEditingTitle(true)}
+                                    >
+                                        {task.title}
+                                        <Edit size={18} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                                    </Modal.Heading>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {/* Status Pill */}
+                                    <div className="flex items-center gap-2 bg-surface-secondary/50 p-1 px-2 rounded-2xl border border-border/20 shadow-inner">
+                                        <div className={`w-1.5 h-1.5 rounded-full ml-1 ${
                                             task.kanbanStatus === 'done' ? 'bg-success' :
                                             task.kanbanStatus === 'review' ? 'bg-warning' :
                                             task.kanbanStatus === 'in-progress' ? 'bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]' :
                                             'bg-muted-foreground/40'
                                         }`} />
-                                        <Chip.Label className="text-[9px] font-black tracking-[0.2em] uppercase">
+                                        <span className="text-[9px] font-black tracking-[0.2em] uppercase text-foreground/60 pr-1">
                                             {task.kanbanStatus?.replace('-', ' ')}
-                                        </Chip.Label>
-                                    </Chip>
+                                        </span>
+                                    </div>
 
-                                    <div className="w-px h-4 bg-border/40 mx-1" />
+                                    <div className="w-px h-4 bg-border/40" />
 
-                                    {/* Deadline Selector */}
-                                    <div className="flex items-center gap-2 pl-2 pr-1 rounded-xl h-8 min-w-[180px] hover:bg-foreground/[0.03] transition-colors group">
-                                        <CalendarIcon size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors" />
+                                    {/* Priority Selector */}
+                                    <Dropdown>
+                                        <Button 
+                                            size="sm" 
+                                            variant="secondary" 
+                                            className={`h-8 px-3 text-[9px] font-black uppercase tracking-widest transition-all rounded-xl border border-border/20 ${
+                                                task.priority === 'urgent' ? 'text-danger bg-danger/10' :
+                                                task.priority === 'high' ? 'text-warning bg-warning/10' :
+                                                task.priority === 'medium' ? 'text-accent bg-accent/10' :
+                                                'text-muted-foreground/60 bg-surface-secondary/50'
+                                            }`}
+                                        >
+                                            {task.priority || 'PRIORITY'}
+                                            <AltArrowDown size={12} className="ml-1.5 opacity-40" />
+                                        </Button>
+                                        <Dropdown.Popover className="rounded-2xl border border-border/40 p-1 shadow-2xl backdrop-blur-xl bg-surface/95 min-w-[120px]">
+                                            <Dropdown.Menu 
+                                                className="bg-transparent"
+                                                onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
+                                            >
+                                                <Dropdown.Item id="low" className="text-[9px] font-black uppercase tracking-[0.2em] rounded-lg">Low</Dropdown.Item>
+                                                <Dropdown.Item id="medium" className="text-[9px] font-black uppercase tracking-[0.2em] text-accent rounded-lg">Medium</Dropdown.Item>
+                                                <Dropdown.Item id="high" className="text-[9px] font-black uppercase tracking-[0.2em] text-warning rounded-lg">High</Dropdown.Item>
+                                                <Dropdown.Item id="urgent" className="text-[9px] font-black uppercase tracking-[0.2em] text-danger rounded-lg">Urgent</Dropdown.Item>
+                                            </Dropdown.Menu>
+                                        </Dropdown.Popover>
+                                    </Dropdown>
+
+                                    <div className="w-px h-4 bg-border/40" />
+
+                                    {/* Deadline Selector - Redesigned as a prominent pill */}
+                                    <div className="flex items-center gap-2 px-3 rounded-xl h-8 bg-surface-secondary/50 hover:bg-foreground/[0.05] transition-all border border-border/20 group cursor-pointer relative">
+                                        <CalendarIcon size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors shrink-0" />
                                         <DatePicker 
                                             granularity="minute"
                                             value={task.deadline ? parseAbsoluteToLocal(task.deadline) : undefined}
                                             onChange={handleUpdateDeadline}
-                                            className="w-full"
+                                            className="w-auto"
                                             aria-label="Set deadline"
                                         >
                                             <DateField.Group className="bg-transparent flex items-center cursor-pointer">
                                                 <DateField.Input className="flex-grow">
-                                                    {(segment) => <DateField.Segment segment={segment} className="text-[10px] font-black uppercase tracking-widest text-foreground focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" />}
+                                                    {(segment) => (
+                                                        <DateField.Segment 
+                                                            segment={segment} 
+                                                            className="text-[10px] font-black uppercase tracking-widest text-foreground/60 focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" 
+                                                        />
+                                                    )}
                                                 </DateField.Input>
                                             </DateField.Group>
                                             <DatePicker.Popover className="rounded-[2.5rem] border border-border/40 p-4 shadow-2xl backdrop-blur-2xl bg-surface/95 min-w-[320px]">
@@ -489,69 +543,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </DatePicker.Popover>
                                         </DatePicker>
                                     </div>
-
-                                    <div className="w-px h-4 bg-border/40 mx-1" />
-
-                                    {/* Priority Selector */}
-                                    <div className="flex items-center gap-2 pl-3 pr-1 rounded-xl h-8 hover:bg-foreground/[0.03] transition-colors">
-                                        <Dropdown>
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                className={`h-6 px-2 text-[9px] font-black uppercase tracking-widest transition-all rounded-lg ${
-                                                    task.priority === 'urgent' ? 'text-danger bg-danger/10 shadow-sm shadow-danger/20' :
-                                                    task.priority === 'high' ? 'text-warning bg-warning/10 shadow-sm shadow-warning/20' :
-                                                    task.priority === 'medium' ? 'text-accent bg-accent/10 shadow-sm shadow-accent/20' :
-                                                    'text-muted-foreground/40 bg-foreground/5 hover:text-accent'
-                                                }`}
-                                            >
-                                                {task.priority || 'PRIORITY'}
-                                                <AltArrowDown size={12} className="ml-1.5 opacity-40" />
-                                            </Button>
-                                            <Dropdown.Popover className="rounded-2xl border border-border/40 p-1 shadow-2xl backdrop-blur-xl bg-surface/95 min-w-[120px]">
-                                                <Dropdown.Menu 
-                                                    className="bg-transparent"
-                                                    onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
-                                                >
-                                                    <Dropdown.Item id="low" className="text-[9px] font-black uppercase tracking-[0.2em] rounded-lg">Low</Dropdown.Item>
-                                                    <Dropdown.Item id="medium" className="text-[9px] font-black uppercase tracking-[0.2em] text-accent rounded-lg">Medium</Dropdown.Item>
-                                                    <Dropdown.Item id="high" className="text-[9px] font-black uppercase tracking-[0.2em] text-warning rounded-lg">High</Dropdown.Item>
-                                                    <Dropdown.Item id="urgent" className="text-[9px] font-black uppercase tracking-[0.2em] text-danger rounded-lg">Urgent</Dropdown.Item>
-                                                </Dropdown.Menu>
-                                            </Dropdown.Popover>
-                                        </Dropdown>
-                                    </div>
-                                </div>
-
-                                {/* Task Identity (Right Aligned) */}
-                                <div className="flex flex-col items-end pr-10">
-                                    <span className="text-[8px] font-black tracking-[0.3em] text-muted-foreground/20 uppercase">Identity Reference</span>
-                                    <span className="text-[10px] font-bold tracking-[0.1em] text-muted-foreground/40 tabular-nums">#{task.$id.slice(-8).toUpperCase()}</span>
                                 </div>
                             </div>
-                            
-                            {isEditingTitle ? (
-                                <form 
-                                    onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}
-                                    className="w-full flex items-center gap-2"
-                                >
-                                    <Input 
-                                        autoFocus
-                                        value={editedTitle}
-                                        onChange={(e) => setEditedTitle(e.target.value)}
-                                        onBlur={handleUpdateTitle}
-                                        className="text-2xl font-black tracking-tight text-foreground leading-tight bg-surface-secondary"
-                                    />
-                                </form>
-                            ) : (
-                                <Modal.Heading 
-                                    className="text-2xl font-black tracking-tight text-foreground leading-tight cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
-                                    onClick={() => setIsEditingTitle(true)}
-                                >
-                                    {task.title}
-                                    <Edit size={18} className="opacity-0 group-hover:opacity-40 transition-opacity" />
-                                </Modal.Heading>
-                            )}
                         </Modal.Header>
                         <Modal.Body className="p-0">
                             <div className="flex flex-col md:flex-row h-full max-h-[70vh]">
