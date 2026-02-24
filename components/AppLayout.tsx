@@ -85,7 +85,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                 setIsMobileOpen={setIsMobileMenuOpen}
             />
             
-            <main className={`flex-1 flex flex-col bg-surface-secondary/30 md:rounded-[2rem] border-x md:border border-border/40 overflow-hidden shadow-sm relative transition-all duration-300 ${isMobileMenuOpen ? 'blur-sm brightness-50 md:blur-0 md:brightness-100' : ''}`}>
+            <main className={`flex-1 min-w-0 flex flex-col bg-surface-secondary/30 md:rounded-[2rem] border-x md:border border-border/40 overflow-hidden shadow-sm relative transition-all duration-300 ${isMobileMenuOpen ? 'blur-sm brightness-50 md:blur-0 md:brightness-100' : ''}`}>
                 {/* Mobile Header */}
                 <header className="md:hidden flex items-center justify-between p-4 bg-surface border-b border-border/40 z-40">
                     <button 

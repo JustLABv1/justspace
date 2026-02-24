@@ -128,6 +128,16 @@ export function TaskItem({
     };
 
     const formatTime = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) {
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    const formatLongTime = (seconds: number) => {
         const dur = dayjs.duration(seconds, 'seconds');
         if (seconds >= 3600) {
             return `${Math.floor(dur.asHours())}h ${dur.minutes()}m`;
@@ -240,7 +250,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     </span>
                 </div>
 
-                <div className="flex-items-center gap-1">
+                <div className="flex items-center gap-1">
                     <Button 
                         variant="ghost" 
                         isIconOnly 
@@ -312,16 +322,18 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         </Chip>
                     )}
 
-                    <Chip
-                        size="sm"
-                        variant="soft"
-                        className="h-6 px-2.5 bg-foreground/[0.03] border border-border/40"
-                    >
-                        <Plus size={10} weight="Bold" className="text-accent" />
-                        <Chip.Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                            {subtasks.length} sub objectives
-                        </Chip.Label>
-                    </Chip>
+                    {subtasks.length > 0 && (
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            className="h-6 px-2.5 bg-foreground/[0.03] border border-border/40"
+                        >
+                            <Plus size={10} weight="Bold" className="text-accent" />
+                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                                {subtasks.length} sub {subtasks.length === 1 ? 'objective' : 'objectives'}
+                            </Chip.Label>
+                        </Chip>
+                    )}
                     
                     {task.notes && task.notes.length > 0 && (
                         <Chip
@@ -332,12 +344,12 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         >
                             <MessageCircle size={10} weight="Bold" />
                             <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
-                                {task.notes.length} log entry
+                                {task.notes.length} log {task.notes.length === 1 ? 'entry' : 'entries'}
                             </Chip.Label>
                         </Chip>
                     )}
                     
-                    {task.timeSpent && task.timeSpent > 0 && (
+                    {Number(task.timeSpent) > 0 && (
                         <Chip
                             size="sm"
                             variant="soft"
@@ -346,7 +358,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         >
                             <History size={10} weight="Bold" />
                             <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
-                                {formatTime(task.timeSpent)} cumulative
+                                {formatLongTime(task.timeSpent || 0)} cumulative
                             </Chip.Label>
                         </Chip>
                     )}
@@ -358,7 +370,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         : 'bg-surface-secondary border-border/20 text-foreground'
                 }`}>
                     <span className={`text-xs font-bold tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
-                        {dayjs.duration(currentTime, 'seconds').format(currentTime >= 3600 ? 'HH:mm:ss' : 'mm:ss')}
+                        {formatTime(currentTime)}
                     </span>
                     
                     <Button 
@@ -461,7 +473,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     <div className="space-y-4 pt-4 border-t border-border/10">
                         <div className="flex items-center justify-between">
                             <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Communication Log</h5>
-                            <span className="text-[10px] font-bold text-warning/60 bg-warning/5 px-2 py-0.5 rounded-full">{parsedNotes.length} Entries</span>
+                            {parsedNotes.length > 0 && (
+                                <span className="text-[10px] font-bold text-warning/60 bg-warning/5 px-2 py-0.5 rounded-full">{parsedNotes.length} Entries</span>
+                            )}
                         </div>
 
                         <div className="space-y-3">

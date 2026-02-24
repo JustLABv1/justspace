@@ -8,15 +8,15 @@ import { db } from '@/lib/db';
 import { Project, Snippet, Task } from '@/types';
 import { Button, Chip, Spinner, Surface, Tooltip } from "@heroui/react";
 import {
-    AltArrowRight as ArrowRightAlt,
-    Book,
-    CodeCircle as Code,
-    LockPassword as LockIcon,
-    AddCircle as Plus,
-    StarsLine as Sparkles,
-    Target,
-    Checklist as TaskIcon,
-    ShieldKeyhole as VaultIcon
+  AltArrowRight as ArrowRightAlt,
+  Book,
+  CodeCircle as Code,
+  LockPassword as LockIcon,
+  AddCircle as Plus,
+  StarsLine as Sparkles,
+  Target,
+  Checklist as TaskIcon,
+  ShieldKeyhole as VaultIcon
 } from "@solar-icons/react";
 import dayjs from "dayjs";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export default function Home() {
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
-  const [tasksDueToday, setTasksDueToday] = useState<Task[]>([]);
+  const [tasksDueThisWeek, setTasksDueThisWeek] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const { user, privateKey } = useAuth();
@@ -143,13 +143,17 @@ export default function Home() {
         return t;
       }));
 
-      const dueToday = processedTasksData.filter(t => t.deadline && dayjs(t.deadline).isSame(dayjs(), 'day'));
+      const now = dayjs();
+      const endOfWeek = now.endOf('week');
+      const dueThisWeek = processedTasksData
+        .filter(t => t.deadline && (dayjs(t.deadline).isSame(now, 'day') || dayjs(t.deadline).isAfter(now)) && dayjs(t.deadline).isBefore(endOfWeek.add(1, 'day')))
+        .sort((a, b) => dayjs(a.deadline).unix() - dayjs(b.deadline).unix());
 
       setAllProjects(processedProjects);
       setRecentProjects(processedProjects.slice(0, 2));
       setRecentSnippets(processedSnippets);
       setRecentTasks(processedTasksData.slice(0, 3));
-      setTasksDueToday(dueToday);
+      setTasksDueThisWeek(dueThisWeek);
     } catch (error) {
       console.error(error);
     } finally {
@@ -270,48 +274,54 @@ export default function Home() {
             </Surface>
           </div>
 
-          {/* Tasks Due Today */}
-          {tasksDueToday.length > 0 && (
+          {/* Tasks Due This Week */}
+          {tasksDueThisWeek.length > 0 && (
             <section className="space-y-4 mb-8">
               <div className="flex items-center gap-3 pb-2 border-b border-border/20">
                 <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning shadow-sm border border-warning/20">
                   <TaskIcon size={16} weight="Bold" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight text-foreground">Due Today</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider opacity-60">Action Required</p>
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">Due This Week</h2>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider opacity-60">Scheduled Action items</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {tasksDueToday.map(task => {
+                {tasksDueThisWeek.map(task => {
                     const project = allProjects.find(p => p.id === task.projectId);
                     return (
                       <Link href={`/projects/${task.projectId}`} key={task.id}>
                         <Surface className="p-4 rounded-2xl border border-warning/20 bg-warning/5 hover:bg-warning/10 transition-all group cursor-pointer flex items-center justify-between">
-                          <div className="flex flex-col gap-1.5">
-                            <span className="text-sm font-bold text-foreground">{task.title}</span>
+                          <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                            <span className="text-sm font-bold text-foreground truncate">{task.title}</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-foreground/40 font-bold uppercase tracking-wider bg-foreground/5 px-1.5 py-0.5 rounded">
+                                <span className="text-[9px] text-foreground/40 font-bold uppercase tracking-wider bg-foreground/5 px-1.5 py-0.5 rounded truncate max-w-[120px]">
                                     {project ? project.name : 'Unknown Project'}
                                 </span>
+                                {task.deadline && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-warning/60">
+                                        {dayjs(task.deadline).format('MMM D')}
+                                    </span>
+                                )}
                                 {task.priority && (
                                     <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                                         task.priority === 'urgent' ? 'text-danger bg-danger/10' :
                                         task.priority === 'high' ? 'text-warning bg-warning/10' :
-                                        'text-accent bg-accent/10'
+                                        task.priority === 'medium' ? 'text-accent bg-accent/10' :
+                                        'text-muted-foreground bg-muted-foreground/10'
                                     }`}>
-                                        {task.priority}
+                                        {task.priority || 'medium'}
                                     </span>
                                 )}
                             </div>
                           </div>
-                          <div className="h-8 w-8 rounded-full bg-surface border border-border/10 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                            <ArrowRightAlt size={16} className="text-foreground/40 group-hover:text-warning transition-colors" />
+                          <div className="p-2 rounded-xl bg-warning/10 text-warning group-hover:scale-110 transition-transform">
+                             <ArrowRightAlt size={16} />
                           </div>
                         </Surface>
                       </Link>
-                    )
-                  })}
+                    );
+                })}
               </div>
             </section>
           )}

@@ -246,7 +246,7 @@ export function KanbanBoard({
                                                             </Chip.Label>
                                                         </Chip>
                                                     )}
-                                                    {task.timeSpent && task.timeSpent > 0 && (
+                                                    {Number(task.timeSpent) > 0 && (
                                                         <Chip
                                                             size="sm"
                                                             variant="soft"

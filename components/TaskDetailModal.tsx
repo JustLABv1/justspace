@@ -19,7 +19,7 @@ import {
     TimeField,
     toast
 } from '@heroui/react';
-import { parseAbsoluteToLocal, ZonedDateTime } from "@internationalized/date";
+import { parseAbsoluteToLocal } from "@internationalized/date";
 import {
     AltArrowDown,
     Calendar as CalendarIcon,
@@ -281,10 +281,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
-    const handleUpdateDeadline = async (val: ZonedDateTime | null) => {
+    const handleUpdateDeadline = async (val: any) => {
         try {
-            // Using dayjs with the string representation is more robust for conversion
-            const dateStr = val ? dayjs(val.toString()).toISOString() : undefined;
+            const dateStr = val && typeof val.toAbsoluteString === 'function' 
+                ? val.toAbsoluteString() 
+                : val?.toString();
             await db.updateTask(task.id, { deadline: dateStr });
             onUpdate();
             toast.success('Deadline updated');
@@ -380,13 +381,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 <Modal.Container size="cover">
                     <Modal.Dialog className="bg-surface border border-border/40 overflow-hidden">
                         <Modal.Header className="flex flex-col gap-6 items-start pb-8">
-                            <div className="flex items-center justify-between w-full border-b border-border/10 pb-6">
-                                <div className="flex flex-col">
-                                    <span className="text-[8px] font-bold tracking-wider text-muted-foreground/40 uppercase">Identity Reference</span>
-                                    <span className="text-[10px] font-bold tracking-tight text-muted-foreground/60 tabular-nums">#{task.id.slice(-8).toUpperCase()}</span>
-                                </div>
-                                <Modal.CloseTrigger />
-                            </div>
+                            <Modal.CloseTrigger />
                             
                             <div className="w-full space-y-6">
                                 {isEditingTitle ? (
@@ -459,8 +454,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                     <div className="w-px h-4 bg-border/40" />
 
                                     {/* Deadline Selector - Redesigned as a prominent pill */}
-                                    <div className="flex items-center gap-2 px-3 rounded-xl h-8 bg-surface-secondary/50 hover:bg-foreground/[0.05] transition-all border border-border/20 group cursor-pointer relative">
-                                        <CalendarIcon size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors shrink-0" />
+                                    <div className="flex items-center gap-2 h-8">
                                         <DatePicker 
                                             granularity="minute"
                                             value={task.deadline ? parseAbsoluteToLocal(task.deadline) : undefined}
@@ -468,79 +462,94 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             className="w-auto"
                                             aria-label="Set deadline"
                                         >
-                                            <DateField.Group className="bg-transparent flex items-center cursor-pointer">
-                                                <DateField.Input className="flex-grow">
-                                                    {(segment) => (
-                                                        <DateField.Segment 
-                                                            segment={segment} 
-                                                            className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" 
-                                                        />
-                                                    )}
-                                                </DateField.Input>
-                                            </DateField.Group>
-                                            <DatePicker.Popover className="rounded-[2.5rem] border border-border/40 p-4 shadow-2xl backdrop-blur-2xl bg-surface/95 min-w-[320px]">
-                                                <Calendar aria-label="Task deadline calendar" className="w-full">
-                                                    <Calendar.Header className="flex items-center justify-between mb-4">
-                                                        <Calendar.YearPickerTrigger>
-                                                            <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-lg hover:bg-accent/5 transition-colors">
-                                                                <Calendar.YearPickerTriggerHeading className="text-[10px] font-bold uppercase tracking-wider text-accent" />
-                                                                <Calendar.YearPickerTriggerIndicator className="opacity-40 group-trigger:opacity-100 transition-opacity" />
-                                                            </div>
-                                                        </Calendar.YearPickerTrigger>
-                                                        <div className="flex gap-2">
-                                                            <Calendar.NavButton slot="previous" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
-                                                                <ChevronLeft size={16} weight="Bold" />
-                                                            </Calendar.NavButton>
-                                                            <Calendar.NavButton slot="next" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
-                                                                <ChevronRight size={16} weight="Bold" />
-                                                            </Calendar.NavButton>
-                                                        </div>
-                                                    </Calendar.Header>
-                                                    <Calendar.Grid className="w-full">
-                                                        <Calendar.GridHeader>
-                                                            {(day) => (
-                                                                <Calendar.HeaderCell className="text-[9px] font-bold text-muted-foreground/30 uppercase pb-2">
-                                                                    {day.slice(0, 2)}
-                                                                </Calendar.HeaderCell>
-                                                            )}
-                                                        </Calendar.GridHeader>
-                                                        <Calendar.GridBody>
-                                                            {(date) => (
-                                                                <Calendar.Cell 
-                                                                    date={date} 
-                                                                    className="text-[10px] font-bold h-9 w-9 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:border border-accent/30" 
-                                                                    aria-label={date.toString()}
+                                            {({ state }) => (
+                                                <>
+                                                    <DateField.Group className="flex items-center gap-2 px-3 rounded-xl h-8 bg-surface-secondary/50 hover:bg-foreground/[0.05] transition-all border border-border/20 group cursor-pointer">
+                                                        <CalendarIcon size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors shrink-0" />
+                                                        <DateField.Input className="flex-grow">
+                                                            {(segment) => (
+                                                                <DateField.Segment 
+                                                                    segment={segment} 
+                                                                    className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" 
                                                                 />
                                                             )}
-                                                        </Calendar.GridBody>
-                                                    </Calendar.Grid>
-                                                    <div className="mt-4">
-                                                        <Calendar.YearPickerGrid>
-                                                            <Calendar.YearPickerGridBody>
-                                                                {({year}) => (
-                                                                    <Calendar.YearPickerCell 
-                                                                        year={year} 
-                                                                        className="text-[10px] font-bold h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white"
-                                                                    />
-                                                                )}
-                                                            </Calendar.YearPickerGridBody>
-                                                        </Calendar.YearPickerGrid>
-                                                    </div>
-                                                </Calendar>
-                                                <div className="mt-4 pt-4 border-t border-border/10 flex flex-col gap-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40">Set Time</Label>
-                                                        <div className="px-2 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[8px] uppercase tracking-wider">24h Format</div>
-                                                    </div>
-                                                    <TimeField aria-label="Task deadline time" className="w-full">
-                                                        <DateField.Group className="bg-foreground/[0.05] border border-border/20 px-3 py-2 rounded-xl h-10 flex items-center">
-                                                            <DateField.Input>
-                                                                {(segment) => <DateField.Segment segment={segment} className="text-[11px] font-bold uppercase tracking-wider text-foreground focus:text-accent" />}
-                                                            </DateField.Input>
-                                                        </DateField.Group>
-                                                    </TimeField>
-                                                </div>
-                                            </DatePicker.Popover>
+                                                        </DateField.Input>
+                                                        <DateField.Suffix className="ml-2">
+                                                            <DatePicker.Trigger className="p-0.5 rounded-lg hover:bg-accent/10 transition-colors">
+                                                                <DatePicker.TriggerIndicator className="text-muted-foreground/40 group-hover:text-accent" />
+                                                            </DatePicker.Trigger>
+                                                        </DateField.Suffix>
+                                                    </DateField.Group>
+                                                    <DatePicker.Popover className="rounded-[2.5rem] border border-border/40 p-4 shadow-2xl backdrop-blur-2xl bg-surface/95 min-w-[320px]">
+                                                        <Calendar aria-label="Task deadline calendar" className="w-full">
+                                                            <Calendar.Header className="flex items-center justify-between mb-4">
+                                                                <Calendar.YearPickerTrigger>
+                                                                    <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-lg hover:bg-accent/5 transition-colors cursor-pointer">
+                                                                        <Calendar.YearPickerTriggerHeading className="text-[10px] font-bold uppercase tracking-wider text-accent" />
+                                                                        <Calendar.YearPickerTriggerIndicator className="opacity-40" />
+                                                                    </div>
+                                                                </Calendar.YearPickerTrigger>
+                                                                <div className="flex gap-2">
+                                                                    <Calendar.NavButton slot="previous" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
+                                                                        <ChevronLeft size={16} weight="Bold" />
+                                                                    </Calendar.NavButton>
+                                                                    <Calendar.NavButton slot="next" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
+                                                                        <ChevronRight size={16} weight="Bold" />
+                                                                    </Calendar.NavButton>
+                                                                </div>
+                                                            </Calendar.Header>
+                                                            <Calendar.Grid className="w-full">
+                                                                <Calendar.GridHeader>
+                                                                    {(day) => (
+                                                                        <Calendar.HeaderCell className="text-[9px] font-bold text-muted-foreground/30 uppercase pb-2">
+                                                                            {day.slice(0, 2)}
+                                                                        </Calendar.HeaderCell>
+                                                                    )}
+                                                                </Calendar.GridHeader>
+                                                                <Calendar.GridBody>
+                                                                    {(date) => (
+                                                                        <Calendar.Cell 
+                                                                            date={date} 
+                                                                            className="text-[10px] font-bold h-9 w-9 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:border border-accent/30" 
+                                                                            aria-label={date.toString()}
+                                                                        />
+                                                                    )}
+                                                                </Calendar.GridBody>
+                                                            </Calendar.Grid>
+                                                            <div className="mt-4">
+                                                                <Calendar.YearPickerGrid>
+                                                                    <Calendar.YearPickerGridBody>
+                                                                        {({year}) => (
+                                                                            <Calendar.YearPickerCell 
+                                                                                year={year} 
+                                                                                className="text-[10px] font-bold h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white"
+                                                                            />
+                                                                        )}
+                                                                    </Calendar.YearPickerGridBody>
+                                                                </Calendar.YearPickerGrid>
+                                                            </div>
+                                                        </Calendar>
+                                                        <div className="mt-4 pt-4 border-t border-border/10 flex flex-col gap-3">
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40">Set Time</Label>
+                                                                <div className="px-2 py-0.5 rounded-md bg-accent/10 text-accent font-bold text-[8px] uppercase tracking-wider">24h Format</div>
+                                                            </div>
+                                                            <TimeField 
+                                                                aria-label="Task deadline time" 
+                                                                className="w-full"
+                                                                value={state.timeValue}
+                                                                onChange={(v) => v && state.setTimeValue(v)}
+                                                            >
+                                                                <TimeField.Group className="bg-foreground/[0.05] border border-border/20 px-3 py-2 rounded-xl h-10 flex items-center">
+                                                                    <TimeField.Input>
+                                                                        {(segment) => <TimeField.Segment segment={segment} className="text-[11px] font-bold uppercase tracking-wider text-foreground focus:text-accent" />}
+                                                                    </TimeField.Input>
+                                                                </TimeField.Group>
+                                                            </TimeField>
+                                                        </div>
+                                                    </DatePicker.Popover>
+                                                </>
+                                            )}
                                         </DatePicker>
                                     </div>
                                 </div>
@@ -633,7 +642,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </ScrollShadow>
                                         </div>
 
-                                        {task.timeSpent && task.timeSpent > 0 && (
+                                        {Number(task.timeSpent) > 0 && (
                                             <div className="pt-6 border-t border-border/10">
                                                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-2 mb-4">
                                                     <History size={14} /> Efficiency History
@@ -641,7 +650,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="p-3 rounded-xl bg-surface border border-border/20">
                                                         <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider mb-1">Total Effort</p>
-                                                        <p className="text-lg font-bold tracking-tight text-accent font-mono">{formatTime(task.timeSpent)}</p>
+                                                        <p className="text-lg font-bold tracking-tight text-accent font-mono">{formatTime(task.timeSpent || 0)}</p>
                                                     </div>
                                                 </div>
                                             </div>
