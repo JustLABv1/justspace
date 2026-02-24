@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+# JustSpace
 
-First, run the development server:
+JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanagement und kollaborative Arbeit. Sie kombiniert ein modernes Next.js-Frontend mit einem Go-Backend und einer PostgreSQL-Datenbank. Das System ist für Selbsthosting und individuelle Anpassung ausgelegt.
 
+---
+
+## Features
+
+- **Projekte & Aufgaben:** Kanban-Board, Statusverwaltung, Zeitplanung
+- **Wiki & Snippets:** Markdown-basierte Wissensdatenbank und Code-Snippet-Verwaltung
+- **Aktivitäts-Feed & Versionierung**
+- **Verschlüsselung:** Optionale Verschlüsselung sensibler Daten
+- **Moderne UI:** HeroUI v3, Tailwind CSS v4
+- **WebSocket-Unterstützung**
+
+---
+
+## Schnellstart (lokal mit Docker Compose)
+
+1. **Repository klonen:**
+	```bash
+	git clone https://github.com/JustLabV1/justspace.git
+	cd justspace
+	```
+
+2. **Umgebungsvariablen setzen:**
+	- Kopiere `.env.example` nach `.env` und passe die Werte ggf. an.
+	- Für Appwrite-Integration siehe `POSTGRES_SCHEMA.md` und ggf. `.env.local`.
+
+3. **Container starten:**
+	```bash
+	docker-compose up --build
+	```
+	- Frontend: http://localhost:3000
+	- Backend-API: http://localhost:8080
+	- PostgreSQL: localhost:5432
+
+4. **(Optional) Datenbankmigrationen:**
+	- Migrationen werden beim Start automatisch angewendet.
+
+---
+
+## Manuelle Entwicklung (ohne Docker)
+
+### Voraussetzungen
+- Node.js >= 20, pnpm empfohlen
+- Go >= 1.25
+- PostgreSQL >= 15
+
+### Backend (Go)
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd backend
+go run ./cmd/server
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Frontend (Next.js)
+```bash
+pnpm install
+pnpm run dev
+# oder
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Konfiguration
 
-## Learn More
+Siehe `.env.example` für alle relevanten Umgebungsvariablen (DB, API, JWT, CORS, etc.).
 
-To learn more about Next.js, take a look at the following resources:
+**Wichtige Variablen:**
+- `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
+- `JWT_SECRET` (Backend)
+- `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` (Frontend)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Datenbank & Appwrite
 
-## Deploy on Vercel
+Das System nutzt primär PostgreSQL. Für optionale Features (z.B. verschlüsselte User-Daten, erweiterte Authentifizierung) kann Appwrite integriert werden.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Siehe [POSTGRES_SCHEMA.md](POSTGRES_SCHEMA.md) für das relationale Schema und Hinweise zur Appwrite-Einbindung.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Deployment
+
+### Docker Compose (empfohlen)
+```bash
+docker-compose up --build -d
+```
+
+### Manuell (z.B. für eigene Server)
+1. Backend bauen: `cd backend && go build -o server ./cmd/server/`
+2. Frontend bauen: `pnpm run build`
+3. Reverse Proxy (z.B. nginx) für Port 3000 (Frontend) und 8080 (Backend) einrichten
+
+---
+
+## Update & Migration
+
+1. Repository aktualisieren: `git pull`
+2. Abhängigkeiten aktualisieren: `pnpm install` (Frontend), `go mod tidy` (Backend)
+3. Datenbankmigrationen prüfen/anwenden
+
+---
+
+## Lizenz
+
+MIT License — siehe [LICENSE](LICENSE)
+
+---
+
+## Community & Support
+
+Fragen, Feature-Requests oder Bugs? Erstelle ein Issue oder nutze die Discussions im GitHub-Repo.
+
+---
+
+**Viel Spaß mit JustSpace!**
