@@ -349,7 +349,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         </Chip>
                     )}
                     
-                    {Number(task.timeSpent) > 0 && (
+                    {task.timeSpent !== undefined && task.timeSpent > 0 && (
                         <Chip
                             size="sm"
                             variant="soft"

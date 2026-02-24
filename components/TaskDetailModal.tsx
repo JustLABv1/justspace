@@ -281,6 +281,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleUpdateDeadline = async (val: any) => {
         try {
             const dateStr = val && typeof val.toAbsoluteString === 'function' 
@@ -642,7 +643,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </ScrollShadow>
                                         </div>
 
-                                        {Number(task.timeSpent) > 0 && (
+                                        {task.timeSpent !== undefined && task.timeSpent > 0 && (
                                             <div className="pt-6 border-t border-border/10">
                                                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-2 mb-4">
                                                     <History size={14} /> Efficiency History
@@ -650,7 +651,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="p-3 rounded-xl bg-surface border border-border/20">
                                                         <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider mb-1">Total Effort</p>
-                                                        <p className="text-lg font-bold tracking-tight text-accent font-mono">{formatTime(task.timeSpent || 0)}</p>
+                                                        <p className="text-lg font-bold tracking-tight text-accent font-mono">{formatTime(task.timeSpent)}</p>
                                                     </div>
                                                 </div>
                                             </div>
