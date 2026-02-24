@@ -14,8 +14,8 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@heroui/react": "3.0.0-beta.6",
-    "@heroui/styles": "3.0.0-beta.6",
+    "@heroui/react": "3.0.0-beta.7",
+    "@heroui/styles": "3.0.0-beta.7",
     "@solar-icons/react": "^1.1.0",
     "@types/mermaid": "^9.2.0",
     "appwrite": "^22.0.0",
@@ -24,7 +24,7 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
     "file-saver": "^2.0.5",
-    "framer-motion": "^12.33.0",
+    "framer-motion": "^12.34.3",
     "highlight.js": "^11.11.1",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.1.0",
@@ -51,6 +51,7 @@
     "eslint-config-next": "16.1.6",
     "node-appwrite": "^22.0.0",
     "tailwindcss": "^4",
+    "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }
