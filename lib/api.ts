@@ -4,7 +4,7 @@
  */
 import { getEnv } from './env-config';
 
-const getBaseURL = () => getEnv('NEXT_PUBLIC_API_URL') || 'http://localhost:8080';
+const getBaseURL = () => getEnv('NEXT_PUBLIC_API_URL') || 'http://localhost:8081';
 
 interface ListResponse<T> {
     total: number;

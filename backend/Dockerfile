@@ -15,8 +15,8 @@ WORKDIR /app
 COPY --from=builder /server .
 COPY migrations/ ./migrations/
 
-ENV PORT=8080
+ENV PORT=8081
 ENV MIGRATIONS_DIR=/app/migrations
 
-EXPOSE 8080
+EXPOSE 8081
 CMD ["./server"]
