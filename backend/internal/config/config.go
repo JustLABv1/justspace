@@ -21,7 +21,7 @@ type Config struct {
 func Load() *Config {
 	port := getEnvInt("PORT", 0)
 	if port == 0 {
-		port = getEnvInt("BACKEND_PORT", 8081)
+		port = getEnvInt("BACKEND_PORT", 8080)
 	}
 	return &Config{
 		Port:       port,
