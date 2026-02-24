@@ -123,6 +123,7 @@ async function setup() {
         { key: 'order', type: 'integer', required: false },
         { key: 'priority', type: 'enum', elements: ['low', 'medium', 'high', 'urgent'], required: false, default: 'medium' },
         { key: 'kanbanStatus', type: 'enum', elements: ['todo', 'in-progress', 'review', 'waiting', 'done'], required: false, default: 'todo' },
+        { key: 'deadline', type: 'string', size: 64, required: false },
         { key: 'notes', type: 'string', size: 16384, required: false, array: true },
         { key: 'isEncrypted', type: 'boolean', required: false },
       ],

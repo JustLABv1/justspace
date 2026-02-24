@@ -7,16 +7,25 @@ import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { Task } from '@/types';
 import {
     Button,
+    Calendar,
     Checkbox,
     Chip,
+    DateField,
+    DatePicker,
     Dropdown,
     Input,
+    Label,
     Modal,
     ScrollShadow,
+    TimeField,
     toast
 } from '@heroui/react';
+import { parseAbsoluteToLocal, ZonedDateTime } from "@internationalized/date";
 import {
     AltArrowDown,
+    Calendar as CalendarIcon,
+    AltArrowLeft as ChevronLeft,
+    AltArrowRight as ChevronRight,
     Pen2 as Edit,
     Letter as Email,
     History,
@@ -273,6 +282,19 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
+    const handleUpdateDeadline = async (val: ZonedDateTime | null) => {
+        try {
+            // Using dayjs with the string representation is more robust for conversion
+            const dateStr = val ? dayjs(val.toString()).toISOString() : null;
+            await db.updateTask(task.$id, { deadline: dateStr });
+            onUpdate();
+            toast.success('Deadline updated');
+        } catch (error) {
+            console.error('Failed to update deadline:', error);
+            toast.danger('Failed to update deadline');
+        }
+    };
+
     const handleAddNote = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newNote.trim()) return;
@@ -373,7 +395,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             task.kanbanStatus === 'waiting' ? 'accent' :
                                             'default'
                                         }
-                                        className="h-8 px-3 border border-current/10 rounded-xl"
+                                        className="h-8 px-3 border border-current/10 rounded-2xl"
                                     >
                                         <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
                                             task.kanbanStatus === 'done' ? 'bg-success' :
@@ -385,6 +407,68 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             {task.kanbanStatus?.replace('-', ' ')}
                                         </Chip.Label>
                                     </Chip>
+
+                                    {/* Deadline Selector */}
+                                    <div className="flex items-center gap-2 bg-foreground/[0.03] border border-border/40 pl-3 pr-1 py-1 rounded-2xl h-8 min-w-[200px]">
+                                        <span className="text-[9px] font-black tracking-[0.15em] text-muted-foreground/40 uppercase whitespace-nowrap">Deadline_</span>
+                                        <DatePicker 
+                                            granularity="minute"
+                                            value={task.deadline ? parseAbsoluteToLocal(task.deadline) : null}
+                                            onChange={handleUpdateDeadline}
+                                            className="w-full"
+                                            aria-label="Set deadline"
+                                        >
+                                            <DateField.Group className="bg-transparent px-1 flex items-center group cursor-pointer">
+                                                <DateField.Input className="flex-grow">
+                                                    {(segment) => <DateField.Segment segment={segment} className="text-[10px] font-black uppercase tracking-widest text-foreground focus:text-accent data-[placeholder=true]:text-muted-foreground/30 selection:bg-accent/20" />}
+                                                </DateField.Input>
+                                                <DatePicker.Trigger className="ml-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                                    <CalendarIcon size={12} className="text-muted-foreground group-hover:text-accent transition-colors" />
+                                                </DatePicker.Trigger>
+                                            </DateField.Group>
+                                            <DatePicker.Popover className="rounded-[2rem] border border-border/40 p-4 shadow-2xl backdrop-blur-xl bg-surface/95 min-w-[300px]">
+                                                <Calendar aria-label="Task deadline calendar" className="w-full">
+                                                    <Calendar.Header className="flex items-center justify-between mb-4">
+                                                        <Calendar.YearPickerTrigger className="text-[10px] font-black uppercase tracking-[0.2em] text-accent" />
+                                                        <div className="flex gap-2">
+                                                            <Calendar.NavButton slot="previous" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
+                                                                <ChevronLeft size={16} weight="Bold" />
+                                                            </Calendar.NavButton>
+                                                            <Calendar.NavButton slot="next" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
+                                                                <ChevronRight size={16} weight="Bold" />
+                                                            </Calendar.NavButton>
+                                                        </div>
+                                                    </Calendar.Header>
+                                                    <Calendar.Grid className="w-full">
+                                                        <Calendar.GridHeader>
+                                                            {(day) => <Calendar.HeaderCell className="text-[9px] font-black text-muted-foreground/30 uppercase pb-2">{day}</Calendar.HeaderCell>}
+                                                        </Calendar.GridHeader>
+                                                        <Calendar.GridBody>
+                                                            {(date) => (
+                                                                <Calendar.Cell 
+                                                                    date={date} 
+                                                                    className="text-[10px] font-bold h-9 w-9 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:border border-accent/30" 
+                                                                />
+                                                            )}
+                                                        </Calendar.GridBody>
+                                                    </Calendar.Grid>
+                                                </Calendar>
+                                                <div className="mt-4 pt-4 border-t border-border/10 flex flex-col gap-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Set Time_</Label>
+                                                        <div className="px-2 py-0.5 rounded-md bg-accent/10 text-accent font-black text-[8px] uppercase tracking-widest">24h Format</div>
+                                                    </div>
+                                                    <TimeField aria-label="Task deadline time" className="w-full">
+                                                        <DateField.Group className="bg-foreground/[0.05] border border-border/20 px-3 py-2 rounded-xl h-10 flex items-center">
+                                                            <DateField.Input>
+                                                                {(segment) => <DateField.Segment segment={segment} className="text-[11px] font-black uppercase tracking-[0.1em] text-foreground focus:text-accent" />}
+                                                            </DateField.Input>
+                                                        </DateField.Group>
+                                                    </TimeField>
+                                                </div>
+                                            </DatePicker.Popover>
+                                        </DatePicker>
+                                    </div>
 
                                     {/* Priority Selector */}
                                     <div className="flex items-center gap-2 bg-foreground/[0.03] border border-border/40 pl-3 pr-1 py-1 rounded-2xl h-8">

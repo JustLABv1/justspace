@@ -18,6 +18,7 @@ import {
     Checklist as TaskIcon,
     ShieldKeyhole as VaultIcon
 } from "@solar-icons/react";
+import dayjs from "dayjs";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
 
@@ -27,6 +28,7 @@ export default function Home() {
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
+  const [tasksDueToday, setTasksDueToday] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const { user, privateKey } = useAuth();
@@ -102,10 +104,9 @@ export default function Home() {
         return s;
       }));
 
-      const processedTasks = await Promise.all(allTasks.documents.filter(t => !t.completed).slice(0, 3).map(async (t) => {
+      const processedTasksData = await Promise.all(allTasks.documents.filter(t => !t.completed).map(async (t) => {
         if (t.isEncrypted && privateKey && user) {
             try {
-                // Tasks use the project's access key
                 const access = await db.getAccessKey(t.projectId, user.$id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
@@ -120,10 +121,13 @@ export default function Home() {
         return t;
       }));
 
+      const dueToday = processedTasksData.filter(t => t.deadline && dayjs(t.deadline).isSame(dayjs(), 'day'));
+
       setAllProjects(processedProjects);
       setRecentProjects(processedProjects.slice(0, 2));
       setRecentSnippets(processedSnippets);
-      setRecentTasks(processedTasks);
+      setRecentTasks(processedTasksData.slice(0, 3));
+      setTasksDueToday(dueToday);
     } catch (error) {
       console.error(error);
     } finally {
@@ -243,6 +247,52 @@ export default function Home() {
               </div>
             </Surface>
           </div>
+
+          {/* Tasks Due Today */}
+          {tasksDueToday.length > 0 && (
+            <section className="space-y-4 mb-8">
+              <div className="flex items-center gap-3 pb-2 border-b border-border/20">
+                <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning shadow-sm border border-warning/20">
+                  <TaskIcon size={16} weight="Bold" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">Due Today</h2>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-60">Action Required</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {tasksDueToday.map(task => {
+                    const project = allProjects.find(p => p.$id === task.projectId);
+                    return (
+                      <Link href={`/projects/${task.projectId}`} key={task.$id}>
+                        <Surface className="p-4 rounded-2xl border border-warning/20 bg-warning/5 hover:bg-warning/10 transition-all group cursor-pointer flex items-center justify-between">
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-sm font-bold text-foreground">{task.title}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-foreground/40 font-black uppercase tracking-widest bg-foreground/5 px-1.5 py-0.5 rounded">
+                                    {project ? project.name : 'Unknown Project'}
+                                </span>
+                                {task.priority && (
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                                        task.priority === 'urgent' ? 'text-danger bg-danger/10' :
+                                        task.priority === 'high' ? 'text-warning bg-warning/10' :
+                                        'text-accent bg-accent/10'
+                                    }`}>
+                                        {task.priority}
+                                    </span>
+                                )}
+                            </div>
+                          </div>
+                          <div className="h-8 w-8 rounded-full bg-surface border border-border/10 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                            <ArrowRightAlt size={16} className="text-foreground/40 group-hover:text-warning transition-colors" />
+                          </div>
+                        </Surface>
+                      </Link>
+                    )
+                  })}
+              </div>
+            </section>
+          )}
 
           {/* Recent Projects Section */}
           <section className="space-y-6">

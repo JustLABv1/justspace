@@ -24,6 +24,7 @@ export interface Task {
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
     kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'waiting' | 'done';
     notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }
+    deadline?: string; // ISO date string
     isEncrypted?: boolean;
 }
 

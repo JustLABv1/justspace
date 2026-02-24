@@ -26,6 +26,9 @@ importers:
       '@heroui/styles':
         specifier: 3.0.0-beta.7
         version: 3.0.0-beta.7(tailwind-merge@3.4.0)(tailwindcss@4.1.18)
+      '@internationalized/date':
+        specifier: ^3.11.0
+        version: 3.11.0
       '@solar-icons/react':
         specifier: ^1.1.0
         version: 1.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

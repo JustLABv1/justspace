@@ -11,24 +11,45 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import {
+    Filter as FilterIcon,
     Checklist as ListChecks,
     ChatRoundDots as MessageSquarePlus,
     AddCircle as Plus,
     Magnifer as Search
 } from "@solar-icons/react";
 import React, { useCallback, useEffect, useState } from 'react';
+import { Pagination } from './Pagination';
 import { TaskDetailModal } from './TaskDetailModal';
 import { TaskItem } from './TaskItem';
 
-export function TaskList({ projectId, hideHeader = false }: { projectId: string, hideHeader?: boolean }) {
+export function TaskList({ 
+    projectId, 
+    hideHeader = false,
+    searchQuery: externalSearchQuery,
+    hideCompleted: externalHideCompleted
+}: { 
+    projectId: string, 
+    hideHeader?: boolean,
+    searchQuery?: string,
+    hideCompleted?: boolean
+}) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [internalSearchQuery, setInternalSearchQuery] = useState('');
+    const [internalHideCompleted, setInternalHideCompleted] = useState(false);
+    
+    const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+    const hideCompleted = externalHideCompleted !== undefined ? externalHideCompleted : internalHideCompleted;
+    const setSearchQuery = externalSearchQuery !== undefined ? () => {} : setInternalSearchQuery;
+    const setHideCompleted = externalHideCompleted !== undefined ? () => {} : setInternalHideCompleted;
+    
     const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
 
     const toggleTaskExpansion = (taskId: string) => {
         setExpandedTaskIds(prev => 
@@ -36,10 +57,6 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                 ? prev.filter(id => id !== taskId) 
                 : [...prev, taskId]
         );
-    };
-
-    const getSubtasks = (parentId: string) => {
-        return tasks.filter(t => t.parentId === parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
     };
 
     const { user, privateKey } = useAuth();
@@ -276,15 +293,26 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
         </div>
     );
 
-    const filteredMainTasks = tasks.filter(t => 
-        !t.parentId && 
-        t.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const allMainTasks = tasks.filter(t => !t.parentId);
+    const filteredMainTasks = allMainTasks.filter(t => {
+        // Search matches if title matches OR if any subtask matches
+        const subtasks = tasks.filter(st => st.parentId === t.$id);
+        const anySubtaskMatches = subtasks.some(st => st.title.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || anySubtaskMatches;
+        
+        // Filter matches (excluding completed)
+        const matchesFilter = hideCompleted ? !t.completed : true;
+        
+        return matchesSearch && matchesFilter;
+    });
+
+    const totalPages = Math.ceil(filteredMainTasks.length / itemsPerPage);
+    const paginatedTasks = filteredMainTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
         <div className="flex flex-col h-full gap-4">
-            {!hideHeader && (
-                <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {!hideHeader && (
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shadow-sm border border-accent/20">
                             <ListChecks size={20} weight="Bold" />
@@ -323,20 +351,34 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                             </div>
                         </div>
                     </div>
+                )}
 
-                    <div className="flex items-center gap-3 flex-grow max-w-[300px]">
-                        <div className="relative flex-grow group">
-                            <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-accent transition-colors" />
-                            <Input 
-                                placeholder="Filter tasks..." 
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-10 bg-surface border-border/40 hover:border-accent/20 focus:border-accent/40 rounded-xl pl-9 text-xs font-medium transition-all"
-                            />
-                        </div>
-                    </div>
+                <div className={`flex items-center gap-2 flex-grow ${!hideHeader ? 'max-w-[400px]' : ''}`}>
+                    {/* Filter bar only visible if not externalized */}
+                    {!externalSearchQuery && !hideHeader && (
+                        <>
+                            <div className="relative flex-grow group">
+                                <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-accent transition-colors" />
+                                <Input 
+                                    placeholder="Filter tasks..." 
+                                    value={internalSearchQuery}
+                                    onChange={(e) => { setInternalSearchQuery(e.target.value); setCurrentPage(1); }}
+                                    className="w-full h-10 bg-surface border-border/40 hover:border-accent/20 focus:border-accent/40 rounded-xl pl-9 text-xs font-medium transition-all"
+                                />
+                            </div>
+                            <Button 
+                                variant={internalHideCompleted ? 'primary' : 'secondary'} 
+                                size="sm" 
+                                className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-border/40 ${internalHideCompleted ? 'shadow-lg shadow-accent/20' : ''}`}
+                                onPress={() => { setInternalHideCompleted(!internalHideCompleted); setCurrentPage(1); }}
+                            >
+                                <FilterIcon size={14} weight="Bold" className="mr-1.5" />
+                                {internalHideCompleted ? 'Active Only' : 'Show All'}
+                            </Button>
+                        </>
+                    )}
                 </div>
-            )}
+            </div>
 
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
                 <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-5 space-y-4 min-h-[450px]">
@@ -357,9 +399,9 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                             onDragEnd={handleDragEnd}
                             modifiers={[restrictToVerticalAxis]}
                         >
-                            <SortableContext items={filteredMainTasks.map(t => t.$id)} strategy={verticalListSortingStrategy}>
+                            <SortableContext items={paginatedTasks.map(t => t.$id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-3">
-                                    {filteredMainTasks.map((task) => (
+                                    {paginatedTasks.map((task) => (
                                         <TaskItem 
                                             key={task.$id} 
                                             task={task} 
@@ -379,6 +421,24 @@ export function TaskList({ projectId, hideHeader = false }: { projectId: string,
                                 </div>
                             </SortableContext>
                         </DndContext>
+                    )}
+
+                    {totalPages > 1 && (
+                        <div className="flex justify-center p-6 bg-surface-secondary/10 border-t border-border/10">
+                            <Pagination 
+                                total={totalPages} 
+                                initialPage={1}
+                                page={currentPage} 
+                                onChange={setCurrentPage}
+                                variant="secondary"
+                                color="accent"
+                                size="sm"
+                                classNames={{
+                                    cursor: "shadow-xl shadow-accent/20 font-black",
+                                    item: "font-bold text-[10px] w-8 h-8 rounded-lg border-border/20",
+                                }}
+                            />
+                        </div>
                     )}
                 </div>
 

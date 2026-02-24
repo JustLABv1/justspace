@@ -280,6 +280,12 @@ export const db = {
     },
     async updateTask(id: string, data: Partial<Task> & { workDuration?: string }) {
         const { workDuration, ...updateData } = data;
+        
+        // Clean up any stale attributes that might cause schema errors after migration
+        if ('dueDate' in (updateData as any)) {
+            delete (updateData as any).dueDate;
+        }
+
         const task = await databases.updateDocument<Task & Models.Document>(DB_ID, TASKS_ID, id, updateData);
         if (data.completed === true) {
             await this.logActivity({

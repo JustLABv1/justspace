@@ -6,19 +6,28 @@ import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db, DB_ID, TASKS_ID } from '@/lib/db';
 import { Task } from '@/types';
 import { Button, Chip, ScrollShadow, Surface, toast } from "@heroui/react";
-import { MenuDots as GripVertical, History as HistoryIcon, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
+import { Calendar, MenuDots as GripVertical, History as HistoryIcon, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
+import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
 const COLUMNS: { id: Task['kanbanStatus']; label: string; color: 'accent' | 'success' | 'warning' | 'default' }[] = [
-    { id: 'todo', label: 'Backlog_', color: 'default' },
-    { id: 'in-progress', label: 'Active Sync_', color: 'accent' },
-    { id: 'review', label: 'Analysis_', color: 'warning' },
-    { id: 'waiting', label: 'Awaiting Response_', color: 'accent' },
-    { id: 'done', label: 'Archived_', color: 'success' },
+    { id: 'todo', label: 'Todo', color: 'default' },
+    { id: 'in-progress', label: 'In Progress', color: 'accent' },
+    { id: 'review', label: 'Review', color: 'warning' },
+    { id: 'waiting', label: 'Waiting', color: 'accent' },
+    { id: 'done', label: 'Done', color: 'success' },
 ];
 
-export function KanbanBoard({ projectId }: { projectId: string }) {
+export function KanbanBoard({ 
+    projectId, 
+    searchQuery = '', 
+    hideCompleted = false 
+}: { 
+    projectId: string, 
+    searchQuery?: string, 
+    hideCompleted?: boolean 
+}) {
     const { user, privateKey } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -62,13 +71,20 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                 return task;
             }));
 
-            setTasks(decryptedTasks);
+            // Filter tasks based on Search and Hide Completed before setting state
+            const filteredTasks = decryptedTasks.filter(t => {
+                const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesCompleted = hideCompleted ? (t.kanbanStatus !== 'done' && !t.completed) : true;
+                return matchesSearch && matchesCompleted;
+            });
+
+            setTasks(filteredTasks);
         } catch (error) {
             console.error(error);
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey, documentKey]);
+    }, [projectId, user, privateKey, documentKey, searchQuery, hideCompleted]);
 
     useEffect(() => {
         fetchTasks(true);
@@ -184,7 +200,20 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                                             </div>
                                             
                                             <div className="mt-4 pt-4 border-t border-border/10 flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {task.deadline && (
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="soft"
+                                                            color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
+                                                            className="h-5 px-2 border border-border/10"
+                                                        >
+                                                            <Calendar size={10} weight="Bold" className="mr-1" />
+                                                            <Chip.Label className="text-[9px] font-black uppercase tracking-widest px-0">
+                                                                {dayjs(task.deadline).format('MMM D, HH:mm')}
+                                                            </Chip.Label>
+                                                        </Chip>
+                                                    )}
                                                     {task.priority && (
                                                         <Chip
                                                             size="sm"

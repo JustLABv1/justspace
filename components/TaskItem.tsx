@@ -261,7 +261,21 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
 
             {/* Interaction / Metadata Row */}
             <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
-                <div className="flex items-center gap-1.5 flex-grow overflow-hidden">
+                <div className="flex items-center gap-1.5 flex-grow overflow-hidden flex-wrap">
+                    {task.deadline && (
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
+                            className="h-6 px-2.5 border border-border/10"
+                        >
+                            <Calendar size={12} weight="Bold" className="mr-1" />
+                            <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
+                                {dayjs(task.deadline).format('MMM D, HH:mm')}
+                            </Chip.Label>
+                        </Chip>
+                    )}
+
                     {task.priority && (
                         <Chip
                             size="sm"
@@ -276,6 +290,23 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         >
                             <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
                                 {task.priority}
+                            </Chip.Label>
+                        </Chip>
+                    )}
+
+                    {task.kanbanStatus && task.kanbanStatus !== 'todo' && (
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            color={
+                                task.kanbanStatus === 'done' ? 'success' :
+                                task.kanbanStatus === 'review' ? 'warning' :
+                                'default'
+                            }
+                            className="h-6 px-2.5 border border-border/10 ml-0"
+                        >
+                            <Chip.Label className="text-[9px] font-black uppercase tracking-[0.15em]">
+                                {task.kanbanStatus.replace('-', ' ')}
                             </Chip.Label>
                         </Chip>
                     )}

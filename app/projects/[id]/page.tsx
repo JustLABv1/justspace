@@ -9,13 +9,15 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
-import { Button, Spinner, Surface, toast } from "@heroui/react";
+import { Button, InputGroup, Spinner, Surface, toast } from "@heroui/react";
 import {
     AltArrowLeft as ArrowLeft,
     Calendar,
     Pen2 as Edit,
+    Filter as FilterIcon,
     Widget as LayoutGrid,
     Checklist as ListTodo,
+    Magnifer as Search,
     ShieldKeyhole as Shield,
     MagicStick as Sparkles,
     TrashBinMinimalistic as Trash
@@ -33,6 +35,8 @@ export default function ProjectDetailPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [hideCompleted, setHideCompleted] = useState(false);
     const { user, privateKey } = useAuth();
 
     const fetchProject = useCallback(async () => {
@@ -275,7 +279,7 @@ export default function ProjectDetailPage() {
             <Surface className="p-0 rounded-[2rem] border border-border/40 bg-surface shadow-2xl shadow-accent/5 relative overflow-hidden">
                 <div className="relative z-10">
                     <div className="p-6 border-b border-border/20 bg-surface-secondary/30">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div className="space-y-1">
                                 <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
                                     <ListTodo size={20} className="text-accent" />
@@ -283,8 +287,33 @@ export default function ProjectDetailPage() {
                                 </h2>
                                 <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest opacity-40">Define milestones and track technical execution.</p>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex bg-surface p-1 rounded-xl border border-border/40 mr-2">
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                <InputGroup className="w-full md:w-64 h-9 bg-surface border border-border/40 hover:border-accent/20 focus-within:!border-accent/40 rounded-xl transition-all shadow-none overflow-hidden">
+                                    <InputGroup.Prefix className="pl-3.5 pr-1">
+                                        <Search size={14} weight="Linear" className="text-muted-foreground/40" />
+                                    </InputGroup.Prefix>
+                                    <InputGroup.Input 
+                                        placeholder="Search tasks..." 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="text-xs font-medium bg-transparent border-none focus:ring-0 h-full w-full"
+                                    />
+                                </InputGroup>
+
+                                <Button 
+                                    variant={hideCompleted ? 'primary' : 'secondary'} 
+                                    size="sm" 
+                                    className={`h-9 px-4 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-border/40 transition-all ${hideCompleted ? 'shadow-lg shadow-accent/20' : 'bg-surface hover:bg-surface-secondary'}`}
+                                    onPress={() => setHideCompleted(!hideCompleted)}
+                                >
+                                    <FilterIcon size={14} weight="Bold" className={`mr-2 ${hideCompleted ? 'text-white' : 'text-accent'}`} />
+                                    {hideCompleted ? 'Pending Only' : 'Show All'}
+                                </Button>
+
+                                <div className="h-4 w-px bg-border/40 mx-1 hidden lg:block" />
+
+                                <div className="flex bg-surface/50 p-1 rounded-xl border border-border/40 shadow-sm">
                                     <Button 
                                         variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
                                         size="sm" 
@@ -302,9 +331,9 @@ export default function ProjectDetailPage() {
                                         Kanban
                                     </Button>
                                 </div>
-                                <Button variant="primary" size="sm" className="rounded-xl font-bold text-[10px] uppercase tracking-widest" onPress={() => setIsTemplateModalOpen(true)}>
+                                <Button variant="primary" size="sm" className="rounded-xl h-9 px-4 font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-accent/10" onPress={() => setIsTemplateModalOpen(true)}>
                                     <Sparkles size={14} className="mr-2" />
-                                    Apply Template
+                                    Templates
                                 </Button>
                             </div>
                         </div>
@@ -312,9 +341,18 @@ export default function ProjectDetailPage() {
                     
                     <div className="p-6">
                         {viewMode === 'list' ? (
-                            <TaskList projectId={project.$id} hideHeader />
+                            <TaskList 
+                                projectId={project.$id} 
+                                hideHeader 
+                                searchQuery={searchQuery}
+                                hideCompleted={hideCompleted}
+                            />
                         ) : (
-                            <KanbanBoard projectId={project.$id} />
+                            <KanbanBoard 
+                                projectId={project.$id} 
+                                searchQuery={searchQuery}
+                                hideCompleted={hideCompleted}
+                            />
                         )}
                     </div>
                 </div>

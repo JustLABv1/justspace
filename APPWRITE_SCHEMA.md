@@ -69,6 +69,7 @@ pnpm run setup:appwrite
 | `order` | Integer | - | No | Display order for DnD. |
 | `priority` | String (Enum) | `low`, `medium`, `high`, `urgent` | No | Task priority level. |
 | `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `waiting`, `done` | No | Status for Kanban board. |
+| `deadline` | String (ISO) | - | No | Deadline for the task. |
 | `notes` | String Array | 16384 | No | Communication log. JSON: `{"date": "ISOString", "text": "string", "type": "note|email|call"}` |
 | `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
 
