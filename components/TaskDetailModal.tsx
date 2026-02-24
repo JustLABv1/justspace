@@ -285,7 +285,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const handleUpdateDeadline = async (val: ZonedDateTime | null) => {
         try {
             // Using dayjs with the string representation is more robust for conversion
-            const dateStr = val ? dayjs(val.toString()).toISOString() : null;
+            const dateStr = val ? dayjs(val.toString()).toISOString() : undefined;
             await db.updateTask(task.$id, { deadline: dateStr });
             onUpdate();
             toast.success('Deadline updated');
@@ -383,7 +383,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                         <Modal.CloseTrigger />
                         <Modal.Header className="flex flex-col gap-6 items-start pb-8">
                             <div className="flex items-center justify-between w-full border-b border-border/10 pb-6">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 bg-surface-secondary/50 p-1 rounded-2xl border border-border/20 shadow-inner">
                                     {/* Status Badge */}
                                     <Chip 
                                         size="sm" 
@@ -395,7 +395,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             task.kanbanStatus === 'waiting' ? 'accent' :
                                             'default'
                                         }
-                                        className="h-8 px-3 border border-current/10 rounded-2xl"
+                                        className="h-8 px-3 border border-current/10 rounded-xl"
                                     >
                                         <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
                                             task.kanbanStatus === 'done' ? 'bg-success' :
@@ -403,33 +403,37 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             task.kanbanStatus === 'in-progress' ? 'bg-accent shadow-[0_0_8px_rgba(var(--accent-rgb),0.5)]' :
                                             'bg-muted-foreground/40'
                                         }`} />
-                                        <Chip.Label className="text-[10px] font-black tracking-[0.2em] uppercase">
+                                        <Chip.Label className="text-[9px] font-black tracking-[0.2em] uppercase">
                                             {task.kanbanStatus?.replace('-', ' ')}
                                         </Chip.Label>
                                     </Chip>
 
+                                    <div className="w-px h-4 bg-border/40 mx-1" />
+
                                     {/* Deadline Selector */}
-                                    <div className="flex items-center gap-2 bg-foreground/[0.03] border border-border/40 pl-3 pr-1 py-1 rounded-2xl h-8 min-w-[200px]">
-                                        <span className="text-[9px] font-black tracking-[0.15em] text-muted-foreground/40 uppercase whitespace-nowrap">Deadline_</span>
+                                    <div className="flex items-center gap-2 pl-2 pr-1 rounded-xl h-8 min-w-[180px] hover:bg-foreground/[0.03] transition-colors group">
+                                        <CalendarIcon size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors" />
                                         <DatePicker 
                                             granularity="minute"
-                                            value={task.deadline ? parseAbsoluteToLocal(task.deadline) : null}
+                                            value={task.deadline ? parseAbsoluteToLocal(task.deadline) : undefined}
                                             onChange={handleUpdateDeadline}
                                             className="w-full"
                                             aria-label="Set deadline"
                                         >
-                                            <DateField.Group className="bg-transparent px-1 flex items-center group cursor-pointer">
+                                            <DateField.Group className="bg-transparent flex items-center cursor-pointer">
                                                 <DateField.Input className="flex-grow">
-                                                    {(segment) => <DateField.Segment segment={segment} className="text-[10px] font-black uppercase tracking-widest text-foreground focus:text-accent data-[placeholder=true]:text-muted-foreground/30 selection:bg-accent/20" />}
+                                                    {(segment) => <DateField.Segment segment={segment} className="text-[10px] font-black uppercase tracking-widest text-foreground focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" />}
                                                 </DateField.Input>
-                                                <DatePicker.Trigger className="ml-1 opacity-20 group-hover:opacity-100 transition-opacity">
-                                                    <CalendarIcon size={12} className="text-muted-foreground group-hover:text-accent transition-colors" />
-                                                </DatePicker.Trigger>
                                             </DateField.Group>
-                                            <DatePicker.Popover className="rounded-[2rem] border border-border/40 p-4 shadow-2xl backdrop-blur-xl bg-surface/95 min-w-[300px]">
+                                            <DatePicker.Popover className="rounded-[2.5rem] border border-border/40 p-4 shadow-2xl backdrop-blur-2xl bg-surface/95 min-w-[320px]">
                                                 <Calendar aria-label="Task deadline calendar" className="w-full">
                                                     <Calendar.Header className="flex items-center justify-between mb-4">
-                                                        <Calendar.YearPickerTrigger className="text-[10px] font-black uppercase tracking-[0.2em] text-accent" />
+                                                        <Calendar.YearPickerTrigger>
+                                                            <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-lg hover:bg-accent/5 transition-colors">
+                                                                <Calendar.YearPickerTriggerHeading className="text-[10px] font-black uppercase tracking-[0.2em] text-accent" />
+                                                                <Calendar.YearPickerTriggerIndicator className="opacity-40 group-hover/trigger:opacity-100 transition-opacity" />
+                                                            </div>
+                                                        </Calendar.YearPickerTrigger>
                                                         <div className="flex gap-2">
                                                             <Calendar.NavButton slot="previous" className="h-8 w-8 rounded-xl bg-foreground/5 hover:bg-accent hover:text-white transition-all flex items-center justify-center">
                                                                 <ChevronLeft size={16} weight="Bold" />
@@ -441,7 +445,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     </Calendar.Header>
                                                     <Calendar.Grid className="w-full">
                                                         <Calendar.GridHeader>
-                                                            {(day) => <Calendar.HeaderCell className="text-[9px] font-black text-muted-foreground/30 uppercase pb-2">{day}</Calendar.HeaderCell>}
+                                                            {(day) => (
+                                                                <Calendar.HeaderCell className="text-[9px] font-black text-muted-foreground/30 uppercase pb-2">
+                                                                    {day.slice(0, 2)}
+                                                                </Calendar.HeaderCell>
+                                                            )}
                                                         </Calendar.GridHeader>
                                                         <Calendar.GridBody>
                                                             {(date) => (
@@ -452,6 +460,18 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             )}
                                                         </Calendar.GridBody>
                                                     </Calendar.Grid>
+                                                    <div className="mt-4">
+                                                        <Calendar.YearPickerGrid>
+                                                            <Calendar.YearPickerGridBody>
+                                                                {({year}) => (
+                                                                    <Calendar.YearPickerCell 
+                                                                        year={year} 
+                                                                        className="text-[10px] font-bold h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white"
+                                                                    />
+                                                                )}
+                                                            </Calendar.YearPickerGridBody>
+                                                        </Calendar.YearPickerGrid>
+                                                    </div>
                                                 </Calendar>
                                                 <div className="mt-4 pt-4 border-t border-border/10 flex flex-col gap-3">
                                                     <div className="flex items-center justify-between">
@@ -470,32 +490,33 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         </DatePicker>
                                     </div>
 
+                                    <div className="w-px h-4 bg-border/40 mx-1" />
+
                                     {/* Priority Selector */}
-                                    <div className="flex items-center gap-2 bg-foreground/[0.03] border border-border/40 pl-3 pr-1 py-1 rounded-2xl h-8">
-                                        <span className="text-[9px] font-black tracking-[0.15em] text-muted-foreground/40 uppercase">Priority</span>
+                                    <div className="flex items-center gap-2 pl-3 pr-1 rounded-xl h-8 hover:bg-foreground/[0.03] transition-colors">
                                         <Dropdown>
                                             <Button 
                                                 size="sm" 
-                                                variant="secondary" 
-                                                className={`h-6 px-2.5 text-[10px] font-black uppercase tracking-widest border transition-all rounded-xl ${
-                                                    task.priority === 'urgent' ? 'text-danger bg-danger/10 border-danger/20' :
-                                                    task.priority === 'high' ? 'text-warning bg-warning/10 border-warning/20' :
-                                                    task.priority === 'medium' ? 'text-accent bg-accent/10 border-accent/20' :
-                                                    'text-muted-foreground/60 bg-muted-foreground/10 border-border/10'
+                                                variant="ghost" 
+                                                className={`h-6 px-2 text-[9px] font-black uppercase tracking-widest transition-all rounded-lg ${
+                                                    task.priority === 'urgent' ? 'text-danger bg-danger/10 shadow-sm shadow-danger/20' :
+                                                    task.priority === 'high' ? 'text-warning bg-warning/10 shadow-sm shadow-warning/20' :
+                                                    task.priority === 'medium' ? 'text-accent bg-accent/10 shadow-sm shadow-accent/20' :
+                                                    'text-muted-foreground/40 bg-foreground/5 hover:text-accent'
                                                 }`}
                                             >
-                                                {task.priority || 'NONE'}
-                                                <AltArrowDown size={14} className="ml-1 opacity-50" />
+                                                {task.priority || 'PRIORITY'}
+                                                <AltArrowDown size={12} className="ml-1.5 opacity-40" />
                                             </Button>
-                                            <Dropdown.Popover>
+                                            <Dropdown.Popover className="rounded-2xl border border-border/40 p-1 shadow-2xl backdrop-blur-xl bg-surface/95 min-w-[120px]">
                                                 <Dropdown.Menu 
-                                                    className="bg-surface border border-border/40 p-1"
+                                                    className="bg-transparent"
                                                     onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
                                                 >
-                                                    <Dropdown.Item id="low" className="text-[10px] font-black uppercase tracking-widest">Low</Dropdown.Item>
-                                                    <Dropdown.Item id="medium" className="text-[10px] font-black uppercase tracking-widest text-accent">Medium</Dropdown.Item>
-                                                    <Dropdown.Item id="high" className="text-[10px] font-black uppercase tracking-widest text-warning">High</Dropdown.Item>
-                                                    <Dropdown.Item id="urgent" className="text-[10px] font-black uppercase tracking-widest text-danger">Urgent</Dropdown.Item>
+                                                    <Dropdown.Item id="low" className="text-[9px] font-black uppercase tracking-[0.2em] rounded-lg">Low</Dropdown.Item>
+                                                    <Dropdown.Item id="medium" className="text-[9px] font-black uppercase tracking-[0.2em] text-accent rounded-lg">Medium</Dropdown.Item>
+                                                    <Dropdown.Item id="high" className="text-[9px] font-black uppercase tracking-[0.2em] text-warning rounded-lg">High</Dropdown.Item>
+                                                    <Dropdown.Item id="urgent" className="text-[9px] font-black uppercase tracking-[0.2em] text-danger rounded-lg">Urgent</Dropdown.Item>
                                                 </Dropdown.Menu>
                                             </Dropdown.Popover>
                                         </Dropdown>

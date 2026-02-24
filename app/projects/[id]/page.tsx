@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
-import { Button, InputGroup, Spinner, Surface, toast } from "@heroui/react";
+import { Button, Spinner, Surface, toast } from "@heroui/react";
 import {
     AltArrowLeft as ArrowLeft,
     Calendar,
@@ -17,6 +17,7 @@ import {
     Filter as FilterIcon,
     Widget as LayoutGrid,
     Checklist as ListTodo,
+    HamburgerMenu as Rows,
     Magnifer as Search,
     ShieldKeyhole as Shield,
     MagicStick as Sparkles,
@@ -213,7 +214,7 @@ export default function ProjectDetailPage() {
                     <div className="space-y-6 flex-1">
                         <div className="flex items-center gap-5">
                             <div className="w-14 h-14 rounded-[1.5rem] bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-2xl shadow-accent/5">
-                                <LayoutGrid size={28} />
+                                <LayoutGrid size={28} weight="Bold" />
                             </div>
                             <div>
                                 <div className="flex items-center gap-3">
@@ -225,7 +226,7 @@ export default function ProjectDetailPage() {
                                     )}
                                 </div>
                                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
-                                    <Calendar size={14} className="text-accent/50" />
+                                    <Calendar size={14} weight="Bold" className="text-accent/50" />
                                     <span>Initialized Phase: {new Date(project.$createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
@@ -276,66 +277,71 @@ export default function ProjectDetailPage() {
                 </div>
             </header>
 
-            <Surface className="p-0 rounded-[2rem] border border-border/40 bg-surface shadow-2xl shadow-accent/5 relative overflow-hidden">
+            <Surface className="p-0 rounded-[2.5rem] border border-border/40 bg-surface shadow-2xl shadow-accent/5 relative overflow-hidden">
                 <div className="relative z-10">
-                    <div className="p-6 border-b border-border/20 bg-surface-secondary/30">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <div className="space-y-1">
-                                <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                                    <ListTodo size={20} className="text-accent" />
-                                    Project Roadmap
-                                </h2>
-                                <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest opacity-40">Define milestones and track technical execution.</p>
+                    <div className="px-8 py-6 border-b border-border/20 bg-surface-secondary/20 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-2xl bg-accent/10 text-accent shadow-inner shadow-accent/20">
+                                <ListTodo size={24} weight="Bold" />
                             </div>
+                            <div>
+                                <h2 className="text-xl font-black tracking-tight text-foreground leading-none mb-1">Roadmap</h2>
+                                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Execution Pipeline</p>
+                            </div>
+                        </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
-                                <InputGroup className="w-full md:w-64 h-9 bg-surface border border-border/40 hover:border-accent/20 focus-within:!border-accent/40 rounded-xl transition-all shadow-none overflow-hidden">
-                                    <InputGroup.Prefix className="pl-3.5 pr-1">
-                                        <Search size={14} weight="Linear" className="text-muted-foreground/40" />
-                                    </InputGroup.Prefix>
-                                    <InputGroup.Input 
-                                        placeholder="Search tasks..." 
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-3 bg-surface/50 p-1.5 px-3 rounded-[1.25rem] border border-border/40 shadow-inner">
+                                <div className="flex items-center gap-2">
+                                    <Search size={18} weight="Bold" className="text-muted-foreground/30" />
+                                    <input 
+                                        type="text"
+                                        placeholder="SEARCH TASKS..." 
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="text-xs font-medium bg-transparent border-none focus:ring-0 h-full w-full"
+                                        className="bg-transparent border-none focus:ring-0 text-[10px] font-black uppercase tracking-widest placeholder:text-muted-foreground/20 w-32 md:w-64"
                                     />
-                                </InputGroup>
-
+                                </div>
+                                <div className="w-px h-4 bg-border/40 mx-2" />
                                 <Button 
                                     variant={hideCompleted ? 'primary' : 'secondary'} 
                                     size="sm" 
-                                    className={`h-9 px-4 rounded-xl font-bold text-[9px] uppercase tracking-widest border border-border/40 transition-all ${hideCompleted ? 'shadow-lg shadow-accent/20' : 'bg-surface hover:bg-surface-secondary'}`}
+                                    className={`h-7 px-4 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${hideCompleted ? 'shadow-lg shadow-accent/40 bg-accent text-white border-transparent' : 'bg-transparent text-muted-foreground hover:bg-surface-secondary'}`}
                                     onPress={() => setHideCompleted(!hideCompleted)}
                                 >
-                                    <FilterIcon size={14} weight="Bold" className={`mr-2 ${hideCompleted ? 'text-white' : 'text-accent'}`} />
-                                    {hideCompleted ? 'Pending Only' : 'Show All'}
-                                </Button>
-
-                                <div className="h-4 w-px bg-border/40 mx-1 hidden lg:block" />
-
-                                <div className="flex bg-surface/50 p-1 rounded-xl border border-border/40 shadow-sm">
-                                    <Button 
-                                        variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
-                                        size="sm" 
-                                        className="h-7 rounded-lg font-bold text-[9px] uppercase tracking-wider"
-                                        onPress={() => setViewMode('list')}
-                                    >
-                                        List
-                                    </Button>
-                                    <Button 
-                                        variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
-                                        size="sm" 
-                                        className="h-7 rounded-lg font-bold text-[9px] uppercase tracking-wider"
-                                        onPress={() => setViewMode('kanban')}
-                                    >
-                                        Kanban
-                                    </Button>
-                                </div>
-                                <Button variant="primary" size="sm" className="rounded-xl h-9 px-4 font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-accent/10" onPress={() => setIsTemplateModalOpen(true)}>
-                                    <Sparkles size={14} className="mr-2" />
-                                    Templates
+                                    <FilterIcon size={14} weight="Bold" className="mr-2" />
+                                    {hideCompleted ? 'PENDING' : 'ALL'}
                                 </Button>
                             </div>
+
+                            <div className="flex items-center gap-2 bg-surface/50 p-1 rounded-[1.25rem] border border-border/40 shadow-inner">
+                                <Button 
+                                    variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
+                                    size="sm" 
+                                    className={`h-8 w-12 p-0 rounded-xl flex items-center justify-center transition-all ${viewMode === 'list' ? 'bg-accent/10 text-accent shadow-sm' : 'text-muted-foreground/40 hover:text-accent'}`}
+                                    onPress={() => setViewMode('list')}
+                                >
+                                    <Rows size={18} weight={viewMode === 'list' ? 'Bold' : 'Linear'} />
+                                </Button>
+                                <Button 
+                                    variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
+                                    size="sm" 
+                                    className={`h-8 w-12 p-0 rounded-xl flex items-center justify-center transition-all ${viewMode === 'kanban' ? 'bg-accent/10 text-accent shadow-sm' : 'text-muted-foreground/40 hover:text-accent'}`}
+                                    onPress={() => setViewMode('kanban')}
+                                >
+                                    <LayoutGrid size={18} weight={viewMode === 'kanban' ? 'Bold' : 'Linear'} />
+                                </Button>
+                            </div>
+
+                            <Button 
+                                variant="primary" 
+                                size="sm" 
+                                className="h-10 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-accent/30 bg-accent text-white border-none" 
+                                onPress={() => setIsTemplateModalOpen(true)}
+                            >
+                                <Sparkles size={18} weight="Bold" className="mr-2" />
+                                Templates
+                            </Button>
                         </div>
                     </div>
                     
