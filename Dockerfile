@@ -3,6 +3,8 @@ LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
 
 # Install dependencies only when needed
 FROM base AS deps
+LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
+
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -12,6 +14,8 @@ RUN corepack enable pnpm && pnpm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
+LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
+
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -26,6 +30,8 @@ RUN corepack enable pnpm && pnpm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
+LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
+
 WORKDIR /app
 
 ENV NODE_ENV=production
