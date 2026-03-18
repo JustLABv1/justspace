@@ -5,7 +5,7 @@ import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
 import { Button, Modal, Spinner } from "@heroui/react";
-import { Folder } from '@solar-icons/react';
+import { FolderOpen } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface ProjectSelectorModalProps {
@@ -80,72 +80,67 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
             <Modal.Backdrop 
                 isOpen={isOpen} 
                 onOpenChange={(next) => !next && onClose()}
-                className="bg-background/80 backdrop-blur-md"
+                className="bg-black/50"
                 variant="blur"
             >
                 <Modal.Container size="sm" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden flex flex-col">
-                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                    <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
-                                <Folder size={20} weight="Bold" />
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
+                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                                <FolderOpen size={14} />
                             </div>
-                            <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">Target Project</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Destination for data sync.</p>
+                            <div>
+                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">Select Project</Modal.Heading>
+                                <p className="text-xs text-muted-foreground mt-0.5">Choose a project to continue</p>
                             </div>
                         </Modal.Header>
 
-                        <Modal.Body className="px-8 pt-4 pb-8 flex-1 overflow-y-auto">
+                        <Modal.Body className="px-6 py-4 flex-1 overflow-y-auto">
                             {isLoading ? (
-                                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                                    <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-accent/40">Loading projects...</p>
+                                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                    <Spinner color="accent" size="sm" />
+                                    <p className="text-xs text-muted-foreground">Loading projects...</p>
                                 </div>
                             ) : projects.length > 0 ? (
-                                <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-2">
                                     {projects.map((project) => (
                                         <button 
                                             key={project.id}
                                             onClick={() => handleSelect(project.id)}
                                             disabled={isSubmitting}
-                                            className="flex items-center gap-5 p-5 rounded-[2.5rem] border border-border/40 bg-surface-secondary/20 text-left hover:border-accent/40 hover:bg-surface-secondary/40 transition-all group disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                                            className="flex items-center gap-3 p-3 rounded-lg border border-border text-left hover:border-accent/50 hover:bg-surface-secondary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            <div className="w-14 h-14 rounded-3xl bg-foreground/5 border border-border/40 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform shrink-0 shadow-sm">
-                                                <Folder size={28} weight="Bold" />
+                                            <div className="w-8 h-8 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                                <FolderOpen size={15} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-bold truncate text-foreground text-base tracking-tight uppercase">{project.name}</h4>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                                                    <p className="text-[11px] text-accent/80 truncate uppercase font-bold tracking-wider">{project.status}</p>
-                                                </div>
+                                                <h4 className="font-medium truncate text-sm text-foreground">{project.name}</h4>
+                                                <p className="text-xs text-muted-foreground capitalize">{project.status}</p>
                                             </div>
                                         </button>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="py-20 text-center border-2 border-dashed border-border/30 rounded-[3rem] bg-foreground/[0.02] space-y-4">
-                                    <div className="w-20 h-20 rounded-[2.5rem] bg-foreground/5 flex items-center justify-center text-muted-foreground/20 mx-auto border border-border/40">
-                                        <Folder size={40} weight="Linear" />
+                                <div className="py-12 text-center border border-dashed border-border rounded-lg space-y-2">
+                                    <div className="w-10 h-10 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground/40 mx-auto">
+                                        <FolderOpen size={18} />
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-foreground font-bold uppercase tracking-tight text-lg">Zero Active Nodes</p>
-                                        <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-40">No available synchronization targets.</p>
-                                    </div>
+                                    <p className="text-sm font-medium text-foreground">No projects</p>
+                                    <p className="text-xs text-muted-foreground">Create a project to get started</p>
                                 </div>
                             )}
                         </Modal.Body>
 
-                        <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
+                        <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl h-9 px-8 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
+                                className="rounded-lg h-8 px-4 text-xs font-medium" 
                                 onPress={onClose} 
                                 isDisabled={isSubmitting}
                             >
-                                Abort
+                                Cancel
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

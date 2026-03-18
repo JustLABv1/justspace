@@ -7,16 +7,16 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Project } from '@/types';
-import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
+import { Button, Chip, Spinner, toast } from "@heroui/react";
 import {
-    Pen2 as Edit,
-    Widget as LayoutGrid,
-    Checklist as ListTodo,
-    AddCircle as Plus,
-    ShieldKeyhole as Shield,
-    TrashBinMinimalistic as Trash,
-    Widget
-} from "@solar-icons/react";
+    Briefcase,
+    Edit,
+    LayoutGrid,
+    List,
+    Lock,
+    Plus,
+    Trash2
+} from "lucide-react";
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -193,37 +193,33 @@ export default function ProjectsPage() {
     ];
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-8">
-            <header className="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-accent font-bold tracking-wider uppercase text-xs opacity-80">
-                        <ListTodo size={14} weight="Bold" className="animate-pulse" />
-                        Project Operations
-                    </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-none">Manage your projects</h1>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60">High-density tracking of consulting engagements and project lifecycle.</p>
+        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-semibold text-foreground">Projects</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">Track and manage your consulting engagements.</p>
                 </div>
-                <div className="flex items-center gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
-                    <div className="flex bg-surface-secondary/40 p-1 rounded-xl border border-border/20 shadow-inner">
+                <div className="flex items-center gap-2">
+                    <div className="flex rounded-lg border border-border overflow-hidden">
                         <Button 
                             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
                             onPress={() => setViewMode('kanban')}
-                            className={`h-9 px-4 rounded-lg font-bold tracking-tight transition-all text-xs ${viewMode === 'kanban' ? 'bg-foreground text-background shadow-lg' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
+                            className={`h-8 px-3 rounded-none text-xs font-medium transition-colors ${viewMode === 'kanban' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                            <ListTodo size={14} weight="Bold" className="mr-2" />
-                            Board View
+                            <List size={13} className="mr-1.5" />
+                            Board
                         </Button>
                         <Button 
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
                             onPress={() => setViewMode('grid')}
-                            className={`h-9 px-4 rounded-lg font-bold tracking-tight transition-all text-xs ${viewMode === 'grid' ? 'bg-foreground text-background shadow-lg' : 'text-muted-foreground opacity-50 hover:opacity-100'}`}
+                            className={`h-8 px-3 rounded-none text-xs font-medium transition-colors ${viewMode === 'grid' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                            <LayoutGrid size={14} weight="Bold" className="mr-2" />
-                            Grid View
+                            <LayoutGrid size={13} className="mr-1.5" />
+                            Grid
                         </Button>
                     </div>
-                    <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
-                        <Plus size={16} weight="Bold" className="mr-2" />
+                    <Button variant="primary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                        <Plus size={13} className="mr-1.5" />
                         New Project
                     </Button>
                 </div>
@@ -232,22 +228,22 @@ export default function ProjectsPage() {
             {viewMode === 'kanban' ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                     {columns.map((column) => (
-                        <div key={column.status} className="flex flex-col gap-4 min-h-[500px]">
-                            <Surface className="flex items-center justify-between px-4 py-2 bg-surface border border-border/40 rounded-xl shadow-sm">
+                        <div key={column.status} className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between px-1">
                                 <span className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                                    <h3 className="font-bold tracking-tight text-xs text-muted-foreground">
-                                        {column.label} 
+                                    <div className={`w-1.5 h-1.5 rounded-full ${column.status === 'todo' ? 'bg-muted-foreground' : column.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
+                                    <h3 className="text-xs font-medium text-muted-foreground">
+                                        {column.label}
                                     </h3>
                                 </span>
-                                <Chip size="sm" variant="soft" color={column.color} className="h-4 border border-current/10">
-                                    <Chip.Label className="font-bold text-[10px]">
+                                <Chip size="sm" variant="soft" color={column.color}>
+                                    <Chip.Label className="text-[10px] font-medium">
                                         {projects.filter(p => p.status === column.status).length}
                                     </Chip.Label>
                                 </Chip>
-                            </Surface>
-                            
-                            <div className="space-y-4">
+                            </div>
+
+                            <div className="space-y-2">
                                 {projects
                                     .filter((p) => p.status === column.status)
                                     .map((project) => (
@@ -258,28 +254,24 @@ export default function ProjectsPage() {
                                             onDelete={() => { setSelectedProject(project); setIsDeleteModalOpen(true); }}
                                         />
                                     ))}
-                                
+
                                 <Button 
-                                    variant="secondary" 
-                                    className="w-full border border-dashed border-border py-6 rounded-xl bg-surface/50 hover:bg-surface hover:border-accent/50 group transition-all duration-300"
+                                    variant="ghost"
+                                    className="w-full border border-dashed border-border rounded-lg h-9 text-xs text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
                                     onPress={() => { 
                                         setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
                                     }}
                                 >
-                                    <div className="flex flex-cols items-center gap-2">
-                                        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-muted-foreground group-hover:scale-110 group-hover:text-accent transition-all">
-                                            <Plus size={14} weight="Linear" />
-                                        </div>
-                                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-accent">Initiate New Project</span>
-                                    </div>
+                                    <Plus size={12} className="mr-1.5" />
+                                    Add project
                                 </Button>
                             </div>
                         </div>
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {projects.map((project) => (
                         <ProjectCard 
                             key={project.id} 
@@ -319,55 +311,47 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <Surface className="p-4 rounded-[1.25rem] border border-border/40 bg-surface/40 backdrop-blur-xl group relative overflow-hidden transition-all duration-300 hover:border-accent/50 hover:bg-surface/60">
-            <div className="relative z-10 flex flex-col h-full justify-between gap-4">
-                <div className="flex items-start justify-between gap-3">
-                    <Link href={`/projects/${project.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner group-hover:scale-105 transition-transform duration-500 shrink-0">
-                            <Widget size={16} weight="Linear" />
+        <div className="p-3 rounded-lg border border-border bg-surface group hover:border-accent/40 transition-colors">
+            <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                    <Link href={`/projects/${project.id}`} className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                            <Briefcase size={13} />
                         </div>
                         <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                                <h3 className={`font-bold tracking-tight uppercase leading-tight truncate ${isFull ? 'text-xl' : 'text-base'}`}>{project.name}</h3>
+                            <div className="flex items-center gap-1.5">
+                                <h3 className="text-sm font-medium text-foreground truncate">{project.name}</h3>
                                 {project.isEncrypted && (
-                                    <div className="p-1 rounded-md bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
-                                        <Shield size={12} weight="Bold" />
-                                    </div>
+                                    <Lock size={11} className="text-warning shrink-0" />
                                 )}
                             </div>
-                            <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider mt-0.5">Project ID: {project.id.slice(-4).toUpperCase()}</p>
                         </div>
                     </Link>
-                    
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button isIconOnly variant="ghost" size="sm" className="h-7 w-7 rounded-lg hover:bg-foreground/5" onPress={onEdit}>
-                            <Edit size={12} weight="Linear" />
+
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <Button isIconOnly variant="ghost" size="sm" className="h-6 w-6 rounded-md" onPress={onEdit}>
+                            <Edit size={11} />
                         </Button>
                         <button 
-                            className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-danger/10 hover:text-danger transition-colors text-muted-foreground/40 hover:text-danger" 
+                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-danger-muted hover:text-danger transition-colors" 
                             onClick={(e) => { e.preventDefault(); onDelete(); }}
                         >
-                            <Trash size={12} weight="Linear" />
+                            <Trash2 size={11} />
                         </button>
                     </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                         <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">{project.status.replace('-', ' ')}</span>
+                    <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
+                        <span className="text-xs text-muted-foreground">{project.status.replace('-', ' ')}</span>
                     </div>
 
                     {project.daysPerWeek && (
-                         <div className="px-2 py-0.5 rounded-md bg-foreground/5 border border-border/50 text-xs font-bold uppercase tracking-wider">
-                             {project.daysPerWeek}D/W
-                         </div>
+                        <span className="text-xs text-muted-foreground">{project.daysPerWeek}d/w</span>
                     )}
                 </div>
             </div>
-            
-            {/* Corner gradient for depth */}
-            <div className="absolute -right-16 -bottom-16 w-32 h-32 bg-accent/5 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-        </Surface>
+        </div>
     );
 }

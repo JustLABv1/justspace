@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from "@heroui/react";
-import { Moon, Sun } from "@solar-icons/react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 
@@ -25,12 +25,12 @@ export function ThemeSwitcher() {
       isIconOnly
       onPress={() => setTheme(theme === "light" ? "dark" : "light")}
       aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-      className="h-11 w-11 rounded-2xl bg-foreground/5 text-muted-foreground hover:text-accent hover:bg-foreground/10 border border-border/20 transition-all shadow-inner group"
+      className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-tertiary transition-colors"
     >
       {theme === "light" ? (
-        <Moon size={22} weight="Bold" className="group-hover:scale-110 transition-transform" />
+        <Moon size={15} />
       ) : (
-        <Sun size={22} weight="Bold" className="group-hover:scale-110 transition-transform" />
+        <Sun size={15} />
       )}
     </Button>
   );

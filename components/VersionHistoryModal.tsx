@@ -5,8 +5,8 @@ import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { EncryptedData, ResourceVersion } from '@/types';
 import { Button, Modal, Spinner } from "@heroui/react";
-import { History, Restart as Restore, ShieldKeyhole as Shield } from '@solar-icons/react';
 import { format } from 'date-fns';
+import { History, Lock, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface VersionHistoryModalProps {
@@ -78,56 +78,56 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
             <Modal.Backdrop 
                 isOpen={isOpen} 
                 onOpenChange={(next) => !next && onClose()}
-                className="bg-black/40 backdrop-blur-xl"
+                className="bg-black/50"
                 variant="blur"
             >
                 <Modal.Container size="md" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden flex flex-col max-h-[80vh]">
-                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                    <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col max-h-[80vh]">
+                        <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
-                                <History size={20} weight="Bold" />
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
+                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                                <History size={14} />
                             </div>
-                            <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">
+                            <div>
+                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
                                     Version History
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] font-bold uppercase opacity-40 ml-0.5 mt-1 tracking-wider">Chronological Snapshots</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Chronological snapshots</p>
                             </div>
                         </Modal.Header>
 
-                        <Modal.Body className="px-8 pt-4 pb-8 space-y-4 overflow-y-auto">
+                        <Modal.Body className="px-6 py-4 space-y-3 overflow-y-auto">
                             {isLoading ? (
                                 <div className="py-12 flex justify-center"><Spinner /></div>
                             ) : versions.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground font-bold uppercase tracking-wider text-xs opacity-40">No snapshots found</div>
+                                <div className="text-center py-12 text-xs text-muted-foreground">No snapshots found</div>
                             ) : (
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {versions.map((v) => (
-                                        <div key={v.id} className="p-4 rounded-2xl bg-surface-secondary/50 border border-border/10 flex items-center justify-between group hover:bg-surface-secondary transition-colors">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-bold text-foreground">
-                                                        {v.title || 'Untitled Snapshot'}
+                                        <div key={v.id} className="px-3 py-2.5 rounded-lg border border-border flex items-center justify-between group hover:bg-surface-secondary/50 transition-colors">
+                                            <div className="space-y-0.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="text-sm font-medium text-foreground">
+                                                        {v.title || 'Untitled'}
                                                     </p>
                                                     {v.isEncrypted && (
-                                                        <Shield size={12} className="text-accent" />
+                                                        <Lock size={11} className="text-muted-foreground" />
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <span>{format(new Date(v.createdAt), 'MMM d, yyyy HH:mm')}</span>
-                                                    {v.metadata && <span>• {v.metadata}</span>}
+                                                    {v.metadata && <span>· {v.metadata}</span>}
                                                 </div>
                                             </div>
                                             <Button 
                                                 variant="ghost" 
                                                 size="sm"
-                                                className="rounded-lg font-bold text-[10px] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="rounded-md h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                                                 onPress={() => onRestore(v)}
                                             >
+                                                <RotateCcw size={12} className="mr-1" />
                                                 Restore
-                                                <Restore size={14} className="ml-1" />
                                             </Button>
                                         </div>
                                     ))}

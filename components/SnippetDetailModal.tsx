@@ -3,15 +3,7 @@
 import { Markdown } from '@/components/Markdown';
 import { Snippet, SnippetBlock } from '@/types';
 import { Button, Checkbox, CheckboxGroup, Chip, Modal, ScrollShadow, Tooltip } from "@heroui/react";
-import {
-    CheckRead as Check,
-    CodeCircle as CodeIcon,
-    Widget as ComponentsIcon,
-    Copy,
-    SettingsMinimalistic as Gear,
-    SidebarCode as LayoutIcon,
-    Notes as MarkdownIcon
-} from '@solar-icons/react';
+import { Check, Code, Copy, FileText, Layers, Lock } from 'lucide-react';
 import { useState } from 'react';
 
 interface SnippetDetailModalProps {
@@ -62,61 +54,61 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
         <Modal>
             <Modal.Backdrop isOpen={isOpen} onOpenChange={onClose} variant="blur">
                 <Modal.Container size="cover">
-                    <Modal.Dialog className="bg-surface/95 dark:bg-surface/90 backdrop-blur-xl border border-border/40 shadow-2xl rounded-[2.5rem] overflow-hidden">
+                    <Modal.Dialog className="bg-surface border border-border shadow-lg rounded-xl overflow-hidden">
                         <Modal.CloseTrigger className="absolute right-6 top-6 z-50 bg-surface-secondary/50 hover:bg-surface-secondary transition-colors" />
                         
                         <div className="flex flex-col h-full max-h-[90vh]">
-                            <Modal.Header className="flex flex-col gap-6 p-8 pb-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent shadow-inner border border-accent/20">
-                                        <ComponentsIcon size={28} weight="Bold" />
+                            <Modal.Header className="flex flex-col gap-3 px-6 pt-5 pb-4 border-b border-border">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                                        <Layers size={14} />
                                     </div>
                                     <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <Chip size="sm" variant="soft" color="accent" className="font-bold text-[10px] uppercase tracking-wider px-3">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <Chip size="sm" variant="soft" color="accent" className="text-xs px-2">
                                                 {snippet.language}
                                             </Chip>
                                             {snippet.isEncrypted && (
-                                                <div className="flex items-center gap-1.5 text-accent/60 text-[10px] font-bold uppercase tracking-wider bg-accent/5 px-2 py-0.5 rounded-md border border-accent/10">
-                                                    <Gear size={12} />
+                                                <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                                                    <Lock size={11} />
                                                     Encrypted
                                                 </div>
                                             )}
                                         </div>
-                                        <Modal.Heading className="text-3xl font-bold tracking-tight leading-none uppercase">
+                                        <Modal.Heading className="text-base font-semibold leading-none">
                                             {snippet.title}
                                         </Modal.Heading>
                                     </div>
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-2">
                                         <Button 
                                             variant="secondary" 
-                                            className="rounded-xl font-bold px-6 h-12 shadow-lg"
+                                            className="rounded-lg text-xs font-medium px-3 h-8"
                                             onPress={copyEverything}
                                         >
-                                            {copiedAll ? <Check size={18} className="mr-2" /> : <Copy size={18} className="mr-2" />}
-                                            Bundle All
+                                            {copiedAll ? <Check size={13} className="mr-1.5" /> : <Copy size={13} className="mr-1.5" />}
+                                            Copy All
                                         </Button>
                                         {selectedBlocks.length > 0 && (
                                             <Button 
                                                 variant="primary" 
-                                                className="rounded-xl font-bold px-6 h-12 shadow-xl shadow-accent/20 animate-in fade-in zoom-in slide-in-from-right-4"
+                                                className="rounded-lg text-xs font-medium px-3 h-8"
                                                 onPress={copySelected}
                                             >
-                                                <Copy size={18} className="mr-2" />
-                                                Copy Selection ({selectedBlocks.length})
+                                                <Copy size={13} className="mr-1.5" />
+                                                Copy ({selectedBlocks.length})
                                             </Button>
                                         )}
                                     </div>
                                 </div>
                                 {snippet.description && (
-                                    <p className="text-sm text-muted-foreground font-medium leading-relaxed max-w-3xl opacity-80 italic">
-                                        &ldquo; {snippet.description} &rdquo;
+                                    <p className="text-sm text-muted-foreground leading-relaxed max-w-3xl">
+                                        {snippet.description}
                                     </p>
                                 )}
                                 {snippet.tags && snippet.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
                                         {snippet.tags.map(tag => (
-                                            <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-accent/50 hover:text-accent transition-colors">
+                                            <span key={tag} className="text-xs text-muted-foreground">
                                                 #{tag}
                                             </span>
                                         ))}
@@ -124,7 +116,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                 )}
                             </Modal.Header>
 
-                            <Modal.Body className="p-8 pt-0 flex-1 overflow-hidden">
+                            <Modal.Body className="px-6 py-4 flex-1 overflow-hidden">
                                 <ScrollShadow className="h-full pr-4 -mr-4">
                                     <CheckboxGroup 
                                         value={selectedBlocks} 
@@ -137,14 +129,14 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                                     <Checkbox value={block.id} aria-label={`Select block ${block.id}`} />
                                                 </div>
                                                 
-                                                <div className={`p-1 rounded-[2rem] border transition-all duration-500 ${selectedBlocks.includes(block.id) ? 'border-accent shadow-xl bg-accent/5' : 'border-border/40 bg-surface/50 hover:border-accent/40'}`}>
-                                                    <div className="flex items-center justify-between px-6 py-4 border-b border-border/10">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                                                {block.type === 'code' ? <CodeIcon size={18} /> : <MarkdownIcon size={18} />}
+                                                <div className={`rounded-lg border transition-all ${selectedBlocks.includes(block.id) ? 'border-accent bg-accent/5' : 'border-border bg-surface/50'}`}>
+                                                    <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                                                                {block.type === 'code' ? <Code size={13} /> : <FileText size={13} />}
                                                             </div>
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                                                {block.type} component {block.language && `| ${block.language}`}
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {block.type}{block.language && ` · ${block.language}`}
                                                             </span>
                                                         </div>
                                                         <div className="flex gap-2">
@@ -156,7 +148,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                                                     className="h-8 w-8 rounded-lg"
                                                                     onPress={() => copyBlock(block.content, block.id)}
                                                                 >
-                                                                    {copiedBlockId === block.id ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+                                                                    {copiedBlockId === block.id ? <Check size={13} className="text-success" /> : <Copy size={13} />}
                                                                 </Button>
                                                                 <Tooltip.Content>
                                                                     <p>Copy this block</p>
@@ -164,7 +156,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                                             </Tooltip>
                                                         </div>
                                                     </div>
-                                                    <div className="p-6 font-mono text-sm overflow-x-auto min-h-[100px]">
+                                                    <div className="p-4 font-mono text-sm overflow-x-auto min-h-[80px]">
                                                         {block.type === 'code' ? (
                                                             <pre className="text-foreground/90 whitespace-pre leading-relaxed">
                                                                 <code>{block.content}</code>
@@ -180,16 +172,16 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                 </ScrollShadow>
                             </Modal.Body>
 
-                            <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/10 flex justify-between items-center">
-                                <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground/60">
+                            <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-between items-center">
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1.5">
-                                        <LayoutIcon size={14} />
-                                        {blocks.length} Components
+                                        <Layers size={13} />
+                                        {blocks.length} block{blocks.length !== 1 ? 's' : ''}
                                     </div>
                                     <div className="w-1 h-1 rounded-full bg-border" />
                                     <div>Created {new Date(snippet.createdAt).toLocaleDateString()}</div>
                                 </div>
-                                <Button slot="close" variant="secondary" className="rounded-xl font-bold px-8">Close</Button>
+                                <Button slot="close" variant="secondary" className="rounded-lg text-xs font-medium px-4 h-8">Close</Button>
                             </Modal.Footer>
                         </div>
                     </Modal.Dialog>

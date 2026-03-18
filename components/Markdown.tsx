@@ -1,9 +1,9 @@
 'use client';
 
 import { Button } from '@heroui/react';
-import { CheckRead as Check, Copy } from '@solar-icons/react';
 import { clsx } from 'clsx';
 import 'highlight.js/styles/github-dark.css';
+import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
@@ -64,9 +64,9 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
     };
 
     return (
-        <div className="group relative my-4 overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
+        <div className="group relative my-4 overflow-hidden rounded-lg border border-border bg-black/10 dark:bg-black/40">
             <div className="flex items-center justify-between bg-black/5 dark:bg-black/20 px-4 py-2 border-b border-border">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                     {language}
                 </span>
                 <Button

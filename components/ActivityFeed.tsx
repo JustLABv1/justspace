@@ -5,20 +5,20 @@ import { decryptData, decryptDocumentKey } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { wsClient, WSEvent } from "@/lib/ws";
 import { ActivityLog } from "@/types";
-import { Button, Chip, ScrollShadow, Spinner, Surface } from "@heroui/react";
-import {
-    History as Activity,
-    CheckCircle,
-    Document as FileText,
-    Play as PlayIcon,
-    AddCircle as PlusCircle,
-    Restart as RefreshCw,
-    TrashBinMinimalistic as Trash2
-} from "@solar-icons/react";
+import { Button, Chip, ScrollShadow, Spinner } from "@heroui/react";
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
 import relativeTime from "dayjs/plugin/relativeTime";
+import {
+    Activity,
+    CheckCircle,
+    FileText,
+    Play,
+    PlusCircle,
+    RefreshCw,
+    Trash2
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 dayjs.extend(relativeTime);
@@ -103,21 +103,20 @@ export function ActivityFeed() {
 
     if (loading) {
         return (
-            <Surface variant="secondary" className="p-8 rounded-[2rem] border border-border/50 flex flex-col items-center justify-center space-y-4">
-                <Spinner size="lg" color="accent" />
-                <div className="text-muted-foreground font-medium animate-pulse">Syncing telemetry...</div>
-            </Surface>
+            <div className="p-6 rounded-xl border border-border flex flex-col items-center justify-center space-y-3 h-32">
+                <Spinner size="sm" color="accent" />
+            </div>
         );
     }
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'create': return <PlusCircle size={12} weight="Bold" className="text-accent" />;
-            case 'complete': return <CheckCircle size={12} weight="Bold" className="text-success" />;
-            case 'update': return <FileText size={12} weight="Bold" className="text-accent" />;
-            case 'delete': return <Trash2 size={12} weight="Bold" className="text-danger" />;
-            case 'work': return <PlayIcon size={12} weight="Bold" className="text-warning" />;
-            default: return <Activity size={12} weight="Bold" className="text-muted-foreground" />;
+            case 'create': return <PlusCircle size={12} className="text-accent" />;
+            case 'complete': return <CheckCircle size={12} className="text-success" />;
+            case 'update': return <FileText size={12} className="text-accent" />;
+            case 'delete': return <Trash2 size={12} className="text-danger" />;
+            case 'work': return <Play size={12} className="text-warning" />;
+            default: return <Activity size={12} className="text-muted-foreground" />;
         }
     };
 
@@ -132,81 +131,68 @@ export function ActivityFeed() {
     };
 
     return (
-        <Surface variant="secondary" className="p-6 rounded-[2rem] border border-border/40 flex flex-col bg-surface/40 backdrop-blur-xl shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-                <h3 className="font-bold text-xl flex items-center gap-3 tracking-tight">
-                    <div className="w-10 h-10 rounded-xl bg-foreground/5 border border-border/50 flex items-center justify-center text-foreground/80 shadow-inner">
-                        <Activity size={20} weight="Bold" />
-                    </div>
-                    Activity Feed
-                </h3>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
+        <div className="rounded-xl border border-border bg-surface flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                    <Activity size={15} className="text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-foreground">Activity</h3>
+                </div>
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onPress={() => fetchActivity(true)}
-                    className="h-8 w-8 p-0 rounded-lg hover:bg-foreground/5 transition-all opacity-50 hover:opacity-100"
+                    className="h-7 w-7 p-0 rounded-md text-muted-foreground hover:text-foreground"
                     isPending={refreshing}
                 >
-                    <RefreshCw size={16} weight="Bold" className={refreshing ? 'animate-spin text-accent' : ''} />
+                    <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
                 </Button>
             </div>
 
-            <ScrollShadow hideScrollBar className="space-y-8 max-h-[600px] pr-2" size={40}>
+            <ScrollShadow hideScrollBar className="max-h-[480px]" size={20}>
                 {Object.keys(groupedActivities).length === 0 ? (
-                    <div className="text-center py-12 flex flex-col items-center justify-center space-y-4">
-                        <div className="w-16 h-16 rounded-[1.5rem] bg-foreground/5 flex items-center justify-center text-muted-foreground/30 border border-border/30 border-dashed animate-pulse">
-                            <Activity size={32} weight="Linear" />
-                        </div>
-                        <p className="text-muted-foreground font-bold uppercase tracking-wider text-[10px] opacity-40">Zero telemetry records</p>
+                    <div className="text-center py-10 flex flex-col items-center justify-center space-y-2">
+                        <Activity size={24} className="text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">No activity yet</p>
                     </div>
                 ) : (
                     Object.entries(groupedActivities).map(([day, items]) => (
-                        <div key={day} className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">{day}</span>
-                                <div className="h-px flex-1 bg-border/20" />
+                        <div key={day}>
+                            <div className="flex items-center gap-2 px-4 py-2">
+                                <span className="text-xs font-medium text-muted-foreground">{day}</span>
+                                <div className="h-px flex-1 bg-border" />
                             </div>
-                            
-                            <div className="space-y-4 pl-1">
-                                {items.map((activity) => (
-                                    <div key={activity.id} className="group relative pr-2">
-                                        <div className="flex items-start gap-4">
-                                            {/* Minimalist dot/icon indicator */}
-                                            <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-lg bg-surface-secondary border border-border/40 flex items-center justify-center z-10 group-hover:border-accent/50 transition-all duration-300">
-                                                {getIcon(activity.type)}
-                                            </div>
 
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-col">
-                                                    <div className="text-xs font-semibold text-foreground tracking-tight leading-tight truncate group-hover:text-accent transition-colors">
-                                                        {activity.entityName}
-                                                    </div>
-                                                    <div className="mt-1 flex items-center flex-wrap gap-2">
-                                                        <Chip 
-                                                            size="sm" 
-                                                            variant="soft" 
-                                                            color={getActionColor(activity.type)}
-                                                            className="h-4 px-1 rounded-md border border-current/10"
-                                                        >
-                                                            <Chip.Label className="text-[8px] font-bold uppercase tracking-wider leading-none">
-                                                                {activity.type}
-                                                            </Chip.Label>
-                                                        </Chip>
-                                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider">
-                                                            {activity.entityType}
-                                                        </span>
-                                                        <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-wider flex items-center gap-1">
-                                                            • {dayjs(activity.createdAt).format('HH:mm')}
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    {activity.metadata && (
-                                                        <div className="mt-2 text-[9px] font-medium text-accent/60 bg-accent/5 px-2 py-0.5 rounded border border-accent/10 w-fit">
-                                                            {activity.metadata}
-                                                        </div>
-                                                    )}
-                                                </div>
+                            <div className="px-2 pb-2 space-y-0.5">
+                                {items.map((activity) => (
+                                    <div key={activity.id} className="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-surface-secondary transition-colors">
+                                        <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-md bg-surface-tertiary flex items-center justify-center">
+                                            {getIcon(activity.type)}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-foreground truncate">
+                                                {activity.entityName}
                                             </div>
+                                            <div className="mt-0.5 flex items-center gap-2">
+                                                <Chip
+                                                    size="sm"
+                                                    variant="soft"
+                                                    color={getActionColor(activity.type)}
+                                                    className="h-4 px-1.5 rounded"
+                                                >
+                                                    <Chip.Label className="text-[10px] font-medium">
+                                                        {activity.type}
+                                                    </Chip.Label>
+                                                </Chip>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {dayjs(activity.createdAt).format('HH:mm')}
+                                                </span>
+                                            </div>
+                                            {activity.metadata && (
+                                                <div className="mt-1 text-xs text-muted-foreground">
+                                                    {activity.metadata}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -215,15 +201,6 @@ export function ActivityFeed() {
                     ))
                 )}
             </ScrollShadow>
-            
-            <div className="mt-8 pt-6 border-t border-border/20">
-                <div className="flex items-center justify-center gap-2 opacity-30">
-                    <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
-                        Live Telemetry Active
-                    </p>
-                </div>
-            </div>
-        </Surface>
+        </div>
     );
 }

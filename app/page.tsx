@@ -6,19 +6,19 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project, Snippet, Task } from '@/types';
-import { Button, Chip, Spinner, Surface, Tooltip } from "@heroui/react";
-import {
-  AltArrowRight as ArrowRightAlt,
-  Book,
-  CodeCircle as Code,
-  LockPassword as LockIcon,
-  AddCircle as Plus,
-  StarsLine as Sparkles,
-  Target,
-  Checklist as TaskIcon,
-  ShieldKeyhole as VaultIcon
-} from "@solar-icons/react";
+import { Button, Chip, Spinner, Tooltip } from "@heroui/react";
 import dayjs from "dayjs";
+import {
+    ArrowRight,
+    BookOpen,
+    Briefcase,
+    CheckSquare,
+    Clock,
+    Code,
+    Lock,
+    Plus,
+    ShieldCheck
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
 
@@ -168,51 +168,48 @@ export default function Home() {
   return (
     <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
       {/* Refined Header */}
-      <section className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-accent font-bold tracking-wider text-[10px] opacity-60 uppercase">
-            <Sparkles size={14} weight="Bold" className="animate-pulse" />
-            Control Hub
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">
-            {greeting}, {user?.name || 'Justin'}
+      <section className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {greeting}, {user?.name?.split(' ')[0] || 'there'}
           </h1>
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-muted-foreground font-medium opacity-60">
-              Consultant OS status: optimal. 
+          <div className="flex flex-wrap items-center gap-3 mt-1">
+            <p className="text-sm text-muted-foreground">
+              {dayjs().format('dddd, MMMM D')}
             </p>
             <Tooltip delay={0}>
                 <Tooltip.Trigger aria-label="Vault status">
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-sm transition-all cursor-help ${privateKey ? 'bg-success/5 border-success/20 text-success' : 'bg-warning/5 border-warning/20 text-warning'}`}>
-                        {privateKey ? <VaultIcon size={12} weight="Bold" /> : <LockIcon size={12} weight="Bold" />}
-                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">
-                            Vault {privateKey ? 'Active' : 'Locked'}
-                        </span>
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-medium cursor-help ${
+                        privateKey
+                            ? 'bg-success-muted border-success/20 text-success'
+                            : 'bg-warning-muted border-warning/20 text-warning'
+                    }`}>
+                        {privateKey ? <ShieldCheck size={12} /> : <Lock size={12} />}
+                        Vault {privateKey ? 'unlocked' : 'locked'}
                     </div>
                 </Tooltip.Trigger>
-                <Tooltip.Content showArrow placement="top" className="font-bold">
+                <Tooltip.Content showArrow placement="top">
                     <Tooltip.Arrow />
-                    {privateKey ? "Vault Unlocked" : "Vault Locked - Some data hidden"}
+                    {privateKey ? 'Vault is unlocked — encrypted data is accessible.' : 'Vault is locked — unlock to see encrypted content.'}
                 </Tooltip.Content>
             </Tooltip>
-            <span className="text-foreground font-bold tracking-wider text-[10px] uppercase opacity-40">{stats.projects} Projects Active</span>
           </div>
         </div>
-        <div className="flex gap-3 bg-surface p-1.5 rounded-2xl border border-border/40 shadow-sm self-stretch md:self-auto">
+        <div className="flex items-center gap-2">
           <Link href="/snippets">
-            <Button variant="ghost" isIconOnly className="rounded-xl h-9 w-9 opacity-50 hover:opacity-100 transition-all">
-              <Code size={18} weight="Bold" />
+            <Button variant="ghost" isIconOnly className="rounded-lg h-9 w-9 text-muted-foreground hover:text-foreground">
+              <Code size={16} />
             </Button>
           </Link>
           <Link href="/wiki">
-            <Button variant="ghost" className="rounded-xl h-9 px-5 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all text-xs">
-              <Book size={16} weight="Bold" className="mr-2" />
+            <Button variant="ghost" className="rounded-lg h-9 px-4 text-sm font-medium text-muted-foreground hover:text-foreground">
+              <BookOpen size={15} className="mr-2" />
               Wiki
             </Button>
           </Link>
           <Link href="/projects">
-            <Button variant="primary" className="rounded-xl h-9 px-5 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs text-white">
-              <Plus size={16} weight="Bold" className="mr-2" />
+            <Button variant="primary" className="rounded-lg h-9 px-4 text-sm font-medium">
+              <Plus size={15} className="mr-1.5" />
               New Project
             </Button>
           </Link>
@@ -224,101 +221,63 @@ export default function Home() {
         {/* Left Column: Primary Content */}
         <div className="lg:col-span-8 space-y-8">
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
-              <div className="flex flex-col justify-between gap-3">
-                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
-                  <Target size={16} weight="Bold" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'Projects', value: stats.projects, icon: Briefcase },
+              { label: 'Wiki pages', value: stats.guides, icon: BookOpen },
+              { label: 'Snippets', value: stats.snippets, icon: Code },
+              { label: 'Pending tasks', value: stats.tasks, icon: CheckSquare },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="p-4 rounded-xl border border-border bg-surface hover:border-accent/30 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                  <Icon size={15} className="text-muted-foreground" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold tracking-tight">{stats.projects}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Projects</p>
-                </div>
+                <p className="text-2xl font-semibold text-foreground">{value}</p>
               </div>
-            </Surface>
-
-            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
-              <div className="flex flex-col justify-between gap-3">
-                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
-                  <Book size={16} weight="Bold" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold tracking-tight">{stats.guides}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Wiki Pages</p>
-                </div>
-              </div>
-            </Surface>
-
-            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
-              <div className="flex flex-col justify-between gap-3">
-                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
-                  <Code size={16} weight="Bold" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold tracking-tight">{stats.snippets}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Snippets</p>
-                </div>
-              </div>
-            </Surface>
-
-            <Surface className="p-4 rounded-[1.5rem] border border-border/40 bg-surface group hover:border-accent/30 transition-all duration-500 hover:shadow-lg">
-              <div className="flex flex-col justify-between gap-3">
-                <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform">
-                  <TaskIcon size={16} weight="Bold" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold tracking-tight">{stats.tasks}</h3>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Pending</p>
-                </div>
-              </div>
-            </Surface>
+            ))}
           </div>
 
           {/* Tasks Due This Week */}
           {tasksDueThisWeek.length > 0 && (
-            <section className="space-y-4 mb-8">
-              <div className="flex items-center gap-3 pb-2 border-b border-border/20">
-                <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning shadow-sm border border-warning/20">
-                  <TaskIcon size={16} weight="Bold" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight text-foreground">Due This Week</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider opacity-60">Scheduled Action items</p>
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock size={15} className="text-warning" />
+                  <h2 className="text-sm font-semibold text-foreground">Due this week</h2>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 {tasksDueThisWeek.map(task => {
                     const project = allProjects.find(p => p.id === task.projectId);
                     return (
                       <Link href={`/projects/${task.projectId}`} key={task.id}>
-                        <Surface className="p-4 rounded-2xl border border-warning/20 bg-warning/5 hover:bg-warning/10 transition-all group cursor-pointer flex items-center justify-between">
-                          <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                            <span className="text-sm font-bold text-foreground truncate">{task.title}</span>
+                        <div className="p-3 rounded-lg border border-border bg-surface hover:border-warning/30 hover:bg-warning-muted/50 transition-colors flex items-center justify-between group">
+                          <div className="flex flex-col gap-1 min-w-0 flex-1">
+                            <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-foreground/40 font-bold uppercase tracking-wider bg-foreground/5 px-1.5 py-0.5 rounded truncate max-w-[120px]">
-                                    {project ? project.name : 'Unknown Project'}
-                                </span>
+                                {project && (
+                                    <span className="text-xs text-muted-foreground truncate max-w-[120px]">{project.name}</span>
+                                )}
                                 {task.deadline && (
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-warning/60">
+                                    <span className="text-xs font-medium text-warning">
                                         {dayjs(task.deadline).format('MMM D')}
                                     </span>
                                 )}
                                 {task.priority && (
-                                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                                        task.priority === 'urgent' ? 'text-danger bg-danger/10' :
-                                        task.priority === 'high' ? 'text-warning bg-warning/10' :
-                                        task.priority === 'medium' ? 'text-accent bg-accent/10' :
-                                        'text-muted-foreground bg-muted-foreground/10'
+                                    <span className={`text-xs font-medium ${
+                                        task.priority === 'urgent' ? 'text-danger' :
+                                        task.priority === 'high' ? 'text-warning' :
+                                        task.priority === 'medium' ? 'text-accent' :
+                                        'text-muted-foreground'
                                     }`}>
-                                        {task.priority || 'medium'}
+                                        {task.priority}
                                     </span>
                                 )}
                             </div>
                           </div>
-                          <div className="p-2 rounded-xl bg-warning/10 text-warning group-hover:scale-110 transition-transform">
-                             <ArrowRightAlt size={16} />
-                          </div>
-                        </Surface>
+                          <ArrowRight size={14} className="text-muted-foreground shrink-0 ml-2" />
+                        </div>
                       </Link>
                     );
                 })}
@@ -328,19 +287,14 @@ export default function Home() {
 
           {/* Recent Projects Section */}
           <section className="space-y-6">
-            <div className="flex items-center justify-between border-b border-border/20 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-foreground/40">
-                  <Target size={20} weight="Bold" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Active Projects</h2>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider opacity-40 mt-0.5">Project overview</p>
-                </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Briefcase size={16} className="text-muted-foreground" />
+                <h2 className="text-sm font-semibold text-foreground">Active Projects</h2>
               </div>
               <Link href="/projects">
-                <Button variant="ghost" className="rounded-xl h-10 px-4 font-bold tracking-tight opacity-50 hover:opacity-100 transition-all border border-border/40 text-xs">
-                  Full Board <ArrowRightAlt size={16} weight="Bold" className="ml-2" />
+                <Button variant="ghost" className="rounded-lg h-8 px-3 text-xs font-medium text-muted-foreground hover:text-foreground">
+                  View all <ArrowRight size={13} className="ml-1" />
                 </Button>
               </Link>
             </div>
@@ -348,103 +302,91 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {isLoading ? (
                 Array(2).fill(0).map((_, i) => (
-                  <Surface key={i} className="h-48 rounded-[2rem] border border-border/40 flex items-center justify-center bg-surface">
+                  <div key={i} className="h-44 rounded-xl border border-border flex items-center justify-center bg-surface">
                     <Spinner color="accent" />
-                  </Surface>
+                  </div>
                 ))
               ) : recentProjects.length > 0 ? (
                 recentProjects.map((project) => (
-                  <Surface key={project.id} className="p-8 rounded-[2rem] border border-border/40 bg-surface/50 backdrop-blur-md hover:border-accent/40 transition-all duration-500 group relative overflow-hidden hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5">
-                    <div className="relative z-10 flex flex-col h-full justify-between gap-6">
-                      <div className="space-y-4">
+                  <div key={project.id} className="p-5 rounded-xl border border-border bg-surface hover:border-accent/40 transition-colors group">
+                    <div className="flex flex-col h-full justify-between gap-4">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-accent" />
-                            <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="h-6 px-2.5 rounded-lg opacity-80 border border-current/10">
-                                <Chip.Label className="font-bold text-[10px] uppercase tracking-wider">
-                                    {project.status}
-                                </Chip.Label>
-                            </Chip>
-                          </div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30">
+                          <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="h-5 px-2 rounded-md">
+                              <Chip.Label className="font-medium text-[11px]">
+                                  {project.status}
+                              </Chip.Label>
+                          </Chip>
+                          <span className="text-xs text-muted-foreground">
                              {new Date(project.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <h3 className="text-2xl font-bold tracking-tight group-hover:text-accent transition-colors">{project.name}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed font-medium opacity-80">{project.description}</p>
+                        <h3 className="text-base font-semibold text-foreground group-hover:text-accent transition-colors">{project.name}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
                       </div>
                       <Link href={`/projects/${project.id}`}>
-                        <Button variant="secondary" className="w-full rounded-[1.25rem] font-bold h-14 group-hover:bg-foreground group-hover:text-background transition-all border border-border/40 shadow-sm uppercase text-[11px] tracking-wider">
-                          Project Details <ArrowRightAlt size={20} weight="Bold" className="ml-2" />
+                        <Button variant="secondary" className="w-full rounded-lg text-sm font-medium h-9">
+                          View project <ArrowRight size={14} className="ml-1.5" />
                         </Button>
                       </Link>
                     </div>
-                    {/* Abstract background highlight */}
-                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Surface>
+                  </div>
                 ))
               ) : (
-                <Surface className="col-span-2 p-12 rounded-[2rem] border border-dashed border-border flex flex-col items-center text-center space-y-4">
-                  <div className="p-4 rounded-2xl bg-surface-secondary text-muted-foreground">
-                    <Target size={32} weight="Linear" />
-                  </div>
-                  <p className="text-muted-foreground font-medium">No active projects found. Start one to see it here.</p>
+                <div className="col-span-2 p-10 rounded-xl border border-dashed border-border flex flex-col items-center text-center space-y-3">
+                  <Briefcase size={28} className="text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">No active projects. Start one to see it here.</p>
                   <Link href="/projects">
-                    <Button variant="primary" className="rounded-xl font-bold">New Project</Button>
+                    <Button variant="primary" className="rounded-lg text-sm h-9">New Project</Button>
                   </Link>
-                </Surface>
+                </div>
               )}
             </div>
           </section>
 
-          {/* New Quick Glance Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Recent Snippets */}
-            <section className="space-y-4">
+            <section className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold uppercase tracking-wider opacity-40">Recent Snippets</h2>
-                    <Link href="/snippets" className="text-[10px] font-bold text-accent">View all</Link>
+                    <h2 className="text-sm font-semibold text-foreground">Recent Snippets</h2>
+                    <Link href="/snippets" className="text-xs font-medium text-accent hover:underline underline-offset-4">View all</Link>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     {recentSnippets.length > 0 ? recentSnippets.map(snippet => (
                         <Link key={snippet.id} href="/snippets">
-                            <Surface className="p-3 rounded-xl border border-border/40 hover:border-accent/40 bg-surface/50 transition-all flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center">
-                                        <Code size={14} className="text-muted-foreground" />
-                                    </div>
-                                    <span className="text-xs font-semibold truncate max-w-[150px]">{snippet.title}</span>
+                            <div className="p-3 rounded-lg border border-border bg-surface hover:border-accent/30 transition-colors flex items-center justify-between group">
+                                <div className="flex items-center gap-2.5">
+                                    <Code size={14} className="text-muted-foreground shrink-0" />
+                                    <span className="text-sm font-medium truncate max-w-[150px]">{snippet.title}</span>
                                 </div>
-                                <ArrowRightAlt size={14} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-                            </Surface>
+                                <ArrowRight size={13} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
                         </Link>
                     )) : (
-                        <p className="text-[10px] text-muted-foreground italic">No snippets available.</p>
+                        <p className="text-sm text-muted-foreground">No snippets yet.</p>
                     )}
                 </div>
             </section>
 
             {/* Active Tasks */}
-            <section className="space-y-4">
+            <section className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold uppercase tracking-wider opacity-40">Top Tasks</h2>
-                    <Link href="/projects" className="text-[10px] font-bold text-accent">Go to board</Link>
+                    <h2 className="text-sm font-semibold text-foreground">Recent Tasks</h2>
+                    <Link href="/projects" className="text-xs font-medium text-accent hover:underline underline-offset-4">View board</Link>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     {recentTasks.length > 0 ? recentTasks.map(task => (
                         <Link key={task.id} href={`/projects/${task.projectId}`}>
-                            <Surface className="p-3 rounded-xl border border-border/40 hover:border-accent/40 bg-surface/50 transition-all flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center">
-                                        <div className="w-2 h-2 rounded-full bg-accent/40" />
-                                    </div>
-                                    <span className="text-xs font-semibold truncate max-w-[150px]">{task.title}</span>
+                            <div className="p-3 rounded-lg border border-border bg-surface hover:border-accent/30 transition-colors flex items-center justify-between group">
+                                <div className="flex items-center gap-2.5">
+                                    <CheckSquare size={14} className="text-muted-foreground shrink-0" />
+                                    <span className="text-sm font-medium truncate max-w-[150px]">{task.title}</span>
                                 </div>
-                                <ArrowRightAlt size={14} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-                            </Surface>
+                                <ArrowRight size={13} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
                         </Link>
                     )) : (
-                        <p className="text-[10px] text-muted-foreground italic">All caught up!</p>
+                        <p className="text-sm text-muted-foreground">All caught up!</p>
                     )}
                 </div>
             </section>

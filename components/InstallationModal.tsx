@@ -2,7 +2,7 @@
 
 import { InstallationTarget } from '@/types';
 import { Button, Form, Input, Label, Modal, Tabs, TextArea, TextField } from "@heroui/react";
-import { Cpu } from '@solar-icons/react';
+import { Server } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Markdown } from './Markdown';
 
@@ -59,28 +59,28 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
             <Modal.Backdrop 
                 isOpen={isOpen} 
                 onOpenChange={(next) => !next && onClose()}
-                className="bg-black/40 backdrop-blur-xl"
+                className="bg-black/50"
                 variant="blur"
             >
                 <Modal.Container size="lg" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] p-0 overflow-hidden flex flex-col">
-                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                    <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
-                                <Cpu size={20} weight="Bold" />
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
+                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                                <Server size={14} />
                             </div>
-                            <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">
-                                    {installation ? 'Sync Target' : 'Init Target'}
+                            <div>
+                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
+                                    {installation ? 'Edit Target' : 'New Target'}
                                 </Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Environment Instance Configuration</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Installation target configuration</p>
                             </div>
                         </Modal.Header>
 
                         <Form onSubmit={handleSubmit} className="flex flex-col min-h-0 overflow-hidden flex-1">
-                            <Modal.Body className="px-8 pt-4 pb-8 space-y-4 overflow-y-auto">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Modal.Body className="px-6 py-4 space-y-4 overflow-y-auto">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <TextField
                                         name="target"
                                         value={target}
@@ -88,10 +88,10 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         isRequired
                                         className="w-full"
                                     >
-                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Target Frequency</Label>
+                                        <Label className="text-sm font-medium text-muted-foreground">Target Name</Label>
                                         <Input 
                                             placeholder="e.g. Azure, Linux" 
-                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
+                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
 
@@ -102,10 +102,10 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         onChange={setGitRepo}
                                         className="w-full"
                                     >
-                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Source Registry</Label>
+                                        <Label className="text-sm font-medium text-muted-foreground">Git Repository</Label>
                                         <Input 
                                             placeholder="https://..." 
-                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
+                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
 
@@ -116,10 +116,10 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         onChange={setDocumentation}
                                         className="md:col-span-2 w-full"
                                     >
-                                        <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">External Documentation</Label>
+                                        <Label className="text-sm font-medium text-muted-foreground">Documentation URL</Label>
                                         <Input 
                                             placeholder="https://docs..." 
-                                            className="h-11 rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-bold tracking-tight transition-all mt-2 px-4" 
+                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
                                 </div>
@@ -130,26 +130,26 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                     onChange={setTasksText}
                                     className="w-full"
                                 >
-                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Deployment Checklist</Label>
+                                    <Label className="text-sm font-medium text-muted-foreground">Tasks (one per line)</Label>
                                     <TextArea 
                                         placeholder="Add step-by-step instructions..." 
-                                        className="rounded-xl bg-surface-secondary/50 border-border/40 hover:border-accent/40 focus:border-accent text-sm font-medium transition-all mt-2 min-h-[100px] p-4" 
+                                        className="rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[80px] p-3" 
                                     />
                                 </TextField>
 
-                                <div className="flex flex-col gap-4">
-                                    <Label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-2 opacity-60 uppercase">Deployment Manual (Markdown)</Label>
-                                    <div className="border border-border/20 rounded-2xl overflow-hidden bg-surface-secondary/20 shadow-inner">
+                                <div className="flex flex-col gap-2">
+                                    <Label className="text-sm font-medium text-muted-foreground">Notes (Markdown)</Label>
+                                    <div className="border border-border rounded-lg overflow-hidden bg-surface-secondary/20">
                                         <Tabs 
                                             selectedKey={activeTab} 
                                             onSelectionChange={(key) => setActiveTab(key as string)}
                                             variant="secondary"
                                             className="w-full"
                                         >
-                                            <Tabs.ListContainer className="p-2 border-b border-border/10">
-                                                <Tabs.List className="gap-2">
-                                                <Tabs.Tab id="edit" className="rounded-lg px-4 h-8 text-[10px] font-bold tracking-wider data-[selected=true]:bg-foreground data-[selected=true]:text-background">Write Manual</Tabs.Tab>
-                                                <Tabs.Tab id="preview" className="rounded-lg px-4 h-8 text-[10px] font-bold tracking-wider data-[selected=true]:bg-foreground data-[selected=true]:text-background">Analyze Preview</Tabs.Tab>
+                                            <Tabs.ListContainer className="px-2 pt-1.5 border-b border-border">
+                                                <Tabs.List className="gap-1">
+                                                <Tabs.Tab id="edit" className="rounded-md px-3 h-7 text-xs font-medium data-[selected=true]:bg-foreground data-[selected=true]:text-background">Editor</Tabs.Tab>
+                                                <Tabs.Tab id="preview" className="rounded-md px-3 h-7 text-xs font-medium data-[selected=true]:bg-foreground data-[selected=true]:text-background">Preview</Tabs.Tab>
                                                 </Tabs.List>
                                             </Tabs.ListContainer>
 
@@ -157,24 +157,24 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                                 <TextArea 
                                                     value={notes} 
                                                     onChange={(e) => setNotes(e.target.value)} 
-                                                    placeholder="Synthesize the deployment guide..." 
-                                                    className="min-h-[150px] bg-transparent border-none focus:ring-0 text-sm font-medium leading-relaxed placeholder:text-muted-foreground/20"
+                                                    placeholder="Deployment guide..." 
+                                                    className="min-h-[150px] bg-transparent border-none focus:ring-0 text-sm font-medium leading-relaxed"
                                                     fullWidth
                                                 />
                                             </Tabs.Panel>
-                                            <Tabs.Panel id="preview" className="p-6">
+                                            <Tabs.Panel id="preview" className="p-4">
                                                 <div className="min-h-[150px] overflow-auto max-h-[300px]">
-                                                    {notes ? <Markdown content={notes} /> : <p className="text-muted-foreground/30 font-bold text-center py-10 uppercase tracking-wider text-xs">Awaiting manual input...</p>}
+                                                    {notes ? <Markdown content={notes} /> : <p className="text-muted-foreground/40 text-center py-10 text-xs">No content to preview...</p>}
                                                 </div>
                                             </Tabs.Panel>
                                         </Tabs>
                                     </div>
                                 </div>
                             </Modal.Body>
-                            <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
+                            <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                                 <Button 
                                     variant="ghost" 
-                                    className="rounded-xl h-9 px-6 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity text-sm" 
+                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
                                     onPress={onClose} 
                                     isDisabled={isLoading}
                                 >
@@ -183,10 +183,10 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-xl h-9 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-accent/20" 
+                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
                                     isPending={isLoading}
                                 >
-                                    {installation ? 'Commit Target' : 'Execute Init'}
+                                    {installation ? 'Save Changes' : 'Create Target'}
                                 </Button>
                             </Modal.Footer>
                         </Form>

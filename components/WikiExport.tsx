@@ -1,13 +1,10 @@
 'use client';
 
 import { Button, Dropdown, Label } from '@heroui/react';
-import {
-    DownloadMinimalistic as Download,
-    FileText
-} from '@solar-icons/react';
 import { saveAs } from 'file-saver';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { Download, FileText } from 'lucide-react';
 
 interface WikiExportProps {
     title: string;
@@ -41,25 +38,25 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
     return (
         <Dropdown>
             <Dropdown.Trigger>
-                <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 opacity-50 hover:opacity-100 transition-all uppercase text-xs tracking-wider shadow-sm shrink-0">
-                    <Download size={16} weight="Bold" className="mr-2" />
-                    Export Document
+                <Button variant="secondary" className="rounded-lg h-8 px-4 border border-border text-xs shrink-0">
+                    <Download size={14} className="mr-2" />
+                    Export
                 </Button>
             </Dropdown.Trigger>
-            <Dropdown.Popover placement="bottom end" className="min-w-[220px] bg-surface border border-border/40 rounded-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-200 z-50">
+                <Dropdown.Popover placement="bottom end" className="min-w-[200px] bg-surface border border-border rounded-lg p-1 shadow-lg z-50">
                 <Dropdown.Menu className="outline-none">
                     <Dropdown.Section>
-                        <Label className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Output Formats</Label>
-                        <Dropdown.Item onPress={exportAsMarkdown} className="rounded-xl hover:bg-foreground/5 transition-all outline-none">
-                            <div className="flex items-center gap-3 p-1 font-bold tracking-tight text-sm">
-                                <FileText size={18} weight="Bold" className="text-accent" />
-                                MARKDOWN (.md)
+                        <Label className="px-3 py-1.5 text-xs font-medium text-muted-foreground">Export as</Label>
+                        <Dropdown.Item onPress={exportAsMarkdown} className="rounded-md hover:bg-foreground/5 transition-all outline-none">
+                            <div className="flex items-center gap-2 p-1 text-sm">
+                                <FileText size={14} className="text-accent" />
+                                Markdown (.md)
                             </div>
                         </Dropdown.Item>
-                        <Dropdown.Item onPress={exportAsPDF} className="rounded-xl hover:bg-foreground/5 transition-all outline-none">
-                            <div className="flex items-center gap-3 p-1 font-bold tracking-tight text-sm">
-                                <FileText size={18} weight="Bold" className="text-danger" />
-                                PDF DOCUMENT (.pdf)
+                        <Dropdown.Item onPress={exportAsPDF} className="rounded-md hover:bg-foreground/5 transition-all outline-none">
+                            <div className="flex items-center gap-2 p-1 text-sm">
+                                <FileText size={14} className="text-danger" />
+                                PDF (.pdf)
                             </div>
                         </Dropdown.Item>
                     </Dropdown.Section>

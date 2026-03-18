@@ -2,8 +2,8 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@heroui/react';
-import { LockPassword as Lock, ShieldKeyhole as Vault } from '@solar-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { KeyRound, Lock } from 'lucide-react';
 import { useState } from 'react';
 
 export const VaultBanner = () => {
@@ -32,16 +32,16 @@ export const VaultBanner = () => {
             <motion.div 
                 initial={{ y: -50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="w-full bg-orange-500/10 border-b border-orange-500/20 backdrop-blur-md z-[100]"
+                className="w-full bg-warning-muted border-b border-warning/20 z-[100]"
             >
                 <div className="max-w-[1400px] mx-auto px-6 h-12 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Vault size={18} className="text-orange-500 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-orange-500">
+                    <div className="flex items-center gap-2.5">
+                        <Lock size={14} className="text-warning" />
+                        <span className="text-xs font-medium text-warning">
                             Vault Locked
                         </span>
-                        <span className="hidden md:inline text-[10px] text-orange-500/60 font-bold uppercase tracking-wider ml-2">
-                            Synchronize vault to access protected archives.
+                        <span className="hidden md:inline text-xs text-muted-foreground">
+                            Unlock your vault to access protected content.
                         </span>
                     </div>
 
@@ -49,7 +49,7 @@ export const VaultBanner = () => {
                         <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 rounded-lg text-orange-500 border-orange-500/20 hover:bg-orange-500/10 font-bold uppercase tracking-wider text-[9px]"
+                            className="h-7 rounded-md text-xs text-warning border border-warning/20 hover:bg-warning/10"
                             onPress={() => setIsExpanded(true)}
                         >
                             Unlock Vault
@@ -57,12 +57,12 @@ export const VaultBanner = () => {
                     ) : (
                         <form onSubmit={handleUnlock} className="flex items-center gap-2">
                             <div className="relative">
-                                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500/40" />
+                                <KeyRound size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <input 
                                     type="password"
                                     autoFocus
-                                    placeholder="Enter vault password..."
-                                    className="h-8 bg-surface border border-orange-500/20 rounded-lg pl-8 pr-3 text-[10px] font-bold outline-none focus:border-orange-500/40 w-48 transition-all"
+                                    placeholder="Vault password..."
+                                    className="h-7 bg-background border border-border rounded-md pl-7 pr-3 text-xs outline-none focus:border-warning/60 w-44 transition-colors"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
@@ -71,7 +71,7 @@ export const VaultBanner = () => {
                                 type="submit"
                                 variant="primary" 
                                 size="sm" 
-                                className="h-8 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold uppercase tracking-wider text-[9px] px-4"
+                                className="h-7 rounded-md text-xs px-3"
                                 isPending={isUnlocking}
                             >
                                 Unlock
@@ -79,7 +79,7 @@ export const VaultBanner = () => {
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-8 w-8 min-w-0 p-0 rounded-lg text-orange-500/40 hover:text-orange-500"
+                                className="h-7 w-7 min-w-0 p-0 rounded-md text-muted-foreground hover:text-foreground"
                                 onPress={() => setIsExpanded(false)}
                             >
                                 ✕

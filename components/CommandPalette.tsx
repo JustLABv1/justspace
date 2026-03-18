@@ -5,15 +5,8 @@ import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project, Snippet, WikiGuide } from '@/types';
 import { Modal, Spinner } from '@heroui/react';
-import {
-    AltArrowRight as ArrowRight,
-    Book,
-    CodeCircle as Code2,
-    Folder2 as Folder,
-    Checklist as ListTodo,
-    Magnifer as Search
-} from '@solar-icons/react';
 import { Command } from 'cmdk';
+import { ArrowRight, BookOpen, Code2, FolderOpen, ListTodo, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -142,157 +135,151 @@ export function CommandPalette() {
             <Modal.Backdrop 
                 isOpen={open} 
                 onOpenChange={setOpen}
-                className="bg-black/40 backdrop-blur-xl"
+                className="bg-black/50"
                 variant="blur"
             >
                 <Modal.Container>
-                    <Modal.Dialog className="max-w-2xl w-full p-0 overflow-hidden bg-surface border border-border/50 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.7)] rounded-[3rem]">
-                        <Command className="flex flex-col overflow-hidden bg-surface min-h-[520px]">
-                            <div className="flex items-center border-b border-border/40 px-8 py-7" cmdk-input-wrapper="">
-                                <Search size={26} weight="Linear" className="mr-5 text-muted-foreground/60" />
+                    <Modal.Dialog className="max-w-xl w-full p-0 overflow-hidden bg-surface border border-border shadow-lg rounded-xl">
+                        <Command className="flex flex-col overflow-hidden bg-surface min-h-[420px]">
+                            <div className="flex items-center border-b border-border px-4 py-3" cmdk-input-wrapper="">
+                                <Search size={15} className="mr-3 text-muted-foreground/60 shrink-0" />
                                 <Command.Input
                                     autoFocus
                                     placeholder="Search snippets, projects & documents..."
-                                    className="flex h-12 w-full rounded-md bg-transparent text-2xl outline-none placeholder:text-muted-foreground/30 disabled:cursor-not-allowed disabled:opacity-50 font-bold tracking-tight"
+                                    className="flex h-8 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed disabled:opacity-50"
                                 />
                             </div>
-                            <Command.List className="max-h-[600px] overflow-y-auto overflow-x-hidden p-6 space-y-3 no-scrollbar content-visibility-auto">
+                            <Command.List className="max-h-[420px] overflow-y-auto overflow-x-hidden p-2 no-scrollbar content-visibility-auto">
                                 {loading && (
-                                    <div className="flex flex-col items-center justify-center py-20 text-sm text-muted-foreground gap-4">
-                                        <Spinner size="lg" color="accent" />
-                                        <p className="font-bold uppercase tracking-wider text-[10px] opacity-40">Searching...</p>
+                                    <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground gap-3">
+                                        <Spinner size="sm" color="accent" />
+                                        <p className="text-xs text-muted-foreground">Searching...</p>
                                     </div>
                                 )}
-                                <Command.Empty className="py-24 text-center flex flex-col items-center gap-6">
-                                    <div className="w-20 h-20 rounded-[2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground/20 border border-border/40 scale-110">
-                                        <Search size={40} weight="Linear" />
+                                <Command.Empty className="py-16 text-center flex flex-col items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground/40 border border-border">
+                                        <Search size={18} />
                                     </div>
-                                    <p className="text-muted-foreground font-bold tracking-tight text-lg">No results found.</p>
+                                    <p className="text-sm text-muted-foreground">No results found.</p>
                                 </Command.Empty>
 
-                                <Command.Group heading="QUICK NAV" className="px-3 pb-3 text-[10px] font-bold tracking-wider text-muted-foreground/20 mb-2 uppercase">
+                                <Command.Group heading="Navigation" className="px-1 pb-1 text-xs font-medium text-muted-foreground mb-1">
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push('/projects'))}
-                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
+                                        className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                     >
-                                        <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
-                                            <ListTodo size={24} weight="Linear" />
+                                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                            <ListTodo size={14} />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="flex-1 font-bold">Consultant Kanban</span>
-                                            <span className="text-[10px] opacity-40 font-bold tracking-wider text-white group-aria-selected:opacity-60 group-aria-selected:text-white uppercase">Management HUB</span>
+                                            <span className="text-sm font-medium">Projects</span>
+                                            <span className="text-xs text-muted-foreground group-aria-selected:text-white/70">Kanban board</span>
                                         </div>
-                                        <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-bold tracking-wider opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
+                                        <kbd className="ml-auto flex h-5 select-none items-center gap-1 rounded border border-border bg-surface-secondary px-1.5 font-mono text-xs group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
                                             ⌘P
                                         </kbd>
                                     </Command.Item>
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push('/wiki'))}
-                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
+                                        className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                     >
-                                        <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
-                                            <Book size={24} weight="Linear" />
+                                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                            <BookOpen size={14} />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="flex-1 font-bold">Wiki Engine</span>
-                                            <span className="text-[10px] opacity-40 font-bold tracking-wider text-white group-aria-selected:opacity-60 group-aria-selected:text-white uppercase">Knowledge Base</span>
+                                            <span className="text-sm font-medium">Wiki</span>
+                                            <span className="text-xs text-muted-foreground group-aria-selected:text-white/70">Knowledge base</span>
                                         </div>
-                                        <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-bold tracking-wider opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
+                                        <kbd className="ml-auto flex h-5 select-none items-center gap-1 rounded border border-border bg-surface-secondary px-1.5 font-mono text-xs group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
                                             ⌘W
                                         </kbd>
                                     </Command.Item>
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push('/snippets'))}
-                                        className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-success aria-selected:text-white transition-all gap-5 group"
+                                        className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                     >
-                                        <div className="w-12 h-12 rounded-2xl bg-success/5 text-success flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all scale-100 group-hover:scale-105">
-                                            <Code2 size={24} weight="Linear" />
+                                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                            <Code2 size={14} />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="flex-1">Snippet Library</span>
-                                            <span className="text-[10px] opacity-40 font-bold tracking-wider uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Code Snippets</span>
+                                            <span className="text-sm font-medium">Snippets</span>
+                                            <span className="text-xs text-muted-foreground group-aria-selected:text-white/70">Code library</span>
                                         </div>
-                                        <kbd className="ml-auto flex h-7 select-none items-center gap-1 rounded-xl border border-border/40 bg-surface-secondary px-3 font-mono text-[10px] font-bold tracking-wider opacity-100 group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
+                                        <kbd className="ml-auto flex h-5 select-none items-center gap-1 rounded border border-border bg-surface-secondary px-1.5 font-mono text-xs group-aria-selected:border-white/20 group-aria-selected:bg-white/10">
                                             ⌘S
                                         </kbd>
                                     </Command.Item>
                                 </Command.Group>
                                 
                                 {projects.length > 0 && (
-                                    <Command.Group heading="Workspace Projects" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/20 mt-8 mb-2">
+                                    <Command.Group heading="Projects" className="px-1 pb-1 text-xs font-medium text-muted-foreground mt-3 mb-1">
                                         {projects.map((project) => (
                                             <Command.Item
                                                 key={project.id}
                                                 onSelect={() => runCommand(() => router.push(`/projects/${project.id}`))}
-                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
+                                                className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                             >
-                                                <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
-                                                    <Folder size={24} weight="Linear" />
+                                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                                    <FolderOpen size={14} />
                                                 </div>
-                                                <div className="flex flex-col flex-1 truncate">
-                                                    <span className="truncate font-bold">{project.name}</span>
-                                                    <span className="text-[10px] opacity-40 font-bold tracking-wider uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Project Instance</span>
-                                                </div>
-                                                <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
+                                                <span className="truncate text-sm font-medium flex-1">{project.name}</span>
+                                                <ArrowRight size={14} className="opacity-0 group-aria-selected:opacity-100 transition-all" />
                                             </Command.Item>
                                         ))}
                                     </Command.Group>
                                 )}
 
                                 {guides.length > 0 && (
-                                    <Command.Group heading="Knowledge Base" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/20 mt-8 mb-2">
+                                    <Command.Group heading="Wiki" className="px-1 pb-1 text-xs font-medium text-muted-foreground mt-3 mb-1">
                                         {guides.map((guide) => (
                                             <Command.Item
                                                 key={guide.id}
                                                 onSelect={() => runCommand(() => router.push(`/wiki/${guide.id}`))}
-                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-all gap-5 group"
+                                                className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                             >
-                                                <div className="w-12 h-12 rounded-2xl bg-accent/5 text-accent flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
-                                                    <Book size={24} weight="Linear" />
+                                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                                    <BookOpen size={14} />
                                                 </div>
-                                                <div className="flex flex-col flex-1 truncate">
-                                                    <span className="truncate font-bold">{guide.title}</span>
-                                                    <span className="text-[10px] opacity-40 font-bold tracking-wider uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">Wiki Guide</span>
-                                                </div>
-                                                <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
+                                                <span className="truncate text-sm font-medium flex-1">{guide.title}</span>
+                                                <ArrowRight size={14} className="opacity-0 group-aria-selected:opacity-100 transition-all" />
                                             </Command.Item>
                                         ))}
                                     </Command.Group>
                                 )}
 
                                 {snippets.length > 0 && (
-                                    <Command.Group heading="Code Snippets" className="px-3 pb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/20 mt-8 mb-2">
+                                    <Command.Group heading="Snippets" className="px-1 pb-1 text-xs font-medium text-muted-foreground mt-3 mb-1">
                                         {snippets.map((snippet) => (
                                             <Command.Item
                                                 key={snippet.id}
                                                 onSelect={() => runCommand(() => router.push(`/snippets`))}
-                                                className="flex cursor-pointer select-none items-center rounded-3xl px-6 py-5 text-base font-bold tracking-tight text-foreground outline-none aria-selected:bg-success aria-selected:text-white transition-all gap-5 group"
+                                                className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                             >
-                                                <div className="w-12 h-12 rounded-2xl bg-success/5 text-success flex items-center justify-center group-aria-selected:bg-white/20 group-aria-selected:text-white transition-all">
-                                                    <Code2 size={24} weight="Linear" />
+                                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                                    <Code2 size={14} />
                                                 </div>
                                                 <div className="flex flex-col flex-1 truncate">
-                                                    <span className="truncate font-bold">{snippet.title}</span>
-                                                    <span className="text-[10px] opacity-40 font-bold tracking-wider uppercase group-aria-selected:opacity-60 group-aria-selected:text-white">{snippet.language} Snippet</span>
+                                                    <span className="truncate text-sm font-medium">{snippet.title}</span>
+                                                    <span className="text-xs text-muted-foreground group-aria-selected:text-white/70">{snippet.language}</span>
                                                 </div>
-                                                <ArrowRight size={20} weight="Bold" className="opacity-0 group-aria-selected:opacity-100 transition-all translate-x-[-10px] group-aria-selected:translate-x-0" />
+                                                <ArrowRight size={14} className="opacity-0 group-aria-selected:opacity-100 transition-all" />
                                             </Command.Item>
                                         ))}
                                     </Command.Group>
                                 )}
                             </Command.List>
-                            <div className="border-t border-border/40 p-5 flex items-center justify-center gap-6">
-                                <div className="flex items-center gap-2">
-                                    <kbd className="h-5 rounded border border-border/40 bg-surface-secondary px-1.5 font-mono text-[9px] font-bold">ESC</kbd>
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Close Palette</span>
+                            <div className="border-t border-border px-4 py-2.5 flex items-center gap-4">
+                                <div className="flex items-center gap-1.5">
+                                    <kbd className="h-5 rounded border border-border bg-surface-secondary px-1.5 font-mono text-[10px]">ESC</kbd>
+                                    <span className="text-xs text-muted-foreground">Close</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <kbd className="h-5 rounded border border-border/40 bg-surface-secondary px-1.5 font-mono text-[9px] font-bold">↑↓</kbd>
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Navigate</span>
+                                <div className="flex items-center gap-1.5">
+                                    <kbd className="h-5 rounded border border-border bg-surface-secondary px-1.5 font-mono text-[10px]">↑↓</kbd>
+                                    <span className="text-xs text-muted-foreground">Navigate</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <kbd className="h-5 rounded border border-border/40 bg-surface-secondary px-1.5 font-mono text-[9px] font-bold">ENTER</kbd>
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Execute</span>
+                                <div className="flex items-center gap-1.5">
+                                    <kbd className="h-5 rounded border border-border bg-surface-secondary px-1.5 font-mono text-[10px]">↵</kbd>
+                                    <span className="text-xs text-muted-foreground">Select</span>
                                 </div>
                             </div>
                         </Command>

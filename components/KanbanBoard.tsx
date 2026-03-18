@@ -5,9 +5,9 @@ import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
-import { Button, Chip, ScrollShadow, Surface, toast } from "@heroui/react";
-import { Calendar, MenuDots as GripVertical, History as HistoryIcon, ChatRoundDots as MessageCircle, AddSquare as Plus, ShieldKeyhole as Shield } from "@solar-icons/react";
+import { Button, Chip, ScrollShadow, toast } from "@heroui/react";
 import dayjs from 'dayjs';
+import { Calendar, Clock, GripVertical, Lock, MessageCircle, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
@@ -125,9 +125,8 @@ export function KanbanBoard({
     };
 
     if (isLoading) return (
-        <div className="h-64 flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 rounded-full border-4 border-accent/20 border-t-accent animate-spin" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-accent/40">Syncing board frequency...</p>
+        <div className="h-64 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full border-2 border-accent/30 border-t-accent animate-spin" />
         </div>
     );
 
@@ -139,22 +138,22 @@ export function KanbanBoard({
                 {COLUMNS.map(column => {
                     const columnTasks = mainTasks.filter(t => (t.kanbanStatus || 'todo') === column.id);
                     return (
-                        <div key={column.id} className="flex flex-col gap-6 w-[300px] shrink-0">
-                            <Surface className="flex items-center justify-between px-6 py-5 bg-surface-secondary/30 border border-border/40 rounded-[2rem] shadow-sm backdrop-blur-md">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full shadow-sm animate-pulse ${
+                        <div key={column.id} className="flex flex-col gap-3 w-[280px] shrink-0">
+                            <div className="flex items-center justify-between px-3 py-2 bg-surface-secondary rounded-lg border border-border">
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
                                         column.color === 'default' ? 'bg-muted-foreground/40' : 
                                         column.color === 'accent' ? 'bg-accent' : 
                                         column.color === 'success' ? 'bg-success' : 
                                         column.color === 'warning' ? 'bg-warning' : 'bg-accent/60'
                                     }`} />
-                                    <h3 className="font-bold tracking-tight text-sm text-foreground whitespace-nowrap">{column.label}</h3>
+                                    <h3 className="text-sm font-medium text-foreground">{column.label}</h3>
                                 </div>
-                                <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider ml-2">{columnTasks.length}</span>
-                            </Surface>
+                                <span className="text-xs text-muted-foreground">{columnTasks.length}</span>
+                            </div>
 
                             <div 
-                                className="flex-1 space-y-4 p-4 rounded-[2.5rem] bg-foreground/[0.02] border border-dashed border-border/20 min-h-[500px] transition-colors hover:bg-foreground/[0.03]"
+                                className="flex-1 space-y-2 p-2 rounded-xl bg-surface-secondary/20 border border-dashed border-border min-h-[500px] transition-colors hover:bg-surface-secondary/40"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
                                     const taskId = e.dataTransfer.getData('taskId');
@@ -166,7 +165,7 @@ export function KanbanBoard({
                                     const completedSubtasks = subtasks.filter(st => st.completed).length;
 
                                     return (
-                                        <Surface 
+                                        <div 
                                             key={task.id} 
                                             draggable
                                             onDragStart={(e) => {
@@ -176,98 +175,80 @@ export function KanbanBoard({
                                                 setSelectedTask(task);
                                                 setIsDetailModalOpen(true);
                                             }}
-                                            className="p-6 rounded-[2rem] border border-border/40 bg-surface shadow-sm cursor-grab active:cursor-grabbing hover:border-accent/40 hover:shadow-xl hover:shadow-accent/5 transition-all group relative overflow-hidden active:scale-[0.98]"
+                                            className="p-3 rounded-lg border border-border bg-surface cursor-grab active:cursor-grabbing hover:border-accent/40 transition-all group"
                                         >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1 space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        {task.isEncrypted && <Shield size={12} className="text-accent/60" />}
-                                                        <p className="text-sm font-bold text-foreground leading-tight tracking-tight">{task.title}</p>
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 space-y-1.5">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {task.isEncrypted && <Lock size={10} className="text-muted-foreground shrink-0" />}
+                                                        <p className="text-sm font-medium text-foreground leading-tight">{task.title}</p>
                                                     </div>
                                                     {subtasks.length > 0 && (
                                                         <div className="flex items-center gap-2">
-                                                            <div className="flex-1 h-1 bg-foreground/5 rounded-full overflow-hidden">
+                                                            <div className="flex-1 h-1 bg-surface-secondary rounded-full overflow-hidden">
                                                                 <div 
-                                                                    className="h-full bg-accent/40 rounded-full transition-all duration-500"
+                                                                    className="h-full bg-accent/50 rounded-full transition-all"
                                                                     style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-[9px] font-bold text-muted-foreground/40 tracking-wider">{completedSubtasks}/{subtasks.length}</span>
+                                                            <span className="text-xs text-muted-foreground">{completedSubtasks}/{subtasks.length}</span>
                                                         </div>
                                                     )}
                                                 </div>
-                                                <GripVertical size={16} weight="Bold" className="text-muted-foreground/20 group-hover:text-accent transition-colors shrink-0 mt-0.5" />
+                                                <GripVertical size={14} className="text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0 mt-0.5" />
                                             </div>
                                             
-                                            <div className="mt-4 pt-4 border-t border-border/10 flex items-center justify-between">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    {task.deadline && (
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="soft"
-                                                            color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
-                                                            className="h-5 px-2 border border-border/10"
-                                                        >
-                                                            <Calendar size={10} weight="Bold" className="mr-1" />
-                                                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider px-0">
-                                                                {dayjs(task.deadline).format('MMM D, HH:mm')}
-                                                            </Chip.Label>
-                                                        </Chip>
-                                                    )}
-                                                    {task.priority && (
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="soft"
-                                                            color={
-                                                                task.priority === 'urgent' ? 'danger' :
-                                                                task.priority === 'high' ? 'warning' :
-                                                                task.priority === 'medium' ? 'accent' :
-                                                                'default'
-                                                            }
-                                                            className="h-5 min-w-0 px-2 border border-border/10"
-                                                        >
-                                                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider px-0">
-                                                                {task.priority}
-                                                            </Chip.Label>
-                                                        </Chip>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    {task.notes && task.notes.length > 0 && (
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="soft"
-                                                            color="warning"
-                                                            className="h-5 min-w-0 px-2 border border-warning/10"
-                                                        >
-                                                            <MessageCircle size={10} weight="Bold" className="text-warning" />
-                                                            <Chip.Label className="text-[9px] font-bold px-0">
-                                                                {task.notes.length}
-                                                            </Chip.Label>
-                                                        </Chip>
-                                                    )}
-                                                    {task.timeSpent !== undefined && task.timeSpent > 0 && (
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="soft"
-                                                            color="accent"
-                                                            className="h-5 min-w-0 px-2 border border-accent/10"
-                                                        >
-                                                            <HistoryIcon size={10} weight="Bold" className="text-accent" />
-                                                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider px-0">
-                                                                {Math.floor(task.timeSpent / 3600)}H {Math.floor((task.timeSpent % 3600) / 60)}M
-                                                            </Chip.Label>
-                                                        </Chip>
-                                                    )}
-                                                </div>
+                                            <div className="mt-2.5 pt-2.5 border-t border-border flex items-center gap-1.5 flex-wrap">
+                                                {task.deadline && (
+                                                    <Chip
+                                                        size="sm"
+                                                        variant="soft"
+                                                        color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
+                                                        className="h-5 px-1.5"
+                                                    >
+                                                        <Calendar size={9} className="mr-0.5" />
+                                                        <Chip.Label className="text-[10px] px-0">
+                                                            {dayjs(task.deadline).format('MMM D')}
+                                                        </Chip.Label>
+                                                    </Chip>
+                                                )}
+                                                {task.priority && (
+                                                    <Chip
+                                                        size="sm"
+                                                        variant="soft"
+                                                        color={
+                                                            task.priority === 'urgent' ? 'danger' :
+                                                            task.priority === 'high' ? 'warning' :
+                                                            task.priority === 'medium' ? 'accent' :
+                                                            'default'
+                                                        }
+                                                        className="h-5 px-1.5"
+                                                    >
+                                                        <Chip.Label className="text-[10px] px-0">
+                                                            {task.priority}
+                                                        </Chip.Label>
+                                                    </Chip>
+                                                )}
+                                                {task.notes && task.notes.length > 0 && (
+                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                                        <MessageCircle size={10} />
+                                                        {task.notes.length}
+                                                    </span>
+                                                )}
+                                                {task.timeSpent !== undefined && task.timeSpent > 0 && (
+                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                                        <Clock size={10} />
+                                                        {Math.floor(task.timeSpent / 3600)}h {Math.floor((task.timeSpent % 3600) / 60)}m
+                                                    </span>
+                                                )}
                                             </div>
-                                        </Surface>
+                                        </div>
                                     );
                                 })}
                             
                             <Button 
                                 variant="ghost" 
-                                className="w-full h-16 border-2 border-dashed border-border/30 hover:border-accent/40 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/30 hover:text-accent rounded-[2rem] transition-all bg-transparent hover:bg-accent/5"
+                                className="w-full h-9 border border-dashed border-border hover:border-accent/40 text-xs text-muted-foreground hover:text-accent rounded-lg transition-all bg-transparent"
                                 onPress={async () => {
                                     const title = prompt('Enter task title:');
                                     if (title) {
@@ -286,7 +267,7 @@ export function KanbanBoard({
                                     }
                                 }}
                             >
-                                <Plus size={20} weight="Bold" className="mr-3 opacity-40 group-hover:opacity-100" />
+                                <Plus size={14} className="mr-1.5" />
                                 New Task
                             </Button>
                         </div>

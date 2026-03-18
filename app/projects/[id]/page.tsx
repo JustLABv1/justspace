@@ -9,20 +9,19 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project } from '@/types';
-import { Button, Spinner, Surface, toast } from "@heroui/react";
+import { Button, Spinner, toast } from "@heroui/react";
 import {
-    AltArrowLeft as ArrowLeft,
+    ArrowLeft,
     Calendar,
-    Pen2 as Edit,
-    Filter as FilterIcon,
-    Widget as LayoutGrid,
-    Checklist as ListTodo,
-    HamburgerMenu as Rows,
-    Magnifer as Search,
-    ShieldKeyhole as Shield,
-    MagicStick as Sparkles,
-    TrashBinMinimalistic as Trash
-} from "@solar-icons/react";
+    Edit,
+    Filter,
+    Kanban,
+    LayoutList,
+    Lock,
+    Search,
+    Sparkles,
+    Trash2
+} from "lucide-react";
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -184,186 +183,134 @@ export default function ProjectDetailPage() {
 
     if (project.isEncrypted && !privateKey) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
-                <div className="w-24 h-24 rounded-[2rem] bg-accent/10 flex items-center justify-center text-accent border border-accent/20 shadow-2xl shadow-accent/5">
-                    <Shield size={48} weight="Bold" className="animate-pulse" />
-                </div>
-                <div className="text-center space-y-3">
-                    <h2 className="text-3xl font-bold tracking-tight uppercase italic text-foreground">Secured Project</h2>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
-                        This project is protected by end-to-end encryption. <br/>
-                        Unlock your vault to access project details.
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <Lock size={32} className="text-muted-foreground" />
+                <div className="text-center">
+                    <h2 className="text-lg font-semibold text-foreground">Secured Project</h2>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                        Unlock your vault to access this encrypted project.
                     </p>
                 </div>
-                <div className="w-px h-12 bg-gradient-to-b from-accent/40 to-transparent" />
             </div>
         );
     }
 
     return (
-        <div className={`mx-auto p-6 md:p-8 space-y-8 transition-all duration-500 ${viewMode === 'kanban' ? 'max-w-full' : 'max-w-[1200px]'}`}>
-            <header className="flex flex-col gap-6">
-                <Link href="/projects" className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors font-bold text-xs tracking-wider group uppercase">
-                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
-                    Back to Matrix
+        <div className={`mx-auto p-6 md:p-8 space-y-6 transition-all ${viewMode === 'kanban' ? 'max-w-full' : 'max-w-[1200px]'}`}>
+            <div className="flex items-center justify-between">
+                <Link href="/projects" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft size={14} />
+                    Projects
                 </Link>
-                
-                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-                    <div className="space-y-6 flex-1">
-                        <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 rounded-[1.5rem] bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-2xl shadow-accent/5">
-                                <LayoutGrid size={28} weight="Bold" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-3">
-                                    <h1 className="text-4xl font-bold tracking-tight text-foreground leading-none">{project.name}</h1>
-                                    {project.isEncrypted && (
-                                        <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20" title="End-to-End Encrypted">
-                                            <Shield size={18} weight="Bold" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-bold uppercase tracking-wider opacity-60">
-                                    <Calendar size={14} weight="Bold" className="text-accent/50" />
-                                    <span>Initialized Phase: {new Date(project.createdAt).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                        </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="secondary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => setIsProjectModalOpen(true)}>
+                        <Edit size={13} className="mr-1.5" />
+                        Edit
+                    </Button>
+                    <Button variant="ghost" className="rounded-lg h-8 px-3 text-xs font-medium text-danger hover:bg-danger-muted" onPress={() => setIsDeleteModalOpen(true)}>
+                        <Trash2 size={13} className="mr-1.5" />
+                        Delete
+                    </Button>
+                </div>
+            </div>
 
-                        {/* Metadata & Allocation Strip */}
-                        <div className="flex flex-wrap gap-3">
-                            <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 leading-none">Operational Status</span>
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                                    <span className="text-xs font-bold uppercase tracking-wider">{project.status.replace('-', ' ')}</span>
-                                </div>
-                            </div>
-                            
-                            {project.daysPerWeek && (
-                                <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 leading-none">Resource Allocation</span>
-                                    <span className="text-xs font-bold uppercase tracking-wider text-accent">{project.daysPerWeek}D / Weekly</span>
-                                </div>
-                            )}
-
-                            {project.allocatedDays && (
-                                <div className="px-4 py-2 rounded-2xl bg-surface border border-border/40 flex items-center gap-4 shadow-sm">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 leading-none">Allocated Cycle</span>
-                                    <span className="text-xs font-bold uppercase tracking-wider">{project.allocatedDays} Days Total</span>
-                                </div>
-                            )}
-                        </div>
-                        
-                        {project.description && (
-                            <p className="text-muted-foreground text-base leading-relaxed max-w-2xl font-medium opacity-80 border-l-2 border-accent/20 pl-6 py-2">
-                               {project.description}
-                            </p>
-                        )}
+            <div>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
+                    {project.isEncrypted && <Lock size={14} className="text-warning" />}
+                </div>
+                <div className="flex items-center gap-4 mt-1.5">
+                    <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
+                        <span className="text-xs text-muted-foreground">{project.status.replace('-', ' ')}</span>
                     </div>
-                    
-                    <div className="flex gap-2 shrink-0">
-                        <Button variant="secondary" className="rounded-xl h-10 px-6 font-bold text-xs uppercase border border-border/40" onPress={() => setIsProjectModalOpen(true)}>
-                            <Edit size={16} className="mr-2" />
-                            Modify
-                        </Button>
-                        <Button variant="ghost" className="rounded-xl h-10 px-6 font-bold text-xs uppercase text-danger hover:bg-danger/10" onPress={() => setIsDeleteModalOpen(true)}>
-                            <Trash size={16} className="mr-2" />
-                            Purge
-                        </Button>
+                    {project.daysPerWeek && (
+                        <span className="text-xs text-muted-foreground">{project.daysPerWeek} days/week</span>
+                    )}
+                    {project.allocatedDays && (
+                        <span className="text-xs text-muted-foreground">{project.allocatedDays} days total</span>
+                    )}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Calendar size={11} />
+                        <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                     </div>
                 </div>
-            </header>
+                {project.description && (
+                    <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{project.description}</p>
+                )}
+            </div>
 
-            <Surface className="p-0 rounded-[2.5rem] border border-border/40 bg-surface shadow-2xl shadow-accent/5 relative overflow-hidden">
-                <div className="relative z-10">
-                    <div className="px-8 py-6 border-b border-border/20 bg-surface-secondary/20 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-2xl bg-accent/10 text-accent shadow-inner shadow-accent/20">
-                                <ListTodo size={24} weight="Bold" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">Project Tasked</h2>
-                                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-30">Execution Pipeline</p>
-                            </div>
+            <div className="rounded-xl border border-border bg-surface">
+                <div className="px-4 py-3 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-foreground">Tasks</h2>
+
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 h-8 bg-background">
+                            <Search size={12} className="text-muted-foreground" />
+                            <input 
+                                type="text"
+                                placeholder="Search tasks..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-none focus:ring-0 text-xs placeholder:text-muted-foreground w-36"
+                            />
                         </div>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-3 bg-surface/50 p-1.5 px-3 rounded-[1.25rem] border border-border/40 shadow-inner">
-                                <div className="flex items-center gap-2">
-                                    <Search size={18} weight="Bold" className="text-muted-foreground/30" />
-                                    <input 
-                                        type="text"
-                                        placeholder="SEARCH TASKS..." 
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="bg-transparent border-none focus:ring-0 text-[10px] font-bold uppercase tracking-wider placeholder:text-muted-foreground/20 w-32 md:w-64"
-                                    />
-                                </div>
-                                <div className="w-px h-4 bg-border/40 mx-2" />
-                                <Button 
-                                    variant={hideCompleted ? 'primary' : 'secondary'} 
-                                    size="sm" 
-                                    className={`h-7 px-4 rounded-xl font-bold text-[9px] uppercase tracking-wider transition-all ${hideCompleted ? 'shadow-lg shadow-accent/40 bg-accent text-white border-transparent' : 'bg-transparent text-muted-foreground hover:bg-surface-secondary'}`}
-                                    onPress={() => setHideCompleted(!hideCompleted)}
-                                >
-                                    <FilterIcon size={14} weight="Bold" className="mr-2" />
-                                    {hideCompleted ? 'PENDING' : 'ALL'}
-                                </Button>
-                            </div>
-
-                            <div className="flex items-center gap-2 bg-surface/50 p-1 rounded-[1.25rem] border border-border/40 shadow-inner">
-                                <Button 
-                                    variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
-                                    size="sm" 
-                                    className={`h-8 w-12 p-0 rounded-xl flex items-center justify-center transition-all ${viewMode === 'list' ? 'bg-accent/10 text-accent shadow-sm' : 'text-muted-foreground/40 hover:text-accent'}`}
-                                    onPress={() => setViewMode('list')}
-                                >
-                                    <Rows size={18} weight={viewMode === 'list' ? 'Bold' : 'Linear'} />
-                                </Button>
-                                <Button 
-                                    variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
-                                    size="sm" 
-                                    className={`h-8 w-12 p-0 rounded-xl flex items-center justify-center transition-all ${viewMode === 'kanban' ? 'bg-accent/10 text-accent shadow-sm' : 'text-muted-foreground/40 hover:text-accent'}`}
-                                    onPress={() => setViewMode('kanban')}
-                                >
-                                    <LayoutGrid size={18} weight={viewMode === 'kanban' ? 'Bold' : 'Linear'} />
-                                </Button>
-                            </div>
-
+                        <Button 
+                            variant={hideCompleted ? 'primary' : 'ghost'} 
+                            size="sm"
+                            className={`h-8 px-2.5 rounded-lg text-xs font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                            onPress={() => setHideCompleted(!hideCompleted)}
+                        >
+                            <Filter size={12} className="mr-1" />
+                            {hideCompleted ? 'Pending' : 'All'}
+                        </Button>
+                        <div className="flex rounded-lg border border-border overflow-hidden">
                             <Button 
-                                variant="primary" 
-                                size="sm" 
-                                className="h-10 px-6 rounded-2xl font-bold text-[10px] uppercase tracking-wider shadow-xl shadow-accent/30 bg-accent text-white border-none" 
-                                onPress={() => setIsTemplateModalOpen(true)}
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 w-8 p-0 rounded-none transition-colors ${viewMode === 'list' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground'}`}
+                                onPress={() => setViewMode('list')}
                             >
-                                <Sparkles size={18} weight="Bold" className="mr-2" />
-                                Templates
+                                <LayoutList size={13} />
+                            </Button>
+                            <Button 
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 w-8 p-0 rounded-none transition-colors ${viewMode === 'kanban' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground'}`}
+                                onPress={() => setViewMode('kanban')}
+                            >
+                                <Kanban size={13} />
                             </Button>
                         </div>
-                    </div>
-                    
-                    <div className="p-6">
-                        {viewMode === 'list' ? (
-                            <TaskList 
-                                projectId={project.id} 
-                                hideHeader 
-                                searchQuery={searchQuery}
-                                hideCompleted={hideCompleted}
-                            />
-                        ) : (
-                            <KanbanBoard 
-                                projectId={project.id} 
-                                searchQuery={searchQuery}
-                                hideCompleted={hideCompleted}
-                            />
-                        )}
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground"
+                            onPress={() => setIsTemplateModalOpen(true)}
+                        >
+                            <Sparkles size={12} className="mr-1" />
+                            Templates
+                        </Button>
                     </div>
                 </div>
-                
-                {/* Decorative background element */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            </Surface>
+
+                <div className="p-4">
+                    {viewMode === 'list' ? (
+                        <TaskList 
+                            projectId={project.id} 
+                            hideHeader 
+                            searchQuery={searchQuery}
+                            hideCompleted={hideCompleted}
+                        />
+                    ) : (
+                        <KanbanBoard 
+                            projectId={project.id} 
+                            searchQuery={searchQuery}
+                            hideCompleted={hideCompleted}
+                        />
+                    )}
+                </div>
+            </div>
 
             <ProjectModal 
                 isOpen={isProjectModalOpen} 

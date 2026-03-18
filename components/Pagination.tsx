@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, ButtonGroup } from "@heroui/react";
-import { AltArrowLeft as ChevronLeft, AltArrowRight as ChevronRight } from "@solar-icons/react";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface PaginationProps {
   total: number;
@@ -62,7 +62,7 @@ export const Pagination = ({
           className={classNames?.prev}
           isIconOnly
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={14} />
         </Button>
         
         {renderPages().map((p, i) => (

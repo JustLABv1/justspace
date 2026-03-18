@@ -9,17 +9,16 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { EncryptedData, ResourceVersion, Snippet } from '@/types';
-import { Button, Chip, Spinner, Surface, toast } from "@heroui/react";
+import { Button, Chip, Spinner, toast } from "@heroui/react";
 import {
-    CodeFile,
-    Pen2 as Edit,
-    Maximize as Expand,
-    Restart as History,
-    AddCircle as Plus,
-    Magnifer as Search,
-    ShieldKeyhole as Shield,
-    TrashBinTrash as Trash
-} from "@solar-icons/react";
+    Code,
+    Edit,
+    History,
+    Lock,
+    Plus,
+    Search,
+    Trash2
+} from "lucide-react";
 import { useCallback, useEffect, useState } from 'react';
 
 export default function SnippetsPage() {
@@ -245,122 +244,101 @@ export default function SnippetsPage() {
     }
 
     return (
-        <div className="max-w-[1400px] mx-auto p-6 md:p-12 space-y-12">
-            <header className="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div className="space-y-2 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-wider text-[10px] opacity-80 uppercase">
-                        <CodeFile size={16} weight="Bold" className="animate-pulse" />
-                        Source Code
-                    </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Snippet Library</h1>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60">Securely store and reuse your code snippets.</p>
+        <div className="max-w-[1400px] mx-auto p-6 md:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-semibold text-foreground">Snippets</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">Store and reuse your code snippets.</p>
                 </div>
-                <Button variant="primary" className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
-                    <Plus size={16} weight="Bold" className="mr-2" />
+                <Button variant="primary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                    <Plus size={13} className="mr-1.5" />
                     New Snippet
                 </Button>
-            </header>
+            </div>
 
-            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-accent/40 transition-all duration-500">
-                <Search size={20} className="text-muted-foreground/40" />
+            <div className="flex items-center gap-2 rounded-lg border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
+                <Search size={13} className="text-muted-foreground shrink-0" />
                 <input 
-                    className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-bold tracking-tight placeholder:text-muted-foreground/20" 
-                    placeholder="Search by title, tags, or language..."
+                    className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground" 
+                    placeholder="Search snippets..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
-            </Surface>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSnippets.map((snippet) => (
-                    <Surface 
-                        key={snippet.id} 
-                        className="p-0 rounded-[2.5rem] border border-border/40 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-700 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5 cursor-pointer"
+                    <div
+                        key={snippet.id}
+                        className="rounded-xl border border-border bg-surface group relative flex flex-col hover:border-accent/40 transition-colors cursor-pointer"
                         onClick={() => { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }}
                     >
-                        <div className="p-8 flex-1 space-y-6">
-                            <div className="flex justify-between items-start">
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-500 shadow-sm border border-border/20">
-                                            <CodeFile size={20} weight="Bold" />
-                                        </div>
-                                        <Chip size="sm" variant="soft" color="accent" className="h-5 px-2.5 rounded-lg border border-accent/10">
-                                            <Chip.Label className="font-bold text-[9px] uppercase tracking-wider">
-                                                {snippet.language}
-                                            </Chip.Label>
-                                        </Chip>
-                                        {snippet.isEncrypted && <Shield size={14} className="text-accent/60" />}
+                        <div className="p-4 flex-1 flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                        <Code size={13} />
                                     </div>
-                                    <h3 className="text-xl font-bold tracking-tight leading-tight group-hover:text-accent transition-colors duration-500">{snippet.title}</h3>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <h3 className="text-sm font-medium text-foreground truncate">{snippet.title}</h3>
+                                        {snippet.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
+                                    </div>
                                 </div>
-                                <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
-                                        <Edit size={12} weight="Bold" />
+                                <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-md" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
+                                        <Edit size={11} />
                                     </Button>
-                                    <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg hover:bg-surface-secondary transition-all" onPress={() => { setSelectedSnippet(snippet); setIsHistoryModalOpen(true); }}>
-                                        <History size={12} weight="Bold" />
+                                    <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-md" onPress={() => { setSelectedSnippet(snippet); setIsHistoryModalOpen(true); }}>
+                                        <History size={11} />
                                     </Button>
-                                    <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-danger hover:bg-danger/10 transition-all" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
-                                        <Trash size={12} weight="Bold" />
+                                    <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-md text-danger hover:bg-danger-muted" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
+                                        <Trash2 size={11} />
                                     </Button>
                                 </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Chip size="sm" variant="soft" color="accent">
+                                    <Chip.Label className="text-[10px] font-medium">{snippet.language}</Chip.Label>
+                                </Chip>
                             </div>
 
                             {snippet.description && (
-                                <p className="text-xs text-muted-foreground leading-relaxed font-medium opacity-80 line-clamp-2 italic">
-                                   &ldquo; {snippet.description} &rdquo;
-                                </p>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{snippet.description}</p>
                             )}
 
-                            <div className="bg-surface/80 rounded-[1.5rem] p-5 font-mono text-[11px] border border-border/20 overflow-hidden relative group/code h-44 shadow-inner">
-                                <div className="text-foreground/90 overflow-hidden line-clamp-6 whitespace-pre-wrap leading-relaxed">
+                            <div className="rounded-lg bg-surface-secondary border border-border overflow-hidden">
+                                <div className="p-3 font-mono text-xs text-muted-foreground overflow-hidden">
                                     {snippet.blocks ? (
-                                        <div className="space-y-4">
-                                            {(() => {
-                                                try {
-                                                    const blocks = JSON.parse(snippet.blocks);
-                                                    return blocks.map((b: { type: string; content: string; language?: string }, i: number) => (
-                                                        <div key={i} className="space-y-1">
-                                                            <div className="text-[8px] font-bold uppercase tracking-wider text-accent/40 flex items-center gap-2">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-accent/20" />
-                                                                {b.type} component {b.language && `| ${b.language}`}
-                                                            </div>
-                                                            <pre className="line-clamp-3 opacity-60 group-hover/code:opacity-100 transition-opacity">{b.content}</pre>
-                                                        </div>
-                                                    ));
-                                                } catch {
-                                                    return <pre className="opacity-60">{snippet.content}</pre>;
-                                                }
-                                            })()}
-                                        </div>
+                                        (() => {
+                                            try {
+                                                const blocks = JSON.parse(snippet.blocks);
+                                                return <pre className="line-clamp-5 whitespace-pre-wrap">{blocks[0]?.content || ''}</pre>;
+                                            } catch {
+                                                return <pre className="line-clamp-5 whitespace-pre-wrap">{snippet.content}</pre>;
+                                            }
+                                        })()
                                     ) : (
-                                        <pre className="opacity-60">{snippet.content}</pre>
+                                        <pre className="line-clamp-5 whitespace-pre-wrap">{snippet.content}</pre>
                                     )}
-                                </div>
-                                <div className="absolute inset-0 bg-accent/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-all duration-700 flex flex-col items-center justify-center gap-3">
-                                    <div className="bg-white/80 dark:bg-surface/80 p-3 rounded-2xl shadow-2xl border border-accent/20 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                                        <Expand size={24} className="text-accent" weight="Bold" />
-                                    </div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent animate-pulse">Deep Interaction</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="px-10 py-6 bg-surface-secondary/20 border-t border-border/10 flex flex-wrap gap-3">
-                            {snippet.tags?.map(tag => (
-                                <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40 hover:text-accent transition-colors cursor-default">
-                                    #{tag}
-                                </span>
-                            ))}
-                        </div>
-                    </Surface>
+                        {snippet.tags && snippet.tags.length > 0 && (
+                            <div className="px-4 py-2 border-t border-border flex flex-wrap gap-1.5">
+                                {snippet.tags.map(tag => (
+                                    <span key={tag} className="text-xs text-muted-foreground">#{tag}</span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 ))}
 
                 {filteredSnippets.length === 0 && (
-                    <div className="col-span-full py-32 flex flex-col items-center gap-6 text-muted-foreground/30">
-                        <CodeFile size={60} weight="Linear" className="opacity-10" />
-                        <p className="font-bold tracking-tight text-xl">No snippets found</p>
+                    <div className="col-span-full py-20 flex flex-col items-center gap-3 text-muted-foreground">
+                        <Code size={24} />
+                        <p className="text-sm">No snippets found</p>
                     </div>
                 )}
             </div>

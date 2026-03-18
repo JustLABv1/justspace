@@ -4,7 +4,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
 import { VaultBanner } from "@/components/VaultBanner";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { Magnifer as Search } from "@solar-icons/react";
+import { Search } from "lucide-react";
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useSyncExternalStore } from 'react';
 
@@ -77,38 +77,48 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex bg-background h-screen overflow-hidden p-0 md:p-4 md:gap-4 relative">
+        <div className="flex bg-background h-screen overflow-hidden relative">
             <Sidebar 
                 isCollapsed={isCollapsed} 
                 setIsCollapsed={toggleCollapse} 
                 isMobileOpen={isMobileMenuOpen}
                 setIsMobileOpen={setIsMobileMenuOpen}
             />
+
+            {/* Mobile overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
             
-            <main className={`flex-1 min-w-0 flex flex-col bg-surface-secondary/30 md:rounded-[2rem] border-x md:border border-border/40 overflow-hidden shadow-sm relative transition-all duration-300 ${isMobileMenuOpen ? 'blur-sm brightness-50 md:blur-0 md:brightness-100' : ''}`}>
+            <main className="flex-1 min-w-0 flex flex-col bg-background overflow-hidden relative">
                 {/* Mobile Header */}
-                <header className="md:hidden flex items-center justify-between p-4 bg-surface border-b border-border/40 z-40">
+                <header className="md:hidden flex items-center justify-between h-14 px-4 bg-surface border-b border-border z-40">
                     <button 
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="p-2 -ml-2 text-foreground"
+                        className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Toggle menu"
                     >
-                        <div className="flex flex-col gap-1.5 w-6">
+                        <div className="flex flex-col gap-1.5 w-5">
                             <span className={`h-0.5 w-full bg-current rounded-full transition-all ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />
                             <span className={`h-0.5 w-full bg-current rounded-full transition-all ${isMobileMenuOpen ? 'opacity-0' : ''}`} />
                             <span className={`h-0.5 w-full bg-current rounded-full transition-all ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
                         </div>
                     </button>
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20">
-                            <span className="font-bold text-sm">J</span>
+                        <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-accent-foreground">
+                            <span className="font-bold text-sm leading-none">J</span>
                         </div>
-                        <span className="font-bold tracking-tight text-sm">justspace</span>
+                        <span className="font-semibold text-sm">justspace</span>
                     </div>
                     <button 
                         onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
-                        className="p-2 -mr-2 text-foreground/60 hover:text-accent transition-colors"
+                        className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Open search"
                     >
-                        <Search size={22} weight="Bold" />
+                        <Search size={18} />
                     </button>
                 </header>
 
@@ -119,13 +129,6 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                 </div>
             </main>
 
-            {/* Backdrop for mobile */}
-            {isMobileMenuOpen && (
-                <div 
-                    className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 md:hidden"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                />
-            )}
         </div>
     );
 }

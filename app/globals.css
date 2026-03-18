@@ -3,6 +3,7 @@
 @import "@heroui/styles";
 
 @theme {
+  /* Color tokens → Tailwind utilities (bg-*, text-*, border-*) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
@@ -10,33 +11,130 @@
   --color-surface-tertiary: var(--surface-tertiary);
   --color-surface-lowest: var(--surface-lowest);
   --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-hover: var(--accent-hover);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-muted: var(--danger-muted);
+
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-mono-code), ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
 }
 
 :root {
-  /* Restoration of high-contrast Light Theme */
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.21 0.006 285.89);
-  --surface: oklch(100% 0 0);
-  --surface-secondary: oklch(0.96 0.001 286);
-  --surface-tertiary: oklch(0.94 0.001 286);
-  --surface-lowest: oklch(100% 0 0);
-  --border: oklch(0.92 0.004 286.32);
+  /* Light mode — Stripe-inspired palette */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --surface: #ffffff;
+  --surface-secondary: #f9fafb;
+  --surface-tertiary: #f3f4f6;
+  --surface-lowest: #ffffff;
+  --border: #e5e7eb;
+  --muted: #f6f8fa;
+  --muted-foreground: #6b7280;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --ring: #4f46e5;
+
+  /* Accent: Indigo */
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --accent-hover: #4338ca;
+  --accent-muted: #eef2ff;
+
+  /* Status */
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --success-muted: #ecfdf5;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --warning-muted: #fffbeb;
+  --danger: #dc2626;
+  --danger-foreground: #ffffff;
+  --danger-muted: #fef2f2;
 }
 
 .dark {
-  /* Official HeroUI Dark Theme separation */
-  --background: oklch(0.14 0.005 285.82);
-  --foreground: oklch(0.99 0 0);
-  --surface: oklch(0.21 0.006 285.89);
-  --surface-secondary: oklch(0.25 0.004 286.14);
-  --surface-tertiary: oklch(0.28 0.003 247.91);
-  --surface-lowest: oklch(0.17 0.005 285.89);
-  --border: oklch(0.28 0.006 286.03);
+  /* Dark mode — Zinc-based palette */
+  --background: #09090b;
+  --foreground: #fafafa;
+  --surface: #111113;
+  --surface-secondary: #18181b;
+  --surface-tertiary: #27272a;
+  --surface-lowest: #09090b;
+  --border: #27272a;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --ring: #818cf8;
+
+  /* Accent: Indigo (lighter for dark backgrounds) */
+  --accent: #818cf8;
+  --accent-foreground: #09090b;
+  --accent-hover: #6366f1;
+  --accent-muted: rgba(99, 102, 241, 0.12);
+
+  /* Status */
+  --success: #34d399;
+  --success-foreground: #022c22;
+  --success-muted: rgba(52, 211, 153, 0.1);
+  --warning: #fbbf24;
+  --warning-foreground: #451a03;
+  --warning-muted: rgba(251, 191, 36, 0.1);
+  --danger: #f87171;
+  --danger-foreground: #450a0a;
+  --danger-muted: rgba(248, 113, 113, 0.1);
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground transition-colors duration-300;
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  ::selection {
+    background-color: var(--accent-muted);
+    color: var(--accent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Subtle scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
   }
 }
 

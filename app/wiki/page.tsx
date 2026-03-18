@@ -9,17 +9,16 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { ResourceVersion, WikiGuide } from '@/types';
-import { Button, Spinner, Surface, toast } from "@heroui/react";
+import { Button, Spinner, toast } from "@heroui/react";
 import {
-    Book,
-    Pen2 as Edit,
-    ArrowRightUp as ExternalLink,
+    BookOpen,
+    Edit,
     History,
-    AddCircle as Plus,
-    Magnifer as Search,
-    ShieldKeyhole as Shield,
-    TrashBinTrash as Trash
-} from "@solar-icons/react";
+    Lock,
+    Plus,
+    Search,
+    Trash2
+} from "lucide-react";
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -249,103 +248,87 @@ export default function WikiPage() {
     }
 
     return (
-        <div className="max-w-[1240px] mx-auto p-6 md:p-12 space-y-12">
-            <header className="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div className="space-y-2 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-2 text-accent font-bold tracking-wider text-[10px] opacity-80 uppercase">
-                        <Book size={16} weight="Bold" className="animate-pulse" />
-                        Knowledge Base
-                    </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">Wiki Guides</h1>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60">Documentation and deployment guides for your stack.</p>
+        <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-semibold text-foreground">Wiki</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">Documentation and deployment guides for your stack.</p>
                 </div>
-                <Button variant="primary" className="rounded-xl h-10 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
-                    <Plus size={18} weight="Bold" className="mr-2" />
+                <Button variant="primary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
+                    <Plus size={13} className="mr-1.5" />
                     New Guide
                 </Button>
-            </header>
+            </div>
 
-            <Surface className="flex items-center gap-4 px-6 py-2 bg-surface border border-border/40 rounded-[2rem] shadow-sm max-w-2xl focus-within:border-accent/40 transition-all duration-500">
-                <Search size={20} className="text-muted-foreground/40" />
+            <div className="flex items-center gap-2 rounded-lg border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
+                <Search size={13} className="text-muted-foreground shrink-0" />
                 <input 
-                    className="bg-transparent border-none outline-none flex-1 h-10 text-sm font-bold tracking-tight placeholder:text-muted-foreground/20" 
-                    placeholder="Search documentation..."
+                    className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground" 
+                    placeholder="Search guides..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
-            </Surface>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredGuides.length === 0 ? (
-                    <div className="col-span-full py-40 text-center space-y-6">
-                        <div className="w-24 h-24 mx-auto bg-surface-secondary rounded-[3rem] border border-dashed border-border flex items-center justify-center text-muted-foreground/20">
-                            <Search size={40} weight="Linear" />
-                        </div>
-                        <p className="text-xl font-bold tracking-tight text-muted-foreground/20">No guides found</p>
+                    <div className="col-span-full py-20 text-center flex flex-col items-center gap-3">
+                        <BookOpen size={24} className="text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">No guides found</p>
                     </div>
                 ) : (
                     filteredGuides.map((guide) => (
-                        <Surface 
-                            key={guide.id} 
-                            className="p-0 rounded-[2.5rem] border border-border/30 bg-white/50 dark:bg-surface/50 backdrop-blur-sm group relative overflow-hidden flex flex-col transition-all duration-500 hover:border-accent/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-accent/5"
+                        <div
+                            key={guide.id}
+                            className="rounded-xl border border-border bg-surface group relative flex flex-col hover:border-accent/40 transition-colors"
                         >
-                            <div className="p-8 flex-1 flex flex-col gap-8">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-[1.2rem] bg-surface-secondary flex items-center justify-center text-muted-foreground border border-border/20 group-hover:bg-accent group-hover:text-white group-hover:border-accent transition-all duration-500 shadow-sm">
-                                            <Book size={20} weight="Bold" />
+                            <div className="p-4 flex-1 flex flex-col gap-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                            <BookOpen size={13} />
                                         </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="text-lg font-bold tracking-tight leading-none">{guide.title}</h3>
-                                                {guide.isEncrypted && <Shield size={14} className="text-accent/60" />}
-                                            </div>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <h3 className="text-sm font-medium text-foreground truncate">{guide.title}</h3>
+                                            {guide.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
                                         </div>
                                     </div>
-                                    
-                                    <div className="flex gap-1.5 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 relative z-10">
+
+                                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                         <Button 
                                             variant="ghost" 
                                             isIconOnly 
-                                            className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
-                                            onPress={(e) => { setSelectedGuide(guide); setIsHistoryModalOpen(true); }}
+                                            className="h-6 w-6 rounded-md"
+                                            onPress={() => { setSelectedGuide(guide); setIsHistoryModalOpen(true); }}
                                         >
-                                            <History size={14} weight="Bold" />
+                                            <History size={11} />
                                         </Button>
                                         <Button 
                                             variant="ghost" 
                                             isIconOnly 
-                                            className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
-                                            onPress={(e) => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
+                                            className="h-6 w-6 rounded-md"
+                                            onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
                                         >
-                                            <Edit size={14} weight="Bold" />
+                                            <Edit size={11} />
                                         </Button>
                                         <Button 
                                             variant="ghost" 
                                             isIconOnly 
-                                            className="h-8 w-8 rounded-lg text-danger hover:bg-danger/5"
-                                            onPress={(e) => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
+                                            className="h-6 w-6 rounded-md text-danger hover:bg-danger-muted"
+                                            onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
                                         >
-                                            <Trash size={14} weight="Bold" />
+                                            <Trash2 size={11} />
                                         </Button>
                                     </div>
                                 </div>
 
-                                <div className="line-clamp-3">
+                                <div className="text-sm text-muted-foreground line-clamp-3">
                                     <Markdown content={guide.description} />
                                 </div>
 
-                                <div className="mt-auto pt-4 flex items-center justify-between border-t border-border/5">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-surface-secondary border border-border/10 flex items-center justify-center">
-                                            <ExternalLink size={12} className="text-muted-foreground/40" />
-                                        </div>
-                                        <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-wider">View Documentation</span>
-                                    </div>
-                                    <Link href={`/wiki/${guide.id}`} className="absolute inset-0 z-0" />
-                                </div>
+                                <Link href={`/wiki/${guide.id}`} className="absolute inset-0 z-0" />
                             </div>
-                        </Surface>
+                        </div>
                     ))
                 )}
             </div>

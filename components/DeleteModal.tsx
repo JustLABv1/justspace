@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, Modal } from "@heroui/react";
-import { TrashBinMinimalistic as Trash } from '@solar-icons/react';
+import { Trash2 } from 'lucide-react';
 import React from 'react';
 
 interface DeleteModalProps {
@@ -36,27 +36,27 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                 variant="blur"
             >
                 <Modal.Container size="sm" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden flex flex-col">
-                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                    <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md hover:bg-surface-secondary transition-colors text-muted-foreground hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger shadow-inner">
-                                <Trash size={20} weight="Bold" />
+                        <Modal.Header className="px-6 pt-5 pb-3 border-b border-border flex items-center gap-3 shrink-0">
+                            <div className="w-8 h-8 rounded-md bg-danger/10 flex items-center justify-center text-danger">
+                                <Trash2 size={15} />
                             </div>
-                            <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">{title}</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] font-bold uppercase opacity-40 ml-0.5 mt-1 tracking-wider">This action is permanent.</p>
+                            <div>
+                                <Modal.Heading className="text-base font-semibold text-foreground">{title}</Modal.Heading>
+                                <p className="text-xs text-muted-foreground mt-0.5">This action cannot be undone.</p>
                             </div>
                         </Modal.Header>
 
-                        <Modal.Body className="px-8 pt-4 pb-8 flex-1 overflow-y-auto">
-                            <p className="text-lg text-muted-foreground font-medium leading-relaxed opacity-80">{message}</p>
+                        <Modal.Body className="px-6 py-4 flex-1 overflow-y-auto">
+                            <p className="text-sm text-muted-foreground">{message}</p>
                         </Modal.Body>
 
-                        <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
+                        <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl h-9 px-8 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity text-sm" 
+                                className="rounded-lg h-8 px-4 text-xs font-medium" 
                                 onPress={onClose} 
                                 isDisabled={isLoading}
                             >
@@ -64,7 +64,7 @@ export const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }: Dele
                             </Button>
                             <Button 
                                 variant="danger" 
-                                className="rounded-xl h-9 px-8 font-bold tracking-[0.1em] text-sm shadow-2xl shadow-danger/20" 
+                                className="rounded-lg h-8 px-4 text-xs font-medium" 
                                 onPress={handleConfirm} 
                                 isPending={isLoading}
                             >

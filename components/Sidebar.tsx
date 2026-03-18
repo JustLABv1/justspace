@@ -1,19 +1,19 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { Avatar, Button, Dropdown, Label, Surface, Tooltip } from '@heroui/react';
+import { Avatar, Button, Dropdown, Label, Tooltip } from '@heroui/react';
 import {
-    Book,
-    Checklist as CheckSquare,
-    AltArrowLeft as ChevronLeft,
-    AltArrowRight as ChevronRight,
-    CodeCircle as Code2,
-    Widget as LayoutDashboard,
-    Logout as LogOut,
-    MenuDots as MoreVertical,
+    BookOpen,
+    CheckSquare,
+    ChevronLeft,
+    ChevronRight,
+    Code,
+    LayoutDashboard,
+    LogOut,
+    MoreVertical,
     Settings,
     User
-} from '@solar-icons/react';
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -28,7 +28,6 @@ interface SidebarProps {
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }: SidebarProps) => {
     const pathname = usePathname();
     const { user, logout } = useAuth();
-    // Use safe access for workspaceName as preferences are dynamic
     const prefs = (user?.preferences || {}) as Record<string, string | undefined>;
     const workspaceName = prefs?.workspaceName || 'justspace';
     const firstLetter = workspaceName.charAt(0).toUpperCase();
@@ -36,101 +35,86 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     const navItems = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
         { name: 'Projects', href: '/projects', icon: CheckSquare },
-        { name: 'Wiki', href: '/wiki', icon: Book },
-        { name: 'Snippets', href: '/snippets', icon: Code2 },
+        { name: 'Wiki', href: '/wiki', icon: BookOpen },
+        { name: 'Snippets', href: '/snippets', icon: Code },
     ];
 
     return (
-        <Surface 
-            variant="secondary" 
-            className={`fixed md:relative z-50 md:z-auto h-full flex flex-col border border-border/50 rounded-none md:rounded-[2rem] bg-gradient-to-b from-surface to-surface-secondary shadow-2xl shadow-black/5 transition-all duration-300 ease-in-out overflow-x-hidden overflow-y-auto no-scrollbar ${
-                isCollapsed ? 'w-20 p-4' : 'w-72 p-6'
+        <aside
+            className={`fixed md:relative z-50 md:z-auto h-full flex flex-col bg-surface-secondary border-r border-border transition-all duration-300 ease-in-out overflow-x-hidden overflow-y-auto no-scrollbar ${
+                isCollapsed ? 'w-16' : 'w-60'
             } ${
                 isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
             }`}
         >
-            <div className={`mb-10 flex flex-col min-w-0 ${isCollapsed ? 'items-center' : ''}`}>
-                <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-6`}>
-                    {!isCollapsed && (
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20 border border-white/10 ring-1 ring-accent/30 shrink-0">
-                                <span className="font-bold text-xl leading-none tracking-tighter">{firstLetter}</span>
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none truncate">{workspaceName}</h1>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-accent/80 mt-1.5 flex items-center gap-1 truncate">
-                                    <span className="w-1 h-1 rounded-full bg-accent animate-pulse shrink-0" />
-                                    Consultant OS
-                                </span>
-                            </div>
+            {/* Brand */}
+            <div className={`flex items-center h-16 px-4 border-b border-border shrink-0 ${
+                isCollapsed ? 'justify-center' : 'justify-between'
+            }`}>
+                {!isCollapsed && (
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-accent-foreground shrink-0">
+                            <span className="font-bold text-sm leading-none">{firstLetter}</span>
                         </div>
-                    )}
-                    {isCollapsed && (
-                        <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-accent-foreground shadow-lg shadow-accent/20 border border-white/10 ring-1 ring-accent/30">
-                            <span className="font-bold text-xl leading-none tracking-tighter">{firstLetter}</span>
-                        </div>
-                    )}
-                    
-                    {!isCollapsed && (
-                        <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onPress={() => setIsCollapsed(!isCollapsed)}
-                            className="p-0 h-8 w-8 min-w-8 rounded-lg border border-border/50 hover:bg-surface-tertiary transition-all hover:scale-105 active:scale-95"
-                        >
-                            <ChevronLeft size={16} weight="Bold" />
-                        </Button>
-                    )}
-                </div>
-
+                        <span className="font-semibold text-sm text-foreground truncate">{workspaceName}</span>
+                    </div>
+                )}
                 {isCollapsed && (
-                    <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onPress={() => setIsCollapsed(!isCollapsed)}
-                        className="p-1 h-8 w-8 rounded-lg border border-border/50 hover:bg-surface-tertiary transition-all"
+                    <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-accent-foreground">
+                        <span className="font-bold text-sm leading-none">{firstLetter}</span>
+                    </div>
+                )}
+                {!isCollapsed && (
+                    <button
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-tertiary transition-colors"
+                        aria-label="Collapse sidebar"
                     >
-                        <ChevronRight size={16} weight="Linear" />
-                    </Button>
+                        <ChevronLeft size={15} />
+                    </button>
                 )}
             </div>
-            
-            <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
+
+            {/* Expand button when collapsed */}
+            {isCollapsed && (
+                <div className="flex justify-center py-2 border-b border-border shrink-0">
+                    <button
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-tertiary transition-colors"
+                        aria-label="Expand sidebar"
+                    >
+                        <ChevronRight size={15} />
+                    </button>
+                </div>
+            )}
+
+            {/* Navigation */}
+            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto no-scrollbar">
                 {!isCollapsed && (
-                    <div className="flex items-center justify-between px-4 mb-4">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground opacity-40">Main Menu</p>
-                        <div className="flex items-center gap-1.5 opacity-30">
-                             <kbd className="text-[10px] font-mono border border-border/50 px-1 rounded bg-surface">⌘</kbd>
-                             <kbd className="text-[10px] font-mono border border-border/50 px-1 rounded bg-surface">K</kbd>
-                        </div>
-                    </div>
+                    <p className="px-3 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">Navigation</p>
                 )}
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                     const Icon = item.icon;
-                    
+
                     const navLink = (
-                        <Link 
-                            key={item.name} 
+                        <Link
+                            key={item.name}
                             href={item.href}
                             onClick={() => setIsMobileOpen?.(false)}
-                            className={`flex items-center gap-4 rounded-xl transition-all duration-300 group ${
-                                isCollapsed ? 'justify-center px-0 py-3' : 'px-4 py-3'
+                            className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                                isCollapsed ? 'justify-center' : ''
                             } ${
-                                isActive 
-                                    ? 'bg-foreground text-background font-bold shadow-lg shadow-black/20 scale-[1.02]' 
-                                    : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground font-bold opacity-60 hover:opacity-100'
+                                isActive
+                                    ? 'bg-accent-muted text-accent font-semibold'
+                                    : 'text-muted-foreground hover:bg-surface-tertiary hover:text-foreground font-medium'
                             }`}
                         >
-                            <Icon 
-                                size={20} 
-                                weight={isActive ? "Bold" : "Linear"} 
-                                className={isActive ? 'text-accent' : 'group-hover:text-accent transition-colors'} 
-                            />
-                            {!isCollapsed && <span className="tracking-tighter text-[13px] font-bold">{item.name}</span>}
-                            {!isCollapsed && isActive && (
-                                <div className="ml-auto w-1 h-1 rounded-full bg-accent animate-pulse" />
+                            {isActive && !isCollapsed && (
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-accent rounded-r-full" />
                             )}
+                            <Icon size={17} strokeWidth={isActive ? 2.5 : 2} />
+                            {!isCollapsed && <span>{item.name}</span>}
                         </Link>
                     );
 
@@ -140,7 +124,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                                 <Tooltip.Trigger>
                                     {navLink}
                                 </Tooltip.Trigger>
-                                <Tooltip.Content placement="right" showArrow className="font-bold">
+                                <Tooltip.Content placement="right" showArrow>
                                     <Tooltip.Arrow />
                                     {item.name}
                                 </Tooltip.Content>
@@ -152,74 +136,78 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                 })}
             </nav>
 
-            <div className="mt-auto space-y-4 pt-4 border-t border-border/50">
-                <div className={`flex flex-col gap-2 ${isCollapsed ? 'items-center px-0' : ''}`}>
-                    {!isCollapsed && (
-                        <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-surface/30 border border-border/40 backdrop-blur-sm group/theme">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 group-hover/theme:text-foreground transition-colors">Interface</span>
-                            <ThemeSwitcher />
-                        </div>
-                    )}
-                   <Dropdown>
-                        <Dropdown.Trigger>
-                            <Button 
-                                variant="tertiary" 
-                                className={`w-full group/user border border-transparent hover:border-border/50 transition-all duration-300 ${
-                                    isCollapsed ? 'p-0 h-12 w-12 rounded-xl' : 'p-2 h-auto rounded-2xl justify-start'
-                                }`}
-                                aria-label="User menu"
-                            >
-                                <div className={`flex items-center gap-3 w-full ${isCollapsed ? 'justify-center' : ''}`}>
-                                    <Avatar size={isCollapsed ? "md" : "sm"} className="shadow-lg">
-                                        <Avatar.Fallback className="bg-accent text-accent-foreground font-bold text-xs">
-                                            {user?.name?.charAt(0).toUpperCase() || <User size={14} />}
-                                        </Avatar.Fallback>
-                                    </Avatar>
-                                    
-                                    {!isCollapsed && (
-                                        <div className="flex flex-col items-start overflow-hidden mr-auto">
-                                            <span className="text-xs font-bold text-foreground truncate w-full tracking-tight">
+            {/* Footer */}
+            <div className="border-t border-border p-2 space-y-1 shrink-0">
+                {!isCollapsed && (
+                    <div className="flex items-center justify-between px-3 py-1.5">
+                        <span className="text-[11px] font-medium text-muted-foreground">Appearance</span>
+                        <ThemeSwitcher />
+                    </div>
+                )}
+                <Dropdown>
+                    <Dropdown.Trigger>
+                        <Button
+                            variant="ghost"
+                            className={`w-full border-0 transition-colors hover:bg-surface-tertiary text-left ${
+                                isCollapsed ? 'justify-center px-0 h-10 w-10 mx-auto' : 'px-3 py-2 h-auto justify-start'
+                            }`}
+                            aria-label="User menu"
+                        >
+                            <div className={`flex items-center gap-2.5 w-full ${
+                                isCollapsed ? 'justify-center' : ''
+                            }`}>
+                                <Avatar size="sm">
+                                    <Avatar.Fallback className="bg-surface-tertiary text-foreground text-xs font-semibold">
+                                        {user?.name?.charAt(0).toUpperCase() || <User size={13} />}
+                                    </Avatar.Fallback>
+                                </Avatar>
+                                {!isCollapsed && (
+                                    <>
+                                        <div className="flex flex-col items-start overflow-hidden flex-1 min-w-0">
+                                            <span className="text-xs font-semibold text-foreground truncate w-full">
                                                 {user?.name || 'Guest User'}
                                             </span>
-                                            <span className="text-[10px] font-bold text-muted-foreground truncate w-full opacity-60">
-                                                {user?.email || 'not-signed-in'}
+                                            <span className="text-[11px] text-muted-foreground truncate w-full">
+                                                {user?.email || ''}
                                             </span>
                                         </div>
-                                    )}
-
-                                    {!isCollapsed && (
-                                        <MoreVertical size={16} className="text-muted-foreground opacity-0 group-hover/user:opacity-100 transition-opacity" />
-                                    )}
-                                </div>
-                            </Button>
-                        </Dropdown.Trigger>
-                        <Dropdown.Popover placement={isCollapsed ? "right" : "top"} className="min-w-[200px]">
-                            <Dropdown.Menu>
-                                <Dropdown.Section>
-                                    <Dropdown.Item id="settings" textValue="Settings">
-                                        <Link href="/settings" className="flex items-center gap-2 w-full">
-                                            <Settings size={18} />
-                                            <Label className="cursor-pointer">Account Settings</Label>
-                                        </Link>
-                                    </Dropdown.Item>
-                                </Dropdown.Section>
-                                <Dropdown.Item 
-                                    id="logout" 
-                                    variant="danger" 
-                                    textValue="Logout"
-                                    onAction={logout}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <LogOut size={18} />
-                                        <Label className="cursor-pointer font-bold">Sign Out</Label>
-                                    </div>
+                                        <MoreVertical size={14} className="text-muted-foreground shrink-0" />
+                                    </>
+                                )}
+                            </div>
+                        </Button>
+                    </Dropdown.Trigger>
+                    <Dropdown.Popover placement={isCollapsed ? 'right' : 'top'} className="min-w-[200px]">
+                        <Dropdown.Menu>
+                            <Dropdown.Section>
+                                <Dropdown.Item id="settings" textValue="Settings">
+                                    <Link href="/settings" className="flex items-center gap-2 w-full">
+                                        <Settings size={15} />
+                                        <Label className="cursor-pointer">Account Settings</Label>
+                                    </Link>
                                 </Dropdown.Item>
-                            </Dropdown.Menu>
-                        </Dropdown.Popover>
-                    </Dropdown>
-                </div>
+                            </Dropdown.Section>
+                            <Dropdown.Item
+                                id="logout"
+                                variant="danger"
+                                textValue="Logout"
+                                onAction={logout}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <LogOut size={15} />
+                                    <Label className="cursor-pointer">Sign Out</Label>
+                                </div>
+                            </Dropdown.Item>
+                        </Dropdown.Menu>
+                    </Dropdown.Popover>
+                </Dropdown>
+                {isCollapsed && (
+                    <div className="flex justify-center pt-1">
+                        <ThemeSwitcher />
+                    </div>
+                )}
             </div>
-        </Surface>
+        </aside>
     );
 };
 

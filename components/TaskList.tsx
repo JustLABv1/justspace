@@ -11,13 +11,7 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
-import {
-    Filter as FilterIcon,
-    Checklist as ListChecks,
-    ChatRoundDots as MessageSquarePlus,
-    AddCircle as Plus,
-    Magnifer as Search
-} from "@solar-icons/react";
+import { Filter, ListChecks, Plus, Search } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pagination } from './Pagination';
 import { TaskDetailModal } from './TaskDetailModal';
@@ -322,66 +316,61 @@ export function TaskList({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {!hideHeader && (
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shadow-sm border border-accent/20">
-                            <ListChecks size={20} weight="Bold" />
+                        <div className="h-7 w-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                            <ListChecks size={13} />
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold tracking-tight text-foreground">Project Tasked</h2>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/40">
-                                    {tasks.filter(t => t.completed).length} of {tasks.length} tasked synced
-                                </p>
-                                <div className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="h-4 px-1.5 text-[8px] uppercase font-bold tracking-wider text-accent hover:bg-accent/5 border-none"
-                                            isPending={isApplyingTemplate}
-                                        >
-                                            Templates
-                                        </Button>
-                                    </Dropdown.Trigger>
-                                    <Dropdown.Popover>
-                                        <Dropdown.Menu className="w-64">
-                                            <Dropdown.Section>
-                                                <Header className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">Deployment Checklists</Header>
-                                                {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
-                                                    <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
-                                                        <Label className="text-xs font-semibold">{tpl.name}</Label>
-                                                    </Dropdown.Item>
-                                                ))}
-                                            </Dropdown.Section>
-                                        </Dropdown.Menu>
-                                    </Dropdown.Popover>
-                                </Dropdown>
-                            </div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-semibold text-foreground">Tasks</h2>
+                            <span className="text-xs text-muted-foreground">
+                                {tasks.filter(t => t.completed).length}/{tasks.length} done
+                            </span>
+                            <Dropdown>
+                                <Dropdown.Trigger>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                        isPending={isApplyingTemplate}
+                                    >
+                                        Templates
+                                    </Button>
+                                </Dropdown.Trigger>
+                                <Dropdown.Popover>
+                                    <Dropdown.Menu className="w-56">
+                                        <Dropdown.Section>
+                                            <Header className="px-2 py-1 text-xs font-medium text-muted-foreground">Deployment Checklists</Header>
+                                            {DEPLOYMENT_TEMPLATES.map((tpl, i) => (
+                                                <Dropdown.Item key={i} id={String(i)} textValue={tpl.name} onPress={() => applyTemplate(i)}>
+                                                    <Label className="text-xs font-medium">{tpl.name}</Label>
+                                                </Dropdown.Item>
+                                            ))}
+                                        </Dropdown.Section>
+                                    </Dropdown.Menu>
+                                </Dropdown.Popover>
+                            </Dropdown>
                         </div>
                     </div>
                 )}
-
                 <div className={`flex items-center gap-2 flex-grow ${!hideHeader ? 'max-w-[400px]' : ''}`}>
-                    {/* Filter bar only visible if not externalized */}
                     {!externalSearchQuery && !hideHeader && (
                         <>
-                            <div className="relative flex-grow group">
-                                <Search size={14} weight="Linear" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-accent transition-colors" />
+                            <div className="relative flex-grow">
+                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <Input 
-                                    placeholder="Filter tasked..." 
+                                    placeholder="Filter tasks..." 
                                     value={internalSearchQuery}
                                     onChange={(e) => { setInternalSearchQuery(e.target.value); setCurrentPage(1); }}
-                                    className="w-full h-10 bg-surface border-border/40 hover:border-accent/20 focus:border-accent/40 rounded-xl pl-9 text-xs font-medium transition-all"
+                                    className="w-full h-8 bg-background border border-border rounded-lg pl-8 text-xs"
                                 />
                             </div>
                             <Button 
                                 variant={internalHideCompleted ? 'primary' : 'secondary'} 
                                 size="sm" 
-                                className={`h-10 px-3 rounded-xl font-bold text-[10px] uppercase tracking-wider border border-border/40 ${internalHideCompleted ? 'shadow-lg shadow-accent/20' : ''}`}
+                                className="h-8 px-2.5 rounded-lg text-xs border border-border"
                                 onPress={() => { setInternalHideCompleted(!internalHideCompleted); setCurrentPage(1); }}
                             >
-                                <FilterIcon size={14} weight="Bold" className="mr-1.5" />
-                                {internalHideCompleted ? 'Active Only' : 'Show All'}
+                                <Filter size={12} className="mr-1" />
+                                {internalHideCompleted ? 'Active Only' : 'All'}
                             </Button>
                         </>
                     )}
@@ -391,13 +380,11 @@ export function TaskList({
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
                 <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-5 space-y-4 min-h-[450px]">
                     {filteredMainTasks.length === 0 ? (
-                        <div className="h-64 flex flex-col items-center justify-center text-center p-8 gap-4 border-2 border-dashed border-border/20 rounded-3xl mx-2">
-                            <div className="p-4 bg-surface-secondary rounded-2xl text-muted-foreground/30">
-                                <MessageSquarePlus size={32} weight="Linear" />
-                            </div>
+                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
+                            <ListChecks size={20} className="text-muted-foreground/40" />
                             <div>
-                                <h3 className="text-sm font-bold text-foreground/60">No tasks identified</h3>
-                                <p className="text-xs text-muted-foreground font-medium mt-1">Start by adding your first task below.</p>
+                                <p className="text-sm font-medium text-muted-foreground">No tasks yet</p>
+                                <p className="text-xs text-muted-foreground/60 mt-0.5">Add your first task below.</p>
                             </div>
                         </div>
                     ) : (
@@ -432,7 +419,7 @@ export function TaskList({
                     )}
 
                     {totalPages > 1 && (
-                        <div className="flex justify-center p-6 bg-surface-secondary/10 border-t border-border/10">
+                        <div className="flex justify-center pt-4 border-t border-border">
                             <Pagination 
                                 total={totalPages} 
                                 initialPage={1}
@@ -441,31 +428,27 @@ export function TaskList({
                                 variant="secondary"
                                 color="accent"
                                 size="sm"
-                                classNames={{
-                                    cursor: "shadow-xl shadow-accent/20 font-bold",
-                                    item: "font-bold text-[10px] w-8 h-8 rounded-lg border-border/20",
-                                }}
                             />
                         </div>
                     )}
                 </div>
 
-                <div className="p-3 bg-surface-secondary/30 border-t border-border/20">
-                    <form onSubmit={handleAddTask} className="flex flex-col gap-2 group">
+                <div className="pt-3 border-t border-border">
+                    <form onSubmit={handleAddTask} className="flex items-center gap-2">
                         <div className="relative flex-grow">
                             <Input 
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 placeholder="Add a new task..." 
-                                className="h-11 bg-surface border border-border/40 hover:border-accent/30 focus:border-accent rounded-xl pl-5 pr-14 text-sm font-bold transition-all"
+                                className="h-8 bg-background border border-border rounded-lg pl-3 pr-10 text-sm"
                             />
                             <Button 
                                 type="submit" 
                                 variant="primary" 
                                 isIconOnly 
-                                className="absolute right-1.5 top-1.5 h-8 w-8 rounded-lg shadow-md"
+                                className="absolute right-1 top-1 h-6 w-6 rounded-md"
                             >
-                                <Plus size={18} weight="Bold" />
+                                <Plus size={14} />
                             </Button>
                         </div>
                     </form>

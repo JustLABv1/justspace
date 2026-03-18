@@ -4,20 +4,21 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Button, Form, Surface, toast } from '@heroui/react';
+import { Button, Form, toast } from '@heroui/react';
 import {
-    CheckCircle as CheckCircleIcon,
-    Database as DatabaseIcon,
+    CheckCircle,
+    Database,
     Keyboard,
+    Loader2,
     Moon,
     Palette,
-    Refresh as RefreshIcon,
-    Settings as SettingsIcon,
+    RefreshCw,
+    Save,
+    Settings,
     Sun,
-    Restart as Update,
     User,
-    ShieldKeyhole as Vault
-} from '@solar-icons/react';
+    Vault
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
@@ -26,10 +27,7 @@ export default function SettingsPage() {
     return (
         <Suspense fallback={
             <div className="flex h-screen w-full items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <RefreshIcon size={40} className="animate-spin text-accent opacity-20" />
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground animate-pulse">Initializing System</p>
-                </div>
+                <Loader2 size={20} className="animate-spin text-muted-foreground" />
             </div>
         }>
             <SettingsContent />
@@ -241,7 +239,7 @@ function SettingsContent() {
     };
 
     const menuItems = [
-        { id: 'General', label: 'General', icon: SettingsIcon },
+        { id: 'General', label: 'General', icon: Settings },
         { id: 'User', label: 'Account', icon: User },
         { id: 'Security', label: 'Security & Vault', icon: Vault },
         { id: 'Appearance', label: 'Appearance', icon: Palette },
@@ -274,87 +272,75 @@ function SettingsContent() {
     };
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-12 space-y-12">
-            <header className="space-y-3">
-                <div className="flex items-center gap-3 text-accent font-bold tracking-wider text-[10px] opacity-80 uppercase">
-                    <SettingsIcon size={14} weight="Bold" className="animate-pulse" />
-                    System Configuration
-                </div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground leading-tight">
-                    Settings
-                </h1>
-                <p className="text-sm text-muted-foreground font-medium opacity-60">
-                    Configure your workspace, security, and global defaults.
-                </p>
-            </header>
+        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
+            <div>
+                <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Configure your workspace, security, and preferences.</p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 items-start">
-                {/* Sidebar Navigation */}
-                <div className="md:col-span-1 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                <div className="md:col-span-1 space-y-0.5">
                     {menuItems.map((item) => (
                         <button 
                             key={item.id}
                             onClick={() => handleTabChange(item.id)}
-                            className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                 activeTab === item.id 
-                                    ? 'bg-foreground text-background shadow-xl shadow-black/10' 
+                                    ? 'bg-surface-secondary text-foreground' 
                                     : 'text-muted-foreground hover:bg-surface-secondary hover:text-foreground'
                             }`}
                         >
-                            <item.icon size={20} weight={activeTab === item.id ? "Bold" : "Linear"} />
+                            <item.icon size={15} />
                             {item.label}
                         </button>
                     ))}
                 </div>
 
-                {/* Main Settings Area */}
                 <div className="md:col-span-3">
-                    <Surface variant="secondary" className="p-10 rounded-[3rem] border border-border/40 bg-surface/50 backdrop-blur-md space-y-10">
+                    <div className="rounded-xl border border-border bg-surface p-6 space-y-6">
                         {activeTab === 'General' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="space-y-4">
                                 <div>
-                                    <h3 className="text-xl font-bold tracking-tight mb-2">General Workspace</h3>
-                                    <p className="text-xs text-muted-foreground">Global defaults for your consulting environment.</p>
+                                    <h3 className="text-base font-semibold">General</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Global defaults for your workspace.</p>
                                 </div>
                                 
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Workspace Name</label>
-                                        <input 
-                                            className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
-                                            value={workspaceName}
-                                            onChange={(e) => setWorkspaceName(e.target.value)}
-                                            placeholder="Enter workspace name..."
-                                        />
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-foreground">Workspace Name</label>
+                                    <input 
+                                        className="w-full h-9 bg-background rounded-lg border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
+                                        value={workspaceName}
+                                        onChange={(e) => setWorkspaceName(e.target.value)}
+                                        placeholder="Enter workspace name..."
+                                    />
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'User' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="space-y-4">
                                 <div>
-                                    <h3 className="text-xl font-bold tracking-tight mb-2 uppercase italic">Account Profile</h3>
-                                    <p className="text-xs text-muted-foreground">Manage your personal information and identity.</p>
+                                    <h3 className="text-base font-semibold">Account</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Manage your personal information.</p>
                                 </div>
                                 
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Full Name</label>
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium text-foreground">Full Name</label>
                                         <input 
-                                            className="w-full h-14 bg-surface rounded-2xl border border-border/50 px-5 font-bold outline-none focus:border-accent transition-all"
+                                            className="w-full h-9 bg-background rounded-lg border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
                                             value={userName}
                                             onChange={(e) => setUserName(e.target.value)}
                                         />
                                     </div>
-                                    <div className="space-y-2 opacity-50">
-                                        <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Email Address</label>
-                                        <div className="w-full h-14 bg-surface/50 rounded-2xl border border-border/50 px-5 font-bold flex items-center cursor-not-allowed">
+                                    <div className="space-y-1.5 opacity-60">
+                                        <label className="text-sm font-medium text-foreground">Email Address</label>
+                                        <div className="w-full h-9 bg-surface-secondary rounded-lg border border-border px-3 text-sm flex items-center cursor-not-allowed">
                                             {user?.email}
                                         </div>
                                     </div>
-                                    <div className="pt-4 p-6 rounded-2xl bg-surface-tertiary border border-border/50 space-y-2">
-                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">System Identity</h4>
+                                    <div className="p-3 rounded-lg bg-surface-secondary border border-border">
+                                        <p className="text-xs font-medium text-muted-foreground mb-1">User ID</p>
                                         <p className="text-xs font-mono text-muted-foreground truncate">{user?.id}</p>
                                     </div>
                                 </div>
@@ -362,33 +348,29 @@ function SettingsContent() {
                         )}
 
                         {activeTab === 'Appearance' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="space-y-4">
                                 <div>
-                                    <h3 className="text-xl font-bold tracking-tight mb-2">Visual Interface</h3>
-                                    <p className="text-xs text-muted-foreground">Customize the lighting and theme of your dashboard.</p>
+                                    <h3 className="text-base font-semibold">Appearance</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Choose your preferred color theme.</p>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-3 gap-3">
                                     {[
-                                        { id: 'light', label: 'Light Mode', icon: Sun },
-                                        { id: 'dark', label: 'Dark Mode', icon: Moon },
-                                        { id: 'system', label: 'System Sync', icon: RefreshIcon }
+                                        { id: 'light', label: 'Light', icon: Sun },
+                                        { id: 'dark', label: 'Dark', icon: Moon },
+                                        { id: 'system', label: 'System', icon: RefreshCw }
                                     ].map((t) => (
                                         <button
                                             key={t.id}
                                             onClick={() => setTheme(t.id)}
-                                            className={`p-8 rounded-[2rem] border transition-all duration-300 flex flex-col items-center gap-4 group ${
+                                            className={`p-4 rounded-lg border transition-colors flex flex-col items-center gap-2 ${
                                                 theme === t.id 
-                                                    ? 'bg-foreground text-background border-transparent shadow-2xl' 
-                                                    : 'bg-surface/50 border-border/50 text-muted-foreground hover:border-accent hover:text-foreground'
+                                                    ? 'bg-surface-secondary border-accent text-foreground' 
+                                                    : 'bg-background border-border text-muted-foreground hover:border-accent/50 hover:text-foreground'
                                             }`}
                                         >
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
-                                                theme === t.id ? 'bg-background/20 text-background' : 'bg-surface text-accent group-hover:bg-accent group-hover:text-white'
-                                            }`}>
-                                                <t.icon size={24} weight="Bold" />
-                                            </div>
-                                            <span className="text-[10px] font-bold uppercase tracking-wider">{t.label}</span>
+                                            <t.icon size={16} />
+                                            <span className="text-xs font-medium">{t.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -396,13 +378,13 @@ function SettingsContent() {
                         )}
 
                         {activeTab === 'Shortcuts' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="space-y-4">
                                 <div>
-                                    <h3 className="text-xl font-bold tracking-tight mb-2">Keyboard Shortcuts</h3>
-                                    <p className="text-xs text-muted-foreground">Power user commands for rapid navigation.</p>
+                                    <h3 className="text-base font-semibold">Keyboard Shortcuts</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Power user commands for rapid navigation.</p>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 gap-4">
+                                <div className="space-y-1">
                                     {[
                                         { cmd: '⌘ K', action: 'Open Command Palette' },
                                         { cmd: '⌘ P', action: 'Quick Navigation: Projects' },
@@ -411,11 +393,9 @@ function SettingsContent() {
                                         { cmd: '⌘ /', action: 'Toggle Sidebar' },
                                         { cmd: 'ESC', action: 'Close Modals / Deselect' }
                                     ].map((shortcut, i) => (
-                                        <div key={i} className="flex items-center justify-between p-4 px-6 rounded-2xl bg-surface/50 border border-border/30">
-                                            <span className="text-xs font-bold text-muted-foreground">{shortcut.action}</span>
-                                            <kbd className="px-3 py-1 bg-surface border border-border/50 rounded-lg text-[10px] font-bold tracking-wider shadow-sm">
-                                                {shortcut.cmd}
-                                            </kbd>
+                                        <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-surface-secondary transition-colors">
+                                            <span className="text-sm text-muted-foreground">{shortcut.action}</span>
+                                            <kbd className="px-2 py-0.5 bg-surface border border-border rounded-md text-xs font-mono">{shortcut.cmd}</kbd>
                                         </div>
                                     ))}
                                 </div>
@@ -423,157 +403,144 @@ function SettingsContent() {
                         )}
 
                         {activeTab === 'Security' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="space-y-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-xl font-bold tracking-tight mb-2 uppercase italic">Encryption Vault</h3>
-                                        <p className="text-xs text-muted-foreground">End-to-end encryption management for sensitive project data.</p>
+                                        <h3 className="text-base font-semibold">Security & Vault</h3>
+                                        <p className="text-sm text-muted-foreground mt-0.5">End-to-end encryption management.</p>
                                     </div>
-                                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 border ${
+                                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md border ${
                                         privateKey 
-                                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
-                                            : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                                            ? 'bg-success-muted text-success border-success/20' 
+                                            : 'bg-warning-muted text-warning border-warning/20'
                                     }`}>
-                                        <Vault size={14} />
-                                        {privateKey ? 'Vault Unlocked' : 'Vault Locked'}
-                                    </div>
+                                        <Vault size={12} />
+                                        {privateKey ? 'Unlocked' : 'Locked'}
+                                    </span>
                                 </div>
 
-                                <Surface variant="tertiary" className="p-8 rounded-[2rem] border border-border/20 bg-surface/30 space-y-6">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
-                                            <Vault size={24} weight="Bold" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <h4 className="font-bold text-sm uppercase tracking-wider">{hasVault ? 'Unlock your keys' : 'Initialize Vault'}</h4>
-                                            <p className="text-xs text-muted-foreground font-medium opacity-60">
-                                                {hasVault 
-                                                    ? 'Enter your vault password to decrypt your RSA keys. This will enable access to encrypted project data.' 
-                                                    : 'Set up a master vault password. This will generate a unique RSA key pair used to secure your most sensitive project data.'}
-                                            </p>
-                                        </div>
+                                <div className="rounded-lg border border-border bg-surface-secondary p-4 space-y-4">
+                                    <div>
+                                        <h4 className="text-sm font-medium text-foreground">{hasVault ? 'Unlock Vault' : 'Initialize Vault'}</h4>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            {hasVault 
+                                                ? 'Enter your vault password to decrypt your RSA keys.' 
+                                                : 'Set up a master password to generate your RSA encryption key pair.'}
+                                        </p>
                                     </div>
 
-                                    <Form onSubmit={handleVaultAction} className="space-y-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-bold tracking-wider text-muted-foreground ml-1 opacity-60 uppercase">Vault Password</label>
+                                    <Form onSubmit={handleVaultAction} className="space-y-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-foreground">Vault Password</label>
                                             <input 
                                                 type="password"
-                                                className={`w-full h-14 bg-surface rounded-2xl border ${vaultError ? 'border-danger/50' : 'border-border/50'} px-5 font-bold outline-none focus:border-accent transition-all`}
-                                                placeholder="Enter secure vault passphrase..."
+                                                className={`w-full h-9 bg-background rounded-lg border ${vaultError ? 'border-danger' : 'border-border'} px-3 text-sm outline-none focus:border-accent transition-colors`}
+                                                placeholder="Enter vault passphrase..."
                                                 value={vaultPassword}
                                                 onChange={(e) => setVaultPassword(e.target.value)}
                                                 required
                                                 disabled={!!privateKey}
                                             />
                                             {vaultError && (
-                                                <p className="text-[10px] text-danger font-bold ml-1">{vaultError}</p>
+                                                <p className="text-xs text-danger">{vaultError}</p>
                                             )}
                                         </div>
                                         <Button 
                                             type="submit" 
-                                            className="w-full h-14 rounded-2xl font-bold uppercase tracking-wider text-xs" 
+                                            className="w-full h-9 rounded-lg text-sm font-medium" 
                                             variant={privateKey ? "secondary" : "primary"}
                                             isPending={isSubmitting}
                                             isDisabled={!!privateKey}
                                         >
-                                            {privateKey ? 'Vault Synchronized' : (hasVault ? 'Decrypt Keys' : 'Synthesize Vault')}
+                                            {privateKey ? 'Vault Active' : (hasVault ? 'Unlock' : 'Create Vault')}
                                         </Button>
                                     </Form>
 
                                     {!hasVault && (
-                                        <p className="text-[10px] text-center text-orange-500 font-bold uppercase opacity-60 italic">
+                                        <p className="text-xs text-warning">
                                             Warning: Vault passwords cannot be recovered. Loss of password results in permanent data loss.
                                         </p>
                                     )}
 
                                     {privateKey && (
-                                        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-wider">
-                                            <CheckCircleIcon size={20} />
+                                        <div className="p-3 rounded-lg bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
+                                            <CheckCircle size={14} />
                                             Vault active and keys decrypted
                                         </div>
                                     )}
-                                </Surface>
+                                </div>
 
                                 {privateKey && (stats.projects > 0 || stats.wiki > 0 || stats.snippets > 0) && (
-                                    <Surface variant="tertiary" className="p-8 rounded-[2rem] border border-orange-500/20 bg-orange-500/5 space-y-6">
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
-                                                <DatabaseIcon size={24} weight="Bold" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <h4 className="font-bold text-sm uppercase tracking-wider text-orange-500">Legacy Data Migration</h4>
-                                                <p className="text-xs text-muted-foreground font-medium opacity-60">
-                                                    We detected unencrypted records in your workspace. You can migrate them to your secure vault now.
-                                                </p>
-                                            </div>
+                                    <div className="rounded-lg border border-warning/30 bg-warning-muted p-4 space-y-4">
+                                        <div>
+                                            <h4 className="text-sm font-medium text-warning">Unencrypted Data</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Unencrypted records detected. Migrate them to your secure vault.
+                                            </p>
                                         </div>
 
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
-                                                <div className="text-lg font-bold text-orange-500">{stats.projects}</div>
-                                                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Projects</div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="p-3 rounded-lg bg-background border border-border text-center">
+                                                <div className="text-lg font-semibold text-warning">{stats.projects}</div>
+                                                <div className="text-xs text-muted-foreground">Projects</div>
                                             </div>
-                                            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
-                                                <div className="text-lg font-bold text-orange-500">{stats.wiki}</div>
-                                                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Wiki Guides</div>
+                                            <div className="p-3 rounded-lg bg-background border border-border text-center">
+                                                <div className="text-lg font-semibold text-warning">{stats.wiki}</div>
+                                                <div className="text-xs text-muted-foreground">Wiki Guides</div>
                                             </div>
-                                            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 text-center">
-                                                <div className="text-lg font-bold text-orange-500">{stats.snippets}</div>
-                                                <div className="text-[9px] font-bold uppercase tracking-wider opacity-40">Snippets</div>
+                                            <div className="p-3 rounded-lg bg-background border border-border text-center">
+                                                <div className="text-lg font-semibold text-warning">{stats.snippets}</div>
+                                                <div className="text-xs text-muted-foreground">Snippets</div>
                                             </div>
                                         </div>
 
                                         {isMigrating ? (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-3">
-                                                    <RefreshIcon size={18} className="animate-spin text-orange-500" />
-                                                    <span className="text-xs font-bold text-orange-500 animate-pulse uppercase tracking-wider">{migrationProgress}</span>
-                                                </div>
-                                                <div className="h-1.5 w-full bg-orange-500/10 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-orange-500 animate-[progress_2s_ease-in-out_infinite]" style={{ width: '40%' }} />
-                                                </div>
+                                            <div className="flex items-center gap-2">
+                                                <RefreshCw size={13} className="animate-spin text-warning" />
+                                                <span className="text-xs text-warning">{migrationProgress}</span>
                                             </div>
                                         ) : (
                                             <Button 
-                                                className="w-full h-12 rounded-xl font-bold uppercase tracking-wider text-[10px] bg-orange-500 text-white border-none shadow-xl shadow-orange-500/20"
+                                                className="w-full h-8 rounded-lg text-xs font-medium"
+                                                variant="primary"
                                                 onPress={handleMigrate}
                                                 isDisabled={isMigrating}
                                             >
-                                                Start Migration Phase
+                                                <Database size={12} className="mr-1.5" />
+                                                Start Migration
                                             </Button>
                                         )}
-                                    </Surface>
+                                    </div>
                                 )}
 
                                 {migrationProgress.includes('complete') && !isMigrating && (
-                                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-wider">
-                                        <CheckCircleIcon size={20} />
+                                    <div className="p-3 rounded-lg bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
+                                        <CheckCircle size={14} />
                                         Migration completed successfully
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        <div className="pt-8 flex justify-end gap-3 border-t border-border/20">
+                        <div className="pt-4 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl font-bold px-6"
+                                className="rounded-lg h-8 px-3 text-xs font-medium"
                                 onPress={() => router.refresh()}
                             >
                                 Discard
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-xl font-bold px-10 shadow-xl shadow-accent/20 text-[10px] uppercase tracking-wider"
+                                className="rounded-lg h-8 px-3 text-xs font-medium"
                                 onPress={handleSaveChanges}
                                 isPending={isSubmitting}
                             >
-                                <Update size={18} weight="Bold" className="mr-2" />
+                                <Save size={12} className="mr-1.5" />
                                 Save Changes
                             </Button>
                         </div>
-                    </Surface>
+                    </div>
                 </div>
             </div>
         </div>

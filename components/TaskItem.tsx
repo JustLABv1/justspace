@@ -3,26 +3,25 @@
 import { Task } from '@/types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, Checkbox, Chip, Input, ScrollShadow, Surface, Tooltip } from '@heroui/react';
-import {
-    Calendar,
-    CheckCircle as CheckCircleIcon,
-    AltArrowDown as ChevronDown,
-    AltArrowRight as ChevronRight,
-    Pen2 as Edit,
-    Letter as Email,
-    HamburgerMenu as GripVertical,
-    History,
-    ChatRoundDots as MessageCircle,
-    Pause,
-    PhoneCalling as Phone,
-    Play,
-    AddCircle as Plus,
-    TrashBinMinimalistic as Trash
-} from '@solar-icons/react';
+import { Button, Checkbox, Chip, Input, ScrollShadow, Tooltip } from '@heroui/react';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import {
+    Calendar,
+    ChevronDown,
+    ChevronRight,
+    Clock,
+    GripVertical,
+    Mail,
+    MessageCircle,
+    Pause,
+    Pen,
+    Phone,
+    Play,
+    Plus,
+    Trash2
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 dayjs.extend(duration);
@@ -214,21 +213,20 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
     });
 
     return (
-        <Surface 
+        <div
             ref={setNodeRef} 
             style={{
                 ...style,
                 marginLeft: level > 0 ? `${level * 24}px` : '0',
                 width: level > 0 ? `calc(100% - ${level * 24}px)` : '100%',
             }} 
-            className={`group flex flex-col gap-0 rounded-2xl border transition-all duration-300 overflow-hidden ${
-                isDragging ? 'border-accent shadow-2xl z-50 bg-surface scale-[1.02]' : 'border-border/40 hover:border-accent/20 bg-surface shadow-sm'
+            className={`group flex flex-col gap-0 rounded-lg border transition-colors overflow-hidden ${
+                isDragging ? 'border-accent shadow-lg z-50 bg-surface' : 'border-border hover:border-accent/30 bg-surface'
             }`}
         >
-            {/* Header / Title Row */}
-            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/20 hover:text-accent transition-colors">
-                    <GripVertical size={16} weight="Linear" />
+            <div className="flex items-center gap-2 px-3 py-2">
+                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors">
+                    <GripVertical size={14} />
                 </div>
                 
                 <div className="flex-shrink-0">
@@ -243,46 +241,47 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 </div>
 
                 <div className="flex-grow min-w-0 cursor-pointer flex items-center gap-2" onClick={() => onClick && onClick(task)}>
-                    <span className={`text-[16px] font-bold tracking-tight leading-tight block truncate transition-all ${
-                        task.completed ? 'line-through text-muted-foreground/30' : 'text-foreground'
+                    <span className={`text-sm font-medium leading-tight block truncate transition-all ${
+                        task.completed ? 'line-through text-muted-foreground/50' : 'text-foreground'
                     }`}>
                         {task.title}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                     <Button 
                         variant="ghost" 
                         isIconOnly 
-                        className={`h-8 w-8 rounded-xl transition-all ${isExpanded ? 'bg-accent/10 text-accent' : 'text-muted-foreground/30 hover:text-foreground'}`}
+                        className={`h-6 w-6 rounded-md transition-all ${
+                            isExpanded ? 'text-accent' : 'text-muted-foreground/30 hover:text-foreground'
+                        }`}
                         onPress={() => onToggleExpanded && onToggleExpanded(task.id)}
                     >
-                        {isExpanded ? <ChevronDown size={18} weight="Bold" /> : <ChevronRight size={18} weight="Bold" />}
+                        {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                     </Button>
                     <Button 
                         variant="ghost" 
                         isIconOnly 
-                        className="h-8 w-8 rounded-xl text-muted-foreground/10 hover:text-danger hover:bg-danger/10 transition-all opacity-0 group-hover:opacity-100"
+                        className="h-6 w-6 rounded-md text-muted-foreground/20 hover:text-danger transition-all opacity-0 group-hover:opacity-100"
                         onPress={() => onDelete(task.id)}
                     >
-                        <Trash size={14} weight="Linear" />
+                        <Trash2 size={12} />
                     </Button>
                 </div>
             </div>
 
-            {/* Interaction / Metadata Row */}
-            <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-1">
-                <div className="flex items-center gap-1.5 flex-grow overflow-hidden flex-wrap">
+            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-0.5">
+                <div className="flex items-center gap-1 flex-grow overflow-hidden flex-wrap">
                     {task.deadline && (
                         <Chip
                             size="sm"
                             variant="soft"
                             color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
-                            className="h-6 px-2.5 border border-border/10"
+                            className="h-5 px-1.5"
                         >
-                            <Calendar size={12} weight="Bold" className="mr-1" />
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
-                                {dayjs(task.deadline).format('MMM D, HH:mm')}
+                            <Calendar size={9} className="mr-0.5" />
+                            <Chip.Label className="text-[10px] px-0">
+                                {dayjs(task.deadline).format('MMM D')}
                             </Chip.Label>
                         </Chip>
                     )}
@@ -297,9 +296,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 task.priority === 'medium' ? 'accent' :
                                 'default'
                             }
-                            className="h-6 px-2.5 border border-border/10"
+                            className="h-5 px-1.5"
                         >
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
+                            <Chip.Label className="text-[10px] px-0">
                                 {task.priority}
                             </Chip.Label>
                         </Chip>
@@ -314,102 +313,69 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 task.kanbanStatus === 'review' ? 'warning' :
                                 'default'
                             }
-                            className="h-6 px-2.5 border border-border/10 ml-0"
+                            className="h-5 px-1.5"
                         >
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
+                            <Chip.Label className="text-[10px] px-0">
                                 {task.kanbanStatus.replace('-', ' ')}
                             </Chip.Label>
                         </Chip>
                     )}
 
                     {subtasks.length > 0 && (
-                        <Chip
-                            size="sm"
-                            variant="soft"
-                            className="h-6 px-2.5 bg-foreground/[0.03] border border-border/40"
-                        >
-                            <Plus size={10} weight="Bold" className="text-accent" />
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                                {subtasks.length} sub {subtasks.length === 1 ? 'objective' : 'objectives'}
-                            </Chip.Label>
-                        </Chip>
+                        <span className="text-[10px] text-muted-foreground">
+                            {subtasks.filter(s => s.completed).length}/{subtasks.length} sub
+                        </span>
                     )}
                     
                     {task.notes && task.notes.length > 0 && (
-                        <Chip
-                            size="sm"
-                            variant="soft"
-                            color="warning"
-                            className="h-6 px-2.5 border border-warning/10"
-                        >
-                            <MessageCircle size={10} weight="Bold" />
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
-                                {task.notes.length} log {task.notes.length === 1 ? 'entry' : 'entries'}
-                            </Chip.Label>
-                        </Chip>
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                            <MessageCircle size={10} />
+                            {task.notes.length}
+                        </span>
                     )}
                     
                     {task.timeSpent !== undefined && task.timeSpent > 0 && (
-                        <Chip
-                            size="sm"
-                            variant="soft"
-                            color="accent"
-                            className="h-6 px-2.5 border border-accent/10"
-                        >
-                            <History size={10} weight="Bold" />
-                            <Chip.Label className="text-[9px] font-bold uppercase tracking-wider">
-                                {formatLongTime(task.timeSpent || 0)} cumulative
-                            </Chip.Label>
-                        </Chip>
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                            <Clock size={10} />
+                            {formatLongTime(task.timeSpent || 0)}
+                        </span>
                     )}
                 </div>
 
-                <div className={`flex items-center gap-2 pl-3 pr-1 py-1 rounded-2xl border transition-all duration-500 shrink-0 ${
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-colors shrink-0 ${
                     task.isTimerRunning 
-                        ? 'bg-accent border-accent text-white shadow-lg shadow-accent/30' 
-                        : 'bg-surface-secondary border-border/20 text-foreground'
+                        ? 'bg-accent/10 border-accent/30 text-accent' 
+                        : 'bg-surface-secondary border-border text-foreground'
                 }`}>
-                    <span className={`text-xs font-bold tabular-nums tracking-tighter w-12 text-center ${task.isTimerRunning ? 'text-white' : 'text-muted-foreground'}`}>
+                    <span className="text-xs font-mono tabular-nums w-10 text-center">
                         {formatTime(currentTime)}
                     </span>
                     
                     <Button 
                         variant="ghost" 
                         isIconOnly 
-                        className={`h-8 w-8 rounded-xl transition-all active:scale-90 ${
-                            task.isTimerRunning 
-                                ? 'bg-white/20 text-white hover:bg-white/30 border border-white/10' 
-                                : 'bg-foreground/5 text-foreground hover:bg-foreground/10 border border-border/10'
-                        }`}
+                        className="h-5 w-5 rounded-sm transition-all"
                         onPress={handleToggleTimer}
                     >
-                        {task.isTimerRunning ? <Pause size={14} weight="Bold" /> : <Play size={14} weight="Bold" className="ml-0.5" />}
+                        {task.isTimerRunning ? <Pause size={10} /> : <Play size={10} />}
                     </Button>
 
                     {parsedTimeEntries.length > 0 && (
                         <Tooltip delay={0}>
                             <Tooltip.Trigger>
-                                <Button variant="ghost" isIconOnly className={`h-8 w-8 rounded-xl transition-colors ${task.isTimerRunning ? 'text-white/60 hover:text-white' : 'text-muted-foreground/40 hover:text-foreground'}`}>
-                                   <History size={14} weight="Linear" />
+                                <Button variant="ghost" isIconOnly className="h-5 w-5 rounded-sm text-muted-foreground/60 hover:text-foreground transition-colors">
+                                   <Clock size={10} />
                                 </Button>
                             </Tooltip.Trigger>
                             <Tooltip.Content showArrow placement="top">
                                 <Tooltip.Arrow />
-                                <div className="p-3 space-y-3 min-w-[220px]">
-                                    <div className="flex items-center justify-between border-b border-border/20 pb-2">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-accent">Time Records</p>
-                                        <span className="text-xs font-bold text-muted-foreground/60">{parsedTimeEntries.length} entries</span>
-                                    </div>
-                                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1 flex flex-col">
+                                <div className="p-3 space-y-2 min-w-[200px]">
+                                    <p className="text-xs font-medium text-muted-foreground border-b border-border pb-2">Time Records</p>
+                                    <div className="space-y-1 max-h-48 overflow-y-auto">
                                         {parsedTimeEntries.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((entry, i) => (
-                                            <div key={i} className="flex items-center justify-between py-1.5 px-2.5 rounded-xl hover:bg-surface-secondary transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar size={12} weight="Linear" className="text-muted-foreground/40" />
-                                                    <span className="text-xs font-bold text-foreground/80">{dayjs(entry.date).format('MMM D, YYYY')}</span>
-                                                </div>
-                                                <span className="font-bold text-xs tabular-nums text-accent/80">
-                                                    {formatTime(entry.seconds)}
-                                                </span>
+                                            <div key={i} className="flex items-center justify-between py-1">
+                                                <span className="text-xs text-muted-foreground">{dayjs(entry.date).format('MMM D, YYYY')}</span>
+                                                <span className="text-xs font-mono tabular-nums">{formatTime(entry.seconds)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -421,12 +387,11 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             </div>
 
             {isExpanded && (
-                <div className="mx-4 mb-4 mt-2 p-5 bg-surface-secondary/30 rounded-[1.25rem] border border-border/20 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                    {/* Subtasks Section */}
-                    <div className="space-y-4">
+                <div className="mx-3 mb-3 mt-0 p-3 bg-surface-secondary/50 rounded-lg border border-border space-y-4">
+                    <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Sub-Task Management</h5>
-                            <span className="text-[10px] font-bold text-accent/60 bg-accent/5 px-2 py-0.5 rounded-full">{subtasks.filter(s => s.completed).length}/{subtasks.length} Resolved</span>
+                            <h5 className="text-xs font-medium text-muted-foreground">Subtasks</h5>
+                            <span className="text-xs text-muted-foreground">{subtasks.filter(s => s.completed).length}/{subtasks.length}</span>
                         </div>
 
                         <div className="space-y-2">
@@ -459,119 +424,111 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             className="relative"
                         >
                             <Input 
-                                placeholder="Add actionable sub-task..." 
+                                placeholder="Add subtask..." 
                                 value={newSubtaskTitle}
                                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                className="h-11 rounded-xl bg-surface-lowest border-dashed border-2 border-border/30 focus:border-accent/40 transition-all pl-4 pr-12 text-sm font-medium"
+                                className="h-8 rounded-lg bg-background border border-border text-sm pl-3 pr-9"
                             />
-                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-accent/10 hover:text-accent">
-                                <Plus size={16} weight="Linear" />
+                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-md hover:text-accent">
+                                <Plus size={12} />
                             </Button>
                         </form>
 
-                    {/* Communication Log Section */}
-                    <div className="space-y-4 pt-4 border-t border-border/10">
+                    <div className="space-y-2 pt-3 border-t border-border">
                         <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Communication Log</h5>
-                            {parsedNotes.length > 0 && (
-                                <span className="text-[10px] font-bold text-warning/60 bg-warning/5 px-2 py-0.5 rounded-full">{parsedNotes.length} Entries</span>
-                            )}
+                            <h5 className="text-xs font-medium text-muted-foreground">Notes</h5>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-1">
                             {parsedNotes.length === 0 ? (
-                                <div className="py-8 flex flex-col items-center justify-center gap-2 opacity-30">
-                                    <MessageCircle size={24} weight="Linear" />
-                                    <p className="text-[10px] font-bold uppercase tracking-wider">No activity logged</p>
+                                <div className="py-4 flex items-center justify-center gap-2 text-muted-foreground/40">
+                                    <MessageCircle size={14} />
+                                    <p className="text-xs">No notes yet</p>
                                 </div>
                             ) : (
-                                <ScrollShadow className="space-y-2.5 max-h-60" hideScrollBar>
+                                <ScrollShadow className="space-y-1.5 max-h-52" hideScrollBar>
                                     {parsedNotes.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((note, i) => (
-                                        <div key={i} className={`p-3 rounded-xl border flex gap-3 group/note transition-all ${
+                                        <div key={i} className={`p-2.5 rounded-lg border flex gap-2 group/note ${
                                             editingNoteIndex === note.originalIndex 
-                                                ? 'bg-accent/5 border-accent/30 ring-1 ring-accent/20' 
-                                                : 'bg-surface-lowest/40 border-border/5'
+                                                ? 'bg-accent/5 border-accent/30' 
+                                                : 'bg-background border-border'
                                         }`}>
-                                            <div className={`mt-0.5 shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${
+                                            <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md flex items-center justify-center ${
                                                 note.type === 'email' ? 'bg-accent/10 text-accent' :
-                                                note.type === 'call' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                                                note.type === 'call' ? 'bg-success/10 text-success' : 'bg-surface-secondary text-muted-foreground'
                                             }`}>
-                                                {note.type === 'email' ? <Email size={14} weight="Bold" /> :
-                                                 note.type === 'call' ? <Phone size={14} weight="Bold" /> : <MessageCircle size={14} weight="Bold" />}
+                                                {note.type === 'email' ? <Mail size={10} /> :
+                                                 note.type === 'call' ? <Phone size={10} /> : <MessageCircle size={10} />}
                                             </div>
                                             <div className="flex-1 space-y-1">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-40">
-                                                        {note.type} • {dayjs(note.date).fromNow()}
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                        {note.type} · {dayjs(note.date).fromNow()}
                                                     </span>
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-0.5 opacity-0 group-hover/note:opacity-100 transition-opacity">
                                                         <Button 
                                                             variant="ghost" 
                                                             isIconOnly 
-                                                            className="h-6 w-6 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
+                                                            className="h-5 w-5 rounded-md hover:text-accent transition-colors"
                                                             onPress={() => handleEditNote(note.originalIndex)}
                                                         >
-                                                            <Edit size={12} weight="Bold" />
+                                                            <Pen size={10} />
                                                         </Button>
                                                         <Button 
                                                             variant="ghost" 
                                                             isIconOnly 
-                                                            className="h-6 w-6 rounded-lg hover:bg-danger/10 hover:text-danger transition-colors"
+                                                            className="h-5 w-5 rounded-md hover:text-danger transition-colors"
                                                             onPress={() => handleDeleteNote(note.originalIndex)}
                                                         >
-                                                            <Trash size={12} weight="Bold" />
+                                                            <Trash2 size={10} />
                                                         </Button>
                                                     </div>
                                                 </div>
-                                                <p className="text-xs font-bold text-foreground/80 leading-relaxed">{note.text}</p>
+                                                <p className="text-xs text-foreground/80 leading-relaxed">{note.text}</p>
                                             </div>
                                         </div>
                                     ))}
                                 </ScrollShadow>
                             )}
 
-                            <form onSubmit={handleAddNote} className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex gap-2">
-                                        {(['note', 'email', 'call'] as const).map((type) => (
-                                            <Button
-                                                key={type}
-                                                variant="ghost"
-                                                size="sm"
-                                                className={`h-8 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
-                                                    noteType === type 
-                                                        ? 'bg-accent text-white border-accent shadow-sm' 
-                                                        : 'bg-surface-lowest text-muted-foreground/40 hover:text-foreground border-border/10'
-                                                }`}
-                                                onPress={() => setNoteType(type)}
-                                            >
-                                                {type}
-                                            </Button>
-                                        ))}
-                                    </div>
+                            <form onSubmit={handleAddNote} className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                    {(['note', 'email', 'call'] as const).map((type) => (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                                                noteType === type 
+                                                    ? 'bg-accent text-white' 
+                                                    : 'bg-background border border-border text-muted-foreground hover:text-foreground'
+                                            }`}
+                                            onClick={() => setNoteType(type)}
+                                        >
+                                            {type}
+                                        </button>
+                                    ))}
                                     {editingNoteIndex !== null && (
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="h-8 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider text-danger hover:bg-danger/10"
-                                            onPress={() => {
+                                        <button 
+                                            type="button"
+                                            className="ml-auto px-2 py-0.5 rounded-md text-xs text-danger hover:bg-danger/10"
+                                            onClick={() => {
                                                 setEditingNoteIndex(null);
                                                 setNewNote('');
                                             }}
                                         >
                                             Cancel
-                                        </Button>
+                                        </button>
                                     )}
                                 </div>
                                 <div className="relative">
                                     <Input 
-                                        placeholder={editingNoteIndex !== null ? 'Edit entry...' : `Log new ${noteType}...`}
+                                        placeholder={editingNoteIndex !== null ? 'Edit note...' : `Add ${noteType}...`}
                                         value={newNote}
                                         onChange={(e) => setNewNote(e.target.value)}
-                                        className="h-11 rounded-xl bg-surface-lowest border border-border/20 focus:border-accent/40 transition-all pl-4 pr-12 text-sm font-medium"
+                                        className="h-8 rounded-lg bg-background border border-border text-sm pl-3 pr-9"
                                     />
-                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-9 w-9 rounded-lg hover:bg-accent/10 hover:text-accent">
-                                        {editingNoteIndex !== null ? <CheckCircleIcon size={16} weight="Bold" /> : <Plus size={16} weight="Linear" />}
+                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-md hover:text-accent">
+                                        <Plus size={12} />
                                     </Button>
                                 </div>
                             </form>
@@ -579,6 +536,6 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     </div>
                 </div>
             )}
-        </Surface>
+        </div>
     );
 }

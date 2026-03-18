@@ -5,7 +5,7 @@ import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { InstallationTarget, WikiGuide } from '@/types';
 import { Button, Modal, Spinner } from "@heroui/react";
-import { BookMinimalistic as Book, Checklist as CheckSquare, MagicStick2 as Sparkles } from '@solar-icons/react';
+import { BookOpen, CheckSquare, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface TemplateModalProps {
@@ -128,47 +128,47 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
             <Modal.Backdrop 
                 isOpen={isOpen} 
                 onOpenChange={(next) => !next && onClose()}
-                className="bg-background/80 backdrop-blur-md"
+                className="bg-black/50"
                 variant="blur"
             >
                 <Modal.Container size="md" scroll="inside">
-                    <Modal.Dialog className="rounded-[2rem] border border-border/40 bg-surface shadow-2xl p-0 overflow-hidden flex flex-col">
-                        <Modal.CloseTrigger className="absolute right-8 top-7 z-50 p-3 rounded-full bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
+                    <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
+                        <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-8 pt-6 pb-3 border-b border-border/20 flex flex-col items-start gap-2 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
-                                <Sparkles size={20} weight="Bold" />
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
+                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                                <Sparkles size={14} />
                             </div>
-                            <div className="space-y-0">
-                                <Modal.Heading className="text-2xl font-bold tracking-tight text-foreground leading-none">Apply Project Tasked</Modal.Heading>
-                                <p className="text-muted-foreground text-[10px] uppercase font-bold opacity-30 tracking-wider ml-0.5 mt-1">Populate project with expert tasks.</p>
+                            <div>
+                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">Apply Template</Modal.Heading>
+                                <p className="text-xs text-muted-foreground mt-0.5">Populate project with tasks from a guide</p>
                             </div>
                         </Modal.Header>
                         
-                        <Modal.Body className="px-8 pt-4 pb-8 space-y-6 flex-1 overflow-y-auto">
+                        <Modal.Body className="px-6 py-4 space-y-4 flex-1 overflow-y-auto">
                             {isLoading && (
-                                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                    <Spinner color="accent" size="lg" />
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-accent/40">Loading templates...</p>
+                                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                    <Spinner color="accent" size="sm" />
+                                    <p className="text-xs text-muted-foreground">Loading templates...</p>
                                 </div>
                             )}
 
                             {!isLoading && !selectedGuideId && (
-                                <div className="space-y-4">
-                                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30 ml-2 leading-none">AVAILABLE TEMPLATES</h3>
-                                    <div className="grid grid-cols-1 gap-3">
+                                <div className="space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground mb-2">Available guides</p>
+                                    <div className="grid grid-cols-1 gap-2">
                                         {guides.map(guide => (
                                             <button 
                                                 key={guide.id} 
-                                                className="flex items-center gap-4 p-4 rounded-2xl border border-border/40 bg-surface-secondary/20 text-left hover:border-accent/40 hover:bg-surface-secondary/40 transition-all group active:scale-[0.98]"
+                                                className="flex items-center gap-3 p-3 rounded-lg border border-border text-left hover:border-accent/50 hover:bg-surface-secondary/50 transition-all group"
                                                 onClick={() => fetchInstallations(guide.id)}
                                             >
-                                                <div className="w-10 h-10 rounded-xl bg-foreground/5 border border-border/40 flex items-center justify-center text-foreground group-hover:scale-110 transition-transform shrink-0 shadow-sm">
-                                                    <Book size={20} weight="Bold" />
+                                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                                    <BookOpen size={14} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="font-bold truncate text-foreground text-sm tracking-tight uppercase">{guide.title}</h4>
-                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-bold tracking-wider mt-0.5">Guide Template</p>
+                                                    <h4 className="font-medium truncate text-sm text-foreground">{guide.title}</h4>
+                                                    <p className="text-xs text-muted-foreground">Guide template</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -177,34 +177,34 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             )}
 
                             {!isLoading && selectedGuideId && (
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between px-2">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/30">SELECT TARGET NODE</h3>
-                                        <Button variant="ghost" className="text-[10px] font-bold uppercase tracking-wider h-8 px-4 rounded-xl opacity-40 hover:opacity-100" onPress={() => setSelectedGuideId(null)}>Restart Scan</Button>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-medium text-muted-foreground">Select installation target</p>
+                                        <Button variant="ghost" className="h-7 px-2 text-xs rounded-md" onPress={() => setSelectedGuideId(null)}>Back</Button>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-3">
+                                    <div className="grid grid-cols-1 gap-2">
                                         {installations.map(inst => (
                                             <button 
                                                 key={inst.target}
-                                                className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group text-left active:scale-[0.98] ${
+                                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
                                                     selectedInstallation?.target === inst.target 
-                                                    ? 'bg-accent/10 border-accent shadow-inner' 
-                                                    : 'bg-surface-secondary/20 border-border/40 hover:border-accent/40 hover:bg-surface-secondary/40'
+                                                    ? 'bg-accent/5 border-accent' 
+                                                    : 'border-border hover:border-accent/50 hover:bg-surface-secondary/50'
                                                 }`}
                                                 onClick={() => setSelectedInstallation(inst)}
                                             >
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                                                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
                                                     selectedInstallation?.target === inst.target 
-                                                    ? 'bg-accent text-white shadow-lg' 
-                                                    : 'bg-foreground/5 text-foreground group-hover:scale-110'
+                                                    ? 'bg-accent text-white' 
+                                                    : 'bg-surface-secondary text-muted-foreground'
                                                 }`}>
-                                                    <CheckSquare size={20} weight="Bold" />
+                                                    <CheckSquare size={14} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className={`font-bold truncate text-sm tracking-tight uppercase ${
+                                                    <h4 className={`font-medium truncate text-sm ${
                                                         selectedInstallation?.target === inst.target ? 'text-accent' : 'text-foreground'
                                                     }`}>{inst.target}</h4>
-                                                    <p className="text-[10px] text-muted-foreground/40 truncate uppercase font-bold tracking-wider mt-0.5">{inst.tasks?.length || 0} Sub-routines Detected</p>
+                                                    <p className="text-xs text-muted-foreground">{inst.tasks?.length || 0} tasks</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -213,23 +213,23 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             )}
                         </Modal.Body>
 
-                        <Modal.Footer className="px-8 py-6 bg-surface-secondary/30 border-t border-border/20 flex justify-end gap-3">
+                        <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-xl h-9 px-6 font-bold tracking-tight opacity-40 hover:opacity-100 transition-opacity uppercase text-[10px]" 
+                                className="rounded-lg h-8 px-4 text-xs font-medium" 
                                 onPress={onClose} 
                                 isDisabled={isApplying}
                             >
-                                Abort
+                                Cancel
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-xl h-9 px-8 font-bold uppercase tracking-wider text-[10px] shadow-2xl shadow-accent/20" 
+                                className="rounded-lg h-8 px-4 text-xs font-medium" 
                                 onPress={handleApply}
                                 isDisabled={!selectedInstallation || isApplying}
                                 isPending={isApplying}
                             >
-                                Execute Injection
+                                Apply Template
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

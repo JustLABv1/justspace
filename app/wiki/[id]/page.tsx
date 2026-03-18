@@ -11,20 +11,18 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { EncryptedData, InstallationTarget, ResourceVersion, WikiGuide } from '@/types';
-import { Button, Spinner, Surface, Tabs, toast } from "@heroui/react";
+import { Button, Spinner, Tabs, toast } from "@heroui/react";
 import {
-    AltArrowLeft as ArrowLeft,
-    Pen2 as Edit,
-    ArrowRightUp as ExternalLink,
-    CodeCircle as Github,
-    Restart as History,
-    InfoCircle as Info,
-    AddCircle as Plus,
-    ShieldKeyhole as Shield,
-    Target,
-    TrashBinTrash as Trash,
-    Widget
-} from "@solar-icons/react";
+    ArrowLeft,
+    BookOpen,
+    Edit,
+    ExternalLink,
+    Github,
+    History,
+    Lock,
+    Plus,
+    Trash2
+} from "lucide-react";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -337,100 +335,69 @@ export default function WikiDetailPage() {
 
     if (guide.isEncrypted && !privateKey) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
-                <div className="w-24 h-24 rounded-[2rem] bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-2xl shadow-orange-500/5">
-                    <Shield size={48} weight="Bold" className="animate-pulse" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <Lock size={32} className="text-muted-foreground" />
+                <div className="text-center">
+                    <h2 className="text-lg font-semibold text-foreground">Secured Guide</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Unlock your vault to access this encrypted guide.</p>
                 </div>
-                <div className="text-center space-y-3">
-                    <h2 className="text-3xl font-bold tracking-tight uppercase">Secured Guide</h2>
-                    <p className="text-sm text-muted-foreground font-medium opacity-60 max-w-sm mx-auto leading-relaxed">
-                        This guide is protected by end-to-end encryption. <br/>
-                        Please synchronize your vault to gain access.
-                    </p>
-                </div>
-                <div className="w-px h-12 bg-gradient-to-b from-orange-500/40 to-transparent" />
             </div>
         );
     }
 
     return (
-        <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-12">
-            <nav className="flex items-center justify-between">
-                <Link href="/wiki">
-                    <Button variant="secondary" className="rounded-xl h-9 px-4 font-bold border border-border/40 group bg-surface/5 backdrop-blur-sm hover:border-accent/30 uppercase text-[10px] tracking-wider transition-all">
-                        <ArrowLeft size={16} weight="Bold" className="mr-2 group-hover:-translate-x-1 transition-transform" />
-                        Back to Wiki
-                    </Button>
+        <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-6">
+            <div className="flex items-center justify-between">
+                <Link href="/wiki" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft size={14} />
+                    Wiki
                 </Link>
-                <div className="flex items-center gap-3">
-                     <Button 
-                        variant="ghost" 
-                        isIconOnly 
-                        className="rounded-xl h-9 w-9 border border-border/20 bg-surface/5 backdrop-blur-sm hover:text-accent transition-all"
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        isIconOnly
+                        className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
                         onPress={() => setIsHistoryModalOpen(true)}
                     >
-                        <History size={18} weight="Bold" />
+                        <History size={13} />
                     </Button>
-                    <Button 
-                        variant="ghost" 
-                        isIconOnly 
-                        className="rounded-xl h-9 w-9 border border-border/20 bg-surface/5 backdrop-blur-sm hover:text-blue-500 transition-all"
+                    <Button
+                        variant="ghost"
+                        isIconOnly
+                        className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
                         onPress={() => setIsWikiModalOpen(true)}
                     >
-                        <Edit size={18} weight="Bold" />
+                        <Edit size={13} />
                     </Button>
-                    <Button 
-                        variant="primary" 
-                        className="rounded-xl h-9 px-6 font-bold tracking-tight shadow-xl shadow-accent/10 text-xs" 
+                    <Button
+                        variant="primary"
+                        className="rounded-lg h-8 px-3 text-xs font-medium"
                         onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}
                     >
-                        <Plus size={16} weight="Bold" className="mr-2" />
+                        <Plus size={13} className="mr-1.5" />
                         New Section
                     </Button>
                 </div>
-            </nav>
+            </div>
 
-            <header className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/10">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                             <div className="w-6 h-6 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
-                                <Info size={14} weight="Bold" />
-                            </div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-accent/60">Documentation Guide</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                                {guide.title}
-                            </h1>
-                            {isDecrypting && <Spinner size="sm" color="current" />}
-                        </div>
-                        <div className="max-w-4xl opacity-70">
-                            <Markdown content={guide.description} />
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 p-1.5 rounded-xl border border-border/20 bg-surface shadow-sm">
-                        <div className="px-3 py-1.5 rounded-lg bg-surface-secondary text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                            {guide.installations.length} Segments
-                        </div>
-                        {guide.isEncrypted && (
-                            <div className="px-3 py-1.5 rounded-lg bg-orange-500/5 text-[9px] font-bold uppercase tracking-wider text-orange-500 flex items-center gap-1.5">
-                                <Shield size={12} weight="Bold" />
-                                Encrypted
-                            </div>
-                        )}
-                    </div>
+            <div>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-semibold text-foreground">{guide.title}</h1>
+                    {guide.isEncrypted && <Lock size={14} className="text-warning" />}
+                    {isDecrypting && <Spinner size="sm" color="current" />}
                 </div>
-            </header>
+                <div className="mt-2 text-sm text-muted-foreground max-w-3xl">
+                    <Markdown content={guide.description} />
+                </div>
+            </div>
 
             {guide.installations.length > 0 ? (
-                <div className="space-y-12">
+                <div>
                     <Tabs defaultSelectedKey={guide.installations[0].id} variant="secondary">
-                        <Tabs.ListContainer className="p-1 bg-surface-secondary/50 backdrop-blur-md rounded-2xl border border-border/30 w-fit">
-                            <Tabs.List aria-label="Installation targets" className="gap-1">
+                        <Tabs.ListContainer className="p-1 bg-surface-secondary rounded-lg border border-border w-fit">
+                            <Tabs.List aria-label="Installation targets" className="gap-0.5">
                                 {guide.installations.map((inst) => (
-                                    <Tabs.Tab key={inst.id} id={inst.id} className="rounded-xl font-bold px-6 py-2.5 tracking-tight text-[11px] data-[selected=true]:bg-foreground data-[selected=true]:text-background transition-all uppercase">
+                                    <Tabs.Tab key={inst.id} id={inst.id} className="rounded-md text-xs font-medium px-3 py-1.5 data-[selected=true]:bg-background data-[selected=true]:text-foreground data-[selected=true]:shadow-sm transition-all">
                                         {inst.target}
                                         <Tabs.Indicator className="hidden" />
                                     </Tabs.Tab>
@@ -439,136 +406,108 @@ export default function WikiDetailPage() {
                         </Tabs.ListContainer>
 
                         {guide.installations.map((inst) => (
-                            <Tabs.Panel key={inst.id} id={inst.id} className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            <Tabs.Panel key={inst.id} id={inst.id} className="mt-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                                     <div className="lg:col-span-8">
-                                        <Surface className="p-0 rounded-[2rem] border border-border/30 bg-white/40 dark:bg-surface/40 backdrop-blur-xl relative overflow-hidden shadow-sm">
-                                            <div className="relative z-10 flex flex-col h-full">
-                                                <header className="p-8 flex justify-between items-center border-b border-border/10">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-xl bg-foreground text-background flex items-center justify-center">
-                                                            <Target size={20} weight="Bold" />
-                                                        </div>
-                                                        <div>
-                                                            <h2 className="text-xl font-bold tracking-tight leading-none">{inst.target}</h2>
-                                                            <p className="text-[9px] font-bold tracking-wider text-muted-foreground/40 uppercase mt-1.5">Module Documentation</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <WikiExport 
-                                                            title={`${guide.title} - ${inst.target}`} 
-                                                            content={inst.notes || ''} 
-                                                            targetRef={contentRef} 
-                                                        />
-                                                        <div className="w-px h-6 bg-border/10 mx-1" />
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            isIconOnly 
-                                                            className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
-                                                            onPress={() => { setSelectedInst(inst); setIsInstHistoryModalOpen(true); }}
-                                                        >
-                                                            <History size={16} weight="Bold" />
-                                                        </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            isIconOnly 
-                                                            className="h-8 w-8 rounded-lg hover:bg-surface-secondary"
-                                                            onPress={() => { setSelectedInst(inst); setIsInstModalOpen(true); }}
-                                                        >
-                                                            <Edit size={16} weight="Bold" />
-                                                        </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            isIconOnly 
-                                                            className="h-8 w-8 rounded-lg text-danger hover:bg-danger/5"
-                                                            onPress={() => { setSelectedInst(inst); setIsDeleteModalOpen(true); }}
-                                                        >
-                                                            <Trash size={16} weight="Bold" />
-                                                        </Button>
-                                                    </div>
-                                                </header>
-
-                                                <div className="p-8 md:p-12" ref={contentRef}>
-                                                    {inst.notes ? (
-                                                        <Markdown content={inst.notes} />
-                                                    ) : (
-                                                        <div className="py-20 flex flex-col items-center justify-center space-y-3 opacity-20">
-                                                            <Edit size={32} weight="Linear" />
-                                                            <p className="font-bold uppercase tracking-wider text-[10px]">Registry is empty</p>
-                                                        </div>
-                                                    )}
+                                        <div className="rounded-xl border border-border bg-surface">
+                                            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <BookOpen size={13} className="text-muted-foreground" />
+                                                    <h2 className="text-sm font-semibold text-foreground">{inst.target}</h2>
                                                 </div>
+                                                <div className="flex items-center gap-1">
+                                                    <WikiExport 
+                                                        title={`${guide.title} - ${inst.target}`} 
+                                                        content={inst.notes || ''} 
+                                                        targetRef={contentRef} 
+                                                    />
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        isIconOnly 
+                                                        className="h-7 w-7 rounded-md"
+                                                        onPress={() => { setSelectedInst(inst); setIsInstHistoryModalOpen(true); }}
+                                                    >
+                                                        <History size={12} />
+                                                    </Button>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        isIconOnly 
+                                                        className="h-7 w-7 rounded-md"
+                                                        onPress={() => { setSelectedInst(inst); setIsInstModalOpen(true); }}
+                                                    >
+                                                        <Edit size={12} />
+                                                    </Button>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        isIconOnly 
+                                                        className="h-7 w-7 rounded-md text-danger hover:bg-danger-muted"
+                                                        onPress={() => { setSelectedInst(inst); setIsDeleteModalOpen(true); }}
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </Button>
+                                                </div>
+                                            </div>
 
-                                                <footer className="mt-auto p-8 flex flex-wrap gap-4 border-t border-border/5 bg-black/[0.01] dark:bg-white/[0.01]">
+                                            <div className="p-6" ref={contentRef}>
+                                                {inst.notes ? (
+                                                    <Markdown content={inst.notes} />
+                                                ) : (
+                                                    <div className="py-12 flex flex-col items-center justify-center text-center gap-2">
+                                                        <Edit size={20} className="text-muted-foreground" />
+                                                        <p className="text-sm text-muted-foreground">No content yet</p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {(inst.gitRepo || inst.documentation) && (
+                                                <div className="px-4 py-3 border-t border-border flex gap-2">
                                                     {inst.gitRepo && (
-                                                        <Link href={inst.gitRepo} target="_blank" className="flex-1">
-                                                            <Button variant="primary" className="w-full rounded-xl h-12 px-6 font-bold tracking-tight text-xs">
-                                                                <Github size={16} weight="Bold" className="mr-2" />
-                                                                Source Code
+                                                        <Link href={inst.gitRepo} target="_blank">
+                                                            <Button variant="secondary" className="rounded-lg h-8 px-3 text-xs font-medium">
+                                                                <Github size={12} className="mr-1.5" />
+                                                                Source
                                                             </Button>
                                                         </Link>
                                                     )}
                                                     {inst.documentation && (
-                                                        <Link href={inst.documentation} target="_blank" className="flex-1">
-                                                            <Button variant="secondary" className="w-full rounded-xl h-12 px-6 font-bold tracking-tight border border-border/40 text-xs">
-                                                                <ExternalLink size={16} weight="Bold" className="mr-2" />
-                                                                Reference
+                                                        <Link href={inst.documentation} target="_blank">
+                                                            <Button variant="ghost" className="rounded-lg h-8 px-3 text-xs font-medium">
+                                                                <ExternalLink size={12} className="mr-1.5" />
+                                                                Docs
                                                             </Button>
                                                         </Link>
                                                     )}
-                                                </footer>
-                                            </div>
-                                        </Surface>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <aside className="lg:col-span-4 space-y-8">
+                                    <aside className="lg:col-span-4 space-y-4">
                                         {inst.tasks && inst.tasks.length > 0 && (
-                                            <Surface className="p-8 rounded-[2rem] border border-border/30 bg-white/40 dark:bg-surface/40 backdrop-blur-xl shadow-sm">
-                                                <div className="space-y-6">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="space-y-1">
-                                                            <h3 className="text-lg font-bold tracking-tight">Tasks Pipeline</h3>
-                                                            <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40">Sync to Projects</p>
-                                                        </div>
-                                                        <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold text-xs">
-                                                            {inst.tasks.length}
-                                                        </div>
-                                                    </div>
-
-                                                    <ul className="space-y-4">
-                                                        {inst.tasks.map((task, i) => (
-                                                            <li key={i} className="flex items-start gap-3 group">
-                                                                <div className="mt-1 flex items-center justify-center w-5 h-5 rounded-md bg-surface-secondary border border-border/20 text-muted-foreground/40 text-[9px] font-bold group-hover:bg-accent group-hover:text-white group-hover:border-accent transition-all">
-                                                                    {i + 1}
-                                                                </div>
-                                                                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                                                                    {task}
-                                                                </span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-
-                                                    <Button 
-                                                        variant="primary" 
-                                                        className="w-full h-11 rounded-xl font-bold tracking-tight text-[11px] shadow-2xl shadow-accent/20"
-                                                        onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
-                                                    >
-                                                        <Widget size={16} weight="Bold" className="mr-2" />
-                                                        Execute Blueprint Sync
-                                                    </Button>
+                                            <div className="rounded-xl border border-border bg-surface p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h3 className="text-sm font-semibold text-foreground">Tasks</h3>
+                                                    <span className="text-xs text-muted-foreground">{inst.tasks.length}</span>
                                                 </div>
-                                            </Surface>
-                                        )}
-                                        
-                                        <div className="p-6 rounded-2xl border border-border/20 bg-black/[0.02] dark:bg-white/[0.02] space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <Shield size={18} weight="Bold" className="text-muted-foreground/40" />
-                                                <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Version Auditing</h4>
+
+                                                <ul className="space-y-1.5 mb-4">
+                                                    {inst.tasks.map((task, i) => (
+                                                        <li key={i} className="flex items-start gap-2">
+                                                            <span className="mt-0.5 text-xs text-muted-foreground tabular-nums shrink-0">{i + 1}.</span>
+                                                            <span className="text-xs text-muted-foreground">{task}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+
+                                                <Button 
+                                                    variant="primary" 
+                                                    className="w-full h-8 rounded-lg text-xs font-medium"
+                                                    onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
+                                                >
+                                                    Apply to Project
+                                                </Button>
                                             </div>
-                                            <p className="text-[11px] text-muted-foreground/60 leading-relaxed font-medium">
-                                                All segments are snapshots. Use the history icon to audit changes or revert to a stable state.
-                                            </p>
-                                        </div>
+                                        )}
                                     </aside>
                                 </div>
                             </Tabs.Panel>
@@ -576,16 +515,15 @@ export default function WikiDetailPage() {
                     </Tabs>
                 </div>
             ) : (
-                <div className="py-40 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-surface-secondary rounded-[2.5rem] flex items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/40">
-                        <Plus size={32} weight="Bold" />
+                <div className="py-24 flex flex-col items-center justify-center text-center gap-3">
+                    <BookOpen size={24} className="text-muted-foreground" />
+                    <div>
+                        <h2 className="text-sm font-medium text-foreground">No sections yet</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">Add sections to structure your documentation.</p>
                     </div>
-                    <div className="space-y-2">
-                        <h2 className="text-xl font-bold">No documentation segments</h2>
-                        <p className="text-muted-foreground max-w-xs text-sm opacity-60">Initializing sections creates targets for your deployment strategy.</p>
-                    </div>
-                    <Button variant="primary" className="rounded-xl h-10 px-8 font-bold text-xs" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
-                        Create First Section
+                    <Button variant="primary" className="rounded-lg h-8 px-3 text-xs mt-1" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                        <Plus size={13} className="mr-1.5" />
+                        Add First Section
                     </Button>
                 </div>
             )}
