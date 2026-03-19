@@ -104,15 +104,17 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <Code size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
-                                    {snippet?.id ? 'Edit Snippet' : 'New Snippet'}
-                                </Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Code inventory item</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <Code size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">
+                                        {snippet?.id ? 'Edit Snippet' : 'New Snippet'}
+                                    </Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Code inventory item</p>
+                                </div>
                             </div>
                         </Modal.Header>
                         
@@ -122,7 +124,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     <Label className="text-sm font-medium text-muted-foreground">Title</Label>
                                     <Input 
                                         placeholder="Snippet title..." 
-                                        className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                        className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                     />
                                 </TextField>
 
@@ -131,14 +133,14 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                         <Label className="text-sm font-medium text-muted-foreground">Language</Label>
                                         <Input 
                                             placeholder="e.g. typescript, bash" 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
                                     <TextField value={tags} onChange={setTags} className="w-full">
                                         <Label className="text-sm font-medium text-muted-foreground">Tags (comma separated)</Label>
                                         <Input 
                                             placeholder="e.g. azure, auth, deployment" 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
                                 </div>
@@ -147,7 +149,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     <Label className="text-sm font-medium text-muted-foreground">Description</Label>
                                     <TextArea 
                                         placeholder="Short explanation..."
-                                        className="rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[60px]" 
+                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[60px]" 
                                     />
                                 </TextField>
 
@@ -172,7 +174,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                 </div>
 
                                 {!hasVault && (
-                                    <div className="px-3 py-2 rounded-lg bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
+                                    <div className="px-3 py-2 rounded-xl bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
                                         <Lock size={13} />
                                         Setup your vault in Settings to enable encryption
                                     </div>
@@ -194,7 +196,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     </div>
 
                                     {blocks.map((block, index) => (
-                                        <div key={block.id} className="relative group p-3 rounded-lg bg-surface-secondary/30 border border-border space-y-2">
+                                        <div key={block.id} className="relative group p-3 rounded-xl bg-surface-secondary/30 border border-border space-y-2">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-5 h-5 rounded bg-surface-secondary flex items-center justify-center text-xs text-muted-foreground font-medium">
@@ -228,7 +230,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                                 value={block.content} 
                                                 onChange={(e) => updateBlock(block.id, e.target.value)}
                                                 placeholder={block.type === 'code' ? 'Paste code here...' : 'Enter documentation...'}
-                                                className={`rounded-lg border border-border w-full bg-surface-secondary/50 text-sm min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
+                                                className={`rounded-xl border border-border w-full bg-surface-secondary/50 text-sm min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
                                             />
                                         </div>
                                     ))}
@@ -238,7 +240,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                             <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                                 <Button 
                                     variant="ghost" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                    className="rounded-xl h-8 px-4 text-xs font-medium" 
                                     onPress={onClose} 
                                     isDisabled={isLoading}
                                 >
@@ -247,7 +249,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                    className="rounded-xl h-8 px-4 text-xs font-medium" 
                                     isPending={isLoading}
                                 >
                                     {snippet?.id ? 'Save Changes' : 'Create Snippet'}

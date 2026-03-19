@@ -40,7 +40,7 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="flex justify-center mb-8">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-accent-foreground">
+                        <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center text-accent-foreground">
                             <span className="font-bold text-sm leading-none">J</span>
                         </div>
                         <span className="font-semibold text-lg text-foreground">justspace</span>
@@ -48,14 +48,14 @@ export default function SignupPage() {
                 </div>
 
                 {/* Card */}
-                <div className="bg-surface rounded-xl border border-border p-8 shadow-sm">
+                <div className="bg-surface rounded-2xl border border-border p-8 shadow-sm">
                     <div className="mb-6">
                         <h1 className="text-xl font-semibold text-foreground">Create an account</h1>
                         <p className="text-sm text-muted-foreground mt-1">Get started with justspace today.</p>
                     </div>
 
                     {error && (
-                        <div className="mb-5 p-3 rounded-lg bg-danger-muted border border-danger/20 text-danger text-sm">
+                        <div className="mb-5 p-3 rounded-xl bg-danger-muted border border-danger/20 text-danger text-sm">
                             {error}
                         </div>
                     )}
@@ -69,7 +69,7 @@ export default function SignupPage() {
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     placeholder="Jane Smith"
-                                    className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm"
+                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-border bg-background text-sm"
                                     required
                                 />
                             </div>
@@ -84,7 +84,7 @@ export default function SignupPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="you@example.com"
-                                    className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm"
+                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-border bg-background text-sm"
                                     required
                                 />
                             </div>
@@ -99,7 +99,7 @@ export default function SignupPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm"
+                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-border bg-background text-sm"
                                     required
                                 />
                             </div>
@@ -108,7 +108,7 @@ export default function SignupPage() {
                         <Button
                             type="submit"
                             variant="primary"
-                            className="w-full h-10 rounded-lg font-medium text-sm mt-1"
+                            className="w-full h-10 rounded-xl font-medium text-sm mt-1"
                             isPending={isLoading}
                         >
                             Create account

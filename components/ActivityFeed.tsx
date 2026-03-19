@@ -51,21 +51,23 @@ export function ActivityFeed() {
     useEffect(() => {
         const decryptAll = async () => {
             const processed = await Promise.all(activities.map(async (activity) => {
-                if ((activity.entityName.startsWith('{"iv":') || activity.entityName.startsWith('{"ciphertext":')) && privateKey && user && (activity.projectId || activity.metadata?.includes('Secure'))) {
-                    try {
-                        // Use projectId for decryption key lookup
-                        const resourceId = activity.projectId;
-                        if (resourceId) {
-                            const access = await db.getAccessKey(resourceId, user.id);
+                const isEncrypted = (() => {
+                    try { const p = JSON.parse(activity.entityName); return typeof p?.ciphertext === 'string'; } catch { return false; }
+                })();
+
+                if (isEncrypted) {
+                    if (privateKey && user && activity.projectId) {
+                        try {
+                            const access = await db.getAccessKey(activity.projectId, user.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
                                 const nameData = JSON.parse(activity.entityName);
                                 const decrypted = await decryptData(nameData, docKey);
                                 return { ...activity, entityName: decrypted };
                             }
+                        } catch (e) {
+                            console.error('Failed to decrypt activity name:', activity.id, e);
                         }
-                    } catch (e) {
-                        console.error('Failed to decrypt activity name:', activity.id, e);
                     }
                     return { ...activity, entityName: 'Secure Activity' };
                 }
@@ -103,7 +105,7 @@ export function ActivityFeed() {
 
     if (loading) {
         return (
-            <div className="p-6 rounded-xl border border-border flex flex-col items-center justify-center space-y-3 h-32">
+            <div className="p-6 rounded-2xl border border-border flex flex-col items-center justify-center space-y-3 h-32">
                 <Spinner size="sm" color="accent" />
             </div>
         );
@@ -131,20 +133,20 @@ export function ActivityFeed() {
     };
 
     return (
-        <div className="rounded-xl border border-border bg-surface flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="rounded-2xl border border-border bg-surface flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
                 <div className="flex items-center gap-2">
-                    <Activity size={15} className="text-muted-foreground" />
-                    <h3 className="text-sm font-semibold text-foreground">Activity</h3>
+                    <Activity size={14} className="text-muted-foreground" />
+                    <h3 className="text-[13px] font-semibold text-foreground">Activity</h3>
                 </div>
                 <Button
                     variant="ghost"
                     size="sm"
                     onPress={() => fetchActivity(true)}
-                    className="h-7 w-7 p-0 rounded-md text-muted-foreground hover:text-foreground"
+                    className="h-6 w-6 p-0 rounded-xl text-muted-foreground hover:text-foreground"
                     isPending={refreshing}
                 >
-                    <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+                    <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
                 </Button>
             </div>
 
@@ -157,20 +159,20 @@ export function ActivityFeed() {
                 ) : (
                     Object.entries(groupedActivities).map(([day, items]) => (
                         <div key={day}>
-                            <div className="flex items-center gap-2 px-4 py-2">
-                                <span className="text-xs font-medium text-muted-foreground">{day}</span>
-                                <div className="h-px flex-1 bg-border" />
+                            <div className="flex items-center gap-2 px-5 py-2">
+                                <span className="text-[11px] font-medium text-muted-foreground">{day}</span>
+                                <div className="h-px flex-1 bg-border/60" />
                             </div>
 
-                            <div className="px-2 pb-2 space-y-0.5">
+                            <div className="px-3 pb-2 space-y-0.5">
                                 {items.map((activity) => (
-                                    <div key={activity.id} className="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-surface-secondary transition-colors">
-                                        <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-md bg-surface-tertiary flex items-center justify-center">
+                                    <div key={activity.id} className="flex items-start gap-3 px-2 py-2 rounded-xl hover:bg-surface-secondary/50 transition-colors">
+                                        <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-xl bg-surface-tertiary flex items-center justify-center">
                                             {getIcon(activity.type)}
                                         </div>
 
                                         <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-medium text-foreground truncate">
+                                            <div className="text-[13px] font-medium text-foreground truncate">
                                                 {activity.entityName}
                                             </div>
                                             <div className="mt-0.5 flex items-center gap-2">
@@ -178,7 +180,7 @@ export function ActivityFeed() {
                                                     size="sm"
                                                     variant="soft"
                                                     color={getActionColor(activity.type)}
-                                                    className="h-4 px-1.5 rounded"
+                                                    className="h-4 px-1.5 rounded-full"
                                                 >
                                                     <Chip.Label className="text-[10px] font-medium">
                                                         {activity.type}

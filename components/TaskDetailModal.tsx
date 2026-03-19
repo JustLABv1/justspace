@@ -427,7 +427,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             {task.priority || 'Priority'}
                                             <ChevronDown size={12} className="ml-1.5 opacity-40" />
                                         </Button>
-                                        <Dropdown.Popover className="rounded-lg border border-border p-1 shadow-lg bg-surface min-w-[120px]">
+                                        <Dropdown.Popover className="rounded-xl border border-border p-1 shadow-lg bg-surface min-w-[120px]">
                                             <Dropdown.Menu 
                                                 className="bg-transparent"
                                                 onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
@@ -464,7 +464,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             )}
                                                         </DateField.Input>
                                                         <DateField.Suffix className="ml-2">
-                                                            <DatePicker.Trigger className="p-0.5 rounded-lg hover:bg-accent/10 transition-colors">
+                                                            <DatePicker.Trigger className="p-0.5 rounded-xl hover:bg-accent/10 transition-colors">
                                                                 <DatePicker.TriggerIndicator className="text-muted-foreground/40 group-hover:text-accent" />
                                                             </DatePicker.Trigger>
                                                         </DateField.Suffix>
@@ -473,7 +473,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         <Calendar aria-label="Task deadline calendar" className="w-full">
                                                             <Calendar.Header className="flex items-center justify-between mb-4">
                                                                 <Calendar.YearPickerTrigger>
-                                                                    <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-lg hover:bg-accent/5 transition-colors cursor-pointer">
+                                                                    <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-xl hover:bg-accent/5 transition-colors cursor-pointer">
                                                                         <Calendar.YearPickerTriggerHeading className="text-xs font-medium text-accent" />
                                                                         <Calendar.YearPickerTriggerIndicator className="opacity-40" />
                                                                     </div>
@@ -529,7 +529,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                 value={state.timeValue}
                                                                 onChange={(v) => v && state.setTimeValue(v)}
                                                             >
-                                                                <TimeField.Group className="bg-surface-secondary/50 border border-border px-3 py-2 rounded-lg h-9 flex items-center">
+                                                                <TimeField.Group className="bg-surface-secondary/50 border border-border px-3 py-2 rounded-xl h-9 flex items-center">
                                                                     <TimeField.Input>
                                                                         {(segment) => <TimeField.Segment segment={segment} className="text-xs text-foreground focus:text-accent" />}
                                                                     </TimeField.Input>
@@ -569,7 +569,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     isIconOnly 
                                                     size="sm" 
                                                     variant="ghost" 
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg opacity-0 group-focus-within:opacity-100 transition-opacity"
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity"
                                                 >
                                                     <Plus size={16} />
                                                 </Button>
@@ -578,17 +578,17 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
                                                 <div className="space-y-2">
                                                     {subtasks.length === 0 ? (
-                                                        <div className="py-8 text-center border-2 border-dashed border-border/30 rounded-lg">
+                                                        <div className="py-8 text-center border-2 border-dashed border-border/30 rounded-xl">
                                                             <p className="text-xs text-muted-foreground/50">No subtasks yet</p>
                                                         </div>
                                                     ) : (
                                                         subtasks.map((st) => (
-                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
+                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
                                                                 <Checkbox 
                                                                     isSelected={st.completed} 
                                                                     onChange={(val) => handleUpdateTask(st.id, { completed: val })}
                                                                 >
-                                                                    <Checkbox.Control className="size-5 rounded-lg border-2">
+                                                                    <Checkbox.Control className="size-5 rounded-xl border-2">
                                                                         <Checkbox.Indicator />
                                                                     </Checkbox.Control>
                                                                 </Checkbox>
@@ -637,7 +637,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <History size={14} /> Time Spent
                                                 </h4>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <div className="p-3 rounded-lg bg-surface border border-border">
+                                                    <div className="p-3 rounded-xl bg-surface border border-border">
                                                         <p className="text-xs text-muted-foreground mb-1">Total</p>
                                                         <p className="text-lg font-semibold text-accent font-mono">{formatTime(task.timeSpent)}</p>
                                                     </div>
@@ -660,7 +660,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
                                                 <div className="space-y-4">
                                                     {parsedNotes.length === 0 ? (
-                                                        <div className="py-12 text-center border-2 border-dashed border-border/30 rounded-lg">
+                                                        <div className="py-12 text-center border-2 border-dashed border-border/30 rounded-xl">
                                                             <Email size={24} className="mx-auto text-muted-foreground/20 mb-2" />
                                                             <p className="text-xs text-muted-foreground/50">No notes yet</p>
                                                         </div>
@@ -671,7 +671,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                     note.type === 'email' ? 'bg-accent' : note.type === 'call' ? 'bg-success' : 'bg-warning'
                                                                 }`} />
                                                                 
-                                                                <div className="p-3 rounded-lg bg-surface-secondary/40 border border-border group-hover:border-warning/30 transition-all">
+                                                                <div className="p-3 rounded-xl bg-surface-secondary/40 border border-border group-hover:border-warning/30 transition-all">
                                                                     <div className="flex items-center justify-between mb-2">
                                                                         <div className="flex items-center gap-2">
                                                                             {note.type === 'email' && <Email size={10} className="text-accent" />}
@@ -686,7 +686,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                 variant="ghost" 
                                                                                 isIconOnly 
                                                                                 size="sm" 
-                                                                                className="h-6 w-6 rounded-lg text-muted-foreground hover:text-foreground"
+                                                                                className="h-6 w-6 rounded-xl text-muted-foreground hover:text-foreground"
                                                                                 onPress={() => handleEditNote(note.originalIndex)}
                                                                             >
                                                                                 <Edit size={10} />
@@ -695,7 +695,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                 variant="ghost" 
                                                                                 isIconOnly 
                                                                                 size="sm" 
-                                                                                className="h-6 w-6 rounded-lg text-muted-foreground hover:text-danger"
+                                                                                className="h-6 w-6 rounded-xl text-muted-foreground hover:text-danger"
                                                                                 onPress={() => handleDeleteNote(note.originalIndex)}
                                                                             >
                                                                                 <Trash size={10} />
@@ -743,7 +743,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     value={newNote}
                                                     onChange={(e) => setNewNote(e.target.value)}
                                                     placeholder={editingNoteIndex !== null ? "Edit note..." : `Add ${noteType}...`}
-                                                    className="w-full h-24 p-3 rounded-lg bg-surface-secondary border border-border focus:border-warning/50 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs resize-none"
+                                                    className="w-full h-24 p-3 rounded-xl bg-surface-secondary border border-border focus:border-warning/50 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs resize-none"
                                                 />
                                                 <Button 
                                                     type="submit" 
@@ -760,7 +760,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                             </div>
                         </Modal.Body>
                         <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border">
-                            <Button slot="close" variant="secondary" className="rounded-lg h-8 px-4 text-xs">
+                            <Button slot="close" variant="secondary" className="rounded-xl h-8 px-4 text-xs">
                                 Close
                             </Button>
                         </Modal.Footer>

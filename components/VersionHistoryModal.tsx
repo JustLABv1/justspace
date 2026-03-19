@@ -85,15 +85,17 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col max-h-[80vh]">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <History size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
-                                    Version History
-                                </Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Chronological snapshots</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <History size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">
+                                        Version History
+                                    </Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Chronological snapshots</p>
+                                </div>
                             </div>
                         </Modal.Header>
 
@@ -105,7 +107,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                             ) : (
                                 <div className="space-y-2">
                                     {versions.map((v) => (
-                                        <div key={v.id} className="px-3 py-2.5 rounded-lg border border-border flex items-center justify-between group hover:bg-surface-secondary/50 transition-colors">
+                                        <div key={v.id} className="px-3 py-2.5 rounded-xl border border-border flex items-center justify-between group hover:bg-surface-secondary/50 transition-colors">
                                             <div className="space-y-0.5">
                                                 <div className="flex items-center gap-1.5">
                                                     <p className="text-sm font-medium text-foreground">

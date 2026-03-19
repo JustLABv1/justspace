@@ -135,13 +135,15 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <Sparkles size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">Apply Template</Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Populate project with tasks from a guide</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <Sparkles size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">Apply Template</Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Populate project with tasks from a guide</p>
+                                </div>
                             </div>
                         </Modal.Header>
                         
@@ -160,7 +162,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                         {guides.map(guide => (
                                             <button 
                                                 key={guide.id} 
-                                                className="flex items-center gap-3 p-3 rounded-lg border border-border text-left hover:border-accent/50 hover:bg-surface-secondary/50 transition-all group"
+                                                className="flex items-center gap-3 p-3 rounded-xl border border-border text-left hover:border-accent/50 hover:bg-surface-secondary/50 transition-all group"
                                                 onClick={() => fetchInstallations(guide.id)}
                                             >
                                                 <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
@@ -186,7 +188,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                         {installations.map(inst => (
                                             <button 
                                                 key={inst.target}
-                                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
+                                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                                                     selectedInstallation?.target === inst.target 
                                                     ? 'bg-accent/5 border-accent' 
                                                     : 'border-border hover:border-accent/50 hover:bg-surface-secondary/50'
@@ -216,7 +218,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                         <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                className="rounded-xl h-8 px-4 text-xs font-medium" 
                                 onPress={onClose} 
                                 isDisabled={isApplying}
                             >
@@ -224,7 +226,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                className="rounded-xl h-8 px-4 text-xs font-medium" 
                                 onPress={handleApply}
                                 isDisabled={!selectedInstallation || isApplying}
                                 isPending={isApplying}

@@ -87,13 +87,15 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <FolderOpen size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">Select Project</Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Choose a project to continue</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <FolderOpen size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">Select Project</Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Choose a project to continue</p>
+                                </div>
                             </div>
                         </Modal.Header>
 
@@ -110,7 +112,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                             key={project.id}
                                             onClick={() => handleSelect(project.id)}
                                             disabled={isSubmitting}
-                                            className="flex items-center gap-3 p-3 rounded-lg border border-border text-left hover:border-accent/50 hover:bg-surface-secondary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-3 p-3 rounded-xl border border-border text-left hover:border-accent/50 hover:bg-surface-secondary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <div className="w-8 h-8 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
                                                 <FolderOpen size={15} />
@@ -123,8 +125,8 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                                     ))}
                                 </div>
                             ) : (
-                                <div className="py-12 text-center border border-dashed border-border rounded-lg space-y-2">
-                                    <div className="w-10 h-10 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground/40 mx-auto">
+                                <div className="py-12 text-center border border-dashed border-border rounded-xl space-y-2">
+                                    <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-muted-foreground/40 mx-auto">
                                         <FolderOpen size={18} />
                                     </div>
                                     <p className="text-sm font-medium text-foreground">No projects</p>
@@ -136,7 +138,7 @@ export const ProjectSelectorModal = ({ isOpen, onClose, onSelect }: ProjectSelec
                         <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                className="rounded-xl h-8 px-4 text-xs font-medium" 
                                 onPress={onClose} 
                                 isDisabled={isSubmitting}
                             >

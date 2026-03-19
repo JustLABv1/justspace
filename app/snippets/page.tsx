@@ -9,12 +9,14 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { EncryptedData, ResourceVersion, Snippet } from '@/types';
-import { Button, Chip, Spinner, toast } from "@heroui/react";
+import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
 import {
     Code,
     Edit,
+    Eye,
     History,
     Lock,
+    MoreHorizontal,
     Plus,
     Search,
     Trash2
@@ -244,19 +246,19 @@ export default function SnippetsPage() {
     }
 
     return (
-        <div className="max-w-[1400px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="w-full px-6 py-8 space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-semibold text-foreground">Snippets</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Store and reuse your code snippets.</p>
+                <div className="space-y-0.5">
+                    <h1 className="text-lg font-semibold text-foreground">Snippets</h1>
+                    <p className="text-[13px] text-muted-foreground">Store and reuse your code snippets.</p>
                 </div>
-                <Button variant="primary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
-                    <Plus size={13} className="mr-1.5" />
-                    New Snippet
+                <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                    <Plus size={13} className="mr-1" />
+                    New snippet
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
+            <div className="flex items-center gap-2 rounded-xl border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
                 <Search size={13} className="text-muted-foreground shrink-0" />
                 <input 
                     className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground" 
@@ -270,68 +272,98 @@ export default function SnippetsPage() {
                 {filteredSnippets.map((snippet) => (
                     <div
                         key={snippet.id}
-                        className="rounded-xl border border-border bg-surface group relative flex flex-col hover:border-accent/40 transition-colors cursor-pointer"
-                        onClick={() => { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }}
+                        className="rounded-2xl border border-border bg-surface group flex flex-col overflow-hidden hover:shadow-sm transition-all"
                     >
-                        <div className="p-4 flex-1 flex flex-col gap-3">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
-                                        <Code size={13} />
-                                    </div>
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                        <h3 className="text-sm font-medium text-foreground truncate">{snippet.title}</h3>
+                        {/* Clickable content area */}
+                        <div
+                            className="p-4 flex-1 flex flex-col gap-3 cursor-pointer"
+                            onClick={() => { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }}
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-warning-muted flex items-center justify-center text-warning shrink-0">
+                                    <Code size={15} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <h3 className="text-[13px] font-semibold text-foreground truncate leading-snug flex-1">{snippet.title}</h3>
                                         {snippet.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
                                     </div>
+                                    {snippet.description && (
+                                        <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-1">{snippet.description}</p>
+                                    )}
                                 </div>
-                                <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-md" onPress={() => { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }}>
-                                        <Edit size={11} />
-                                    </Button>
-                                    <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-md" onPress={() => { setSelectedSnippet(snippet); setIsHistoryModalOpen(true); }}>
-                                        <History size={11} />
-                                    </Button>
-                                    <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-md text-danger hover:bg-danger-muted" onPress={() => { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }}>
-                                        <Trash2 size={11} />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Chip size="sm" variant="soft" color="accent">
-                                    <Chip.Label className="text-[10px] font-medium">{snippet.language}</Chip.Label>
+                                <Chip size="sm" variant="soft" color="accent" className="shrink-0">
+                                    <Chip.Label className="text-[10px] font-mono px-0.5">{snippet.language}</Chip.Label>
                                 </Chip>
                             </div>
 
-                            {snippet.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-2">{snippet.description}</p>
-                            )}
-
-                            <div className="rounded-lg bg-surface-secondary border border-border overflow-hidden">
-                                <div className="p-3 font-mono text-xs text-muted-foreground overflow-hidden">
+                            <div className="rounded-xl bg-surface-secondary border border-border/60 overflow-hidden">
+                                <div className="p-3 font-mono text-[11px] text-muted-foreground overflow-hidden">
                                     {snippet.blocks ? (
                                         (() => {
                                             try {
                                                 const blocks = JSON.parse(snippet.blocks);
-                                                return <pre className="line-clamp-5 whitespace-pre-wrap">{blocks[0]?.content || ''}</pre>;
+                                                return <pre className="line-clamp-4 whitespace-pre-wrap">{blocks[0]?.content || ''}</pre>;
                                             } catch {
-                                                return <pre className="line-clamp-5 whitespace-pre-wrap">{snippet.content}</pre>;
+                                                return <pre className="line-clamp-4 whitespace-pre-wrap">{snippet.content}</pre>;
                                             }
                                         })()
                                     ) : (
-                                        <pre className="line-clamp-5 whitespace-pre-wrap">{snippet.content}</pre>
+                                        <pre className="line-clamp-4 whitespace-pre-wrap">{snippet.content}</pre>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        {snippet.tags && snippet.tags.length > 0 && (
-                            <div className="px-4 py-2 border-t border-border flex flex-wrap gap-1.5">
-                                {snippet.tags.map(tag => (
-                                    <span key={tag} className="text-xs text-muted-foreground">#{tag}</span>
-                                ))}
+                        {/* Footer - separate from clickable area */}
+                        <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
+                            <div className="flex flex-wrap gap-1.5 min-w-0 flex-1">
+                                {snippet.tags && snippet.tags.length > 0 ? (
+                                    snippet.tags.slice(0, 3).map(tag => (
+                                        <span key={tag} className="text-[11px] text-muted-foreground">#{tag}</span>
+                                    ))
+                                ) : (
+                                    <span className="text-[11px] text-muted-foreground/50">No tags</span>
+                                )}
                             </div>
-                        )}
+                            <Dropdown>
+                                <Button
+                                    variant="ghost"
+                                    isIconOnly
+                                    className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                    aria-label="Snippet actions"
+                                >
+                                    <MoreHorizontal size={13} />
+                                </Button>
+                                <Dropdown.Popover>
+                                    <Dropdown.Menu
+                                        onAction={(key) => {
+                                            if (key === 'view') { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }
+                                            if (key === 'edit') { setSelectedSnippet(snippet); setIsSnippetModalOpen(true); }
+                                            if (key === 'history') { setSelectedSnippet(snippet); setIsHistoryModalOpen(true); }
+                                            if (key === 'delete') { setSelectedSnippet(snippet); setIsDeleteModalOpen(true); }
+                                        }}
+                                    >
+                                        <Dropdown.Item id="view" textValue="View">
+                                            <Eye size={13} />
+                                            <Label>View</Label>
+                                        </Dropdown.Item>
+                                        <Dropdown.Item id="edit" textValue="Edit">
+                                            <Edit size={13} />
+                                            <Label>Edit</Label>
+                                        </Dropdown.Item>
+                                        <Dropdown.Item id="history" textValue="History">
+                                            <History size={13} />
+                                            <Label>History</Label>
+                                        </Dropdown.Item>
+                                        <Dropdown.Item id="delete" textValue="Delete" variant="danger">
+                                            <Trash2 size={13} className="text-danger" />
+                                            <Label>Delete</Label>
+                                        </Dropdown.Item>
+                                    </Dropdown.Menu>
+                                </Dropdown.Popover>
+                            </Dropdown>
+                        </div>
                     </div>
                 ))}
 

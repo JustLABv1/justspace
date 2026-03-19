@@ -60,15 +60,17 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <BookOpen size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
-                                    {guide ? 'Edit Guide' : 'New Guide'}
-                                </Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Create or edit a knowledge base document</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <BookOpen size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">
+                                        {guide ? 'Edit Guide' : 'New Guide'}
+                                    </Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Create or edit a knowledge base document</p>
+                                </div>
                             </div>
                         </Modal.Header>
                         
@@ -96,7 +98,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                     </div>
 
                                     {!hasVault && (
-                                        <div className="px-3 py-2 rounded-lg bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
+                                        <div className="px-3 py-2 rounded-xl bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
                                             <Lock size={13} />
                                             Setup your vault in Settings to enable encryption
                                         </div>
@@ -113,13 +115,13 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                         <Label className="text-sm font-medium text-muted-foreground">Document Title</Label>
                                         <Input 
                                             placeholder="e.g. System Architecture Guide"
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3"
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3"
                                         />
                                     </TextField>
 
                                     <div className="flex flex-col gap-3">
                                         <Label className="text-sm font-medium text-muted-foreground">Content (Markdown)</Label>
-                                        <div className="border border-border rounded-lg overflow-hidden bg-surface-secondary/20">
+                                        <div className="border border-border rounded-xl overflow-hidden bg-surface-secondary/20">
                                             <Tabs 
                                                 selectedKey={activeTab} 
                                                 onSelectionChange={(key) => setActiveTab(key as string)}
@@ -156,7 +158,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                             <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                                 <Button 
                                     variant="ghost" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium"
+                                    className="rounded-xl h-8 px-4 text-xs font-medium"
                                     onPress={onClose} 
                                     isDisabled={isLoading}
                                 >
@@ -165,7 +167,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium"
+                                    className="rounded-xl h-8 px-4 text-xs font-medium"
                                     isPending={isLoading}
                                 >
                                     {guide ? 'Save Changes' : 'Create Document'}

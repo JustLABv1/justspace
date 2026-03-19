@@ -7,13 +7,14 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Project } from '@/types';
-import { Button, Chip, Spinner, toast } from "@heroui/react";
+import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
 import {
-    Briefcase,
     Edit,
+    FolderKanban,
     LayoutGrid,
     List,
     Lock,
+    MoreHorizontal,
     Plus,
     Trash2
 } from "lucide-react";
@@ -193,18 +194,18 @@ export default function ProjectsPage() {
     ];
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="w-full px-6 py-8 space-y-6">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-semibold text-foreground">Projects</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Track and manage your consulting engagements.</p>
+                <div className="space-y-0.5">
+                    <h1 className="text-lg font-semibold text-foreground">Projects</h1>
+                    <p className="text-[13px] text-muted-foreground">Track and manage your consulting engagements.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="flex rounded-lg border border-border overflow-hidden">
+                    <div className="flex rounded-xl border border-border overflow-hidden">
                         <Button 
                             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
                             onPress={() => setViewMode('kanban')}
-                            className={`h-8 px-3 rounded-none text-xs font-medium transition-colors ${viewMode === 'kanban' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`h-8 px-3 rounded-none text-[12px] font-medium transition-colors ${viewMode === 'kanban' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <List size={13} className="mr-1.5" />
                             Board
@@ -212,15 +213,15 @@ export default function ProjectsPage() {
                         <Button 
                             variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
                             onPress={() => setViewMode('grid')}
-                            className={`h-8 px-3 rounded-none text-xs font-medium transition-colors ${viewMode === 'grid' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`h-8 px-3 rounded-none text-[12px] font-medium transition-colors ${viewMode === 'grid' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <LayoutGrid size={13} className="mr-1.5" />
                             Grid
                         </Button>
                     </div>
-                    <Button variant="primary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
-                        <Plus size={13} className="mr-1.5" />
-                        New Project
+                    <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                        <Plus size={13} className="mr-1" />
+                        New project
                     </Button>
                 </div>
             </header>
@@ -257,7 +258,7 @@ export default function ProjectsPage() {
 
                                 <Button 
                                     variant="ghost"
-                                    className="w-full border border-dashed border-border rounded-lg h-9 text-xs text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
+                                    className="w-full border border-dashed border-border/60 rounded-xl h-8 text-[12px] text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
                                     onPress={() => { 
                                         setSelectedProject({ status: column.status } as Project); 
                                         setIsProjectModalOpen(true); 
@@ -311,46 +312,68 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
     return (
-        <div className="p-3 rounded-lg border border-border bg-surface group hover:border-accent/40 transition-colors">
-            <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                    <Link href={`/projects/${project.id}`} className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
-                            <Briefcase size={13} />
+        <div className="rounded-2xl border border-border bg-surface group overflow-hidden hover:shadow-sm transition-all">
+            <Link href={`/projects/${project.id}`} className="block p-4">
+                <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        project.status === 'completed' ? 'bg-success-muted text-success' :
+                        project.status === 'in-progress' ? 'bg-accent-muted text-accent' :
+                        'bg-surface-secondary text-muted-foreground'
+                    }`}>
+                        <FolderKanban size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                            <h3 className="text-[13px] font-semibold text-foreground truncate leading-snug">{project.name}</h3>
+                            {project.isEncrypted && (
+                                <Lock size={11} className="text-warning shrink-0" />
+                            )}
                         </div>
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                                <h3 className="text-sm font-medium text-foreground truncate">{project.name}</h3>
-                                {project.isEncrypted && (
-                                    <Lock size={11} className="text-warning shrink-0" />
-                                )}
-                            </div>
-                        </div>
-                    </Link>
-
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <Button isIconOnly variant="ghost" size="sm" className="h-6 w-6 rounded-md" onPress={onEdit}>
-                            <Edit size={11} />
-                        </Button>
-                        <button 
-                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-danger-muted hover:text-danger transition-colors" 
-                            onClick={(e) => { e.preventDefault(); onDelete(); }}
-                        >
-                            <Trash2 size={11} />
-                        </button>
+                        {project.description && (
+                            <p className="text-[12px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{project.description}</p>
+                        )}
                     </div>
                 </div>
+            </Link>
 
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                        <span className="text-xs text-muted-foreground">{project.status.replace('-', ' ')}</span>
-                    </div>
-
+            <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                        project.status === 'todo' ? 'bg-muted-foreground/40' :
+                        project.status === 'in-progress' ? 'bg-accent' : 'bg-success'
+                    }`} />
+                    <span className="text-[11px] text-muted-foreground capitalize">{project.status.replace('-', ' ')}</span>
                     {project.daysPerWeek && (
-                        <span className="text-xs text-muted-foreground">{project.daysPerWeek}d/w</span>
+                        <span className="text-[11px] text-muted-foreground">· {project.daysPerWeek}d/w</span>
                     )}
                 </div>
+                <Dropdown>
+                    <Button
+                        variant="ghost"
+                        isIconOnly
+                        className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Project actions"
+                    >
+                        <MoreHorizontal size={13} />
+                    </Button>
+                    <Dropdown.Popover>
+                        <Dropdown.Menu
+                            onAction={(key) => {
+                                if (key === 'edit') onEdit();
+                                if (key === 'delete') onDelete();
+                            }}
+                        >
+                            <Dropdown.Item id="edit" textValue="Edit">
+                                <Edit size={13} />
+                                <Label>Edit</Label>
+                            </Dropdown.Item>
+                            <Dropdown.Item id="delete" textValue="Delete" variant="danger">
+                                <Trash2 size={13} className="text-danger" />
+                                <Label>Delete</Label>
+                            </Dropdown.Item>
+                        </Dropdown.Menu>
+                    </Dropdown.Popover>
+                </Dropdown>
             </div>
         </div>
     );

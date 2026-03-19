@@ -272,10 +272,10 @@ function SettingsContent() {
     };
 
     return (
-        <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
-            <div>
-                <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">Configure your workspace, security, and preferences.</p>
+        <div className="w-full px-6 py-8 space-y-6">
+            <div className="space-y-0.5">
+                <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+                <p className="text-[13px] text-muted-foreground">Configure your workspace, security, and preferences.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
@@ -284,7 +284,7 @@ function SettingsContent() {
                         <button 
                             key={item.id}
                             onClick={() => handleTabChange(item.id)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-colors ${
                                 activeTab === item.id 
                                     ? 'bg-surface-secondary text-foreground' 
                                     : 'text-muted-foreground hover:bg-surface-secondary hover:text-foreground'
@@ -297,7 +297,7 @@ function SettingsContent() {
                 </div>
 
                 <div className="md:col-span-3">
-                    <div className="rounded-xl border border-border bg-surface p-6 space-y-6">
+                    <div className="rounded-2xl border border-border bg-surface p-6 space-y-6">
                         {activeTab === 'General' && (
                             <div className="space-y-4">
                                 <div>
@@ -308,7 +308,7 @@ function SettingsContent() {
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-medium text-foreground">Workspace Name</label>
                                     <input 
-                                        className="w-full h-9 bg-background rounded-lg border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
+                                        className="w-full h-9 bg-background rounded-xl border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
                                         value={workspaceName}
                                         onChange={(e) => setWorkspaceName(e.target.value)}
                                         placeholder="Enter workspace name..."
@@ -328,18 +328,18 @@ function SettingsContent() {
                                     <div className="space-y-1.5">
                                         <label className="text-sm font-medium text-foreground">Full Name</label>
                                         <input 
-                                            className="w-full h-9 bg-background rounded-lg border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
+                                            className="w-full h-9 bg-background rounded-xl border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
                                             value={userName}
                                             onChange={(e) => setUserName(e.target.value)}
                                         />
                                     </div>
                                     <div className="space-y-1.5 opacity-60">
                                         <label className="text-sm font-medium text-foreground">Email Address</label>
-                                        <div className="w-full h-9 bg-surface-secondary rounded-lg border border-border px-3 text-sm flex items-center cursor-not-allowed">
+                                        <div className="w-full h-9 bg-surface-secondary rounded-xl border border-border px-3 text-sm flex items-center cursor-not-allowed">
                                             {user?.email}
                                         </div>
                                     </div>
-                                    <div className="p-3 rounded-lg bg-surface-secondary border border-border">
+                                    <div className="p-3 rounded-xl bg-surface-secondary border border-border">
                                         <p className="text-xs font-medium text-muted-foreground mb-1">User ID</p>
                                         <p className="text-xs font-mono text-muted-foreground truncate">{user?.id}</p>
                                     </div>
@@ -363,7 +363,7 @@ function SettingsContent() {
                                         <button
                                             key={t.id}
                                             onClick={() => setTheme(t.id)}
-                                            className={`p-4 rounded-lg border transition-colors flex flex-col items-center gap-2 ${
+                                            className={`p-4 rounded-xl border transition-colors flex flex-col items-center gap-2 ${
                                                 theme === t.id 
                                                     ? 'bg-surface-secondary border-accent text-foreground' 
                                                     : 'bg-background border-border text-muted-foreground hover:border-accent/50 hover:text-foreground'
@@ -393,7 +393,7 @@ function SettingsContent() {
                                         { cmd: '⌘ /', action: 'Toggle Sidebar' },
                                         { cmd: 'ESC', action: 'Close Modals / Deselect' }
                                     ].map((shortcut, i) => (
-                                        <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-surface-secondary transition-colors">
+                                        <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-surface-secondary transition-colors">
                                             <span className="text-sm text-muted-foreground">{shortcut.action}</span>
                                             <kbd className="px-2 py-0.5 bg-surface border border-border rounded-md text-xs font-mono">{shortcut.cmd}</kbd>
                                         </div>
@@ -419,7 +419,7 @@ function SettingsContent() {
                                     </span>
                                 </div>
 
-                                <div className="rounded-lg border border-border bg-surface-secondary p-4 space-y-4">
+                                <div className="rounded-xl border border-border bg-surface-secondary p-4 space-y-4">
                                     <div>
                                         <h4 className="text-sm font-medium text-foreground">{hasVault ? 'Unlock Vault' : 'Initialize Vault'}</h4>
                                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -434,7 +434,7 @@ function SettingsContent() {
                                             <label className="text-sm font-medium text-foreground">Vault Password</label>
                                             <input 
                                                 type="password"
-                                                className={`w-full h-9 bg-background rounded-lg border ${vaultError ? 'border-danger' : 'border-border'} px-3 text-sm outline-none focus:border-accent transition-colors`}
+                                                className={`w-full h-9 bg-background rounded-xl border ${vaultError ? 'border-danger' : 'border-border'} px-3 text-sm outline-none focus:border-accent transition-colors`}
                                                 placeholder="Enter vault passphrase..."
                                                 value={vaultPassword}
                                                 onChange={(e) => setVaultPassword(e.target.value)}
@@ -447,7 +447,7 @@ function SettingsContent() {
                                         </div>
                                         <Button 
                                             type="submit" 
-                                            className="w-full h-9 rounded-lg text-sm font-medium" 
+                                            className="w-full h-9 rounded-xl text-sm font-medium" 
                                             variant={privateKey ? "secondary" : "primary"}
                                             isPending={isSubmitting}
                                             isDisabled={!!privateKey}
@@ -463,7 +463,7 @@ function SettingsContent() {
                                     )}
 
                                     {privateKey && (
-                                        <div className="p-3 rounded-lg bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
+                                        <div className="p-3 rounded-xl bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
                                             <CheckCircle size={14} />
                                             Vault active and keys decrypted
                                         </div>
@@ -471,7 +471,7 @@ function SettingsContent() {
                                 </div>
 
                                 {privateKey && (stats.projects > 0 || stats.wiki > 0 || stats.snippets > 0) && (
-                                    <div className="rounded-lg border border-warning/30 bg-warning-muted p-4 space-y-4">
+                                    <div className="rounded-xl border border-warning/30 bg-warning-muted p-4 space-y-4">
                                         <div>
                                             <h4 className="text-sm font-medium text-warning">Unencrypted Data</h4>
                                             <p className="text-xs text-muted-foreground mt-0.5">
@@ -480,15 +480,15 @@ function SettingsContent() {
                                         </div>
 
                                         <div className="grid grid-cols-3 gap-3">
-                                            <div className="p-3 rounded-lg bg-background border border-border text-center">
+                                            <div className="p-3 rounded-xl bg-background border border-border text-center">
                                                 <div className="text-lg font-semibold text-warning">{stats.projects}</div>
                                                 <div className="text-xs text-muted-foreground">Projects</div>
                                             </div>
-                                            <div className="p-3 rounded-lg bg-background border border-border text-center">
+                                            <div className="p-3 rounded-xl bg-background border border-border text-center">
                                                 <div className="text-lg font-semibold text-warning">{stats.wiki}</div>
                                                 <div className="text-xs text-muted-foreground">Wiki Guides</div>
                                             </div>
-                                            <div className="p-3 rounded-lg bg-background border border-border text-center">
+                                            <div className="p-3 rounded-xl bg-background border border-border text-center">
                                                 <div className="text-lg font-semibold text-warning">{stats.snippets}</div>
                                                 <div className="text-xs text-muted-foreground">Snippets</div>
                                             </div>
@@ -501,7 +501,7 @@ function SettingsContent() {
                                             </div>
                                         ) : (
                                             <Button 
-                                                className="w-full h-8 rounded-lg text-xs font-medium"
+                                                className="w-full h-8 rounded-xl text-xs font-medium"
                                                 variant="primary"
                                                 onPress={handleMigrate}
                                                 isDisabled={isMigrating}
@@ -514,7 +514,7 @@ function SettingsContent() {
                                 )}
 
                                 {migrationProgress.includes('complete') && !isMigrating && (
-                                    <div className="p-3 rounded-lg bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
+                                    <div className="p-3 rounded-xl bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
                                         <CheckCircle size={14} />
                                         Migration completed successfully
                                     </div>
@@ -525,14 +525,14 @@ function SettingsContent() {
                         <div className="pt-4 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
-                                className="rounded-lg h-8 px-3 text-xs font-medium"
+                                className="rounded-xl h-8 px-3 text-[12px] font-medium"
                                 onPress={() => router.refresh()}
                             >
                                 Discard
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="rounded-lg h-8 px-3 text-xs font-medium"
+                                className="rounded-xl h-8 px-3 text-[12px] font-medium shadow-sm"
                                 onPress={handleSaveChanges}
                                 isPending={isSubmitting}
                             >

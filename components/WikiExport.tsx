@@ -38,12 +38,12 @@ export function WikiExport({ title, content, targetRef }: WikiExportProps) {
     return (
         <Dropdown>
             <Dropdown.Trigger>
-                <Button variant="secondary" className="rounded-lg h-8 px-4 border border-border text-xs shrink-0">
+                <Button variant="secondary" className="rounded-xl h-8 px-4 border border-border text-xs shrink-0">
                     <Download size={14} className="mr-2" />
                     Export
                 </Button>
             </Dropdown.Trigger>
-                <Dropdown.Popover placement="bottom end" className="min-w-[200px] bg-surface border border-border rounded-lg p-1 shadow-lg z-50">
+                <Dropdown.Popover placement="bottom end" className="min-w-[200px] bg-surface border border-border rounded-xl p-1 shadow-lg z-50">
                 <Dropdown.Menu className="outline-none">
                     <Dropdown.Section>
                         <Label className="px-3 py-1.5 text-xs font-medium text-muted-foreground">Export as</Label>

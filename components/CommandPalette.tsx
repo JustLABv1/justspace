@@ -157,7 +157,7 @@ export function CommandPalette() {
                                     </div>
                                 )}
                                 <Command.Empty className="py-16 text-center flex flex-col items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground/40 border border-border">
+                                    <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-muted-foreground/40 border border-border">
                                         <Search size={18} />
                                     </div>
                                     <p className="text-sm text-muted-foreground">No results found.</p>

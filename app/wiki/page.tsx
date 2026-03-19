@@ -1,7 +1,6 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
-import { Markdown } from '@/components/Markdown';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/context/AuthContext';
@@ -9,12 +8,14 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { ResourceVersion, WikiGuide } from '@/types';
-import { Button, Spinner, toast } from "@heroui/react";
+import { Button, Dropdown, Label, Spinner, toast } from "@heroui/react";
+import dayjs from 'dayjs';
 import {
     BookOpen,
     Edit,
     History,
     Lock,
+    MoreHorizontal,
     Plus,
     Search,
     Trash2
@@ -248,19 +249,19 @@ export default function WikiPage() {
     }
 
     return (
-        <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="w-full px-6 py-8 space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-semibold text-foreground">Wiki</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Documentation and deployment guides for your stack.</p>
+                <div className="space-y-0.5">
+                    <h1 className="text-lg font-semibold text-foreground">Wiki</h1>
+                    <p className="text-[13px] text-muted-foreground">Documentation and deployment guides for your stack.</p>
                 </div>
-                <Button variant="primary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
-                    <Plus size={13} className="mr-1.5" />
-                    New Guide
+                <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
+                    <Plus size={13} className="mr-1" />
+                    New guide
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
+            <div className="flex items-center gap-2 rounded-xl border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
                 <Search size={13} className="text-muted-foreground shrink-0" />
                 <input 
                     className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground" 
@@ -280,53 +281,66 @@ export default function WikiPage() {
                     filteredGuides.map((guide) => (
                         <div
                             key={guide.id}
-                            className="rounded-xl border border-border bg-surface group relative flex flex-col hover:border-accent/40 transition-colors"
+                            className="rounded-2xl border border-border bg-surface group flex flex-col overflow-hidden hover:shadow-sm transition-all"
                         >
-                            <div className="p-4 flex-1 flex flex-col gap-3">
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
-                                            <BookOpen size={13} />
-                                        </div>
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            <h3 className="text-sm font-medium text-foreground truncate">{guide.title}</h3>
+                            <Link href={`/wiki/${guide.id}`} className="p-4 flex-1 flex flex-col gap-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-success-muted flex items-center justify-center text-success shrink-0">
+                                        <BookOpen size={15} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <h3 className="text-[13px] font-semibold text-foreground truncate leading-snug">{guide.title}</h3>
                                             {guide.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
                                         </div>
-                                    </div>
-
-                                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                        <Button 
-                                            variant="ghost" 
-                                            isIconOnly 
-                                            className="h-6 w-6 rounded-md"
-                                            onPress={() => { setSelectedGuide(guide); setIsHistoryModalOpen(true); }}
-                                        >
-                                            <History size={11} />
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            isIconOnly 
-                                            className="h-6 w-6 rounded-md"
-                                            onPress={() => { setSelectedGuide(guide); setIsWikiModalOpen(true); }}
-                                        >
-                                            <Edit size={11} />
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            isIconOnly 
-                                            className="h-6 w-6 rounded-md text-danger hover:bg-danger-muted"
-                                            onPress={() => { setSelectedGuide(guide); setIsDeleteModalOpen(true); }}
-                                        >
-                                            <Trash2 size={11} />
-                                        </Button>
+                                        {guide.description && (
+                                            <p className="text-[12px] text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
+                                                {guide.description.replace(/#{1,6}\s/g, '').replace(/[*_`~]/g, '').replace(/\n+/g, ' ')}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
+                            </Link>
 
-                                <div className="text-sm text-muted-foreground line-clamp-3">
-                                    <Markdown content={guide.description} />
+                            <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-muted-foreground">{dayjs(guide.createdAt).format('MMM D, YYYY')}</span>
+                                    {guide.installations && guide.installations.length > 0 && (
+                                        <span className="text-[11px] text-muted-foreground">· {guide.installations.length} target{guide.installations.length !== 1 ? 's' : ''}</span>
+                                    )}
                                 </div>
-
-                                <Link href={`/wiki/${guide.id}`} className="absolute inset-0 z-0" />
+                                <Dropdown>
+                                    <Button
+                                        variant="ghost"
+                                        isIconOnly
+                                        className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        aria-label="Guide actions"
+                                    >
+                                        <MoreHorizontal size={13} />
+                                    </Button>
+                                    <Dropdown.Popover>
+                                        <Dropdown.Menu
+                                            onAction={(key) => {
+                                                if (key === 'edit') { setSelectedGuide(guide); setIsWikiModalOpen(true); }
+                                                if (key === 'history') { setSelectedGuide(guide); setIsHistoryModalOpen(true); }
+                                                if (key === 'delete') { setSelectedGuide(guide); setIsDeleteModalOpen(true); }
+                                            }}
+                                        >
+                                            <Dropdown.Item id="edit" textValue="Edit">
+                                                <Edit size={13} />
+                                                <Label>Edit</Label>
+                                            </Dropdown.Item>
+                                            <Dropdown.Item id="history" textValue="History">
+                                                <History size={13} />
+                                                <Label>History</Label>
+                                            </Dropdown.Item>
+                                            <Dropdown.Item id="delete" textValue="Delete" variant="danger">
+                                                <Trash2 size={13} className="text-danger" />
+                                                <Label>Delete</Label>
+                                            </Dropdown.Item>
+                                        </Dropdown.Menu>
+                                    </Dropdown.Popover>
+                                </Dropdown>
                             </div>
                         </div>
                     ))

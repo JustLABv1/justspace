@@ -82,7 +82,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                     <div className="flex gap-2">
                                         <Button 
                                             variant="secondary" 
-                                            className="rounded-lg text-xs font-medium px-3 h-8"
+                                            className="rounded-xl text-xs font-medium px-3 h-8"
                                             onPress={copyEverything}
                                         >
                                             {copiedAll ? <Check size={13} className="mr-1.5" /> : <Copy size={13} className="mr-1.5" />}
@@ -91,7 +91,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                         {selectedBlocks.length > 0 && (
                                             <Button 
                                                 variant="primary" 
-                                                className="rounded-lg text-xs font-medium px-3 h-8"
+                                                className="rounded-xl text-xs font-medium px-3 h-8"
                                                 onPress={copySelected}
                                             >
                                                 <Copy size={13} className="mr-1.5" />
@@ -129,7 +129,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                                     <Checkbox value={block.id} aria-label={`Select block ${block.id}`} />
                                                 </div>
                                                 
-                                                <div className={`rounded-lg border transition-all ${selectedBlocks.includes(block.id) ? 'border-accent bg-accent/5' : 'border-border bg-surface/50'}`}>
+                                                <div className={`rounded-xl border transition-all ${selectedBlocks.includes(block.id) ? 'border-accent bg-accent/5' : 'border-border bg-surface/50'}`}>
                                                     <div className="flex items-center justify-between px-3 py-2 border-b border-border">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-6 h-6 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
@@ -145,7 +145,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                                                     variant="ghost" 
                                                                     isIconOnly 
                                                                     size="sm" 
-                                                                    className="h-8 w-8 rounded-lg"
+                                                                    className="h-8 w-8 rounded-xl"
                                                                     onPress={() => copyBlock(block.content, block.id)}
                                                                 >
                                                                     {copiedBlockId === block.id ? <Check size={13} className="text-success" /> : <Copy size={13} />}
@@ -181,7 +181,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                     <div className="w-1 h-1 rounded-full bg-border" />
                                     <div>Created {new Date(snippet.createdAt).toLocaleDateString()}</div>
                                 </div>
-                                <Button slot="close" variant="secondary" className="rounded-lg text-xs font-medium px-4 h-8">Close</Button>
+                                <Button slot="close" variant="secondary" className="rounded-xl text-xs font-medium px-4 h-8">Close</Button>
                             </Modal.Footer>
                         </div>
                     </Modal.Dialog>
