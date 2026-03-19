@@ -196,19 +196,19 @@ export default function ProjectDetailPage() {
     }
 
     return (
-        <div className={`mx-auto p-6 md:p-8 space-y-6 transition-all ${viewMode === 'kanban' ? 'max-w-full' : 'max-w-[1200px]'}`}>
+        <div className="w-full px-6 py-8 space-y-6 transition-all">
             <div className="flex items-center justify-between">
-                <Link href="/projects" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    <ArrowLeft size={14} />
+                <Link href="/projects" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft size={13} />
                     Projects
                 </Link>
                 <div className="flex items-center gap-2">
-                    <Button variant="secondary" className="rounded-lg h-8 px-3 text-xs font-medium" onPress={() => setIsProjectModalOpen(true)}>
-                        <Edit size={13} className="mr-1.5" />
+                    <Button variant="secondary" className="rounded-xl h-8 px-3 text-[12px] font-medium" onPress={() => setIsProjectModalOpen(true)}>
+                        <Edit size={12} className="mr-1" />
                         Edit
                     </Button>
-                    <Button variant="ghost" className="rounded-lg h-8 px-3 text-xs font-medium text-danger hover:bg-danger-muted" onPress={() => setIsDeleteModalOpen(true)}>
-                        <Trash2 size={13} className="mr-1.5" />
+                    <Button variant="ghost" className="rounded-xl h-8 px-3 text-[12px] font-medium text-danger hover:bg-danger-muted" onPress={() => setIsDeleteModalOpen(true)}>
+                        <Trash2 size={12} className="mr-1" />
                         Delete
                     </Button>
                 </div>
@@ -216,55 +216,55 @@ export default function ProjectDetailPage() {
 
             <div>
                 <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
-                    {project.isEncrypted && <Lock size={14} className="text-warning" />}
+                    <h1 className="text-lg font-semibold text-foreground">{project.name}</h1>
+                    {project.isEncrypted && <Lock size={13} className="text-warning" />}
                 </div>
-                <div className="flex items-center gap-4 mt-1.5">
+                <div className="flex items-center gap-4 mt-1">
                     <div className="flex items-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
-                        <span className="text-xs text-muted-foreground">{project.status.replace('-', ' ')}</span>
+                        <div className={`w-2 h-2 rounded-full ${project.status === 'todo' ? 'bg-muted-foreground/40' : project.status === 'in-progress' ? 'bg-accent' : 'bg-success'}`} />
+                        <span className="text-[12px] text-muted-foreground">{project.status.replace('-', ' ')}</span>
                     </div>
                     {project.daysPerWeek && (
-                        <span className="text-xs text-muted-foreground">{project.daysPerWeek} days/week</span>
+                        <span className="text-[12px] text-muted-foreground">{project.daysPerWeek} days/week</span>
                     )}
                     {project.allocatedDays && (
-                        <span className="text-xs text-muted-foreground">{project.allocatedDays} days total</span>
+                        <span className="text-[12px] text-muted-foreground">{project.allocatedDays} days total</span>
                     )}
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 text-[12px] text-muted-foreground">
                         <Calendar size={11} />
                         <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                     </div>
                 </div>
                 {project.description && (
-                    <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{project.description}</p>
+                    <p className="text-[13px] text-muted-foreground mt-2 max-w-2xl">{project.description}</p>
                 )}
             </div>
 
-            <div className="rounded-xl border border-border bg-surface">
-                <div className="px-4 py-3 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h2 className="text-sm font-semibold text-foreground">Tasks</h2>
+            <div className="rounded-2xl border border-border bg-surface">
+                <div className="px-5 py-3.5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h2 className="text-[13px] font-semibold text-foreground">Tasks</h2>
 
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 h-8 bg-background">
+                        <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-background">
                             <Search size={12} className="text-muted-foreground" />
                             <input 
                                 type="text"
                                 placeholder="Search tasks..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-transparent border-none focus:ring-0 text-xs placeholder:text-muted-foreground w-36"
+                                className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36"
                             />
                         </div>
                         <Button 
                             variant={hideCompleted ? 'primary' : 'ghost'} 
                             size="sm"
-                            className={`h-8 px-2.5 rounded-lg text-xs font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                            className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
                             onPress={() => setHideCompleted(!hideCompleted)}
                         >
                             <Filter size={12} className="mr-1" />
                             {hideCompleted ? 'Pending' : 'All'}
                         </Button>
-                        <div className="flex rounded-lg border border-border overflow-hidden">
+                        <div className="flex rounded-xl border border-border overflow-hidden">
                             <Button 
                                 variant="ghost"
                                 size="sm"
@@ -285,7 +285,7 @@ export default function ProjectDetailPage() {
                         <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 px-2.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground"
+                            className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground hover:text-foreground"
                             onPress={() => setIsTemplateModalOpen(true)}
                         >
                             <Sparkles size={12} className="mr-1" />

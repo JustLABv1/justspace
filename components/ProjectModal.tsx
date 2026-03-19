@@ -74,15 +74,17 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <FolderOpen size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
-                                    {project?.id ? 'Edit Project' : 'New Project'}
-                                </Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Configure workspace project settings</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <FolderOpen size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">
+                                        {project?.id ? 'Edit Project' : 'New Project'}
+                                    </Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Configure workspace project settings</p>
+                                </div>
                             </div>
                         </Modal.Header>
                         
@@ -108,7 +110,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                         </Switch>
                                 </div>
                                 {!hasVault && (
-                                    <div className="px-3 py-2 rounded-lg bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
+                                    <div className="px-3 py-2 rounded-xl bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
                                         <Lock size={13} />
                                         Setup your vault in Settings to enable encryption
                                     </div>
@@ -118,7 +120,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     <Label className="text-sm font-medium text-muted-foreground">Project Name</Label>
                                     <Input 
                                         placeholder="Enter project name..." 
-                                        className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                        className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                     />
                                 </TextField>
 
@@ -126,13 +128,13 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     <Label className="text-sm font-medium text-muted-foreground">Description</Label>
                                     <TextArea 
                                         placeholder="Briefly describe the project objectives..."
-                                        className="rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[90px] p-3" 
+                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[90px] p-3" 
                                     />
                                 </TextField>
 
                                 <div className="space-y-2">
                                     <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                                    <div className="flex bg-surface-secondary/50 p-1 rounded-lg border border-border">
+                                    <div className="flex bg-surface-secondary/50 p-1 rounded-xl border border-border">
                                         {(['todo', 'in-progress', 'completed'] as const).map((s) => (
                                             <Button
                                                 key={s}
@@ -156,7 +158,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             type="number"
                                             step="0.5"
                                             placeholder="e.g. 5" 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
 
@@ -165,7 +167,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                         <Input 
                                             type="number"
                                             placeholder="e.g. 100" 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
                                 </div>
@@ -174,7 +176,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                             <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                                 <Button 
                                     variant="ghost" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                    className="rounded-xl h-8 px-4 text-xs font-medium" 
                                     onPress={onClose} 
                                     isDisabled={isLoading}
                                 >
@@ -183,7 +185,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                    className="rounded-xl h-8 px-4 text-xs font-medium" 
                                     isPending={isLoading}
                                 >
                                     {project?.id ? 'Save Changes' : 'Create Project'}

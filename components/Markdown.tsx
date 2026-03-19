@@ -4,11 +4,21 @@ import { Button } from '@heroui/react';
 import { clsx } from 'clsx';
 import 'highlight.js/styles/github-dark.css';
 import { Check, Copy } from 'lucide-react';
-import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { isValidElement, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
 import { Mermaid } from './Mermaid';
+
+// rehype-highlight turns code text into React span elements for syntax colouring.
+// We need raw text for clipboard — traverse the node tree to collect it.
+function extractText(node: ReactNode): string {
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(extractText).join('');
+    if (isValidElement(node)) return extractText((node.props as { children?: ReactNode }).children);
+    return '';
+}
 
 interface MarkdownProps {
     content: string;
@@ -30,14 +40,17 @@ export function Markdown({ content, className }: MarkdownProps) {
                 components={{
                     code({ inline, className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) {
                         const match = /language-(\w+)/.exec(className || '');
-                        const codeString = String(children).replace(/\n$/, '');
+                        // Extract plain text (children are React nodes after rehype-highlight)
+                        const rawText = extractText(children).replace(/\n$/, '');
 
                         if (!inline && match?.[1] === 'mermaid') {
-                            return <Mermaid chart={codeString} />;
+                            return <Mermaid chart={rawText} />;
                         }
 
                         if (!inline && match) {
-                            return <CodeBlock code={codeString} language={match[1]} />;
+                            // Pass children (already highlighted nodes) for rendering,
+                            // rawText only for the copy button
+                            return <CodeBlock code={rawText} language={match[1]}>{children}</CodeBlock>;
                         }
 
                         return (
@@ -54,7 +67,7 @@ export function Markdown({ content, className }: MarkdownProps) {
     );
 }
 
-function CodeBlock({ code, language }: { code: string; language: string }) {
+function CodeBlock({ code, language, children }: { code: string; language: string; children: ReactNode }) {
     const [copied, setCopied] = useState(false);
 
     const onCopy = () => {
@@ -64,9 +77,9 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
     };
 
     return (
-        <div className="group relative my-4 overflow-hidden rounded-lg border border-border bg-black/10 dark:bg-black/40">
+        <div className="group relative my-4 overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
             <div className="flex items-center justify-between bg-black/5 dark:bg-black/20 px-4 py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground font-mono">
                     {language}
                 </span>
                 <Button
@@ -81,7 +94,8 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
                 </Button>
             </div>
             <pre className="overflow-x-auto p-4 m-0 bg-transparent">
-                <code className={`language-${language} bg-transparent p-0`}>{code}</code>
+                {/* Render children (already syntax-highlighted React nodes), not the raw string */}
+                <code className={`language-${language} bg-transparent p-0`}>{children}</code>
             </pre>
         </div>
     );

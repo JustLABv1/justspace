@@ -220,8 +220,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                 marginLeft: level > 0 ? `${level * 24}px` : '0',
                 width: level > 0 ? `calc(100% - ${level * 24}px)` : '100%',
             }} 
-            className={`group flex flex-col gap-0 rounded-lg border transition-colors overflow-hidden ${
-                isDragging ? 'border-accent shadow-lg z-50 bg-surface' : 'border-border hover:border-accent/30 bg-surface'
+            className={`group flex flex-col gap-0 rounded-xl border transition-all overflow-hidden ${
+                isDragging ? 'border-accent shadow-lg z-50 bg-surface' : 'border-border hover:shadow-sm bg-surface'
             }`}
         >
             <div className="flex items-center gap-2 px-3 py-2">
@@ -234,7 +234,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         isSelected={task.completed} 
                         onChange={(val: boolean) => onToggle(task.id, val)}
                     >
-                        <Checkbox.Control className="size-6 rounded-lg border-2">
+                        <Checkbox.Control className="size-6 rounded-xl border-2">
                             <Checkbox.Indicator />
                         </Checkbox.Control>
                     </Checkbox>
@@ -387,7 +387,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             </div>
 
             {isExpanded && (
-                <div className="mx-3 mb-3 mt-0 p-3 bg-surface-secondary/50 rounded-lg border border-border space-y-4">
+                <div className="mx-3 mb-3 mt-0 p-3 bg-surface-secondary/50 rounded-xl border border-border space-y-4">
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <h5 className="text-xs font-medium text-muted-foreground">Subtasks</h5>
@@ -427,9 +427,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 placeholder="Add subtask..." 
                                 value={newSubtaskTitle}
                                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                className="h-8 rounded-lg bg-background border border-border text-sm pl-3 pr-9"
+                                className="h-8 rounded-xl bg-background border border-border text-sm pl-3 pr-9"
                             />
-                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-md hover:text-accent">
+                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
                                 <Plus size={12} />
                             </Button>
                         </form>
@@ -448,7 +448,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             ) : (
                                 <ScrollShadow className="space-y-1.5 max-h-52" hideScrollBar>
                                     {parsedNotes.sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix()).map((note, i) => (
-                                        <div key={i} className={`p-2.5 rounded-lg border flex gap-2 group/note ${
+                                        <div key={i} className={`p-2.5 rounded-xl border flex gap-2 group/note ${
                                             editingNoteIndex === note.originalIndex 
                                                 ? 'bg-accent/5 border-accent/30' 
                                                 : 'bg-background border-border'
@@ -525,9 +525,9 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         placeholder={editingNoteIndex !== null ? 'Edit note...' : `Add ${noteType}...`}
                                         value={newNote}
                                         onChange={(e) => setNewNote(e.target.value)}
-                                        className="h-8 rounded-lg bg-background border border-border text-sm pl-3 pr-9"
+                                        className="h-8 rounded-xl bg-background border border-border text-sm pl-3 pr-9"
                                     />
-                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-md hover:text-accent">
+                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
                                         <Plus size={12} />
                                     </Button>
                                 </div>

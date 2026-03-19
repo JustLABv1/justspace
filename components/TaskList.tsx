@@ -11,7 +11,7 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
-import { Filter, ListChecks, Plus, Search } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Filter, ListChecks, Plus, Search } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pagination } from './Pagination';
 import { TaskDetailModal } from './TaskDetailModal';
@@ -43,6 +43,7 @@ export function TaskList({
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [showCompleted, setShowCompleted] = useState(false);
     const itemsPerPage = 8;
 
     const toggleTaskExpansion = (taskId: string) => {
@@ -308,15 +309,17 @@ export function TaskList({
         return matchesSearch && matchesFilter;
     });
 
-    const totalPages = Math.ceil(filteredMainTasks.length / itemsPerPage);
-    const paginatedTasks = filteredMainTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const activeTasks = filteredMainTasks.filter(t => !t.completed);
+    const completedTasks = filteredMainTasks.filter(t => t.completed);
+    const totalPages = Math.ceil(activeTasks.length / itemsPerPage);
+    const paginatedTasks = activeTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
         <div className="flex flex-col h-full gap-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {!hideHeader && (
                     <div className="flex items-center gap-3">
-                        <div className="h-7 w-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
+                        <div className="h-7 w-7 rounded-lg bg-surface-secondary flex items-center justify-center text-muted-foreground">
                             <ListChecks size={13} />
                         </div>
                         <div className="flex items-center gap-2">
@@ -360,13 +363,13 @@ export function TaskList({
                                     placeholder="Filter tasks..." 
                                     value={internalSearchQuery}
                                     onChange={(e) => { setInternalSearchQuery(e.target.value); setCurrentPage(1); }}
-                                    className="w-full h-8 bg-background border border-border rounded-lg pl-8 text-xs"
+                                    className="w-full h-8 bg-background border border-border rounded-xl pl-8 text-xs"
                                 />
                             </div>
                             <Button 
                                 variant={internalHideCompleted ? 'primary' : 'secondary'} 
                                 size="sm" 
-                                className="h-8 px-2.5 rounded-lg text-xs border border-border"
+                                className="h-8 px-2.5 rounded-xl text-xs border border-border"
                                 onPress={() => { setInternalHideCompleted(!internalHideCompleted); setCurrentPage(1); }}
                             >
                                 <Filter size={12} className="mr-1" />
@@ -379,8 +382,8 @@ export function TaskList({
 
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
                 <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-5 space-y-4 min-h-[450px]">
-                    {filteredMainTasks.length === 0 ? (
-                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
+                    {activeTasks.length === 0 && completedTasks.length === 0 ? (
+                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-2xl">
                             <ListChecks size={20} className="text-muted-foreground/40" />
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">No tasks yet</p>
@@ -388,6 +391,7 @@ export function TaskList({
                             </div>
                         </div>
                     ) : (
+                        <>
                         <DndContext 
                             sensors={sensors} 
                             collisionDetection={closestCenter} 
@@ -396,26 +400,76 @@ export function TaskList({
                         >
                             <SortableContext items={paginatedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-3">
-                                    {paginatedTasks.map((task) => (
-                                        <TaskItem 
-                                            key={task.id} 
-                                            task={task} 
-                                            onToggle={(id, completed) => updateTask(id, { completed })}
-                                            onDelete={deleteTask}
-                                            onUpdate={updateTask}
-                                            onAddSubtask={handleAddSubtask}
-                                            allTasks={tasks}
-                                            expandedTaskIds={expandedTaskIds}
-                                            onToggleExpanded={toggleTaskExpansion}
-                                            onClick={(t) => {
-                                                setSelectedTask(t);
-                                                setIsDetailModalOpen(true);
-                                            }}
-                                        />
-                                    ))}
+                                    {paginatedTasks.length === 0 && completedTasks.length === 0 ? (
+                                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-2xl">
+                                            <ListChecks size={20} className="text-muted-foreground/40" />
+                                            <div>
+                                                <p className="text-sm font-medium text-muted-foreground">No tasks yet</p>
+                                                <p className="text-xs text-muted-foreground/60 mt-0.5">Add your first task below.</p>
+                                            </div>
+                                        </div>
+                                    ) : paginatedTasks.length === 0 ? (
+                                        <div className="h-24 flex items-center justify-center">
+                                            <p className="text-[13px] text-muted-foreground">All tasks completed — great work!</p>
+                                        </div>
+                                    ) : (
+                                        paginatedTasks.map((task) => (
+                                            <TaskItem 
+                                                key={task.id} 
+                                                task={task} 
+                                                onToggle={(id, completed) => updateTask(id, { completed })}
+                                                onDelete={deleteTask}
+                                                onUpdate={updateTask}
+                                                onAddSubtask={handleAddSubtask}
+                                                allTasks={tasks}
+                                                expandedTaskIds={expandedTaskIds}
+                                                onToggleExpanded={toggleTaskExpansion}
+                                                onClick={(t) => {
+                                                    setSelectedTask(t);
+                                                    setIsDetailModalOpen(true);
+                                                }}
+                                            />
+                                        ))
+                                    )}
                                 </div>
                             </SortableContext>
                         </DndContext>
+
+                        {/* Completed tasks — collapsible, outside DnD */}
+                        {completedTasks.length > 0 && !hideCompleted && (
+                            <div className="mt-1">
+                                <button
+                                    onClick={() => setShowCompleted(v => !v)}
+                                    className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors py-1.5 px-1"
+                                >
+                                    <ChevronRight size={13} className={`transition-transform duration-150 ${showCompleted ? 'rotate-90' : ''}`} />
+                                    <CheckCircle2 size={12} className="text-success" />
+                                    {completedTasks.length} completed
+                                </button>
+                                {showCompleted && (
+                                    <div className="mt-1 space-y-1">
+                                        {completedTasks.map(task => (
+                                            <div
+                                                key={task.id}
+                                                className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border/50 bg-surface/50 opacity-50 hover:opacity-70 transition-opacity cursor-pointer"
+                                                onClick={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                                            >
+                                                <CheckCircle2 size={14} className="text-success shrink-0" />
+                                                <span className="text-[13px] text-muted-foreground line-through truncate flex-1">{task.title}</span>
+                                                <button
+                                                    className="text-muted-foreground/40 hover:text-danger transition-colors shrink-0"
+                                                    onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                                    aria-label="Delete task"
+                                                >
+                                                    &#x2715;
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        </>
                     )}
 
                     {totalPages > 1 && (
@@ -440,7 +494,7 @@ export function TaskList({
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 placeholder="Add a new task..." 
-                                className="h-8 bg-background border border-border rounded-lg pl-3 pr-10 text-sm"
+                                className="h-8 bg-background border border-border rounded-xl pl-3 pr-10 text-sm"
                             />
                             <Button 
                                 type="submit" 

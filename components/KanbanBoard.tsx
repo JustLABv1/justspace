@@ -138,22 +138,22 @@ export function KanbanBoard({
                 {COLUMNS.map(column => {
                     const columnTasks = mainTasks.filter(t => (t.kanbanStatus || 'todo') === column.id);
                     return (
-                        <div key={column.id} className="flex flex-col gap-3 w-[280px] shrink-0">
-                            <div className="flex items-center justify-between px-3 py-2 bg-surface-secondary rounded-lg border border-border">
+                        <div key={column.id} className="flex flex-col gap-2.5 w-[270px] shrink-0">
+                            <div className="flex items-center justify-between px-1 py-1">
                                 <div className="flex items-center gap-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                    <div className={`w-2 h-2 rounded-full ${
                                         column.color === 'default' ? 'bg-muted-foreground/40' : 
                                         column.color === 'accent' ? 'bg-accent' : 
                                         column.color === 'success' ? 'bg-success' : 
                                         column.color === 'warning' ? 'bg-warning' : 'bg-accent/60'
                                     }`} />
-                                    <h3 className="text-sm font-medium text-foreground">{column.label}</h3>
+                                    <h3 className="text-[13px] font-medium text-foreground">{column.label}</h3>
+                                    <span className="text-[12px] text-muted-foreground">{columnTasks.length}</span>
                                 </div>
-                                <span className="text-xs text-muted-foreground">{columnTasks.length}</span>
                             </div>
 
                             <div 
-                                className="flex-1 space-y-2 p-2 rounded-xl bg-surface-secondary/20 border border-dashed border-border min-h-[500px] transition-colors hover:bg-surface-secondary/40"
+                                className="flex-1 space-y-2 p-1.5 rounded-2xl bg-surface-secondary/30 min-h-[500px] transition-colors"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
                                     const taskId = e.dataTransfer.getData('taskId');
@@ -163,6 +163,10 @@ export function KanbanBoard({
                                 {columnTasks.map(task => {
                                     const subtasks = tasks.filter(st => st.parentId === task.id);
                                     const completedSubtasks = subtasks.filter(st => st.completed).length;
+
+                                    const priorityBorder = task.priority === 'urgent' ? 'border-l-danger' :
+                                        task.priority === 'high' ? 'border-l-warning' :
+                                        task.priority === 'medium' ? 'border-l-accent/60' : 'border-l-transparent';
 
                                     return (
                                         <div 
@@ -175,13 +179,13 @@ export function KanbanBoard({
                                                 setSelectedTask(task);
                                                 setIsDetailModalOpen(true);
                                             }}
-                                            className="p-3 rounded-lg border border-border bg-surface cursor-grab active:cursor-grabbing hover:border-accent/40 transition-all group"
+                                            className={`p-3 rounded-xl border border-border border-l-2 ${priorityBorder} bg-surface shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all group`}
                                         >
                                             <div className="flex items-start justify-between gap-2">
-                                                <div className="flex-1 space-y-1.5">
+                                                <div className="flex-1 space-y-2">
                                                     <div className="flex items-center gap-1.5">
                                                         {task.isEncrypted && <Lock size={10} className="text-muted-foreground shrink-0" />}
-                                                        <p className="text-sm font-medium text-foreground leading-tight">{task.title}</p>
+                                                        <p className="text-[13px] font-medium text-foreground leading-snug">{task.title}</p>
                                                     </div>
                                                     {subtasks.length > 0 && (
                                                         <div className="flex items-center gap-2">
@@ -191,20 +195,20 @@ export function KanbanBoard({
                                                                     style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-xs text-muted-foreground">{completedSubtasks}/{subtasks.length}</span>
+                                                            <span className="text-[11px] text-muted-foreground tabular-nums">{completedSubtasks}/{subtasks.length}</span>
                                                         </div>
                                                     )}
                                                 </div>
-                                                <GripVertical size={14} className="text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0 mt-0.5" />
+                                                <GripVertical size={13} className="text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors shrink-0 mt-0.5" />
                                             </div>
                                             
-                                            <div className="mt-2.5 pt-2.5 border-t border-border flex items-center gap-1.5 flex-wrap">
+                                            <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-1.5 flex-wrap">
                                                 {task.deadline && (
                                                     <Chip
                                                         size="sm"
                                                         variant="soft"
                                                         color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
-                                                        className="h-5 px-1.5"
+                                                        className="h-5 px-1.5 rounded-full"
                                                     >
                                                         <Calendar size={9} className="mr-0.5" />
                                                         <Chip.Label className="text-[10px] px-0">
@@ -222,7 +226,7 @@ export function KanbanBoard({
                                                             task.priority === 'medium' ? 'accent' :
                                                             'default'
                                                         }
-                                                        className="h-5 px-1.5"
+                                                        className="h-5 px-1.5 rounded-full"
                                                     >
                                                         <Chip.Label className="text-[10px] px-0">
                                                             {task.priority}
@@ -248,7 +252,7 @@ export function KanbanBoard({
                             
                             <Button 
                                 variant="ghost" 
-                                className="w-full h-9 border border-dashed border-border hover:border-accent/40 text-xs text-muted-foreground hover:text-accent rounded-lg transition-all bg-transparent"
+                                className="w-full h-8 border border-dashed border-border/60 hover:border-accent/40 text-[12px] text-muted-foreground hover:text-accent rounded-xl transition-all bg-transparent"
                                 onPress={async () => {
                                     const title = prompt('Enter task title:');
                                     if (title) {

@@ -66,15 +66,17 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                     <Modal.Dialog className="rounded-xl border border-border bg-surface shadow-lg p-0 overflow-hidden flex flex-col">
                         <Modal.CloseTrigger className="absolute right-4 top-4 z-50 p-1.5 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors text-foreground/40 hover:text-foreground" />
                         
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex items-center gap-3 shrink-0">
-                            <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground">
-                                <Server size={14} />
-                            </div>
-                            <div>
-                                <Modal.Heading className="text-base font-semibold text-foreground leading-none">
-                                    {installation ? 'Edit Target' : 'New Target'}
-                                </Modal.Heading>
-                                <p className="text-xs text-muted-foreground mt-0.5">Installation target configuration</p>
+                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground shrink-0">
+                                    <Server size={14} />
+                                </div>
+                                <div>
+                                    <Modal.Heading className="text-base font-semibold text-foreground leading-none">
+                                        {installation ? 'Edit Target' : 'New Target'}
+                                    </Modal.Heading>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Installation target configuration</p>
+                                </div>
                             </div>
                         </Modal.Header>
 
@@ -91,7 +93,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         <Label className="text-sm font-medium text-muted-foreground">Target Name</Label>
                                         <Input 
                                             placeholder="e.g. Azure, Linux" 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
 
@@ -105,7 +107,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         <Label className="text-sm font-medium text-muted-foreground">Git Repository</Label>
                                         <Input 
                                             placeholder="https://..." 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
 
@@ -119,7 +121,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         <Label className="text-sm font-medium text-muted-foreground">Documentation URL</Label>
                                         <Input 
                                             placeholder="https://docs..." 
-                                            className="h-9 rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
                                 </div>
@@ -133,13 +135,13 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                     <Label className="text-sm font-medium text-muted-foreground">Tasks (one per line)</Label>
                                     <TextArea 
                                         placeholder="Add step-by-step instructions..." 
-                                        className="rounded-lg border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[80px] p-3" 
+                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[80px] p-3" 
                                     />
                                 </TextField>
 
                                 <div className="flex flex-col gap-2">
                                     <Label className="text-sm font-medium text-muted-foreground">Notes (Markdown)</Label>
-                                    <div className="border border-border rounded-lg overflow-hidden bg-surface-secondary/20">
+                                    <div className="border border-border rounded-xl overflow-hidden bg-surface-secondary/20">
                                         <Tabs 
                                             selectedKey={activeTab} 
                                             onSelectionChange={(key) => setActiveTab(key as string)}
@@ -174,7 +176,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                             <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">
                                 <Button 
                                     variant="ghost" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                    className="rounded-xl h-8 px-4 text-xs font-medium" 
                                     onPress={onClose} 
                                     isDisabled={isLoading}
                                 >
@@ -183,7 +185,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                 <Button 
                                     type="submit"
                                     variant="primary" 
-                                    className="rounded-lg h-8 px-4 text-xs font-medium" 
+                                    className="rounded-xl h-8 px-4 text-xs font-medium" 
                                     isPending={isLoading}
                                 >
                                     {installation ? 'Save Changes' : 'Create Target'}

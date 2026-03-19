@@ -5,19 +5,21 @@ import { ResourceHeatmap } from '@/components/ResourceHeatmap';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Project, Snippet, Task } from '@/types';
+import { Project, Snippet, Task, WikiGuide } from '@/types';
 import { Button, Chip, Spinner, Tooltip } from "@heroui/react";
 import dayjs from "dayjs";
 import {
     ArrowRight,
     BookOpen,
-    Briefcase,
-    CheckSquare,
-    Clock,
+    CheckCircle2,
     Code,
+    ExternalLink,
+    FileText,
+    FolderKanban,
     Lock,
     Plus,
-    ShieldCheck
+    ShieldCheck,
+    Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
@@ -26,9 +28,10 @@ export default function Home() {
   const [stats, setStats] = useState({ projects: 0, guides: 0, snippets: 0, tasks: 0 });
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
-  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
+  const [openTasks, setOpenTasks] = useState<Task[]>([]);
   const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
-  const [tasksDueThisWeek, setTasksDueThisWeek] = useState<Task[]>([]);
+  const [recentGuides, setRecentGuides] = useState<WikiGuide[]>([]);
+  const [projectTaskCounts, setProjectTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const { user, privateKey } = useAuth();
@@ -46,114 +49,113 @@ export default function Home() {
         db.listProjects(),
         db.listGuides(),
         db.listSnippets(),
-        db.listAllTasks(50)
+        db.listAllTasks(100)
       ]);
-      
-      const pendingTasksCount = allTasks.documents.filter(t => !t.completed).length;
 
-      setStats({
-        projects: projects.total,
-        guides: guides.total,
-        snippets: snippets.total,
-        tasks: pendingTasksCount
-      });
-      
-      // Decrypt data if possible, or show locked placeholders
+      const pendingTasksCount = allTasks.documents.filter(t => !t.completed && !t.parentId).length;
+      setStats({ projects: projects.total, guides: guides.total, snippets: snippets.total, tasks: pendingTasksCount });
+
+      // Decrypt projects
       const processedProjects = await Promise.all(projects.documents.map(async (p) => {
         if (p.isEncrypted) {
-            if (privateKey && user) {
-                try {
-                    const access = await db.getAccessKey(p.id);
-                    if (access) {
-                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                        let name = 'Encrypted Project';
-                        let description = 'Resource is encrypted with vault key.';
-                        
-                        try {
-                           const nameData = JSON.parse(p.name);
-                           name = await decryptData(nameData, docKey);
-                        } catch (e) {
-                           console.warn('Failed to parse encrypted name for project:', p.id);
-                        }
-
-                        if (p.description) {
-                            try {
-                                const descData = JSON.parse(p.description);
-                                description = await decryptData(descData, docKey);
-                            } catch (e) {
-                                console.warn('Failed to parse encrypted description for project:', p.id);
-                            }
-                        }
-                        
-                        return { ...p, name, description };
-                    }
-                } catch (e) {
-                    console.error('Failed to decrypt project on dashboard:', p.id, e);
+          if (privateKey && user) {
+            try {
+              const access = await db.getAccessKey(p.id);
+              if (access) {
+                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                let name = 'Encrypted Project';
+                let description = 'Resource is encrypted with vault key.';
+                try { const d = JSON.parse(p.name); name = await decryptData(d, docKey); } catch { /* noop */ }
+                if (p.description) {
+                  try { const d = JSON.parse(p.description); description = await decryptData(d, docKey); } catch { /* noop */ }
                 }
-            }
-            return { 
-                ...p, 
-                name: 'Encrypted Project',
-                description: 'Unlock vault to access project details.'
-            };
+                return { ...p, name, description };
+              }
+            } catch (e) { console.error('Failed to decrypt project:', p.id, e); }
+          }
+          return { ...p, name: 'Encrypted Project', description: 'Unlock vault to access project details.' };
         }
         return p;
       }));
 
-      const processedSnippets = await Promise.all(snippets.documents.slice(0, 3).map(async (s) => {
+      // Decrypt snippets
+      const processedSnippets = await Promise.all(snippets.documents.slice(0, 4).map(async (s) => {
         if (s.isEncrypted && privateKey && user) {
-            try {
-                const access = await db.getAccessKey(s.id);
-                if (access) {
-                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    try {
-                        const titleData = JSON.parse(s.title);
-                        return { ...s, title: await decryptData(titleData, docKey) };
-                    } catch (e) {
-                        console.warn('Failed to parse snippet title:', s.id);
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to decrypt snippet:', s.id, e);
+          try {
+            const access = await db.getAccessKey(s.id);
+            if (access) {
+              const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+              try { const d = JSON.parse(s.title); return { ...s, title: await decryptData(d, docKey) }; } catch { /* noop */ }
             }
-            return { ...s, title: 'Secure Snippet' };
+          } catch { /* noop */ }
+          return { ...s, title: 'Secure Snippet' };
         }
         return s;
       }));
 
-      const processedTasksData = await Promise.all(allTasks.documents.filter(t => !t.completed).map(async (t) => {
+      // Decrypt tasks
+      const processedTasks = await Promise.all(allTasks.documents.map(async (t) => {
         if (t.isEncrypted && privateKey && user) {
-            try {
-                // Tasks are usually encrypted with the project key
-                const access = await db.getAccessKey(t.projectId);
-                if (access) {
-                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    try {
-                        const titleData = JSON.parse(t.title);
-                        return { ...t, title: await decryptData(titleData, docKey) };
-                    } catch (e) {
-                        console.warn('Failed to parse task title:', t.id);
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to decrypt task:', t.id, e);
+          try {
+            const access = await db.getAccessKey(t.projectId);
+            if (access) {
+              const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+              try { const d = JSON.parse(t.title); return { ...t, title: await decryptData(d, docKey) }; } catch { /* noop */ }
             }
-            return { ...t, title: 'Secure Task' };
+          } catch { /* noop */ }
+          return { ...t, title: 'Secure Task' };
         }
         return t;
       }));
 
+      // Task counts per project (top-level only)
+      const tasksByProject: Record<string, { total: number; completed: number }> = {};
+      processedTasks.filter(t => !t.parentId).forEach(t => {
+        if (!tasksByProject[t.projectId]) tasksByProject[t.projectId] = { total: 0, completed: 0 };
+        tasksByProject[t.projectId].total++;
+        if (t.completed) tasksByProject[t.projectId].completed++;
+      });
+
+      // Priority-sorted open tasks: overdue → has deadline → by priority
       const now = dayjs();
-      const endOfWeek = now.endOf('week');
-      const dueThisWeek = processedTasksData
-        .filter(t => t.deadline && (dayjs(t.deadline).isSame(now, 'day') || dayjs(t.deadline).isAfter(now)) && dayjs(t.deadline).isBefore(endOfWeek.add(1, 'day')))
-        .sort((a, b) => dayjs(a.deadline).unix() - dayjs(b.deadline).unix());
+      const sortedOpen = processedTasks
+        .filter(t => !t.completed && !t.parentId)
+        .sort((a, b) => {
+          const aOverdue = a.deadline && dayjs(a.deadline).isBefore(now, 'day');
+          const bOverdue = b.deadline && dayjs(b.deadline).isBefore(now, 'day');
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          if (a.deadline && b.deadline) return dayjs(a.deadline).unix() - dayjs(b.deadline).unix();
+          if (a.deadline) return -1;
+          if (b.deadline) return 1;
+          const pOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+          return (pOrder[a.priority as keyof typeof pOrder] ?? 4) - (pOrder[b.priority as keyof typeof pOrder] ?? 4);
+        })
+        .slice(0, 7);
+
+      // Decrypt wiki guides
+      const processedGuides = await Promise.all(guides.documents.slice(0, 3).map(async (g) => {
+        if (g.isEncrypted && privateKey && user) {
+          try {
+            const access = await db.getAccessKey(g.id);
+            if (access) {
+              const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+              let title = g.title;
+              try { const d = JSON.parse(g.title); title = await decryptData(d, docKey); } catch { /* noop */ }
+              return { ...g, title };
+            }
+          } catch { /* noop */ }
+          return { ...g, title: 'Encrypted Guide' };
+        }
+        return g;
+      }));
 
       setAllProjects(processedProjects);
-      setRecentProjects(processedProjects.slice(0, 2));
+      setRecentProjects(processedProjects.slice(0, 3));
       setRecentSnippets(processedSnippets);
-      setRecentTasks(processedTasksData.slice(0, 3));
-      setTasksDueThisWeek(dueThisWeek);
+      setRecentGuides(processedGuides as WikiGuide[]);
+      setOpenTasks(sortedOpen);
+      setProjectTaskCounts(tasksByProject);
     } catch (error) {
       console.error(error);
     } finally {
@@ -161,241 +163,283 @@ export default function Home() {
     }
   }, [privateKey, user]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const getDeadlineInfo = (deadline?: string | null) => {
+    if (!deadline) return null;
+    const d = dayjs(deadline);
+    const today = dayjs();
+    if (d.isBefore(today, 'day')) return { label: 'Overdue', cls: 'text-danger font-medium' };
+    if (d.isSame(today, 'day')) return { label: 'Today', cls: 'text-warning font-medium' };
+    if (d.isSame(today.add(1, 'day'), 'day')) return { label: 'Tomorrow', cls: 'text-warning' };
+    if (d.isBefore(today.endOf('week').add(1, 'day'))) return { label: d.format('ddd'), cls: 'text-muted-foreground' };
+    return { label: d.format('MMM D'), cls: 'text-muted-foreground' };
+  };
 
   return (
-    <div className="max-w-[1200px] mx-auto p-6 md:p-8 space-y-6">
-      {/* Refined Header */}
-      <section className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-2">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {greeting}, {user?.name?.split(' ')[0] || 'there'}
+    <div className="w-full px-6 py-8 space-y-6">
+
+      {/* Header */}
+      <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <h1 className="text-lg font-semibold text-foreground">
+            {greeting}{user?.name?.split(' ')[0] ? `, ${user.name.split(' ')[0]}` : ''}
           </h1>
-          <div className="flex flex-wrap items-center gap-3 mt-1">
-            <p className="text-sm text-muted-foreground">
-              {dayjs().format('dddd, MMMM D')}
-            </p>
+          <p className="text-[13px] text-muted-foreground flex items-center gap-1.5">
+            {dayjs().format('dddd, MMMM D')}
+            <span className="opacity-30">·</span>
             <Tooltip delay={0}>
-                <Tooltip.Trigger aria-label="Vault status">
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-medium cursor-help ${
-                        privateKey
-                            ? 'bg-success-muted border-success/20 text-success'
-                            : 'bg-warning-muted border-warning/20 text-warning'
-                    }`}>
-                        {privateKey ? <ShieldCheck size={12} /> : <Lock size={12} />}
-                        Vault {privateKey ? 'unlocked' : 'locked'}
-                    </div>
-                </Tooltip.Trigger>
-                <Tooltip.Content showArrow placement="top">
-                    <Tooltip.Arrow />
-                    {privateKey ? 'Vault is unlocked — encrypted data is accessible.' : 'Vault is locked — unlock to see encrypted content.'}
-                </Tooltip.Content>
+              <Tooltip.Trigger aria-label="Vault status">
+                <span className={`inline-flex items-center gap-1 cursor-help ${privateKey ? 'text-success' : 'text-warning'}`}>
+                  {privateKey ? <ShieldCheck size={11} /> : <Lock size={11} />}
+                  Vault {privateKey ? 'unlocked' : 'locked'}
+                </span>
+              </Tooltip.Trigger>
+              <Tooltip.Content showArrow placement="top">
+                <Tooltip.Arrow />
+                {privateKey ? 'Encrypted data is accessible.' : 'Unlock vault to see encrypted content.'}
+              </Tooltip.Content>
             </Tooltip>
-          </div>
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/snippets">
-            <Button variant="ghost" isIconOnly className="rounded-lg h-9 w-9 text-muted-foreground hover:text-foreground">
-              <Code size={16} />
-            </Button>
-          </Link>
           <Link href="/wiki">
-            <Button variant="ghost" className="rounded-lg h-9 px-4 text-sm font-medium text-muted-foreground hover:text-foreground">
-              <BookOpen size={15} className="mr-2" />
-              Wiki
+            <Button variant="secondary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium">
+              <Plus size={14} className="mr-1" /> New guide
             </Button>
           </Link>
           <Link href="/projects">
-            <Button variant="primary" className="rounded-lg h-9 px-4 text-sm font-medium">
-              <Plus size={15} className="mr-1.5" />
-              New Project
+            <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm">
+              <Plus size={14} className="mr-1" /> New project
             </Button>
           </Link>
         </div>
       </section>
 
-      {/* Main Dashboard Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Primary Content */}
-        <div className="lg:col-span-8 space-y-8">
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { label: 'Projects', value: stats.projects, icon: Briefcase },
-              { label: 'Wiki pages', value: stats.guides, icon: BookOpen },
-              { label: 'Snippets', value: stats.snippets, icon: Code },
-              { label: 'Pending tasks', value: stats.tasks, icon: CheckSquare },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="p-4 rounded-xl border border-border bg-surface hover:border-accent/30 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                  <Icon size={15} className="text-muted-foreground" />
-                </div>
-                <p className="text-2xl font-semibold text-foreground">{value}</p>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Projects', value: stats.projects, icon: FolderKanban, color: 'text-accent', bg: 'bg-accent-muted', href: '/projects' },
+          { label: 'Open tasks', value: stats.tasks, icon: CheckCircle2, color: 'text-danger', bg: 'bg-danger-muted', href: '/projects' },
+          { label: 'Wiki pages', value: stats.guides, icon: BookOpen, color: 'text-success', bg: 'bg-success-muted', href: '/wiki' },
+          { label: 'Snippets', value: stats.snippets, icon: Code, color: 'text-warning', bg: 'bg-warning-muted', href: '/snippets' },
+        ].map(({ label, value, icon: Icon, color, bg, href }) => (
+          <Link key={label} href={href}>
+            <div className="p-4 rounded-2xl bg-surface border border-border hover:shadow-sm transition-all group">
+              <div className={`w-8 h-8 rounded-xl ${bg} flex items-center justify-center ${color} mb-3`}>
+                <Icon size={15} />
               </div>
-            ))}
-          </div>
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none mb-1">
+                {isLoading ? <span className="inline-block w-6 h-5 rounded bg-surface-secondary animate-pulse" /> : value}
+              </p>
+              <p className="text-[12px] text-muted-foreground">{label}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
 
-          {/* Tasks Due This Week */}
-          {tasksDueThisWeek.length > 0 && (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-warning" />
-                  <h2 className="text-sm font-semibold text-foreground">Due this week</h2>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {tasksDueThisWeek.map(task => {
-                    const project = allProjects.find(p => p.id === task.projectId);
-                    return (
-                      <Link href={`/projects/${task.projectId}`} key={task.id}>
-                        <div className="p-3 rounded-lg border border-border bg-surface hover:border-warning/30 hover:bg-warning-muted/50 transition-colors flex items-center justify-between group">
-                          <div className="flex flex-col gap-1 min-w-0 flex-1">
-                            <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
-                            <div className="flex items-center gap-2">
-                                {project && (
-                                    <span className="text-xs text-muted-foreground truncate max-w-[120px]">{project.name}</span>
-                                )}
-                                {task.deadline && (
-                                    <span className="text-xs font-medium text-warning">
-                                        {dayjs(task.deadline).format('MMM D')}
-                                    </span>
-                                )}
-                                {task.priority && (
-                                    <span className={`text-xs font-medium ${
-                                        task.priority === 'urgent' ? 'text-danger' :
-                                        task.priority === 'high' ? 'text-warning' :
-                                        task.priority === 'medium' ? 'text-accent' :
-                                        'text-muted-foreground'
-                                    }`}>
-                                        {task.priority}
-                                    </span>
-                                )}
-                            </div>
-                          </div>
-                          <ArrowRight size={14} className="text-muted-foreground shrink-0 ml-2" />
-                        </div>
-                      </Link>
-                    );
-                })}
-              </div>
-            </section>
-          )}
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-          {/* Recent Projects Section */}
-          <section className="space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Briefcase size={16} className="text-muted-foreground" />
-                <h2 className="text-sm font-semibold text-foreground">Active Projects</h2>
-              </div>
-              <Link href="/projects">
-                <Button variant="ghost" className="rounded-lg h-8 px-3 text-xs font-medium text-muted-foreground hover:text-foreground">
-                  View all <ArrowRight size={13} className="ml-1" />
-                </Button>
+        {/* Left — 2/3 */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* Projects */}
+          <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
+                <FolderKanban size={13} className="text-muted-foreground" />
+                Projects
+              </h2>
+              <Link href="/projects" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                All projects <ArrowRight size={11} />
               </Link>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {isLoading ? (
-                Array(2).fill(0).map((_, i) => (
-                  <div key={i} className="h-44 rounded-xl border border-border flex items-center justify-center bg-surface">
-                    <Spinner color="accent" />
-                  </div>
-                ))
-              ) : recentProjects.length > 0 ? (
-                recentProjects.map((project) => (
-                  <div key={project.id} className="p-5 rounded-xl border border-border bg-surface hover:border-accent/40 transition-colors group">
-                    <div className="flex flex-col h-full justify-between gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Chip size="sm" variant="soft" color={project.status === 'completed' ? 'success' : 'accent'} className="h-5 px-2 rounded-md">
-                              <Chip.Label className="font-medium text-[11px]">
-                                  {project.status}
-                              </Chip.Label>
-                          </Chip>
-                          <span className="text-xs text-muted-foreground">
-                             {new Date(project.createdAt).toLocaleDateString()}
-                          </span>
+            {isLoading ? (
+              <div className="h-28 flex items-center justify-center"><Spinner color="accent" size="sm" /></div>
+            ) : recentProjects.length > 0 ? (
+              <div className="divide-y divide-border">
+                {recentProjects.map((project) => {
+                  const counts = projectTaskCounts[project.id] ?? { total: 0, completed: 0 };
+                  const progress = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+                  return (
+                    <Link key={project.id} href={`/projects/${project.id}`}>
+                      <div className="px-5 py-4 hover:bg-surface-secondary/40 transition-colors group">
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2 h-2 rounded-full shrink-0 mt-[3px] ${
+                              project.status === 'completed' ? 'bg-success' :
+                              project.status === 'in-progress' ? 'bg-accent' : 'bg-muted-foreground/30'
+                            }`} />
+                            <p className="text-[13px] font-medium text-foreground truncate group-hover:text-accent transition-colors">
+                              {project.name}
+                            </p>
+                            {project.isEncrypted && <Lock size={11} className="text-muted-foreground/40 shrink-0" />}
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            {counts.total > 0 && (
+                              <span className="text-[12px] text-muted-foreground tabular-nums">
+                                {counts.completed}/{counts.total} tasks
+                              </span>
+                            )}
+                            <ExternalLink size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
                         </div>
-                        <h3 className="text-base font-semibold text-foreground group-hover:text-accent transition-colors">{project.name}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+                        {project.description && (
+                          <p className="text-[12px] text-muted-foreground truncate ml-4 mb-2.5">{project.description}</p>
+                        )}
+                        {counts.total > 0 && (
+                          <div className="ml-4 flex items-center gap-2">
+                            <div className="flex-1 h-1 bg-surface-secondary rounded-full overflow-hidden">
+                              <div className="h-full bg-accent/60 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                            </div>
+                            <span className="text-[11px] text-muted-foreground tabular-nums w-7 text-right">{progress}%</span>
+                          </div>
+                        )}
                       </div>
-                      <Link href={`/projects/${project.id}`}>
-                        <Button variant="secondary" className="w-full rounded-lg text-sm font-medium h-9">
-                          View project <ArrowRight size={14} className="ml-1.5" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-2 p-10 rounded-xl border border-dashed border-border flex flex-col items-center text-center space-y-3">
-                  <Briefcase size={28} className="text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">No active projects. Start one to see it here.</p>
-                  <Link href="/projects">
-                    <Button variant="primary" className="rounded-lg text-sm h-9">New Project</Button>
-                  </Link>
-                </div>
-              )}
-            </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-5 py-10 text-center">
+                <Sparkles size={20} className="mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-[13px] text-muted-foreground">No projects yet</p>
+                <Link href="/projects">
+                  <Button variant="secondary" className="mt-3 rounded-xl h-7 px-3 text-[12px]">
+                    <Plus size={12} className="mr-1" /> Create project
+                  </Button>
+                </Link>
+              </div>
+            )}
           </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Recent Snippets */}
-            <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-foreground">Recent Snippets</h2>
-                    <Link href="/snippets" className="text-xs font-medium text-accent hover:underline underline-offset-4">View all</Link>
-                </div>
-                <div className="space-y-1.5">
-                    {recentSnippets.length > 0 ? recentSnippets.map(snippet => (
-                        <Link key={snippet.id} href="/snippets">
-                            <div className="p-3 rounded-lg border border-border bg-surface hover:border-accent/30 transition-colors flex items-center justify-between group">
-                                <div className="flex items-center gap-2.5">
-                                    <Code size={14} className="text-muted-foreground shrink-0" />
-                                    <span className="text-sm font-medium truncate max-w-[150px]">{snippet.title}</span>
-                                </div>
-                                <ArrowRight size={13} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                        </Link>
-                    )) : (
-                        <p className="text-sm text-muted-foreground">No snippets yet.</p>
-                    )}
-                </div>
-            </section>
+          {/* Open Tasks */}
+          <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
+                <CheckCircle2 size={13} className="text-muted-foreground" />
+                Open tasks
+              </h2>
+              <span className="text-[12px] text-muted-foreground">{stats.tasks} pending</span>
+            </div>
+            {isLoading ? (
+              <div className="h-24 flex items-center justify-center"><Spinner color="accent" size="sm" /></div>
+            ) : openTasks.length > 0 ? (
+              <div className="divide-y divide-border">
+                {openTasks.map(task => {
+                  const project = allProjects.find(p => p.id === task.projectId);
+                  const deadline = getDeadlineInfo(task.deadline);
+                  return (
+                    <Link key={task.id} href={`/projects/${task.projectId}`}>
+                      <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-surface-secondary/40 transition-colors">
+                        <div className={`w-3.5 h-3.5 rounded border-2 shrink-0 ${
+                          task.priority === 'urgent' ? 'border-danger' :
+                          task.priority === 'high' ? 'border-warning' :
+                          task.priority === 'medium' ? 'border-accent' : 'border-border'
+                        }`} />
+                        <span className="text-[13px] text-foreground truncate flex-1">{task.title}</span>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          {project && (
+                            <span className="hidden sm:block text-[12px] text-muted-foreground max-w-[100px] truncate">{project.name}</span>
+                          )}
+                          {deadline && (
+                            <span className={`text-[12px] ${deadline.cls}`}>{deadline.label}</span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-5 py-8 text-center">
+                <CheckCircle2 size={20} className="mx-auto text-success/50 mb-2" />
+                <p className="text-[13px] text-muted-foreground">All caught up — no open tasks</p>
+              </div>
+            )}
+          </section>
 
-            {/* Active Tasks */}
-            <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-foreground">Recent Tasks</h2>
-                    <Link href="/projects" className="text-xs font-medium text-accent hover:underline underline-offset-4">View board</Link>
-                </div>
-                <div className="space-y-1.5">
-                    {recentTasks.length > 0 ? recentTasks.map(task => (
-                        <Link key={task.id} href={`/projects/${task.projectId}`}>
-                            <div className="p-3 rounded-lg border border-border bg-surface hover:border-accent/30 transition-colors flex items-center justify-between group">
-                                <div className="flex items-center gap-2.5">
-                                    <CheckSquare size={14} className="text-muted-foreground shrink-0" />
-                                    <span className="text-sm font-medium truncate max-w-[150px]">{task.title}</span>
-                                </div>
-                                <ArrowRight size={13} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                        </Link>
-                    )) : (
-                        <p className="text-sm text-muted-foreground">All caught up!</p>
-                    )}
-                </div>
-            </section>
-          </div>
+          {/* Recent Snippets */}
+          <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
+                <Code size={13} className="text-muted-foreground" />
+                Code snippets
+              </h2>
+              <Link href="/snippets" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                View all <ArrowRight size={11} />
+              </Link>
+            </div>
+            {recentSnippets.length > 0 ? (
+              <div className="divide-y divide-border">
+                {recentSnippets.map(snippet => (
+                  <Link key={snippet.id} href="/snippets">
+                    <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-surface-secondary/40 transition-colors group">
+                      <div className="w-5 h-5 rounded bg-warning-muted flex items-center justify-center text-warning shrink-0">
+                        <Code size={11} />
+                      </div>
+                      <span className="text-[13px] text-foreground truncate flex-1 group-hover:text-accent transition-colors">{snippet.title}</span>
+                      {snippet.language && (
+                        <Chip size="sm" variant="soft" color="default" className="h-4 rounded shrink-0">
+                          <Chip.Label className="text-[10px] font-mono px-1">{snippet.language}</Chip.Label>
+                        </Chip>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-6 text-center">
+                <p className="text-[13px] text-muted-foreground">No snippets yet</p>
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* Right Column: Sidebar Insights */}
-        <div className="lg:col-span-4 space-y-10">
+        {/* Right sidebar — 1/3 */}
+        <div className="space-y-5">
           <ResourceHeatmap projects={allProjects} />
+
+          {/* Recent wiki guides */}
+          <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
+                <BookOpen size={13} className="text-muted-foreground" />
+                Wiki
+              </h2>
+              <Link href="/wiki" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                All <ArrowRight size={11} />
+              </Link>
+            </div>
+            {isLoading ? (
+              <div className="h-16 flex items-center justify-center"><Spinner color="accent" size="sm" /></div>
+            ) : recentGuides.length > 0 ? (
+              <div className="divide-y divide-border">
+                {recentGuides.map(guide => (
+                  <Link key={guide.id} href={`/wiki/${guide.id}`}>
+                    <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-surface-secondary/40 transition-colors group">
+                      <div className="w-5 h-5 rounded bg-success-muted flex items-center justify-center text-success shrink-0">
+                        <FileText size={11} />
+                      </div>
+                      <span className="text-[13px] text-foreground truncate flex-1 group-hover:text-accent transition-colors">{guide.title}</span>
+                      {guide.isEncrypted && <Lock size={11} className="text-muted-foreground/40 shrink-0" />}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-5 text-center">
+                <p className="text-[13px] text-muted-foreground">No guides yet</p>
+                <Link href="/wiki">
+                  <Button variant="secondary" className="mt-2 rounded-xl h-7 px-2.5 text-[12px]">
+                    <Plus size={11} className="mr-1" /> Create guide
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </section>
+
           <ActivityFeed />
         </div>
       </div>

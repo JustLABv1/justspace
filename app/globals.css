@@ -36,76 +36,80 @@
 }
 
 :root {
-  /* Light mode — Stripe-inspired palette */
-  --background: #ffffff;
-  --foreground: #0a0a0a;
+  /* Light mode — soft neutral palette */
+  --background: #f8f9fa;
+  --foreground: #1a1a2e;
+  --field-placeholder: var(--muted-foreground);
   --surface: #ffffff;
-  --surface-secondary: #f9fafb;
-  --surface-tertiary: #f3f4f6;
-  --surface-lowest: #ffffff;
-  --border: #e5e7eb;
-  --muted: #f6f8fa;
-  --muted-foreground: #6b7280;
+  --surface-secondary: #f1f3f5;
+  --surface-tertiary: #e9ecef;
+  --surface-lowest: #f8f9fa;
+  --border: #dee2e6;
+  --muted: #f1f3f5;
+  --muted-foreground: #868e96;
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --ring: #4f46e5;
+  --card-foreground: #1a1a2e;
+  --ring: #5c7cfa;
 
-  /* Accent: Indigo */
-  --accent: #4f46e5;
+  /* Accent: Soft blue */
+  --accent: #5c7cfa;
   --accent-foreground: #ffffff;
-  --accent-hover: #4338ca;
-  --accent-muted: #eef2ff;
+  --accent-hover: #4c6ef5;
+  --accent-muted: #edf2ff;
 
   /* Status */
-  --success: #059669;
+  --success: #40c057;
   --success-foreground: #ffffff;
-  --success-muted: #ecfdf5;
-  --warning: #d97706;
-  --warning-foreground: #ffffff;
-  --warning-muted: #fffbeb;
-  --danger: #dc2626;
+  --success-muted: #ebfbee;
+  --warning: #fab005;
+  --warning-foreground: #1a1a2e;
+  --warning-muted: #fff9db;
+  --danger: #fa5252;
   --danger-foreground: #ffffff;
-  --danger-muted: #fef2f2;
+  --danger-muted: #fff5f5;
 }
 
 .dark {
-  /* Dark mode — Zinc-based palette */
-  --background: #09090b;
-  --foreground: #fafafa;
-  --surface: #111113;
-  --surface-secondary: #18181b;
-  --surface-tertiary: #27272a;
-  --surface-lowest: #09090b;
-  --border: #27272a;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  --ring: #818cf8;
+  /* Dark mode — deep neutral */
+  --background: #0f0f12;
+  --foreground: #e4e4e7;
+  --field-placeholder: var(--muted-foreground);
+  --surface: #1a1a20;
+  --surface-secondary: #212127;
+  --surface-tertiary: #2c2c34;
+  --surface-lowest: #0f0f12;
+  --border: #2c2c34;
+  --muted: #212127;
+  --muted-foreground: #8b8b96;
+  --card: #1a1a20;
+  --card-foreground: #e4e4e7;
+  --ring: #7c8cf5;
 
-  /* Accent: Indigo (lighter for dark backgrounds) */
-  --accent: #818cf8;
-  --accent-foreground: #09090b;
-  --accent-hover: #6366f1;
-  --accent-muted: rgba(99, 102, 241, 0.12);
+  /* Accent */
+  --accent: #7c8cf5;
+  --accent-foreground: #0f0f12;
+  --accent-hover: #6b7cf5;
+  --accent-muted: rgba(124, 140, 245, 0.12);
 
   /* Status */
-  --success: #34d399;
-  --success-foreground: #022c22;
-  --success-muted: rgba(52, 211, 153, 0.1);
-  --warning: #fbbf24;
-  --warning-foreground: #451a03;
-  --warning-muted: rgba(251, 191, 36, 0.1);
-  --danger: #f87171;
-  --danger-foreground: #450a0a;
-  --danger-muted: rgba(248, 113, 113, 0.1);
+  --success: #51cf66;
+  --success-foreground: #0f0f12;
+  --success-muted: rgba(81, 207, 102, 0.1);
+  --warning: #fcc419;
+  --warning-foreground: #0f0f12;
+  --warning-muted: rgba(252, 196, 25, 0.1);
+  --danger: #ff6b6b;
+  --danger-foreground: #0f0f12;
+  --danger-muted: rgba(255, 107, 107, 0.1);
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     transition: background-color 150ms ease, color 150ms ease;
+    letter-spacing: -0.011em;
   }
 
   ::selection {
@@ -130,7 +134,7 @@
 
   ::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: 3px;
+    border-radius: 99px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -146,4 +150,10 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+/* HeroUI uses var(--muted) for inactive tab text — we use --muted as a
+   surface background color, so override to --muted-foreground for readability. */
+.tabs__tab {
+  color: var(--muted-foreground);
 }

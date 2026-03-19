@@ -346,17 +346,17 @@ export default function WikiDetailPage() {
     }
 
     return (
-        <div className="max-w-[1240px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="w-full px-6 py-8 space-y-6">
             <div className="flex items-center justify-between">
-                <Link href="/wiki" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    <ArrowLeft size={14} />
+                <Link href="/wiki" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeft size={13} />
                     Wiki
                 </Link>
                 <div className="flex items-center gap-2">
                     <Button
                         variant="ghost"
                         isIconOnly
-                        className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
                         onPress={() => setIsHistoryModalOpen(true)}
                     >
                         <History size={13} />
@@ -364,14 +364,14 @@ export default function WikiDetailPage() {
                     <Button
                         variant="ghost"
                         isIconOnly
-                        className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
                         onPress={() => setIsWikiModalOpen(true)}
                     >
                         <Edit size={13} />
                     </Button>
                     <Button
                         variant="primary"
-                        className="rounded-lg h-8 px-3 text-xs font-medium"
+                        className="rounded-xl h-8 px-3 text-[12px] font-medium shadow-sm"
                         onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}
                     >
                         <Plus size={13} className="mr-1.5" />
@@ -382,8 +382,8 @@ export default function WikiDetailPage() {
 
             <div>
                 <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-semibold text-foreground">{guide.title}</h1>
-                    {guide.isEncrypted && <Lock size={14} className="text-warning" />}
+                    <h1 className="text-lg font-semibold text-foreground">{guide.title}</h1>
+                    {guide.isEncrypted && <Lock size={13} className="text-warning" />}
                     {isDecrypting && <Spinner size="sm" color="current" />}
                 </div>
                 <div className="mt-2 text-sm text-muted-foreground max-w-3xl">
@@ -394,10 +394,10 @@ export default function WikiDetailPage() {
             {guide.installations.length > 0 ? (
                 <div>
                     <Tabs defaultSelectedKey={guide.installations[0].id} variant="secondary">
-                        <Tabs.ListContainer className="p-1 bg-surface-secondary rounded-lg border border-border w-fit">
+                        <Tabs.ListContainer className="p-1 bg-surface-secondary rounded-xl border border-border w-fit">
                             <Tabs.List aria-label="Installation targets" className="gap-0.5">
                                 {guide.installations.map((inst) => (
-                                    <Tabs.Tab key={inst.id} id={inst.id} className="rounded-md text-xs font-medium px-3 py-1.5 data-[selected=true]:bg-background data-[selected=true]:text-foreground data-[selected=true]:shadow-sm transition-all">
+                                    <Tabs.Tab key={inst.id} id={inst.id} className="rounded-lg text-[12px] font-medium px-3 py-1.5 data-[selected=true]:bg-background data-[selected=true]:text-foreground data-[selected=true]:shadow-sm transition-all">
                                         {inst.target}
                                         <Tabs.Indicator className="hidden" />
                                     </Tabs.Tab>
@@ -409,11 +409,11 @@ export default function WikiDetailPage() {
                             <Tabs.Panel key={inst.id} id={inst.id} className="mt-6">
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                                     <div className="lg:col-span-8">
-                                        <div className="rounded-xl border border-border bg-surface">
-                                            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                                        <div className="rounded-2xl border border-border bg-surface">
+                                            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <BookOpen size={13} className="text-muted-foreground" />
-                                                    <h2 className="text-sm font-semibold text-foreground">{inst.target}</h2>
+                                                    <h2 className="text-[13px] font-semibold text-foreground">{inst.target}</h2>
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <WikiExport 
@@ -424,7 +424,7 @@ export default function WikiDetailPage() {
                                                     <Button 
                                                         variant="ghost" 
                                                         isIconOnly 
-                                                        className="h-7 w-7 rounded-md"
+                                                        className="h-7 w-7 rounded-lg"
                                                         onPress={() => { setSelectedInst(inst); setIsInstHistoryModalOpen(true); }}
                                                     >
                                                         <History size={12} />
@@ -432,7 +432,7 @@ export default function WikiDetailPage() {
                                                     <Button 
                                                         variant="ghost" 
                                                         isIconOnly 
-                                                        className="h-7 w-7 rounded-md"
+                                                        className="h-7 w-7 rounded-lg"
                                                         onPress={() => { setSelectedInst(inst); setIsInstModalOpen(true); }}
                                                     >
                                                         <Edit size={12} />
@@ -440,7 +440,7 @@ export default function WikiDetailPage() {
                                                     <Button 
                                                         variant="ghost" 
                                                         isIconOnly 
-                                                        className="h-7 w-7 rounded-md text-danger hover:bg-danger-muted"
+                                                        className="h-7 w-7 rounded-lg text-danger hover:bg-danger-muted"
                                                         onPress={() => { setSelectedInst(inst); setIsDeleteModalOpen(true); }}
                                                     >
                                                         <Trash2 size={12} />
@@ -463,7 +463,7 @@ export default function WikiDetailPage() {
                                                 <div className="px-4 py-3 border-t border-border flex gap-2">
                                                     {inst.gitRepo && (
                                                         <Link href={inst.gitRepo} target="_blank">
-                                                            <Button variant="secondary" className="rounded-lg h-8 px-3 text-xs font-medium">
+                                                            <Button variant="secondary" className="rounded-xl h-8 px-3 text-[12px] font-medium">
                                                                 <Github size={12} className="mr-1.5" />
                                                                 Source
                                                             </Button>
@@ -471,7 +471,7 @@ export default function WikiDetailPage() {
                                                     )}
                                                     {inst.documentation && (
                                                         <Link href={inst.documentation} target="_blank">
-                                                            <Button variant="ghost" className="rounded-lg h-8 px-3 text-xs font-medium">
+                                                            <Button variant="ghost" className="rounded-xl h-8 px-3 text-[12px] font-medium">
                                                                 <ExternalLink size={12} className="mr-1.5" />
                                                                 Docs
                                                             </Button>
@@ -484,10 +484,10 @@ export default function WikiDetailPage() {
 
                                     <aside className="lg:col-span-4 space-y-4">
                                         {inst.tasks && inst.tasks.length > 0 && (
-                                            <div className="rounded-xl border border-border bg-surface p-4">
+                                            <div className="rounded-2xl border border-border bg-surface p-4">
                                                 <div className="flex items-center justify-between mb-3">
-                                                    <h3 className="text-sm font-semibold text-foreground">Tasks</h3>
-                                                    <span className="text-xs text-muted-foreground">{inst.tasks.length}</span>
+                                                    <h3 className="text-[13px] font-semibold text-foreground">Tasks</h3>
+                                                    <span className="text-[12px] text-muted-foreground">{inst.tasks.length}</span>
                                                 </div>
 
                                                 <ul className="space-y-1.5 mb-4">
@@ -501,7 +501,7 @@ export default function WikiDetailPage() {
 
                                                 <Button 
                                                     variant="primary" 
-                                                    className="w-full h-8 rounded-lg text-xs font-medium"
+                                                    className="w-full h-8 rounded-xl text-[12px] font-medium shadow-sm"
                                                     onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
                                                 >
                                                     Apply to Project
@@ -521,7 +521,7 @@ export default function WikiDetailPage() {
                         <h2 className="text-sm font-medium text-foreground">No sections yet</h2>
                         <p className="text-sm text-muted-foreground mt-0.5">Add sections to structure your documentation.</p>
                     </div>
-                    <Button variant="primary" className="rounded-lg h-8 px-3 text-xs mt-1" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                    <Button variant="primary" className="rounded-xl h-8 px-3 text-[12px] mt-1 shadow-sm" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
                         <Plus size={13} className="mr-1.5" />
                         Add First Section
                     </Button>
