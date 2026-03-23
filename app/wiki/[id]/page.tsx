@@ -109,8 +109,8 @@ export default function WikiDetailPage() {
     }, [fetchGuide]);
 
     useEffect(() => {
-        if (guide?.installations?.length > 0) {
-            setActiveTab(prev => prev || guide.installations[0].id);
+        if ((guide?.installations?.length ?? 0) > 0) {
+            setActiveTab(prev => prev || guide!.installations![0].id);
         }
     }, [guide]);
 
