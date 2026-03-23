@@ -23,7 +23,7 @@ import { parseAbsoluteToLocal } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Pencil as Edit, Mail as Email, History, MessageCircle, Phone, Plus, Trash2 as Trash } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, GitBranch, Link2, Pencil as Edit, Mail as Email, History, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 dayjs.extend(duration);
@@ -49,6 +49,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editedTitle, setEditedTitle] = useState(task.title);
     const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
+    const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+    const [showDepPicker, setShowDepPicker] = useState(false);
+    const [recurrence, setRecurrence] = useState<{ type: 'daily' | 'weekly' | 'monthly'; interval: number } | null>(() => {
+        try { return task.recurrence ? JSON.parse(task.recurrence) : null; } catch { return null; }
+    });
 
     // State sync for editing title
     const [prevTaskTitle, setPrevTaskTitle] = useState(task.title);
@@ -57,6 +62,46 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         setEditedTitle(task.title);
         setIsEditingTitle(false);
     }
+
+    // Sync recurrence state when task prop changes (e.g. after saving)
+    useEffect(() => {
+        try {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setRecurrence(task.recurrence ? JSON.parse(task.recurrence) : null);
+        } catch {
+            setRecurrence(null);
+        }
+    }, [task.recurrence]);
+
+    const handleAddDependency = async (depId: string) => {
+        const current = task.dependencies || [];
+        if (current.includes(depId)) return;
+        const updated = [...current, depId];
+        try {
+            await db.updateTask(task.id, { dependencies: updated });
+            onUpdate();
+            setShowDepPicker(false);
+        } catch { /* noop */ }
+    };
+
+    const handleRemoveDependency = async (depId: string) => {
+        const updated = (task.dependencies || []).filter(id => id !== depId);
+        try {
+            await db.updateTask(task.id, { dependencies: updated });
+            onUpdate();
+        } catch { /* noop */ }
+    };
+
+    const handleSaveRecurrence = async (rec: typeof recurrence) => {
+        try {
+            await db.updateTask(task.id, { recurrence: rec ? JSON.stringify(rec) : null });
+            setRecurrence(rec);
+            onUpdate();
+        } catch (err) {
+            console.error('Failed to save recurrence:', err);
+            toast.danger('Failed to save recurrence');
+        }
+    };
 
     const fetchDetails = useCallback(async () => {
         if (!isOpen) return;
@@ -94,6 +139,22 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             }));
 
             setSubtasks(filteredSubtasks);
+
+            // Decrypt project tasks for dependency picker
+            const depCandidates = allTasks.filter(t => !t.parentId && t.id !== task.id);
+            const decryptedDepCandidates = await Promise.all(depCandidates.map(async (t) => {
+                if (t.isEncrypted && docKey) {
+                    try {
+                        const titleData = JSON.parse(t.title);
+                        const decryptedTitle = await decryptData(titleData, docKey);
+                        return { ...t, title: decryptedTitle };
+                    } catch {
+                        return { ...t, title: 'Encrypted Task' };
+                    }
+                }
+                return t;
+            }));
+            setProjectTasks(decryptedDepCandidates);
         } catch (error) {
             console.error('Failed to fetch subtasks:', error);
         }
@@ -370,7 +431,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 <Modal.Container size="cover">
                     <Modal.Dialog className="bg-surface border border-border overflow-hidden">
                         <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex flex-col items-start gap-4">
-                            <Modal.CloseTrigger />
+                            <Modal.CloseTrigger className="text-muted-foreground hover:text-foreground hover:bg-surface-secondary transition-colors" />
                             
                             <div className="w-full space-y-6">
                                 {isEditingTitle ? (
@@ -644,6 +705,114 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 </div>
                                             </div>
                                         )}
+
+                                        {/* Dependencies */}
+                                        <div className="pt-6 border-t border-border">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                                    <GitBranch size={13} className="text-muted-foreground" /> Dependencies
+                                                </h4>
+                                                <button
+                                                    onClick={() => setShowDepPicker(v => !v)}
+                                                    className="text-[11px] text-accent hover:text-accent/80 transition-colors"
+                                                >
+                                                    + Add
+                                                </button>
+                                            </div>
+                                            {showDepPicker && (
+                                                <div className="mb-2 rounded-xl border border-border bg-surface-secondary overflow-hidden max-h-32 overflow-y-auto">
+                                                    {projectTasks.filter(t => !(task.dependencies || []).includes(t.id)).length === 0 ? (
+                                                        <p className="text-[11px] text-muted-foreground p-3">No other tasks available</p>
+                                                    ) : (
+                                                        projectTasks
+                                                            .filter(t => !(task.dependencies || []).includes(t.id))
+                                                            .map(t => (
+                                                                <button
+                                                                    key={t.id}
+                                                                    onClick={() => handleAddDependency(t.id)}
+                                                                    className="w-full text-left px-3 py-2 text-[12px] text-foreground hover:bg-accent/10 transition-colors truncate flex items-center gap-2"
+                                                                >
+                                                                    <Link2 size={10} className="text-muted-foreground shrink-0" />
+                                                                    {t.title}
+                                                                </button>
+                                                            ))
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                {(task.dependencies || []).length === 0 ? (
+                                                    <p className="text-[11px] text-muted-foreground/50">No dependencies</p>
+                                                ) : (
+                                                    (task.dependencies || []).map(depId => {
+                                                        const depTask = projectTasks.find(t => t.id === depId);
+                                                        return (
+                                                            <div key={depId} className="flex items-center gap-2 py-1 px-2 rounded-lg bg-surface-secondary/50 border border-border/60 group">
+                                                                <Link2 size={10} className="text-muted-foreground shrink-0" />
+                                                                <span className="text-[12px] text-foreground truncate flex-1">{depTask?.title || 'Unknown task'}</span>
+                                                                <button
+                                                                    onClick={() => handleRemoveDependency(depId)}
+                                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-danger"
+                                                                >
+                                                                    <X size={10} />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Recurrence */}
+                                        <div className="pt-6 border-t border-border">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                                    <RefreshCw size={13} className="text-muted-foreground" /> Recurrence
+                                                </h4>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex gap-1 flex-wrap">
+                                                    {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
+                                                        <button
+                                                            key={type}
+                                                            onClick={() => {
+                                                                if (type === 'none') { handleSaveRecurrence(null); }
+                                                                else { handleSaveRecurrence({ type, interval: 1 }); }
+                                                            }}
+                                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                                                                (type === 'none' ? !recurrence : recurrence?.type === type)
+                                                                    ? 'bg-accent text-white'
+                                                                    : 'bg-surface-secondary text-muted-foreground hover:text-foreground'
+                                                            }`}
+                                                        >
+                                                            {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {recurrence && (
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className="text-[11px] text-muted-foreground">Every</span>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={99}
+                                                            value={recurrence.interval}
+                                                            onChange={e => {
+                                                                const interval = Math.max(1, parseInt(e.target.value) || 1);
+                                                                const updated = { ...recurrence, interval };
+                                                                setRecurrence(updated);
+                                                                handleSaveRecurrence(updated);
+                                                            }}
+                                                            className="w-12 text-center bg-surface-secondary text-foreground border border-border rounded-lg px-1 py-0.5 text-[12px] outline-none focus:border-accent"
+                                                        />
+                                                        <span className="text-[11px] text-muted-foreground">
+                                                            {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
+                                                             recurrence.type === 'weekly' ? (recurrence.interval === 1 ? 'week' : 'weeks') :
+                                                             recurrence.interval === 1 ? 'month' : 'months'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

@@ -5,7 +5,7 @@
  */
 export const getEnv = (key: string): string => {
     if (typeof window !== 'undefined') {
-        const val = (window as any)._env_?.[key];
+        const val = (window as Window & { _env_?: Record<string, string> })._env_?.[key];
         if (!val) {
             console.warn(`Environment variable ${key} is missing in window._env_`);
         }

@@ -11,8 +11,8 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
-import { CheckCircle2, ChevronRight, Filter, ListChecks, Plus, Search } from 'lucide-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, ChevronRight, Filter, ListChecks, Plus, Search, Square, SquareCheck, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pagination } from './Pagination';
 import { TaskDetailModal } from './TaskDetailModal';
 import { TaskItem } from './TaskItem';
@@ -33,6 +33,7 @@ export function TaskList({
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskDeadline, setNewTaskDeadline] = useState<ZonedDateTime | null>(null);
+    const addTaskFormRef = useRef<HTMLFormElement>(null);
     const [internalSearchQuery, setInternalSearchQuery] = useState('');
     const [internalHideCompleted, setInternalHideCompleted] = useState(false);
     
@@ -42,6 +43,8 @@ export function TaskList({
     const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [showCompleted, setShowCompleted] = useState(false);
     const itemsPerPage = 8;
@@ -136,6 +139,16 @@ export function TaskList({
         return () => unsub();
     }, [projectId, fetchTasks]);
 
+    // Focus add-task input when the "Add new task" header button fires the event
+    useEffect(() => {
+        const handler = () => {
+            addTaskFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            addTaskFormRef.current?.querySelector('input')?.focus();
+        };
+        window.addEventListener('list-add-task', handler);
+        return () => window.removeEventListener('list-add-task', handler);
+    }, []);
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
@@ -187,9 +200,7 @@ export function TaskList({
             const res = await db.createEmptyTask(projectId, title, tasks.length, isEncrypted, undefined, 'todo');
             
             if (newTaskDeadline) {
-                const deadlineStr = typeof (newTaskDeadline as any).toAbsoluteString === 'function' 
-                    ? (newTaskDeadline as any).toAbsoluteString() 
-                    : newTaskDeadline.toString();
+                const deadlineStr = newTaskDeadline.toAbsoluteString();
                 await db.updateTask(res.id, { deadline: deadlineStr });
             }
 
@@ -290,6 +301,36 @@ export function TaskList({
         }
     };
 
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const handleBulkComplete = async () => {
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id => db.updateTask(id, { completed: true, kanbanStatus: 'done' })));
+            fetchTasks();
+            setSelectedIds(new Set());
+            setSelectionMode(false);
+            toast.success(`${ids.length} task${ids.length !== 1 ? 's' : ''} completed`);
+        } catch { toast.danger('Bulk complete failed'); }
+    };
+
+    const handleBulkDelete = async () => {
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id => db.deleteTask(id)));
+            setTasks(prev => prev.filter(t => !ids.includes(t.id)));
+            setSelectedIds(new Set());
+            setSelectionMode(false);
+            toast.success(`${ids.length} task${ids.length !== 1 ? 's' : ''} deleted`);
+        } catch { toast.danger('Bulk delete failed'); }
+    };
+
     if (isLoading) return (
         <div className="h-64 flex items-center justify-center">
             <Spinner color="accent" />
@@ -354,6 +395,17 @@ export function TaskList({
                         </div>
                     </div>
                 )}
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant={selectionMode ? 'primary' : 'ghost'}
+                        size="sm"
+                        className="h-8 px-2.5 rounded-xl text-[12px] font-medium"
+                        onPress={() => { setSelectionMode(v => !v); setSelectedIds(new Set()); }}
+                    >
+                        {selectionMode ? <SquareCheck size={12} className="mr-1" /> : <Square size={12} className="mr-1" />}
+                        Select
+                    </Button>
+                </div>
                 <div className={`flex items-center gap-2 flex-grow ${!hideHeader ? 'max-w-[400px]' : ''}`}>
                     {!externalSearchQuery && !hideHeader && (
                         <>
@@ -379,6 +431,34 @@ export function TaskList({
                     )}
                 </div>
             </div>
+
+            {selectionMode && selectedIds.size > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-accent/10 border border-accent/20">
+                    <span className="text-[12px] font-medium text-accent flex-1">{selectedIds.size} selected</span>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 px-2.5 rounded-lg text-[12px]"
+                        onPress={handleBulkComplete}
+                    >
+                        <CheckCircle2 size={12} className="mr-1 text-success" /> Complete
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2.5 rounded-lg text-[12px] text-danger hover:bg-danger-muted"
+                        onPress={handleBulkDelete}
+                    >
+                        <Trash2 size={12} className="mr-1" /> Delete
+                    </Button>
+                    <button
+                        onClick={() => { setSelectedIds(new Set()); setSelectionMode(false); }}
+                        className="text-[11px] text-muted-foreground hover:text-foreground transition-colors ml-1"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            )}
 
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
                 <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-5 space-y-4 min-h-[450px]">
@@ -414,21 +494,34 @@ export function TaskList({
                                         </div>
                                     ) : (
                                         paginatedTasks.map((task) => (
-                                            <TaskItem 
-                                                key={task.id} 
-                                                task={task} 
-                                                onToggle={(id, completed) => updateTask(id, { completed })}
-                                                onDelete={deleteTask}
-                                                onUpdate={updateTask}
-                                                onAddSubtask={handleAddSubtask}
-                                                allTasks={tasks}
-                                                expandedTaskIds={expandedTaskIds}
-                                                onToggleExpanded={toggleTaskExpansion}
-                                                onClick={(t) => {
-                                                    setSelectedTask(t);
-                                                    setIsDetailModalOpen(true);
-                                                }}
-                                            />
+                                            <div key={task.id} className={`relative ${selectionMode ? 'flex items-start gap-2' : ''}`}>
+                                                {selectionMode && (
+                                                    <button
+                                                        onClick={() => toggleSelect(task.id)}
+                                                        className="mt-3 shrink-0 w-4 h-4 rounded border-2 border-border flex items-center justify-center transition-colors hover:border-accent"
+                                                        style={{ background: selectedIds.has(task.id) ? 'var(--color-accent)' : 'transparent', borderColor: selectedIds.has(task.id) ? 'var(--color-accent)' : undefined }}
+                                                    >
+                                                        {selectedIds.has(task.id) && <CheckCircle2 size={10} className="text-white" />}
+                                                    </button>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <TaskItem
+                                                        task={task}
+                                                        onToggle={(id, completed) => updateTask(id, { completed })}
+                                                        onDelete={deleteTask}
+                                                        onUpdate={updateTask}
+                                                        onAddSubtask={handleAddSubtask}
+                                                        allTasks={tasks}
+                                                        expandedTaskIds={expandedTaskIds}
+                                                        onToggleExpanded={toggleTaskExpansion}
+                                                        onClick={(t) => {
+                                                            if (selectionMode) { toggleSelect(t.id); return; }
+                                                            setSelectedTask(t);
+                                                            setIsDetailModalOpen(true);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
                                         ))
                                     )}
                                 </div>
@@ -488,7 +581,7 @@ export function TaskList({
                 </div>
 
                 <div className="pt-3 border-t border-border">
-                    <form onSubmit={handleAddTask} className="flex items-center gap-2">
+                    <form ref={addTaskFormRef} onSubmit={handleAddTask} className="flex items-center gap-2">
                         <div className="relative flex-grow">
                             <Input 
                                 value={newTaskTitle}

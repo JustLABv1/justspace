@@ -12,7 +12,15 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // External/generated HeroUI docs
+    ".heroui-docs/**",
   ]),
+  {
+    rules: {
+      // Allow _-prefixed params to signal intentionally unused arguments
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+    },
+  },
 ]);
 
 export default eslintConfig;

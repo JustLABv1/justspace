@@ -14,11 +14,14 @@ import {
     Code,
     Edit,
     Eye,
+    Folder,
+    FolderOpen,
     History,
     Lock,
     MoreHorizontal,
     Plus,
     Search,
+    Tag,
     Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useState } from 'react';
@@ -28,6 +31,7 @@ export default function SnippetsPage() {
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeCollection, setActiveCollection] = useState<string | null>(null);
     const [isSnippetModalOpen, setIsSnippetModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -230,16 +234,16 @@ export default function SnippetsPage() {
         }
     };
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        toast.info('Copied to clipboard');
-    };
+    // Derive collections from tags (use all unique tags as collection names)
+    const allTags = Array.from(new Set(snippets.flatMap(s => s.tags || []))).sort();
 
-    const filteredSnippets = snippets.filter(s => 
-        s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const filteredSnippets = snippets.filter(s => {
+        const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            s.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            s.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesCollection = activeCollection === null || (s.tags || []).includes(activeCollection);
+        return matchesSearch && matchesCollection;
+    });
 
     if (isLoading) {
         return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
@@ -260,14 +264,56 @@ export default function SnippetsPage() {
 
             <div className="flex items-center gap-2 rounded-xl border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
                 <Search size={13} className="text-muted-foreground shrink-0" />
-                <input 
-                    className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground" 
+                <input
+                    className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground"
                     placeholder="Search snippets..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
 
+            <div className="flex gap-6">
+                {/* Collections sidebar */}
+                {allTags.length > 0 && (
+                    <aside className="hidden lg:flex flex-col gap-0.5 w-44 shrink-0">
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-2 mb-1 flex items-center gap-1.5">
+                            <Tag size={10} /> Collections
+                        </p>
+                        <button
+                            onClick={() => setActiveCollection(null)}
+                            className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[13px] transition-colors text-left ${
+                                activeCollection === null
+                                    ? 'bg-surface-secondary text-foreground font-medium'
+                                    : 'text-muted-foreground hover:bg-surface-secondary hover:text-foreground'
+                            }`}
+                        >
+                            <FolderOpen size={13} className="shrink-0" />
+                            <span>All snippets</span>
+                            <span className="ml-auto text-[11px] text-muted-foreground">{snippets.length}</span>
+                        </button>
+                        {allTags.map(tag => {
+                            const count = snippets.filter(s => (s.tags || []).includes(tag)).length;
+                            return (
+                                <button
+                                    key={tag}
+                                    onClick={() => setActiveCollection(activeCollection === tag ? null : tag)}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[13px] transition-colors text-left ${
+                                        activeCollection === tag
+                                            ? 'bg-surface-secondary text-foreground font-medium'
+                                            : 'text-muted-foreground hover:bg-surface-secondary hover:text-foreground'
+                                    }`}
+                                >
+                                    <Folder size={13} className="shrink-0" />
+                                    <span className="truncate flex-1">{tag}</span>
+                                    <span className="ml-auto text-[11px] text-muted-foreground">{count}</span>
+                                </button>
+                            );
+                        })}
+                    </aside>
+                )}
+
+                {/* Snippets grid */}
+                <div className="flex-1 min-w-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSnippets.map((snippet) => (
                     <div
@@ -373,6 +419,8 @@ export default function SnippetsPage() {
                         <p className="text-sm">No snippets found</p>
                     </div>
                 )}
+            </div>
+                </div>
             </div>
 
             <SnippetModal 

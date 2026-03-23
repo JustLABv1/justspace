@@ -18,11 +18,6 @@ import {
 } from '@/types';
 import { api } from './api';
 
-interface ListResponse<T> {
-    total: number;
-    documents: T[];
-}
-
 export const db = {
     // Versions
     async listVersions(resourceId: string) {

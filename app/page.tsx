@@ -2,24 +2,26 @@
 
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { ResourceHeatmap } from '@/components/ResourceHeatmap';
+import { TaskCalendar } from '@/components/TaskCalendar';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project, Snippet, Task, WikiGuide } from '@/types';
-import { Button, Chip, Spinner, Tooltip } from "@heroui/react";
+import { Button, Chip, Spinner, toast, Tooltip } from "@heroui/react";
 import dayjs from "dayjs";
 import {
-    ArrowRight,
-    BookOpen,
-    CheckCircle2,
-    Code,
-    ExternalLink,
-    FileText,
-    FolderKanban,
-    Lock,
-    Plus,
-    ShieldCheck,
-    Sparkles,
+  ArrowRight,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  Code,
+  ExternalLink,
+  FileText,
+  FolderKanban,
+  Lock,
+  Plus,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from 'react';
@@ -27,6 +29,7 @@ import { useCallback, useEffect, useState } from 'react';
 export default function Home() {
   const [stats, setStats] = useState({ projects: 0, guides: 0, snippets: 0, tasks: 0 });
   const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [allDecryptedTasks, setAllDecryptedTasks] = useState<Task[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [openTasks, setOpenTasks] = useState<Task[]>([]);
   const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
@@ -34,6 +37,8 @@ export default function Home() {
   const [projectTaskCounts, setProjectTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [justDoneIds, setJustDoneIds] = useState<Set<string>>(new Set());
   const { user, privateKey } = useAuth();
 
   const hours = new Date().getHours();
@@ -151,7 +156,8 @@ export default function Home() {
       }));
 
       setAllProjects(processedProjects);
-      setRecentProjects(processedProjects.slice(0, 3));
+      setAllDecryptedTasks(processedTasks.filter(t => !t.completed && !t.parentId));
+      setRecentProjects(processedProjects.filter(p => p.status !== 'completed' && p.status !== 'archived').slice(0, 3));
       setRecentSnippets(processedSnippets);
       setRecentGuides(processedGuides as WikiGuide[]);
       setOpenTasks(sortedOpen);
@@ -164,6 +170,39 @@ export default function Home() {
   }, [privateKey, user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleCompleteTask = async (taskId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If already marked done in this session, undo it
+    if (justDoneIds.has(taskId)) {
+      try {
+        await import('@/lib/db').then(m => m.db.updateTask(taskId, { completed: false, kanbanStatus: 'todo' }));
+        setJustDoneIds(prev => { const n = new Set(prev); n.delete(taskId); return n; });
+        setStats(prev => ({ ...prev, tasks: prev.tasks + 1 }));
+        toast.success('Task reopened');
+      } catch (err) { console.error(err); }
+      return;
+    }
+
+    setCompletingTaskId(taskId);
+    try {
+      await import('@/lib/db').then(m => m.db.updateTask(taskId, { completed: true, kanbanStatus: 'done' }));
+      setJustDoneIds(prev => new Set([...prev, taskId]));
+      setStats(prev => ({ ...prev, tasks: prev.tasks - 1 }));
+      toast.success('Task completed — click again to undo');
+      // Remove from list after 4 seconds
+      setTimeout(() => {
+        setOpenTasks(prev => prev.filter(t => t.id !== taskId));
+        setJustDoneIds(prev => { const n = new Set(prev); n.delete(taskId); return n; });
+      }, 4000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCompletingTaskId(null);
+    }
+  };
 
   const getDeadlineInfo = (deadline?: string | null) => {
     if (!deadline) return null;
@@ -216,33 +255,60 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Projects', value: stats.projects, icon: FolderKanban, color: 'text-accent', bg: 'bg-accent-muted', href: '/projects' },
-          { label: 'Open tasks', value: stats.tasks, icon: CheckCircle2, color: 'text-danger', bg: 'bg-danger-muted', href: '/projects' },
-          { label: 'Wiki pages', value: stats.guides, icon: BookOpen, color: 'text-success', bg: 'bg-success-muted', href: '/wiki' },
-          { label: 'Snippets', value: stats.snippets, icon: Code, color: 'text-warning', bg: 'bg-warning-muted', href: '/snippets' },
-        ].map(({ label, value, icon: Icon, color, bg, href }) => (
-          <Link key={label} href={href}>
-            <div className="p-4 rounded-2xl bg-surface border border-border hover:shadow-sm transition-all group">
-              <div className={`w-8 h-8 rounded-xl ${bg} flex items-center justify-center ${color} mb-3`}>
-                <Icon size={15} />
-              </div>
-              <p className="text-2xl font-bold text-foreground tabular-nums leading-none mb-1">
-                {isLoading ? <span className="inline-block w-6 h-5 rounded bg-surface-secondary animate-pulse" /> : value}
-              </p>
-              <p className="text-[12px] text-muted-foreground">{label}</p>
+      {/* Stats — compact one-liner */}
+      {(() => {
+        const overdueCount = allDecryptedTasks.filter(t =>
+          t.deadline && dayjs(t.deadline).isBefore(dayjs(), 'day')
+        ).length;
+        return (
+          <div className="rounded-2xl overflow-hidden border border-border bg-border">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px">
+              {[
+                { label: 'Projects',   value: stats.projects, icon: FolderKanban, color: 'text-accent',   bg: 'bg-accent-muted',   href: '/projects'  },
+                { label: 'Open tasks', value: stats.tasks,    icon: CheckCircle2, color: 'text-danger',   bg: 'bg-danger-muted',   href: '/projects', showTrend: true },
+                { label: 'Wiki pages', value: stats.guides,   icon: BookOpen,     color: 'text-success',  bg: 'bg-success-muted',  href: '/wiki'      },
+                { label: 'Snippets',   value: stats.snippets, icon: Code,         color: 'text-warning',  bg: 'bg-warning-muted',  href: '/snippets'  },
+              ].map(({ label, value, icon: Icon, color, bg, href, showTrend }) => (
+                <Link key={label} href={href}>
+                  <div className="bg-surface flex items-center gap-3 px-4 py-3 hover:bg-surface-secondary/50 transition-colors h-full">
+                    <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center ${color} shrink-0`}>
+                      <Icon size={13} />
+                    </div>
+                    <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
+                      <span className="text-[14px] font-bold text-foreground tabular-nums leading-none">
+                        {isLoading ? <span className="inline-block w-5 h-4 rounded bg-surface-secondary animate-pulse align-middle" /> : value}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground truncate">{label}</span>
+                    </div>
+                    {showTrend && !isLoading && overdueCount > 0 && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-danger-muted text-danger shrink-0 tabular-nums">
+                        {overdueCount} overdue
+                      </span>
+                    )}
+                    {showTrend && !isLoading && overdueCount === 0 && stats.tasks > 0 && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-success-muted text-success shrink-0">
+                        on track
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
             </div>
-          </Link>
-        ))}
-      </div>
+          </div>
+        );
+      })()}
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Left — 2/3 */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-4">
+
+          {/* Section: Work */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">Work</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
           {/* Projects */}
           <section className="bg-surface rounded-2xl border border-border overflow-hidden">
@@ -330,15 +396,26 @@ export default function Home() {
                 {openTasks.map(task => {
                   const project = allProjects.find(p => p.id === task.projectId);
                   const deadline = getDeadlineInfo(task.deadline);
+                  const isCompleting = completingTaskId === task.id;
+                  const isDone = justDoneIds.has(task.id);
                   return (
-                    <Link key={task.id} href={`/projects/${task.projectId}`}>
-                      <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-surface-secondary/40 transition-colors">
-                        <div className={`w-3.5 h-3.5 rounded border-2 shrink-0 ${
-                          task.priority === 'urgent' ? 'border-danger' :
-                          task.priority === 'high' ? 'border-warning' :
-                          task.priority === 'medium' ? 'border-accent' : 'border-border'
-                        }`} />
-                        <span className="text-[13px] text-foreground truncate flex-1">{task.title}</span>
+                    <div key={task.id} className={`flex items-center gap-3 px-5 py-2.5 hover:bg-surface-secondary/40 transition-all ${isDone ? 'opacity-50' : ''}`}>
+                      <button
+                        onClick={(e) => handleCompleteTask(task.id, e)}
+                        disabled={isCompleting}
+                        aria-label={isDone ? 'Undo complete' : 'Complete task'}
+                        className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-all ${
+                          isDone ? 'border-success bg-success text-white' :
+                          isCompleting ? 'border-success bg-success/20' :
+                          task.priority === 'urgent' ? 'border-danger hover:border-success hover:bg-success/10' :
+                          task.priority === 'high' ? 'border-warning hover:border-success hover:bg-success/10' :
+                          task.priority === 'medium' ? 'border-accent hover:border-success hover:bg-success/10' : 'border-border hover:border-success hover:bg-success/10'
+                        }`}
+                      >
+                        {(isCompleting || isDone) && <Check size={9} className={isDone ? 'text-white' : 'text-success'} />}
+                      </button>
+                      <Link href={`/projects/${task.projectId}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className={`text-[13px] truncate flex-1 transition-all ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
                         <div className="flex items-center gap-2.5 shrink-0">
                           {project && (
                             <span className="hidden sm:block text-[12px] text-muted-foreground max-w-[100px] truncate">{project.name}</span>
@@ -347,8 +424,8 @@ export default function Home() {
                             <span className={`text-[12px] ${deadline.cls}`}>{deadline.label}</span>
                           )}
                         </div>
-                      </div>
-                    </Link>
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
@@ -359,6 +436,25 @@ export default function Home() {
               </div>
             )}
           </section>
+
+          {/* Task Calendar */}
+          <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
+                <CheckCircle2 size={13} className="text-muted-foreground" />
+                Schedule
+              </h2>
+            </div>
+            <div className="px-4 py-4">
+              <TaskCalendar tasks={allDecryptedTasks} projects={allProjects} onUpdate={fetchData} />
+            </div>
+          </section>
+
+          {/* Section: Resources */}
+          <div className="flex items-center gap-2.5 pt-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">Resources</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
           {/* Recent Snippets */}
           <section className="bg-surface rounded-2xl border border-border overflow-hidden">
@@ -395,11 +491,6 @@ export default function Home() {
               </div>
             )}
           </section>
-        </div>
-
-        {/* Right sidebar — 1/3 */}
-        <div className="space-y-5">
-          <ResourceHeatmap projects={allProjects} />
 
           {/* Recent wiki guides */}
           <section className="bg-surface rounded-2xl border border-border overflow-hidden">
@@ -439,6 +530,24 @@ export default function Home() {
               </div>
             )}
           </section>
+        </div>
+
+        {/* Right sidebar — 1/3 */}
+        <div className="space-y-4">
+
+          {/* Section: Planning */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">Planning</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          <ResourceHeatmap projects={allProjects} />
+
+          {/* Section: Activity */}
+          <div className="flex items-center gap-2.5 pt-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">Activity</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
           <ActivityFeed />
         </div>

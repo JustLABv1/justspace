@@ -18,7 +18,7 @@ interface VersionHistoryModalProps {
     accessResourceId?: string;
 }
 
-export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType, onRestore, accessResourceId }: VersionHistoryModalProps) => {
+export const VersionHistoryModal = ({ isOpen, onClose, resourceId, onRestore, accessResourceId }: VersionHistoryModalProps) => {
     const [versions, setVersions] = useState<ResourceVersion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { user, privateKey } = useAuth();
@@ -52,7 +52,7 @@ export const VersionHistoryModal = ({ isOpen, onClose, resourceId, resourceType,
                             
                             return { ...v, content: decryptedContent, title: decryptedTitle };
                         }
-                    } catch (e) {
+                    } catch {
                         return { ...v, content: 'Decryption Error', title: 'Decryption Error' };
                     }
                 }

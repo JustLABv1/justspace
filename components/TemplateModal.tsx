@@ -77,7 +77,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                 if (inst.target.startsWith('{')) {
                                     try {
                                         target = await decryptData(JSON.parse(inst.target), docKey);
-                                    } catch (e) { /* fallback to original */ }
+                                    } catch { /* fallback to original */ }
                                 }
                                 
                                 let tasks = inst.tasks || [];
@@ -85,7 +85,7 @@ export const TemplateModal = ({ isOpen, onClose, onApply }: TemplateModalProps) 
                                     tasks = await Promise.all(tasks.map(async (t: string) => {
                                         try {
                                             return await decryptData(JSON.parse(t), docKey);
-                                        } catch (e) { return t; }
+                                        } catch { return t; }
                                     }));
                                 }
 

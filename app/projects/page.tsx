@@ -9,6 +9,7 @@ import { wsClient, WSEvent } from '@/lib/ws';
 import { Project } from '@/types';
 import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
 import {
+    Archive,
     Edit,
     FolderKanban,
     LayoutGrid,
@@ -27,6 +28,10 @@ export default function ProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+    const [showArchived, setShowArchived] = useState(false);
+    const [archivedIds, setArchivedIds] = useState<Set<string>>(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('archived-projects') || '[]')); } catch { return new Set(); }
+    });
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | undefined>(undefined);
@@ -169,6 +174,15 @@ export default function ProjectsPage() {
         fetchProjects(false);
     };
 
+    const handleArchive = (project: Project) => {
+        const isCurrentlyArchived = archivedIds.has(project.id);
+        const next = new Set(archivedIds);
+        if (isCurrentlyArchived) { next.delete(project.id); } else { next.add(project.id); }
+        setArchivedIds(next);
+        localStorage.setItem('archived-projects', JSON.stringify([...next]));
+        toast.success(isCurrentlyArchived ? 'Project restored' : 'Project archived');
+    };
+
     const handleDelete = async () => {
         if (selectedProject) {
             try {
@@ -187,6 +201,10 @@ export default function ProjectsPage() {
         return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
     }
 
+    const activeProjects = projects.filter(p => !archivedIds.has(p.id));
+    const archivedProjects = projects.filter(p => archivedIds.has(p.id));
+    const displayProjects = showArchived ? archivedProjects : activeProjects;
+
     const columns: { label: string; status: Project['status']; color: 'default' | 'accent' | 'success' }[] = [
         { label: 'Backlog', status: 'todo', color: 'default' },
         { label: 'In Progress', status: 'in-progress', color: 'accent' },
@@ -201,17 +219,25 @@ export default function ProjectsPage() {
                     <p className="text-[13px] text-muted-foreground">Track and manage your consulting engagements.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant={showArchived ? 'secondary' : 'ghost'}
+                        onPress={() => setShowArchived(v => !v)}
+                        className="h-8 px-3 rounded-xl text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border"
+                    >
+                        <Archive size={13} className="mr-1.5" />
+                        Archived
+                    </Button>
                     <div className="flex rounded-xl border border-border overflow-hidden">
-                        <Button 
-                            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} 
+                        <Button
+                            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
                             onPress={() => setViewMode('kanban')}
                             className={`h-8 px-3 rounded-none text-[12px] font-medium transition-colors ${viewMode === 'kanban' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <List size={13} className="mr-1.5" />
                             Board
                         </Button>
-                        <Button 
-                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
+                        <Button
+                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
                             onPress={() => setViewMode('grid')}
                             className={`h-8 px-3 rounded-none text-[12px] font-medium transition-colors ${viewMode === 'grid' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
@@ -226,7 +252,30 @@ export default function ProjectsPage() {
                 </div>
             </header>
 
-            {viewMode === 'kanban' ? (
+            {showArchived ? (
+                <div>
+                    {archivedProjects.length === 0 ? (
+                        <div className="py-20 flex flex-col items-center gap-3 text-muted-foreground">
+                            <Archive size={24} />
+                            <p className="text-sm">No archived projects</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {archivedProjects.map((project) => (
+                                <ProjectCard
+                                    key={project.id}
+                                    project={project}
+                                    onEdit={() => { setSelectedProject(project); setIsProjectModalOpen(true); }}
+                                    onDelete={() => { setSelectedProject(project); setIsDeleteModalOpen(true); }}
+                                    onArchive={() => handleArchive(project)}
+                                    isArchived
+                                    isFull
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ) : viewMode === 'kanban' ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                     {columns.map((column) => (
                         <div key={column.status} className="flex flex-col gap-3">
@@ -239,29 +288,30 @@ export default function ProjectsPage() {
                                 </span>
                                 <Chip size="sm" variant="soft" color={column.color}>
                                     <Chip.Label className="text-[10px] font-medium">
-                                        {projects.filter(p => p.status === column.status).length}
+                                        {displayProjects.filter(p => p.status === column.status).length}
                                     </Chip.Label>
                                 </Chip>
                             </div>
 
                             <div className="space-y-2">
-                                {projects
+                                {displayProjects
                                     .filter((p) => p.status === column.status)
                                     .map((project) => (
-                                        <ProjectCard 
-                                            key={project.id} 
-                                            project={project} 
+                                        <ProjectCard
+                                            key={project.id}
+                                            project={project}
                                             onEdit={() => { setSelectedProject(project); setIsProjectModalOpen(true); }}
                                             onDelete={() => { setSelectedProject(project); setIsDeleteModalOpen(true); }}
+                                            onArchive={() => handleArchive(project)}
                                         />
                                     ))}
 
-                                <Button 
+                                <Button
                                     variant="ghost"
                                     className="w-full border border-dashed border-border/60 rounded-xl h-8 text-[12px] text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
-                                    onPress={() => { 
-                                        setSelectedProject({ status: column.status } as Project); 
-                                        setIsProjectModalOpen(true); 
+                                    onPress={() => {
+                                        setSelectedProject({ status: column.status } as Project);
+                                        setIsProjectModalOpen(true);
                                     }}
                                 >
                                     <Plus size={12} className="mr-1.5" />
@@ -273,12 +323,13 @@ export default function ProjectsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {projects.map((project) => (
-                        <ProjectCard 
-                            key={project.id} 
-                            project={project} 
+                    {displayProjects.map((project) => (
+                        <ProjectCard
+                            key={project.id}
+                            project={project}
                             onEdit={() => { setSelectedProject(project); setIsProjectModalOpen(true); }}
                             onDelete={() => { setSelectedProject(project); setIsDeleteModalOpen(true); }}
+                            onArchive={() => handleArchive(project)}
                             isFull
                         />
                     ))}
@@ -307,10 +358,11 @@ interface ProjectCardProps {
     project: Project;
     onEdit: () => void;
     onDelete: () => void;
+    onArchive: () => void;
     isFull?: boolean;
 }
 
-function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
+function ProjectCard({ project, onEdit, onDelete, onArchive, isArchived }: ProjectCardProps & { isArchived?: boolean }) {
     return (
         <div className="rounded-2xl border border-border bg-surface group overflow-hidden hover:shadow-sm transition-all">
             <Link href={`/projects/${project.id}`} className="block p-4">
@@ -360,12 +412,17 @@ function ProjectCard({ project, onEdit, onDelete, isFull }: ProjectCardProps) {
                         <Dropdown.Menu
                             onAction={(key) => {
                                 if (key === 'edit') onEdit();
+                                if (key === 'archive') onArchive();
                                 if (key === 'delete') onDelete();
                             }}
                         >
                             <Dropdown.Item id="edit" textValue="Edit">
                                 <Edit size={13} />
                                 <Label>Edit</Label>
+                            </Dropdown.Item>
+                            <Dropdown.Item id="archive" textValue={isArchived ? 'Restore' : 'Archive'}>
+                                <Archive size={13} />
+                                <Label>{isArchived ? 'Restore' : 'Archive'}</Label>
                             </Dropdown.Item>
                             <Dropdown.Item id="delete" textValue="Delete" variant="danger">
                                 <Trash2 size={13} className="text-danger" />

@@ -5,7 +5,7 @@ import { decryptData, decryptDocumentKey } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { wsClient, WSEvent } from "@/lib/ws";
 import { ActivityLog } from "@/types";
-import { Button, Chip, ScrollShadow, Spinner } from "@heroui/react";
+import { Button, Chip, Dropdown, Label, ScrollShadow, Spinner } from "@heroui/react";
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
@@ -13,6 +13,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import {
     Activity,
     CheckCircle,
+    ChevronDown,
     FileText,
     Play,
     PlusCircle,
@@ -25,12 +26,17 @@ dayjs.extend(relativeTime);
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
 
+type EntityFilter = 'all' | ActivityLog['entityType'];
+type ActionFilter = 'all' | ActivityLog['type'];
+
 export function ActivityFeed() {
     const { user, privateKey } = useAuth();
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [decryptedActivities, setDecryptedActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [entityFilter, setEntityFilter] = useState<EntityFilter>('all');
+    const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
 
     const fetchActivity = useCallback(async (isSilent = false) => {
         if (!isSilent) setLoading(true);
@@ -90,8 +96,15 @@ export function ActivityFeed() {
         return () => unsub();
     }, [fetchActivity]);
 
+    // Filter logic
+    const filteredActivities = decryptedActivities.filter(a => {
+        if (entityFilter !== 'all' && a.entityType !== entityFilter) return false;
+        if (actionFilter !== 'all' && a.type !== actionFilter) return false;
+        return true;
+    });
+
     // Grouping logic
-    const groupedActivities = decryptedActivities.reduce((groups: Record<string, ActivityLog[]>, activity) => {
+    const groupedActivities = filteredActivities.reduce((groups: Record<string, ActivityLog[]>, activity) => {
         const date = dayjs(activity.createdAt);
         let groupKey = '';
         if (date.isToday()) groupKey = 'Today';
@@ -132,22 +145,101 @@ export function ActivityFeed() {
         }
     };
 
+    const entityOptions: { value: EntityFilter; label: string }[] = [
+        { value: 'all', label: 'All' },
+        { value: 'Task', label: 'Tasks' },
+        { value: 'Project', label: 'Projects' },
+        { value: 'Wiki', label: 'Wiki' },
+        { value: 'Snippet', label: 'Snippets' },
+    ];
+
+    const actionOptions: { value: ActionFilter; label: string }[] = [
+        { value: 'all', label: 'Any' },
+        { value: 'create', label: 'Created' },
+        { value: 'update', label: 'Updated' },
+        { value: 'complete', label: 'Completed' },
+        { value: 'delete', label: 'Deleted' },
+        { value: 'work', label: 'Worked' },
+    ];
+
     return (
         <div className="rounded-2xl border border-border bg-surface flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                <div className="flex items-center gap-2">
-                    <Activity size={14} className="text-muted-foreground" />
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border gap-2">
+                <div className="flex items-center gap-2 shrink-0">
+                    <Activity size={13} className="text-muted-foreground" />
                     <h3 className="text-[13px] font-semibold text-foreground">Activity</h3>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onPress={() => fetchActivity(true)}
-                    className="h-6 w-6 p-0 rounded-xl text-muted-foreground hover:text-foreground"
-                    isPending={refreshing}
-                >
-                    <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-                </Button>
+                <div className="flex items-center gap-1.5 ml-auto">
+                    {/* Entity filter */}
+                    <Dropdown>
+                        <Dropdown.Trigger>
+                            <Button
+                                variant="secondary"
+                                className="h-7 px-2.5 rounded-lg text-[11px] font-medium gap-1"
+                            >
+                                {entityOptions.find(o => o.value === entityFilter)?.label ?? 'All'}
+                                <ChevronDown size={10} />
+                            </Button>
+                        </Dropdown.Trigger>
+                        <Dropdown.Popover placement="bottom end" className="min-w-[120px]">
+                            <Dropdown.Menu>
+                                {entityOptions.map(opt => (
+                                    <Dropdown.Item
+                                        key={opt.value}
+                                        id={opt.value}
+                                        textValue={opt.label}
+                                        onAction={() => setEntityFilter(opt.value)}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-accent text-[11px] w-3 ${entityFilter === opt.value ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+                                            <Label className="cursor-pointer text-[12px]">{opt.label}</Label>
+                                        </div>
+                                    </Dropdown.Item>
+                                ))}
+                            </Dropdown.Menu>
+                        </Dropdown.Popover>
+                    </Dropdown>
+
+                    {/* Action filter */}
+                    <Dropdown>
+                        <Dropdown.Trigger>
+                            <Button
+                                variant="secondary"
+                                className="h-7 px-2.5 rounded-lg text-[11px] font-medium gap-1"
+                            >
+                                {actionOptions.find(o => o.value === actionFilter)?.label ?? 'Any'}
+                                <ChevronDown size={10} />
+                            </Button>
+                        </Dropdown.Trigger>
+                        <Dropdown.Popover placement="bottom end" className="min-w-[130px]">
+                            <Dropdown.Menu>
+                                {actionOptions.map(opt => (
+                                    <Dropdown.Item
+                                        key={opt.value}
+                                        id={opt.value}
+                                        textValue={opt.label}
+                                        onAction={() => setActionFilter(opt.value)}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-accent text-[11px] w-3 ${actionFilter === opt.value ? 'opacity-100' : 'opacity-0'}`}>✓</span>
+                                            <Label className="cursor-pointer text-[12px]">{opt.label}</Label>
+                                        </div>
+                                    </Dropdown.Item>
+                                ))}
+                            </Dropdown.Menu>
+                        </Dropdown.Popover>
+                    </Dropdown>
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => fetchActivity(true)}
+                        className="h-7 w-7 p-0 rounded-lg text-muted-foreground hover:text-foreground"
+                        isPending={refreshing}
+                    >
+                        <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+                    </Button>
+                </div>
             </div>
 
             <ScrollShadow hideScrollBar className="max-h-[480px]" size={20}>

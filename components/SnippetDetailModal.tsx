@@ -55,7 +55,7 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
             <Modal.Backdrop isOpen={isOpen} onOpenChange={onClose} variant="blur">
                 <Modal.Container size="cover">
                     <Modal.Dialog className="bg-surface border border-border shadow-lg rounded-xl overflow-hidden">
-                        <Modal.CloseTrigger className="absolute right-6 top-6 z-50 bg-surface-secondary/50 hover:bg-surface-secondary transition-colors" />
+                        <Modal.CloseTrigger className="absolute right-6 top-6 z-50 bg-surface-secondary/50 hover:bg-surface-secondary transition-colors text-muted-foreground hover:text-foreground" />
                         
                         <div className="flex flex-col h-full max-h-[90vh]">
                             <Modal.Header className="flex flex-col gap-3 px-6 pt-5 pb-4 border-b border-border">

@@ -24,7 +24,8 @@ export default function LoginPage() {
                 description: 'Authentication successful.'
             });
         } catch (err: unknown) {
-            const msg = (err as any)?.message || (err as any)?.response?.message || 'Authentication failed. Please check your credentials.';
+            const e = err as { message?: string; response?: { message?: string } };
+            const msg = e?.message || e?.response?.message || 'Authentication failed. Please check your credentials.';
             setError(msg);
             toast.danger('Authentication failed', {
                 description: msg

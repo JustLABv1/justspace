@@ -157,3 +157,6 @@
 .tabs__tab {
   color: var(--muted-foreground);
 }
+.tabs__tab[data-selected=true] {
+  color: var(--foreground);
+}

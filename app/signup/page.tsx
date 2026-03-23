@@ -24,7 +24,8 @@ export default function SignupPage() {
                 description: 'Welcome to justspace.'
             });
         } catch (err: unknown) {
-            const errorMessage = (err as any)?.message || ((err as any)?.response && typeof (err as any).response === 'object' ? (err as any).response.message : null) || 'Registration failed';
+            const e = err as { message?: string; response?: { message?: string } };
+            const errorMessage = e?.message || e?.response?.message || 'Registration failed';
             setError(errorMessage);
             toast.danger('Enrollment failed', {
                 description: errorMessage

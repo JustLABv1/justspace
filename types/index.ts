@@ -2,7 +2,7 @@ export interface Project {
     id: string;
     name: string;
     description: string;
-    status: 'todo' | 'in-progress' | 'completed';
+    status: 'todo' | 'in-progress' | 'completed' | 'archived';
     daysPerWeek?: number;
     allocatedDays?: number;
     isEncrypted?: boolean;
@@ -26,6 +26,8 @@ export interface Task {
     notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }
     deadline?: string | null; // ISO date string
     isEncrypted?: boolean;
+    dependencies?: string[]; // Array of task IDs this task depends on
+    recurrence?: string | null; // JSON: { type: 'daily'|'weekly'|'monthly', interval: number, endDate?: string }
 }
 
 export interface WikiGuide {
@@ -100,6 +102,7 @@ export interface Snippet {
     description?: string;
     isEncrypted?: boolean;
     createdAt: string;
+    collection?: string; // Folder/collection grouping
 }
 
 export interface ResourceVersion {

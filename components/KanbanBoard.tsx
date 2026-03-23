@@ -5,28 +5,37 @@ import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
-import { Button, Chip, ScrollShadow, toast } from "@heroui/react";
+import { Button, Dropdown, Label, ScrollShadow, toast } from "@heroui/react";
 import dayjs from 'dayjs';
-import { Calendar, Clock, GripVertical, Lock, MessageCircle, Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Calendar, Check, Clock, Lock, MessageCircle, MoreHorizontal, Plus, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
-const COLUMNS: { id: Task['kanbanStatus']; label: string; color: 'accent' | 'success' | 'warning' | 'default' }[] = [
-    { id: 'todo', label: 'Todo', color: 'default' },
-    { id: 'in-progress', label: 'In Progress', color: 'accent' },
-    { id: 'review', label: 'Review', color: 'warning' },
-    { id: 'waiting', label: 'Waiting', color: 'accent' },
-    { id: 'done', label: 'Done', color: 'success' },
+const COLUMNS: { id: Task['kanbanStatus']; label: string; dotColor: string; includes?: Task['kanbanStatus'][] }[] = [
+    { id: 'todo', label: 'To Do', dotColor: 'bg-accent' },
+    { id: 'in-progress', label: 'In Progress', dotColor: 'bg-warning' },
+    { id: 'review', label: 'Need Review', dotColor: 'bg-danger', includes: ['waiting'] },
+    { id: 'done', label: 'Done', dotColor: 'bg-success' },
 ];
 
-export function KanbanBoard({ 
-    projectId, 
-    searchQuery = '', 
-    hideCompleted = false 
-}: { 
-    projectId: string, 
-    searchQuery?: string, 
-    hideCompleted?: boolean 
+function getPriorityConfig(priority?: string) {
+    switch (priority) {
+        case 'urgent': return { label: 'Urgent', color: 'danger' as const };
+        case 'high': return { label: 'High', color: 'danger' as const };
+        case 'medium': return { label: 'Medium', color: 'warning' as const };
+        case 'low': return { label: 'Low', color: 'success' as const };
+        default: return null;
+    }
+}
+
+export function KanbanBoard({
+    projectId,
+    searchQuery = '',
+    hideCompleted = false
+}: {
+    projectId: string,
+    searchQuery?: string,
+    hideCompleted?: boolean
 }) {
     const { user, privateKey } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -35,6 +44,10 @@ export function KanbanBoard({
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isEncrypted, setIsEncrypted] = useState(false);
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
+    const [addingToColumn, setAddingToColumn] = useState<Task['kanbanStatus'] | null>(null);
+    const [newTaskTitle, setNewTaskTitle] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
+    const newTaskInputRef = useRef<HTMLInputElement>(null);
 
     const fetchTasks = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -42,10 +55,9 @@ export function KanbanBoard({
             const res = await db.listTasks(projectId);
             const rawTasks = res.documents as unknown as Task[];
 
-            // Get decryption key if project is encrypted
             const project = await db.getProject(projectId);
             setIsEncrypted(!!project.isEncrypted);
-            
+
             let docKey = documentKey;
             if (project.isEncrypted && privateKey && user && !docKey) {
                 const access = await db.getAccessKey(projectId);
@@ -71,7 +83,6 @@ export function KanbanBoard({
                 return task;
             }));
 
-            // Filter tasks based on Search and Hide Completed before setting state
             const filteredTasks = decryptedTasks.filter(t => {
                 const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesCompleted = hideCompleted ? (t.kanbanStatus !== 'done' && !t.completed) : true;
@@ -108,19 +119,73 @@ export function KanbanBoard({
         return () => unsub();
     }, [projectId, fetchTasks]);
 
+    // Listen for add-task event from project page header button
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            startAdding(detail?.column || 'todo');
+        };
+        window.addEventListener('kanban-add-task', handler);
+        return () => window.removeEventListener('kanban-add-task', handler);
+    }, []);
+
     const moveTask = async (taskId: string, newStatus: Task['kanbanStatus']) => {
         const previousTasks = [...tasks];
         try {
             const isCompleted = newStatus === 'done';
-            // Optimistic update
             setTasks(prev => prev.map(t => t.id === taskId ? { ...t, kanbanStatus: newStatus, completed: isCompleted } : t));
-            
+
             await db.updateTask(taskId, { kanbanStatus: newStatus, completed: isCompleted });
-            toast.success(`Task moved to ${COLUMNS.find(c => c.id === newStatus)?.label.replace('_', '')}`);
+            toast.success(`Task moved to ${COLUMNS.find(c => c.id === newStatus)?.label}`);
         } catch (error) {
             console.error('Failed to move task, rolling back:', error);
             setTasks(previousTasks);
             toast.danger('Sync failed, movement reverted');
+        }
+    };
+
+    const deleteTask = async (taskId: string) => {
+        const previousTasks = [...tasks];
+        try {
+            setTasks(prev => prev.filter(t => t.id !== taskId));
+            await db.deleteTask(taskId);
+            toast.success('Task deleted');
+        } catch (error) {
+            console.error('Failed to delete task:', error);
+            setTasks(previousTasks);
+            toast.danger('Failed to delete task');
+        }
+    };
+
+    const startAdding = (columnId: Task['kanbanStatus']) => {
+        setAddingToColumn(columnId);
+        setNewTaskTitle('');
+        setTimeout(() => newTaskInputRef.current?.focus(), 0);
+    };
+
+    const cancelAdding = () => {
+        setAddingToColumn(null);
+        setNewTaskTitle('');
+    };
+
+    const handleAddTask = async (columnId: Task['kanbanStatus']) => {
+        if (!newTaskTitle.trim()) { cancelAdding(); return; }
+        setIsCreating(true);
+        try {
+            let finalTitle = newTaskTitle.trim();
+            if (isEncrypted && documentKey) {
+                const encrypted = await encryptData(finalTitle, documentKey);
+                finalTitle = JSON.stringify(encrypted);
+            }
+            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, columnId);
+            fetchTasks();
+            setNewTaskTitle('');
+            setAddingToColumn(null);
+        } catch (error) {
+            console.error('Failed to create task:', error);
+            toast.danger('Failed to create task');
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -132,28 +197,30 @@ export function KanbanBoard({
 
     const mainTasks = tasks.filter(t => !t.parentId);
 
+    // Helper to get column tasks, including merged statuses
+    const getColumnTasks = (column: typeof COLUMNS[number]) => {
+        const statuses = [column.id, ...(column.includes || [])];
+        return mainTasks.filter(t => statuses.includes(t.kanbanStatus || 'todo'));
+    };
+
     return (
         <ScrollShadow className="pb-6 -mx-6 px-6" orientation="horizontal" hideScrollBar>
-            <div className="flex gap-6 min-w-max md:min-w-[1200px]">
+            <div className="flex gap-5 min-w-max md:min-w-[1100px]">
                 {COLUMNS.map(column => {
-                    const columnTasks = mainTasks.filter(t => (t.kanbanStatus || 'todo') === column.id);
+                    const columnTasks = getColumnTasks(column);
                     return (
-                        <div key={column.id} className="flex flex-col gap-2.5 w-[270px] shrink-0">
-                            <div className="flex items-center justify-between px-1 py-1">
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${
-                                        column.color === 'default' ? 'bg-muted-foreground/40' : 
-                                        column.color === 'accent' ? 'bg-accent' : 
-                                        column.color === 'success' ? 'bg-success' : 
-                                        column.color === 'warning' ? 'bg-warning' : 'bg-accent/60'
-                                    }`} />
-                                    <h3 className="text-[13px] font-medium text-foreground">{column.label}</h3>
-                                    <span className="text-[12px] text-muted-foreground">{columnTasks.length}</span>
+                        <div key={column.id} className="flex flex-col gap-3 w-[280px] shrink-0">
+                            {/* Column Header */}
+                            <div className="flex items-center justify-between px-1 py-1.5">
+                                <div className="flex items-center gap-2.5">
+                                    <div className={`w-2.5 h-2.5 rounded-full ${column.dotColor}`} />
+                                    <h3 className="text-sm font-semibold text-foreground">{column.label}</h3>
                                 </div>
                             </div>
 
-                            <div 
-                                className="flex-1 space-y-2 p-1.5 rounded-2xl bg-surface-secondary/30 min-h-[500px] transition-colors"
+                            {/* Column Body */}
+                            <div
+                                className="flex-1 space-y-3 p-2 rounded-2xl bg-surface-secondary/30 min-h-[500px] transition-colors"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
                                     const taskId = e.dataTransfer.getData('taskId');
@@ -163,14 +230,11 @@ export function KanbanBoard({
                                 {columnTasks.map(task => {
                                     const subtasks = tasks.filter(st => st.parentId === task.id);
                                     const completedSubtasks = subtasks.filter(st => st.completed).length;
-
-                                    const priorityBorder = task.priority === 'urgent' ? 'border-l-danger' :
-                                        task.priority === 'high' ? 'border-l-warning' :
-                                        task.priority === 'medium' ? 'border-l-accent/60' : 'border-l-transparent';
+                                    const priorityConfig = getPriorityConfig(task.priority);
 
                                     return (
-                                        <div 
-                                            key={task.id} 
+                                        <div
+                                            key={task.id}
                                             draggable
                                             onDragStart={(e) => {
                                                 e.dataTransfer.setData('taskId', task.id);
@@ -179,108 +243,155 @@ export function KanbanBoard({
                                                 setSelectedTask(task);
                                                 setIsDetailModalOpen(true);
                                             }}
-                                            className={`p-3 rounded-xl border border-border border-l-2 ${priorityBorder} bg-surface shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all group`}
+                                            className="px-3 py-2.5 rounded-xl border border-border/60 bg-surface cursor-grab active:cursor-grabbing hover:border-border transition-all group"
                                         >
+                                            {/* Title row with menu */}
                                             <div className="flex items-start justify-between gap-2">
-                                                <div className="flex-1 space-y-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        {task.isEncrypted && <Lock size={10} className="text-muted-foreground shrink-0" />}
-                                                        <p className="text-[13px] font-medium text-foreground leading-snug">{task.title}</p>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    {task.isEncrypted && <Lock size={9} className="text-muted-foreground/50 shrink-0 mt-0.5" />}
+                                                    <p className="text-[13px] font-medium text-foreground leading-snug">{task.title}</p>
+                                                </div>
+                                                <Dropdown>
+                                                    <Dropdown.Trigger>
+                                                        <button
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="p-0.5 rounded text-muted-foreground/0 group-hover:text-muted-foreground/50 hover:text-muted-foreground transition-all shrink-0"
+                                                        >
+                                                            <MoreHorizontal size={13} />
+                                                        </button>
+                                                    </Dropdown.Trigger>
+                                                    <Dropdown.Popover placement="bottom end" className="min-w-[140px]">
+                                                        <Dropdown.Menu>
+                                                            <Dropdown.Item
+                                                                id={`edit-${task.id}`}
+                                                                textValue="Edit"
+                                                                onAction={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                                                            >
+                                                                <div className="flex items-center gap-2 text-[12px]">
+                                                                    <MessageCircle size={12} />
+                                                                    <Label className="cursor-pointer">Open</Label>
+                                                                </div>
+                                                            </Dropdown.Item>
+                                                            <Dropdown.Item
+                                                                id={`delete-${task.id}`}
+                                                                textValue="Delete"
+                                                                variant="danger"
+                                                                onAction={() => deleteTask(task.id)}
+                                                            >
+                                                                <div className="flex items-center gap-2 text-[12px]">
+                                                                    <Trash2 size={12} />
+                                                                    <Label className="cursor-pointer">Delete</Label>
+                                                                </div>
+                                                            </Dropdown.Item>
+                                                        </Dropdown.Menu>
+                                                    </Dropdown.Popover>
+                                                </Dropdown>
+                                            </div>
+
+                                            {/* Subtask progress */}
+                                            {subtasks.length > 0 && (
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <div className="flex-1 h-0.5 bg-surface-secondary rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-accent/40 rounded-full transition-all"
+                                                            style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
+                                                        />
                                                     </div>
-                                                    {subtasks.length > 0 && (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex-1 h-1 bg-surface-secondary rounded-full overflow-hidden">
-                                                                <div 
-                                                                    className="h-full bg-accent/50 rounded-full transition-all"
-                                                                    style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
-                                                                />
-                                                            </div>
-                                                            <span className="text-[11px] text-muted-foreground tabular-nums">{completedSubtasks}/{subtasks.length}</span>
-                                                        </div>
+                                                    <span className="text-[10px] text-muted-foreground/60 tabular-nums">{completedSubtasks}/{subtasks.length}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Footer: priority + metadata chips */}
+                                            {(priorityConfig || task.deadline || (task.timeSpent && task.timeSpent > 0) || (task.notes && task.notes.length > 0)) && (
+                                                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                                                    {priorityConfig && (
+                                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
+                                                            priorityConfig.color === 'danger' ? 'bg-danger/10 text-danger' :
+                                                            priorityConfig.color === 'warning' ? 'bg-warning/10 text-warning' :
+                                                            'bg-accent/10 text-accent'
+                                                        }`}>
+                                                            {priorityConfig.label}
+                                                        </span>
+                                                    )}
+                                                    {task.deadline && (
+                                                        <span className={`flex items-center gap-1 text-[10px] ${
+                                                            dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'text-danger' :
+                                                            dayjs(task.deadline).isSame(dayjs(), 'day') ? 'text-warning' :
+                                                            'text-muted-foreground/60'
+                                                        }`}>
+                                                            <Calendar size={10} />
+                                                            {dayjs(task.deadline).format('MMM D')}
+                                                        </span>
+                                                    )}
+                                                    {task.timeSpent !== undefined && task.timeSpent > 0 && (
+                                                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                                                            <Clock size={10} />
+                                                            {Math.floor(task.timeSpent / 3600)}h
+                                                        </span>
+                                                    )}
+                                                    {task.notes && task.notes.length > 0 && (
+                                                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                                                            <MessageCircle size={10} />
+                                                            {task.notes.length}
+                                                        </span>
                                                     )}
                                                 </div>
-                                                <GripVertical size={13} className="text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors shrink-0 mt-0.5" />
-                                            </div>
-                                            
-                                            <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-1.5 flex-wrap">
-                                                {task.deadline && (
-                                                    <Chip
-                                                        size="sm"
-                                                        variant="soft"
-                                                        color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
-                                                        className="h-5 px-1.5 rounded-full"
-                                                    >
-                                                        <Calendar size={9} className="mr-0.5" />
-                                                        <Chip.Label className="text-[10px] px-0">
-                                                            {dayjs(task.deadline).format('MMM D')}
-                                                        </Chip.Label>
-                                                    </Chip>
-                                                )}
-                                                {task.priority && (
-                                                    <Chip
-                                                        size="sm"
-                                                        variant="soft"
-                                                        color={
-                                                            task.priority === 'urgent' ? 'danger' :
-                                                            task.priority === 'high' ? 'warning' :
-                                                            task.priority === 'medium' ? 'accent' :
-                                                            'default'
-                                                        }
-                                                        className="h-5 px-1.5 rounded-full"
-                                                    >
-                                                        <Chip.Label className="text-[10px] px-0">
-                                                            {task.priority}
-                                                        </Chip.Label>
-                                                    </Chip>
-                                                )}
-                                                {task.notes && task.notes.length > 0 && (
-                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                                                        <MessageCircle size={10} />
-                                                        {task.notes.length}
-                                                    </span>
-                                                )}
-                                                {task.timeSpent !== undefined && task.timeSpent > 0 && (
-                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                                                        <Clock size={10} />
-                                                        {Math.floor(task.timeSpent / 3600)}h {Math.floor((task.timeSpent % 3600) / 60)}m
-                                                    </span>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
                                     );
                                 })}
-                            
-                            <Button 
-                                variant="ghost" 
-                                className="w-full h-8 border border-dashed border-border/60 hover:border-accent/40 text-[12px] text-muted-foreground hover:text-accent rounded-xl transition-all bg-transparent"
-                                onPress={async () => {
-                                    const title = prompt('Enter task title:');
-                                    if (title) {
-                                        try {
-                                            let finalTitle = title;
-                                            if (isEncrypted && documentKey) {
-                                                const encrypted = await encryptData(title, documentKey);
-                                                finalTitle = JSON.stringify(encrypted);
-                                            }
-                                            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, column.id);
-                                            fetchTasks();
-                                        } catch (error) {
-                                            console.error('Failed to create task:', error);
-                                            toast.danger('Failed to create task');
-                                        }
-                                    }
-                                }}
-                            >
-                                <Plus size={14} className="mr-1.5" />
-                                New Task
-                            </Button>
+
+                                {/* Add task inline */}
+                                {addingToColumn === column.id ? (
+                                    <div className="p-3 rounded-xl border border-accent/40 bg-surface space-y-2">
+                                        <input
+                                            ref={newTaskInputRef}
+                                            value={newTaskTitle}
+                                            onChange={e => setNewTaskTitle(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') handleAddTask(column.id);
+                                                if (e.key === 'Escape') cancelAdding();
+                                            }}
+                                            placeholder="Task title..."
+                                            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/50 outline-none"
+                                        />
+                                        <div className="flex items-center gap-1.5">
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                className="h-6 px-2.5 rounded-lg text-[11px]"
+                                                onPress={() => handleAddTask(column.id)}
+                                                isPending={isCreating}
+                                            >
+                                                <Check size={11} className="mr-0.5" /> Add
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-6 w-6 p-0 rounded-lg text-muted-foreground"
+                                                onPress={cancelAdding}
+                                            >
+                                                <X size={11} />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full h-8 border border-dashed border-border/60 hover:border-accent/40 text-[12px] text-muted-foreground hover:text-accent rounded-xl transition-all bg-transparent"
+                                        onPress={() => startAdding(column.id)}
+                                    >
+                                        <Plus size={14} className="mr-1.5" />
+                                        New Task
+                                    </Button>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )
-            })}
+                    );
+                })}
             </div>
             {selectedTask && (
-                <TaskDetailModal 
+                <TaskDetailModal
                     isOpen={isDetailModalOpen}
                     onOpenChange={setIsDetailModalOpen}
                     task={tasks.find(t => t.id === selectedTask.id) || selectedTask}

@@ -8,7 +8,7 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/lib/db';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { ResourceVersion, WikiGuide } from '@/types';
-import { Button, Dropdown, Label, Spinner, toast } from "@heroui/react";
+import { Button, Dropdown, Label } from "@heroui/react";
 import dayjs from 'dayjs';
 import {
     BookOpen,
@@ -39,7 +39,6 @@ export default function WikiPage() {
             const data = await db.listGuides();
             const rawGuides = data.documents;
 
-            // Decrypt encrypted guides if private key is available
             const processedGuides = await Promise.all(rawGuides.map(async (guide) => {
                 if (guide.isEncrypted) {
                     if (privateKey && user) {
@@ -47,20 +46,16 @@ export default function WikiPage() {
                             const access = await db.getAccessKey(guide.id);
                             if (access) {
                                 const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                                
                                 let decryptedTitle = guide.title;
                                 let decryptedDesc = guide.description;
-
                                 try {
                                     const titleData = JSON.parse(guide.title);
                                     decryptedTitle = await decryptData(titleData, docKey);
                                 } catch {}
-
                                 try {
                                     const descData = JSON.parse(guide.description);
                                     decryptedDesc = await decryptData(descData, docKey);
                                 } catch {}
-                                
                                 return { ...guide, title: decryptedTitle, description: decryptedDesc };
                             }
                         } catch (e) {
@@ -68,10 +63,10 @@ export default function WikiPage() {
                             return { ...guide, title: 'Decryption Error', description: 'Missing access keys.' };
                         }
                     }
-                    return { 
-                        ...guide, 
-                        title: 'Encrypted Guide', 
-                        description: 'Synchronize vault to access guide details.' 
+                    return {
+                        ...guide,
+                        title: 'Encrypted Guide',
+                        description: 'Synchronize vault to access guide details.'
                     };
                 }
                 return guide;
@@ -100,13 +95,12 @@ export default function WikiPage() {
                 fetchGuides(false);
             }
         });
-
         return () => unsub();
     }, [fetchGuides]);
 
     const handleRestore = async (version: ResourceVersion) => {
         if (!selectedGuide) return;
-        
+
         const updateData: Partial<WikiGuide> = {
             title: version.title,
             description: version.content,
@@ -149,8 +143,6 @@ export default function WikiPage() {
 
                 if (selectedGuide?.id) {
                     await db.updateGuide(selectedGuide.id, finalData);
-                    
-                    // Create version snapshot
                     await db.createVersion({
                         resourceId: selectedGuide.id,
                         resourceType: 'Wiki',
@@ -159,8 +151,6 @@ export default function WikiPage() {
                         isEncrypted: true,
                         metadata: 'Updated'
                     });
-
-                    // Also update/add access control if not exists
                     const existingAccess = await db.getAccessKey(selectedGuide.id);
                     if (!existingAccess) {
                         await db.grantAccess({
@@ -170,10 +160,8 @@ export default function WikiPage() {
                             resourceType: 'Wiki'
                         });
                     }
-                    toast.success('Wiki updated');
                 } else {
                     const newGuide = await db.createGuide(finalData as Omit<WikiGuide, 'id' | 'createdAt'>);
-                    
                     await db.createVersion({
                         resourceId: newGuide.id,
                         resourceType: 'Wiki',
@@ -182,14 +170,12 @@ export default function WikiPage() {
                         isEncrypted: true,
                         metadata: 'Initial version'
                     });
-
                     await db.grantAccess({
                         resourceId: newGuide.id,
                         userId: user.id,
                         encryptedKey: encryptedDocKey,
                         resourceType: 'Wiki'
                     });
-                    toast.success('Wiki created');
                 }
             } else {
                 if (selectedGuide?.id) {
@@ -202,7 +188,6 @@ export default function WikiPage() {
                         isEncrypted: false,
                         metadata: 'Updated'
                     });
-                    toast.success('Wiki updated');
                 } else {
                     const newGuide = await db.createGuide(finalData as Omit<WikiGuide, 'id' | 'createdAt'>);
                     await db.createVersion({
@@ -213,14 +198,12 @@ export default function WikiPage() {
                         isEncrypted: false,
                         metadata: 'Initial version'
                     });
-                    toast.success('Wiki created');
                 }
             }
         } catch (error) {
             console.error(error);
-            toast.danger('Action failed');
         }
-        
+
         setIsWikiModalOpen(false);
         fetchGuides();
     };
@@ -231,82 +214,153 @@ export default function WikiPage() {
                 await db.deleteGuide(selectedGuide.id);
                 setIsDeleteModalOpen(false);
                 fetchGuides();
-                toast.success('Wiki deleted');
             } catch (error) {
                 console.error(error);
-                toast.danger('Delete failed');
             }
         }
     };
 
-    const filteredGuides = guides.filter(guide => 
+    const filteredGuides = guides.filter(guide =>
         guide.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         guide.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (isLoading) {
-        return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
+        return (
+            <div className="h-64 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-accent/30 border-t-accent animate-spin" />
+            </div>
+        );
     }
 
     return (
-        <div className="w-full px-6 py-8 space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="space-y-0.5">
-                    <h1 className="text-lg font-semibold text-foreground">Wiki</h1>
-                    <p className="text-[13px] text-muted-foreground">Documentation and deployment guides for your stack.</p>
+        <div className="w-full px-6 py-8">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 mb-8">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                        <BookOpen size={18} className="text-accent" />
+                    </div>
+                    <div>
+                        <h1 className="text-lg font-bold text-foreground">Knowledge Base</h1>
+                        <p className="text-[12px] text-muted-foreground mt-0.5">
+                            Documentation and deployment guides
+                        </p>
+                    </div>
                 </div>
-                <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm" onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
-                    <Plus size={13} className="mr-1" />
-                    New guide
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                    <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-border px-3 h-8 bg-background focus-within:border-accent/60 transition-colors">
+                        <Search size={12} className="text-muted-foreground shrink-0" />
+                        <input
+                            className="bg-transparent border-none outline-none w-36 text-[13px] placeholder:text-muted-foreground"
+                            placeholder="Search guides..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button
+                        variant="primary"
+                        className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm"
+                        onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}
+                    >
+                        <Plus size={13} className="mr-1" />
+                        New guide
+                    </Button>
+                </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
+            {/* Mobile search */}
+            <div className="sm:hidden flex items-center gap-1.5 rounded-xl border border-border px-3 h-9 bg-background focus-within:border-accent/60 transition-colors mb-6">
                 <Search size={13} className="text-muted-foreground shrink-0" />
-                <input 
-                    className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground" 
+                <input
+                    className="bg-transparent border-none outline-none flex-1 text-[13px] placeholder:text-muted-foreground"
                     placeholder="Search guides..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Count */}
+            {filteredGuides.length > 0 && (
+                <p className="text-[12px] text-muted-foreground mb-4">
+                    {filteredGuides.length} guide{filteredGuides.length !== 1 ? 's' : ''}
+                    {searchTerm && ` matching "${searchTerm}"`}
+                </p>
+            )}
+
+            {/* Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredGuides.length === 0 ? (
-                    <div className="col-span-full py-20 text-center flex flex-col items-center gap-3">
-                        <BookOpen size={24} className="text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">No guides found</p>
+                    <div className="col-span-full py-24 flex flex-col items-center gap-4 text-center">
+                        <div className="w-14 h-14 rounded-2xl bg-surface-secondary flex items-center justify-center">
+                            <BookOpen size={22} className="text-muted-foreground" />
+                        </div>
+                        <div>
+                            <p className="text-[14px] font-medium text-foreground">
+                                {searchTerm ? 'No guides found' : 'No guides yet'}
+                            </p>
+                            <p className="text-[12px] text-muted-foreground mt-0.5">
+                                {searchTerm
+                                    ? 'Try a different search term'
+                                    : 'Create your first knowledge base article'}
+                            </p>
+                        </div>
+                        {!searchTerm && (
+                            <Button
+                                variant="primary"
+                                className="rounded-xl h-8 px-4 text-[13px] font-medium"
+                                onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}
+                            >
+                                <Plus size={13} className="mr-1" />
+                                New guide
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     filteredGuides.map((guide) => (
                         <div
                             key={guide.id}
-                            className="rounded-2xl border border-border bg-surface group flex flex-col overflow-hidden hover:shadow-sm transition-all"
+                            className="rounded-2xl border border-border bg-surface group flex flex-col hover:shadow-sm hover:border-border/80 transition-all overflow-hidden"
                         >
-                            <Link href={`/wiki/${guide.id}`} className="p-4 flex-1 flex flex-col gap-3">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-8 h-8 rounded-xl bg-success-muted flex items-center justify-center text-success shrink-0">
-                                        <BookOpen size={15} />
+                            <Link href={`/wiki/${guide.id}`} className="p-5 flex-1 flex flex-col gap-4">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                                        <BookOpen size={16} className="text-accent" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5">
-                                            <h3 className="text-[13px] font-semibold text-foreground truncate leading-snug">{guide.title}</h3>
-                                            {guide.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
+                                    {guide.isEncrypted && (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-warning/10 shrink-0">
+                                            <Lock size={10} className="text-warning" />
+                                            <span className="text-[10px] font-semibold text-warning uppercase tracking-wide">Encrypted</span>
                                         </div>
-                                        {guide.description && (
-                                            <p className="text-[12px] text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-                                                {guide.description.replace(/#{1,6}\s/g, '').replace(/[*_`~]/g, '').replace(/\n+/g, ' ')}
-                                            </p>
-                                        )}
-                                    </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 className="text-[14px] font-semibold text-foreground leading-snug line-clamp-1">
+                                        {guide.title}
+                                    </h3>
+                                    {guide.description && (
+                                        <p className="text-[12px] text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
+                                            {guide.description
+                                                .replace(/#{1,6}\s/g, '')
+                                                .replace(/[*_`~]/g, '')
+                                                .replace(/\n+/g, ' ')}
+                                        </p>
+                                    )}
                                 </div>
                             </Link>
 
-                            <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
+                            <div className="px-5 py-3 border-t border-border/60 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[11px] text-muted-foreground">{dayjs(guide.createdAt).format('MMM D, YYYY')}</span>
+                                    <span className="text-[11px] text-muted-foreground">
+                                        {dayjs(guide.createdAt).format('MMM D, YYYY')}
+                                    </span>
                                     {guide.installations && guide.installations.length > 0 && (
-                                        <span className="text-[11px] text-muted-foreground">· {guide.installations.length} target{guide.installations.length !== 1 ? 's' : ''}</span>
+                                        <>
+                                            <span className="text-muted-foreground/30">·</span>
+                                            <span className="text-[11px] text-muted-foreground">
+                                                {guide.installations.length} target{guide.installations.length !== 1 ? 's' : ''}
+                                            </span>
+                                        </>
                                     )}
                                 </div>
                                 <Dropdown>
@@ -347,14 +401,14 @@ export default function WikiPage() {
                 )}
             </div>
 
-            <WikiModal 
+            <WikiModal
                 isOpen={isWikiModalOpen}
                 onClose={() => setIsWikiModalOpen(false)}
                 onSubmit={handleCreateOrUpdate}
                 guide={selectedGuide}
             />
 
-            <DeleteModal 
+            <DeleteModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDelete}
@@ -362,7 +416,7 @@ export default function WikiPage() {
                 message={`Are you sure you want to delete "${selectedGuide?.title}"? All associated installation targets will also be removed.`}
             />
 
-            <VersionHistoryModal 
+            <VersionHistoryModal
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
                 resourceId={selectedGuide?.id || ''}

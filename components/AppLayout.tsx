@@ -2,11 +2,14 @@
 
 import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { VaultBanner } from "@/components/VaultBanner";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { Search } from "lucide-react";
+import { Avatar, Dropdown, Label } from "@heroui/react";
+import { ChevronDown, LogOut, Search, Settings, User } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from 'next/navigation';
-import React, { useEffect, useSyncExternalStore } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -14,7 +17,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <AuthBoundary>
                 {children}
             </AuthBoundary>
-            <CommandPalette />
         </AuthProvider>
     );
 }
@@ -22,10 +24,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 function AuthBoundary({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, logout } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-    
-    // Reset mobile menu on navigation without useEffect to avoid cascading renders
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+    // Reset mobile menu on navigation
     const [prevPathname, setPrevPathname] = React.useState(pathname);
     if (pathname !== prevPathname) {
         setPrevPathname(pathname);
@@ -60,6 +63,37 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
         }
     }, [user, isLoading, isAuthPage, router]);
 
+    // Open search from event (sidebar search button, mobile header icon)
+    useEffect(() => {
+        const handler = () => setIsSearchOpen(true);
+        window.addEventListener('open-command-palette', handler);
+        return () => window.removeEventListener('open-command-palette', handler);
+    }, []);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const down = (e: KeyboardEvent) => {
+            if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                setIsSearchOpen(prev => !prev);
+            }
+            if (e.key === 'p' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                router.push('/projects');
+            }
+            if (e.key === 'w' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                router.push('/wiki');
+            }
+            if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                router.push('/snippets');
+            }
+        };
+        document.addEventListener('keydown', down);
+        return () => document.removeEventListener('keydown', down);
+    }, [router]);
+
     if (!isClient) {
         return <div className="flex h-screen w-screen items-center justify-center">Loading...</div>;
     }
@@ -78,9 +112,9 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex bg-background h-screen overflow-hidden relative">
-            <Sidebar 
-                isCollapsed={isCollapsed} 
-                setIsCollapsed={toggleCollapse} 
+            <Sidebar
+                isCollapsed={isCollapsed}
+                setIsCollapsed={toggleCollapse}
                 isMobileOpen={isMobileMenuOpen}
                 setIsMobileOpen={setIsMobileMenuOpen}
             />
@@ -92,11 +126,11 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
             )}
-            
+
             <main className="flex-1 min-w-0 flex flex-col bg-background overflow-hidden relative">
                 {/* Mobile Header */}
                 <header className="md:hidden flex items-center justify-between h-14 px-4 bg-surface border-b border-border z-40">
-                    <button 
+                    <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
                         aria-label="Toggle menu"
@@ -113,8 +147,8 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                         </div>
                         <span className="font-semibold text-sm">justspace</span>
                     </div>
-                    <button 
-                        onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
+                    <button
+                        onClick={() => setIsSearchOpen(true)}
                         className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
                         aria-label="Open search"
                     >
@@ -122,13 +156,79 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                     </button>
                 </header>
 
+                {/* Desktop Header */}
+                <header className="hidden md:flex items-center justify-between h-14 px-6 bg-surface border-b border-border shrink-0 z-30">
+                    <div className="w-48" />
+
+                    {/* Search button — highlights when open */}
+                    <button
+                        onClick={() => setIsSearchOpen(true)}
+                        className={`flex items-center gap-2.5 px-4 py-2 rounded-xl border transition-all min-w-[360px] max-w-[480px] ${
+                            isSearchOpen
+                                ? 'bg-surface border-accent/40 ring-2 ring-accent/15 shadow-sm'
+                                : 'bg-surface-secondary/60 border-border/60 hover:bg-surface-secondary hover:border-border'
+                        }`}
+                    >
+                        <Search size={14} className="text-muted-foreground shrink-0" />
+                        <span className="text-[13px] text-muted-foreground flex-1 text-left">
+                            Search by name, label, task or team member...
+                        </span>
+                        <kbd className="ml-auto text-[10px] font-medium bg-surface rounded px-1.5 py-0.5 text-muted-foreground border border-border shrink-0">⌘K</kbd>
+                    </button>
+
+                    <div className="flex items-center gap-2 w-48 justify-end">
+                        <ThemeSwitcher />
+
+                        <Dropdown>
+                            <Dropdown.Trigger>
+                                <button className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-surface-secondary transition-colors">
+                                    <Avatar size="sm" className="w-7 h-7 shrink-0">
+                                        <Avatar.Fallback className="bg-accent/20 text-accent text-[11px] font-semibold">
+                                            {user?.name?.charAt(0).toUpperCase() || <User size={12} />}
+                                        </Avatar.Fallback>
+                                    </Avatar>
+                                    <span className="text-[13px] font-medium text-foreground hidden lg:block max-w-[120px] truncate">
+                                        {user?.name || 'Guest'}
+                                    </span>
+                                    <ChevronDown size={12} className="text-muted-foreground hidden lg:block" />
+                                </button>
+                            </Dropdown.Trigger>
+                            <Dropdown.Popover placement="bottom end" className="min-w-[180px]">
+                                <Dropdown.Menu>
+                                    <Dropdown.Section>
+                                        <Dropdown.Item id="settings" textValue="Settings">
+                                            <Link href="/settings" className="flex items-center gap-2 w-full">
+                                                <Settings size={14} />
+                                                <Label className="cursor-pointer text-[13px]">Settings</Label>
+                                            </Link>
+                                        </Dropdown.Item>
+                                    </Dropdown.Section>
+                                    <Dropdown.Item
+                                        id="logout"
+                                        variant="danger"
+                                        textValue="Logout"
+                                        onAction={logout}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <LogOut size={14} />
+                                            <Label className="cursor-pointer text-[13px]">Sign Out</Label>
+                                        </div>
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown.Popover>
+                        </Dropdown>
+                    </div>
+                </header>
+
                 <VaultBanner />
-                
+
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {children}
                 </div>
             </main>
 
+            {/* Command palette — rendered as a fixed panel, not a modal */}
+            {isSearchOpen && <CommandPalette onClose={() => setIsSearchOpen(false)} />}
         </div>
     );
 }

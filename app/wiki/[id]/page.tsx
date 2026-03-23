@@ -11,9 +11,8 @@ import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { EncryptedData, InstallationTarget, ResourceVersion, WikiGuide } from '@/types';
-import { Button, Spinner, Tabs, toast } from "@heroui/react";
+import { Button, toast } from "@heroui/react";
 import {
-    ArrowLeft,
     BookOpen,
     Edit,
     ExternalLink,
@@ -32,6 +31,7 @@ export default function WikiDetailPage() {
     const [guide, setGuide] = useState<(WikiGuide & { installations: InstallationTarget[] }) | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isDecrypting, setIsDecrypting] = useState(false);
+    const [activeTab, setActiveTab] = useState<string>('');
     const [selectedInst, setSelectedInst] = useState<InstallationTarget | undefined>(undefined);
     const [isWikiModalOpen, setIsWikiModalOpen] = useState(false);
     const [isInstModalOpen, setIsInstModalOpen] = useState(false);
@@ -57,28 +57,23 @@ export default function WikiDetailPage() {
                     const access = await db.getAccessKey(id);
                     if (access) {
                         const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                        
-                        // Decrypt guide title/desc
+
                         const titleData = JSON.parse(processedGuide.title) as EncryptedData;
                         const descData = JSON.parse(processedGuide.description) as EncryptedData;
                         processedGuide.title = await decryptData(titleData, docKey);
                         processedGuide.description = await decryptData(descData, docKey);
 
-                        // Decrypt installations
                         processedGuide.installations = await Promise.all(processedGuide.installations.map(async (inst) => {
                             const decryptedInst = { ...inst };
-                            
                             try {
                                 if (inst.target && inst.target.startsWith('{')) {
                                     const targetData = JSON.parse(inst.target) as EncryptedData;
                                     decryptedInst.target = await decryptData(targetData, docKey);
                                 }
-                                
                                 if (inst.notes && inst.notes.startsWith('{')) {
                                     const notesData = JSON.parse(inst.notes) as EncryptedData;
                                     decryptedInst.notes = await decryptData(notesData, docKey);
                                 }
-                                
                                 if (inst.tasks && inst.tasks.length > 0 && inst.tasks[0].startsWith('{')) {
                                     decryptedInst.tasks = await Promise.all(inst.tasks.map(async (t) => {
                                         if (t.startsWith('{')) {
@@ -91,7 +86,6 @@ export default function WikiDetailPage() {
                             } catch (e) {
                                 console.error('Failed to decrypt installation part:', e);
                             }
-                            
                             return decryptedInst;
                         }));
                     }
@@ -113,6 +107,12 @@ export default function WikiDetailPage() {
     useEffect(() => {
         fetchGuide();
     }, [fetchGuide]);
+
+    useEffect(() => {
+        if (guide?.installations?.length > 0) {
+            setActiveTab(prev => prev || guide.installations[0].id);
+        }
+    }, [guide]);
 
     const handleUpdateWiki = async (data: Partial<WikiGuide> & { shouldEncrypt?: boolean }) => {
         if (!guide) return;
@@ -141,8 +141,6 @@ export default function WikiDetailPage() {
             finalData.description = JSON.stringify(encryptedDesc);
 
             await db.updateGuide(id, finalData);
-            
-            // Create version snapshot
             await db.createVersion({
                 resourceId: id,
                 resourceType: 'Wiki',
@@ -174,7 +172,7 @@ export default function WikiDetailPage() {
             });
             toast.success('Wiki updated');
         }
-        
+
         setIsWikiModalOpen(false);
         fetchGuide();
     };
@@ -187,23 +185,19 @@ export default function WikiDetailPage() {
                 const access = await db.getAccessKey(id);
                 if (access) {
                     const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                    
                     if (data.target) {
                         const encryptedTarget = await encryptData(data.target, docKey);
                         finalData.target = JSON.stringify(encryptedTarget);
                     }
-                    
                     if (data.notes) {
                         const encryptedNotes = await encryptData(data.notes, docKey);
                         finalData.notes = JSON.stringify(encryptedNotes);
                     }
-                    
                     if (data.tasks && data.tasks.length > 0) {
                         finalData.tasks = await Promise.all(data.tasks.map(async (t) => {
                             return JSON.stringify(await encryptData(t, docKey));
                         }));
                     }
-                    
                     finalData.isEncrypted = true;
                 }
             } catch (e) {
@@ -213,7 +207,6 @@ export default function WikiDetailPage() {
 
         if (selectedInst?.id) {
             await db.updateInstallation(selectedInst.id, finalData);
-            // Create version snapshot
             await db.createVersion({
                 resourceId: selectedInst.id,
                 resourceType: 'Installation',
@@ -228,7 +221,6 @@ export default function WikiDetailPage() {
                 ...finalData,
                 guideId: id
             } as Omit<InstallationTarget, 'id' | 'createdAt'>);
-            // Create version snapshot
             await db.createVersion({
                 resourceId: newInst.id,
                 resourceType: 'Installation',
@@ -245,7 +237,7 @@ export default function WikiDetailPage() {
 
     const handleRestore = async (version: ResourceVersion) => {
         if (!guide) return;
-        
+
         const updateData: Partial<WikiGuide> = {
             title: version.title,
             description: version.content,
@@ -270,7 +262,7 @@ export default function WikiDetailPage() {
 
     const handleRestoreInst = async (version: ResourceVersion) => {
         if (!selectedInst) return;
-        
+
         const updateData: Partial<InstallationTarget> = {
             target: version.title || selectedInst.target,
             notes: version.content,
@@ -326,48 +318,73 @@ export default function WikiDetailPage() {
     };
 
     if (isLoading) {
-        return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
+        return (
+            <div className="h-64 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-accent/30 border-t-accent animate-spin" />
+            </div>
+        );
     }
 
     if (!guide) {
-        return <div className="p-8 text-center text-muted-foreground">Guide not found.</div>;
+        return (
+            <div className="p-8 text-center text-muted-foreground text-[13px]">
+                Guide not found.
+            </div>
+        );
     }
 
     if (guide.isEncrypted && !privateKey) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                <Lock size={32} className="text-muted-foreground" />
+                <div className="w-14 h-14 rounded-2xl bg-surface-secondary flex items-center justify-center">
+                    <Lock size={22} className="text-muted-foreground" />
+                </div>
                 <div className="text-center">
-                    <h2 className="text-lg font-semibold text-foreground">Secured Guide</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Unlock your vault to access this encrypted guide.</p>
+                    <h2 className="text-[15px] font-semibold text-foreground">Secured Guide</h2>
+                    <p className="text-[13px] text-muted-foreground mt-1">
+                        Unlock your vault to access this encrypted guide.
+                    </p>
                 </div>
             </div>
         );
     }
 
+    const activeInstallation = guide.installations.find(i => i.id === activeTab);
+
     return (
-        <div className="w-full px-6 py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <Link href="/wiki" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-                    <ArrowLeft size={13} />
-                    Wiki
-                </Link>
-                <div className="flex items-center gap-2">
+        <div className="w-full px-6 py-8">
+            {/* Breadcrumb + Actions */}
+            <div className="flex items-center justify-between mb-8">
+                <nav className="flex items-center gap-1.5 text-[13px]">
+                    <Link
+                        href="/wiki"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        Wiki
+                    </Link>
+                    <span className="text-muted-foreground/40 text-[10px]">›</span>
+                    <span className="text-foreground font-medium truncate max-w-[200px] sm:max-w-xs">
+                        {guide.title}
+                    </span>
+                </nav>
+                <div className="flex items-center gap-1.5">
                     <Button
                         variant="ghost"
                         isIconOnly
                         className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
                         onPress={() => setIsHistoryModalOpen(true)}
+                        aria-label="Version history"
                     >
-                        <History size={13} />
+                        <History size={14} />
                     </Button>
                     <Button
                         variant="ghost"
                         isIconOnly
                         className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
                         onPress={() => setIsWikiModalOpen(true)}
+                        aria-label="Edit guide"
                     >
-                        <Edit size={13} />
+                        <Edit size={14} />
                     </Button>
                     <Button
                         variant="primary"
@@ -380,155 +397,201 @@ export default function WikiDetailPage() {
                 </div>
             </div>
 
-            <div>
-                <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-semibold text-foreground">{guide.title}</h1>
-                    {guide.isEncrypted && <Lock size={13} className="text-warning" />}
-                    {isDecrypting && <Spinner size="sm" color="current" />}
-                </div>
-                <div className="mt-2 text-sm text-muted-foreground max-w-3xl">
-                    <Markdown content={guide.description} />
+            {/* Guide Header */}
+            <div className="mb-8 pb-8 border-b border-border">
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <BookOpen size={18} className="text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-xl font-bold text-foreground">{guide.title}</h1>
+                            {guide.isEncrypted && (
+                                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-warning/10">
+                                    <Lock size={10} className="text-warning" />
+                                    <span className="text-[10px] font-semibold text-warning">Encrypted</span>
+                                </div>
+                            )}
+                            {isDecrypting && (
+                                <div className="w-4 h-4 rounded-full border-2 border-accent/30 border-t-accent animate-spin" />
+                            )}
+                        </div>
+                        {guide.description && (
+                            <div className="mt-3 text-[13px] text-muted-foreground max-w-3xl">
+                                <Markdown content={guide.description} />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
+            {/* Installations */}
             {guide.installations.length > 0 ? (
                 <div>
-                    <Tabs defaultSelectedKey={guide.installations[0].id} variant="secondary">
-                        <Tabs.ListContainer className="p-1 bg-surface-secondary rounded-xl border border-border w-fit">
-                            <Tabs.List aria-label="Installation targets" className="gap-0.5">
-                                {guide.installations.map((inst) => (
-                                    <Tabs.Tab key={inst.id} id={inst.id} className="rounded-lg text-[12px] font-medium px-3 py-1.5 data-[selected=true]:bg-background data-[selected=true]:text-foreground data-[selected=true]:shadow-sm transition-all">
-                                        {inst.target}
-                                        <Tabs.Indicator className="hidden" />
-                                    </Tabs.Tab>
-                                ))}
-                            </Tabs.List>
-                        </Tabs.ListContainer>
+                    {/* Tab bar */}
+                    <div className="flex items-center gap-0 border-b border-border mb-6 overflow-x-auto no-scrollbar">
+                        {guide.installations.map(inst => (
+                            <button
+                                key={inst.id}
+                                onClick={() => setActiveTab(inst.id)}
+                                className={`px-3.5 py-2 text-[13px] font-medium border-b-2 -mb-px transition-colors shrink-0 ${
+                                    activeTab === inst.id
+                                        ? 'border-accent text-foreground'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                {inst.target}
+                            </button>
+                        ))}
+                    </div>
 
-                        {guide.installations.map((inst) => (
-                            <Tabs.Panel key={inst.id} id={inst.id} className="mt-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                    <div className="lg:col-span-8">
-                                        <div className="rounded-2xl border border-border bg-surface">
-                                            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <BookOpen size={13} className="text-muted-foreground" />
-                                                    <h2 className="text-[13px] font-semibold text-foreground">{inst.target}</h2>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <WikiExport 
-                                                        title={`${guide.title} - ${inst.target}`} 
-                                                        content={inst.notes || ''} 
-                                                        targetRef={contentRef} 
-                                                    />
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        isIconOnly 
-                                                        className="h-7 w-7 rounded-lg"
-                                                        onPress={() => { setSelectedInst(inst); setIsInstHistoryModalOpen(true); }}
-                                                    >
-                                                        <History size={12} />
-                                                    </Button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        isIconOnly 
-                                                        className="h-7 w-7 rounded-lg"
-                                                        onPress={() => { setSelectedInst(inst); setIsInstModalOpen(true); }}
-                                                    >
-                                                        <Edit size={12} />
-                                                    </Button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        isIconOnly 
-                                                        className="h-7 w-7 rounded-lg text-danger hover:bg-danger-muted"
-                                                        onPress={() => { setSelectedInst(inst); setIsDeleteModalOpen(true); }}
-                                                    >
-                                                        <Trash2 size={12} />
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-6" ref={contentRef}>
-                                                {inst.notes ? (
-                                                    <Markdown content={inst.notes} />
-                                                ) : (
-                                                    <div className="py-12 flex flex-col items-center justify-center text-center gap-2">
-                                                        <Edit size={20} className="text-muted-foreground" />
-                                                        <p className="text-sm text-muted-foreground">No content yet</p>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {(inst.gitRepo || inst.documentation) && (
-                                                <div className="px-4 py-3 border-t border-border flex gap-2">
-                                                    {inst.gitRepo && (
-                                                        <Link href={inst.gitRepo} target="_blank">
-                                                            <Button variant="secondary" className="rounded-xl h-8 px-3 text-[12px] font-medium">
-                                                                <Github size={12} className="mr-1.5" />
-                                                                Source
-                                                            </Button>
-                                                        </Link>
-                                                    )}
-                                                    {inst.documentation && (
-                                                        <Link href={inst.documentation} target="_blank">
-                                                            <Button variant="ghost" className="rounded-xl h-8 px-3 text-[12px] font-medium">
-                                                                <ExternalLink size={12} className="mr-1.5" />
-                                                                Docs
-                                                            </Button>
-                                                        </Link>
-                                                    )}
-                                                </div>
-                                            )}
+                    {/* Active installation content */}
+                    {activeInstallation && (
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* Content card */}
+                            <div className="lg:col-span-8">
+                                <div className="rounded-2xl border border-border bg-surface">
+                                    <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <BookOpen size={13} className="text-muted-foreground" />
+                                            <h2 className="text-[13px] font-semibold text-foreground">
+                                                {activeInstallation.target}
+                                            </h2>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <WikiExport
+                                                title={`${guide.title} - ${activeInstallation.target}`}
+                                                content={activeInstallation.notes || ''}
+                                                targetRef={contentRef}
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                isIconOnly
+                                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                                                onPress={() => { setSelectedInst(activeInstallation); setIsInstHistoryModalOpen(true); }}
+                                            >
+                                                <History size={12} />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                isIconOnly
+                                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                                                onPress={() => { setSelectedInst(activeInstallation); setIsInstModalOpen(true); }}
+                                            >
+                                                <Edit size={12} />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                isIconOnly
+                                                className="h-7 w-7 rounded-lg text-danger hover:bg-danger/10"
+                                                onPress={() => { setSelectedInst(activeInstallation); setIsDeleteModalOpen(true); }}
+                                            >
+                                                <Trash2 size={12} />
+                                            </Button>
                                         </div>
                                     </div>
 
-                                    <aside className="lg:col-span-4 space-y-4">
-                                        {inst.tasks && inst.tasks.length > 0 && (
-                                            <div className="rounded-2xl border border-border bg-surface p-4">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <h3 className="text-[13px] font-semibold text-foreground">Tasks</h3>
-                                                    <span className="text-[12px] text-muted-foreground">{inst.tasks.length}</span>
+                                    <div className="p-6" ref={contentRef}>
+                                        {activeInstallation.notes ? (
+                                            <Markdown content={activeInstallation.notes} />
+                                        ) : (
+                                            <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
+                                                <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center">
+                                                    <Edit size={16} className="text-muted-foreground" />
                                                 </div>
-
-                                                <ul className="space-y-1.5 mb-4">
-                                                    {inst.tasks.map((task, i) => (
-                                                        <li key={i} className="flex items-start gap-2">
-                                                            <span className="mt-0.5 text-xs text-muted-foreground tabular-nums shrink-0">{i + 1}.</span>
-                                                            <span className="text-xs text-muted-foreground">{task}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-
-                                                <Button 
-                                                    variant="primary" 
-                                                    className="w-full h-8 rounded-xl text-[12px] font-medium shadow-sm"
-                                                    onPress={() => { setSelectedInst(inst); setIsProjectSelectorOpen(true); }}
-                                                >
-                                                    Apply to Project
-                                                </Button>
+                                                <div>
+                                                    <p className="text-[13px] font-medium text-foreground">No content yet</p>
+                                                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                                                        Click edit to add documentation
+                                                    </p>
+                                                </div>
                                             </div>
                                         )}
-                                    </aside>
+                                    </div>
+
+                                    {(activeInstallation.gitRepo || activeInstallation.documentation) && (
+                                        <div className="px-5 py-3.5 border-t border-border flex items-center gap-2">
+                                            {activeInstallation.gitRepo && (
+                                                <Link href={activeInstallation.gitRepo} target="_blank">
+                                                    <Button variant="secondary" className="rounded-xl h-8 px-3 text-[12px] font-medium">
+                                                        <Github size={12} className="mr-1.5" />
+                                                        Source
+                                                    </Button>
+                                                </Link>
+                                            )}
+                                            {activeInstallation.documentation && (
+                                                <Link href={activeInstallation.documentation} target="_blank">
+                                                    <Button variant="ghost" className="rounded-xl h-8 px-3 text-[12px] font-medium">
+                                                        <ExternalLink size={12} className="mr-1.5" />
+                                                        Docs
+                                                    </Button>
+                                                </Link>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            </Tabs.Panel>
-                        ))}
-                    </Tabs>
+                            </div>
+
+                            {/* Sidebar */}
+                            <aside className="lg:col-span-4 space-y-4">
+                                {activeInstallation.tasks && activeInstallation.tasks.length > 0 && (
+                                    <div className="rounded-2xl border border-border bg-surface p-4">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-[13px] font-semibold text-foreground">Tasks</h3>
+                                            <span className="text-[11px] font-medium text-muted-foreground bg-surface-secondary rounded-full px-2 py-0.5">
+                                                {activeInstallation.tasks.length}
+                                            </span>
+                                        </div>
+
+                                        <ul className="space-y-2 mb-4">
+                                            {activeInstallation.tasks.map((task, i) => (
+                                                <li key={i} className="flex items-start gap-2.5">
+                                                    <span className="mt-0.5 w-4 h-4 rounded-full bg-accent/10 text-accent text-[10px] font-bold flex items-center justify-center shrink-0">
+                                                        {i + 1}
+                                                    </span>
+                                                    <span className="text-[12px] text-muted-foreground leading-relaxed">
+                                                        {task}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+
+                                        <Button
+                                            variant="primary"
+                                            className="w-full h-8 rounded-xl text-[12px] font-medium shadow-sm"
+                                            onPress={() => { setSelectedInst(activeInstallation); setIsProjectSelectorOpen(true); }}
+                                        >
+                                            Apply to Project
+                                        </Button>
+                                    </div>
+                                )}
+                            </aside>
+                        </div>
+                    )}
                 </div>
             ) : (
-                <div className="py-24 flex flex-col items-center justify-center text-center gap-3">
-                    <BookOpen size={24} className="text-muted-foreground" />
-                    <div>
-                        <h2 className="text-sm font-medium text-foreground">No sections yet</h2>
-                        <p className="text-sm text-muted-foreground mt-0.5">Add sections to structure your documentation.</p>
+                <div className="py-24 flex flex-col items-center gap-4 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-secondary flex items-center justify-center">
+                        <BookOpen size={22} className="text-muted-foreground" />
                     </div>
-                    <Button variant="primary" className="rounded-xl h-8 px-3 text-[12px] mt-1 shadow-sm" onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                    <div>
+                        <h2 className="text-[14px] font-medium text-foreground">No sections yet</h2>
+                        <p className="text-[12px] text-muted-foreground mt-0.5">
+                            Add sections to structure your documentation
+                        </p>
+                    </div>
+                    <Button
+                        variant="primary"
+                        className="rounded-xl h-8 px-4 text-[13px] font-medium"
+                        onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}
+                    >
                         <Plus size={13} className="mr-1.5" />
                         Add First Section
                     </Button>
                 </div>
             )}
 
-            <InstallationModal 
+            <InstallationModal
                 isOpen={isInstModalOpen}
                 onClose={() => setIsInstModalOpen(false)}
                 onSubmit={handleCreateOrUpdateInst}
@@ -536,14 +599,14 @@ export default function WikiDetailPage() {
                 guideId={id}
             />
 
-            <WikiModal 
+            <WikiModal
                 isOpen={isWikiModalOpen}
                 onClose={() => setIsWikiModalOpen(false)}
                 onSubmit={handleUpdateWiki}
                 guide={guide}
             />
 
-            <VersionHistoryModal 
+            <VersionHistoryModal
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
                 resourceId={id}
@@ -551,7 +614,7 @@ export default function WikiDetailPage() {
                 onRestore={handleRestore}
             />
 
-            <VersionHistoryModal 
+            <VersionHistoryModal
                 isOpen={isInstHistoryModalOpen}
                 onClose={() => setIsInstHistoryModalOpen(false)}
                 resourceId={selectedInst?.id || ''}
@@ -566,7 +629,7 @@ export default function WikiDetailPage() {
                 onSelect={handleApplyTasks}
             />
 
-            <DeleteModal 
+            <DeleteModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDeleteInst}
