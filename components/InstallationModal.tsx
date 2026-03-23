@@ -91,7 +91,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         value={target}
                                         onChange={setTarget}
                                         isRequired
-                                        className="w-full"
+                                        className="w-full flex flex-col"
                                     >
                                         <Label className="text-[12px] font-medium text-muted-foreground">Target Name</Label>
                                         <Input
@@ -105,7 +105,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         type="url"
                                         value={gitRepo}
                                         onChange={setGitRepo}
-                                        className="w-full"
+                                        className="w-full flex flex-col"
                                     >
                                         <Label className="text-[12px] font-medium text-muted-foreground">Git Repository</Label>
                                         <Input
@@ -119,7 +119,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         type="url"
                                         value={documentation}
                                         onChange={setDocumentation}
-                                        className="md:col-span-2 w-full"
+                                        className="md:col-span-2 w-full flex flex-col"
                                     >
                                         <Label className="text-[12px] font-medium text-muted-foreground">Documentation URL</Label>
                                         <Input

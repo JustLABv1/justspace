@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
 import { Project, Task } from '@/types';
 import { Calendar } from '@heroui/react';
@@ -7,7 +9,7 @@ import type { DateValue } from '@internationalized/date';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { CheckCircle2, Clock } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
 interface TaskCalendarProps {
@@ -25,15 +27,51 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], onUpd
         try { return parseDate(dayjs().format('YYYY-MM-DD')); } catch { return null; }
     });
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const { privateKey, user } = useAuth();
 
     const tasks = propTasks ?? fetchedTasks;
 
+    const fetchAndDecryptTasks = useCallback(async () => {
+        if (!projectId) return;
+        try {
+            const projectRes = await db.getProject(projectId);
+            const res = await db.listTasks(projectId);
+            let rawTasks = res.documents as unknown as Task[];
+
+            let docKey: CryptoKey | null = null;
+            if (projectRes.isEncrypted && privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(projectId);
+                    if (access) {
+                        docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    }
+                } catch (e) {
+                    console.error('Failed to get project key:', e);
+                }
+            }
+
+            rawTasks = await Promise.all(rawTasks.map(async (task) => {
+                if (task.isEncrypted && docKey) {
+                    try {
+                        const titleData = JSON.parse(task.title);
+                        return { ...task, title: await decryptData(titleData, docKey) };
+                    } catch {
+                        return { ...task, title: 'Decryption Error' };
+                    }
+                }
+                return task;
+            }));
+
+            setFetchedTasks(rawTasks);
+        } catch (e) {
+            console.error(e);
+        }
+    }, [projectId, privateKey, user]);
+
     useEffect(() => {
         if (propTasks || !projectId) return;
-        db.listTasks(projectId).then(res => {
-            setFetchedTasks(res.documents as unknown as Task[]);
-        }).catch(console.error);
-    }, [projectId, propTasks]);
+        fetchAndDecryptTasks();
+    }, [propTasks, fetchAndDecryptTasks]);
 
     // Build map: YYYY-MM-DD → tasks sorted by priority
     const tasksByDate = useMemo(() => {
@@ -88,11 +126,8 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], onUpd
     const handleTaskUpdated = () => {
         setSelectedTask(null);
         onUpdate?.();
-        // Refresh fetched tasks for project view
         if (projectId && !propTasks) {
-            db.listTasks(projectId).then(res => {
-                setFetchedTasks(res.documents as unknown as Task[]);
-            }).catch(console.error);
+            fetchAndDecryptTasks();
         }
     };
 

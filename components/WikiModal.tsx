@@ -113,7 +113,7 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                     onChange={setTitle}
                                     isRequired
                                     fullWidth
-                                    className="w-full"
+                                    className="w-full flex flex-col"
                                 >
                                     <Label className="text-[12px] font-medium text-muted-foreground">Document Title</Label>
                                     <Input
