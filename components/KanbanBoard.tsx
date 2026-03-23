@@ -198,9 +198,13 @@ export function KanbanBoard({
     const mainTasks = tasks.filter(t => !t.parentId);
 
     // Helper to get column tasks, including merged statuses
+    // A task with completed=true is always treated as 'done' regardless of kanbanStatus
     const getColumnTasks = (column: typeof COLUMNS[number]) => {
         const statuses = [column.id, ...(column.includes || [])];
-        return mainTasks.filter(t => statuses.includes(t.kanbanStatus || 'todo'));
+        return mainTasks.filter(t => {
+            const effectiveStatus = t.completed ? 'done' : (t.kanbanStatus || 'todo');
+            return statuses.includes(effectiveStatus);
+        });
     };
 
     return (

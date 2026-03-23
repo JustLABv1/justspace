@@ -643,7 +643,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             <p className="text-xs text-muted-foreground/50">No subtasks yet</p>
                                                         </div>
                                                     ) : (
-                                                        subtasks.map((st) => (
+                                                        [...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((st) => (
                                                             <div key={st.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
                                                                 <Checkbox 
                                                                     isSelected={st.completed} 
@@ -912,7 +912,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     value={newNote}
                                                     onChange={(e) => setNewNote(e.target.value)}
                                                     placeholder={editingNoteIndex !== null ? "Edit note..." : `Add ${noteType}...`}
-                                                    className="w-full h-24 p-3 rounded-xl bg-surface-secondary border border-border focus:border-warning/50 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs resize-none"
+                                                    className="w-full h-24 p-3 rounded-xl bg-surface-secondary border border-border focus:border-warning/50 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs resize-none text-foreground placeholder:text-muted-foreground/50"
                                                 />
                                                 <Button 
                                                     type="submit" 

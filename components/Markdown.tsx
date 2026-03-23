@@ -1,8 +1,7 @@
 'use client';
 
-import { Button } from '@heroui/react';
 import { clsx } from 'clsx';
-import 'highlight.js/styles/github-dark.css';
+import 'highlight.js/styles/github.css';
 import { Check, Copy } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { isValidElement, useState } from 'react';
@@ -67,7 +66,7 @@ export function Markdown({ content, className }: MarkdownProps) {
     );
 }
 
-function CodeBlock({ code, language, children }: { code: string; language: string; children: ReactNode }) {
+export function CodeBlock({ code, language, children, className }: { code: string; language: string; children: ReactNode; className?: string }) {
     const [copied, setCopied] = useState(false);
 
     const onCopy = () => {
@@ -77,24 +76,35 @@ function CodeBlock({ code, language, children }: { code: string; language: strin
     };
 
     return (
-        <div className="group relative my-4 overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
-            <div className="flex items-center justify-between bg-black/5 dark:bg-black/20 px-4 py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground font-mono">
-                    {language}
-                </span>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    isIconOnly
-                    aria-label="Copy code"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                    onPress={onCopy}
+        <div className={clsx(
+            "not-prose group relative my-4 overflow-hidden rounded-2xl shadow-sm",
+            "border border-zinc-200 bg-[#f6f8fa]",
+            "dark:border-white/[0.07] dark:bg-[#0d1117] dark:shadow-black/20",
+            className
+        )}>
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 bg-zinc-100/70 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                <div className="flex items-center gap-3">
+                    {/* macOS-style traffic lights */}
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]/60 dark:bg-[#ff5f57]/50" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]/60 dark:bg-[#febc2e]/50" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]/60 dark:bg-[#28c840]/50" />
+                    </div>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-zinc-200 text-zinc-500 dark:bg-white/[0.05] dark:text-zinc-500">
+                        {language}
+                    </span>
+                </div>
+                <button
+                    onClick={onCopy}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-[11px] font-medium bg-zinc-200 text-zinc-600 hover:bg-zinc-300 hover:text-zinc-900 dark:bg-white/[0.08] dark:text-zinc-300 dark:hover:bg-white/[0.14] dark:hover:text-white"
                 >
-                    {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-                </Button>
+                    {copied ? <Check size={11} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={11} />}
+                    <span>{copied ? 'Copied!' : 'Copy'}</span>
+                </button>
             </div>
-            <pre className="overflow-x-auto p-4 m-0 bg-transparent">
-                {/* Render children (already syntax-highlighted React nodes), not the raw string */}
+            {/* Code content */}
+            <pre className="overflow-x-auto px-6 py-5 m-0 bg-transparent text-[14px] leading-[1.75]">
                 <code className={`language-${language} bg-transparent p-0`}>{children}</code>
             </pre>
         </div>

@@ -14,9 +14,8 @@ import {
     ChevronUp,
     Code,
     FolderKanban,
-    HelpCircle,
     Home,
-    Settings,
+    Settings
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -94,8 +93,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     ];
 
     const footerNavItems = [
-        { name: 'Settings', href: '/settings', icon: Settings },
-        { name: 'Support', href: '#', icon: HelpCircle },
+        { name: 'Settings', href: '/settings', icon: Settings }
     ];
 
     const renderNavLink = (item: { name: string; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }) => {

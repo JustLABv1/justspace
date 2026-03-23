@@ -147,17 +147,17 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
 
                                 <TextField value={description} onChange={setDescription} className="w-full">
                                     <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-                                    <TextArea 
+                                    <TextArea
                                         placeholder="Short explanation..."
-                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[60px]" 
+                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[60px] p-3"
                                     />
                                 </TextField>
 
-                                <div className="flex items-center justify-between py-2">
+                                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-surface-secondary/40 border border-border/60">
                                     <div className="flex items-center gap-2.5">
                                         <Lock size={14} className="text-muted-foreground" />
                                         <div>
-                                            <p className="text-sm font-medium">End-to-End Encryption</p>
+                                            <p className="text-sm font-medium text-foreground">End-to-End Encryption</p>
                                             <p className="text-xs text-muted-foreground">Vault-based client-side security</p>
                                         </div>
                                     </div>
