@@ -94,7 +94,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     <div className="flex items-center gap-2.5">
                                         <Lock size={14} className="text-muted-foreground" />
                                         <div>
-                                            <p className="text-sm font-medium">End-to-End Encryption</p>
+                                            <p className="text-sm font-medium text-foreground">End-to-End Encryption</p>
                                             <p className="text-xs text-muted-foreground">Secure project metadata & details</p>
                                         </div>
                                     </div>

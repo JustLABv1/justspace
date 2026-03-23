@@ -120,7 +120,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                         
                         <Form onSubmit={handleSubmit} className="flex flex-col min-h-0 overflow-hidden flex-1">
                             <Modal.Body className="px-6 py-4 space-y-4 overflow-y-auto">
-                                <TextField autoFocus isRequired value={title} onChange={setTitle} className="w-full">
+                                <TextField autoFocus isRequired value={title} onChange={setTitle} className="w-full flex flex-col">
                                     <Label className="text-sm font-medium text-muted-foreground">Title</Label>
                                     <Input 
                                         placeholder="Snippet title..." 
@@ -129,14 +129,14 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                 </TextField>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <TextField isRequired value={language} onChange={setLanguage} className="w-full">
+                                    <TextField isRequired value={language} onChange={setLanguage} className="w-full flex flex-col">
                                         <Label className="text-sm font-medium text-muted-foreground">Language</Label>
                                         <Input 
                                             placeholder="e.g. typescript, bash" 
                                             className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
                                         />
                                     </TextField>
-                                    <TextField value={tags} onChange={setTags} className="w-full">
+                                    <TextField value={tags} onChange={setTags} className="w-full flex flex-col">
                                         <Label className="text-sm font-medium text-muted-foreground">Tags (comma separated)</Label>
                                         <Input 
                                             placeholder="e.g. azure, auth, deployment" 
@@ -145,7 +145,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                     </TextField>
                                 </div>
 
-                                <TextField value={description} onChange={setDescription} className="w-full">
+                                <TextField value={description} onChange={setDescription} className="w-full flex flex-col">
                                     <Label className="text-sm font-medium text-muted-foreground">Description</Label>
                                     <TextArea
                                         placeholder="Short explanation..."
