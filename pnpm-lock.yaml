@@ -22,10 +22,10 @@ importers:
         version: 3.2.2(react@19.2.3)
       '@heroui/react':
         specifier: 3.0.0-rc.1
-        version: 3.0.0-rc.1(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(tailwindcss@4.2.1)
+        version: 3.0.0-rc.1(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(tailwindcss@4.2.2)
       '@heroui/styles':
         specifier: 3.0.0-beta.7
-        version: 3.0.0-beta.7(tailwind-merge@3.4.0)(tailwindcss@4.2.1)
+        version: 3.0.0-beta.7(tailwind-merge@3.4.0)(tailwindcss@4.2.2)
       '@internationalized/date':
         specifier: ^3.11.0
         version: 3.11.0
@@ -98,7 +98,7 @@ importers:
         version: 4.2.1
       '@tailwindcss/typography':
         specifier: ^0.5.19
-        version: 0.5.19(tailwindcss@4.2.1)
+        version: 0.5.19(tailwindcss@4.2.2)
       '@types/file-saver':
         specifier: ^2.0.7
         version: 2.0.7
@@ -122,10 +122,10 @@ importers:
         version: 16.1.6(@typescript-eslint/parser@8.54.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       tailwindcss:
         specifier: ^4
-        version: 4.2.1
+        version: 4.2.2
       tailwindcss-animate:
         specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@4.2.1)
+        version: 1.0.7(tailwindcss@4.2.2)
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
@@ -3852,6 +3852,9 @@ packages:
   tailwindcss@4.2.1:
     resolution: {integrity: sha512-/tBrSQ36vCleJkAOsy9kbNTgaxvGbyOamC30PRePTQe/o1MFwEKHQk4Cn7BNGaPtjp+PuUrByJehM1hgxfq4sw==}
 
+  tailwindcss@4.2.2:
+    resolution: {integrity: sha512-KWBIxs1Xb6NoLdMVqhbhgwZf2PGBpPEiwOqgI4pFIYbNTfBXiKYyWoTsXgBQ9WFg/OlhnvHaY+AEpW7wSmFo2Q==}
+
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
     engines: {node: '>=6'}
@@ -4409,9 +4412,9 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@heroui/react@3.0.0-rc.1(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(tailwindcss@4.2.1)':
+  '@heroui/react@3.0.0-rc.1(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(tailwindcss@4.2.2)':
     dependencies:
-      '@heroui/styles': 3.0.0-rc.1(tailwind-merge@3.4.0)(tailwindcss@4.2.1)
+      '@heroui/styles': 3.0.0-rc.1(tailwind-merge@3.4.0)(tailwindcss@4.2.2)
       '@radix-ui/react-avatar': 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@react-aria/i18n': 3.12.16(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@react-aria/ssr': 3.9.10(react@19.2.3)
@@ -4424,24 +4427,24 @@ snapshots:
       react-aria-components: 1.16.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-dom: 19.2.3(react@19.2.3)
       tailwind-merge: 3.4.0
-      tailwind-variants: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.1)
-      tailwindcss: 4.2.1
+      tailwind-variants: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.2)
+      tailwindcss: 4.2.2
     transitivePeerDependencies:
       - '@types/react'
       - '@types/react-dom'
 
-  '@heroui/styles@3.0.0-beta.7(tailwind-merge@3.4.0)(tailwindcss@4.2.1)':
+  '@heroui/styles@3.0.0-beta.7(tailwind-merge@3.4.0)(tailwindcss@4.2.2)':
     dependencies:
-      tailwind-variants: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.1)
-      tailwindcss: 4.2.1
+      tailwind-variants: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.2)
+      tailwindcss: 4.2.2
       tw-animate-css: 1.4.0
     transitivePeerDependencies:
       - tailwind-merge
 
-  '@heroui/styles@3.0.0-rc.1(tailwind-merge@3.4.0)(tailwindcss@4.2.1)':
+  '@heroui/styles@3.0.0-rc.1(tailwind-merge@3.4.0)(tailwindcss@4.2.2)':
     dependencies:
-      tailwind-variants: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.1)
-      tailwindcss: 4.2.1
+      tailwind-variants: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.2)
+      tailwindcss: 4.2.2
       tw-animate-css: 1.4.0
     transitivePeerDependencies:
       - tailwind-merge
@@ -5971,10 +5974,10 @@ snapshots:
       postcss: 8.5.6
       tailwindcss: 4.2.1
 
-  '@tailwindcss/typography@0.5.19(tailwindcss@4.2.1)':
+  '@tailwindcss/typography@0.5.19(tailwindcss@4.2.2)':
     dependencies:
       postcss-selector-parser: 6.0.10
-      tailwindcss: 4.2.1
+      tailwindcss: 4.2.2
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
@@ -8810,17 +8813,19 @@ snapshots:
 
   tailwind-merge@3.4.0: {}
 
-  tailwind-variants@3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.1):
+  tailwind-variants@3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.2.2):
     dependencies:
-      tailwindcss: 4.2.1
+      tailwindcss: 4.2.2
     optionalDependencies:
       tailwind-merge: 3.4.0
 
-  tailwindcss-animate@1.0.7(tailwindcss@4.2.1):
+  tailwindcss-animate@1.0.7(tailwindcss@4.2.2):
     dependencies:
-      tailwindcss: 4.2.1
+      tailwindcss: 4.2.2
 
   tailwindcss@4.2.1: {}
+
+  tailwindcss@4.2.2: {}
 
   tapable@2.3.0: {}
 
