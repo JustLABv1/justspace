@@ -19,9 +19,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./services/backend
-      dockerfile: Dockerfile
+    image: ghcr.io/justlabv1/justspace:backend-latest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -41,9 +39,7 @@ services:
       - "${BACKEND_PORT:-8080}:8080"
 
   frontend:
-    build:
-      context: ./services/frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/justlabv1/justspace:frontend-latest
     restart: unless-stopped
     depends_on:
       - backend
