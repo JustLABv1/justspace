@@ -287,7 +287,7 @@ export function TaskList({
         } catch (error) {
             console.error('Task update failed, rolling back:', error);
             setTasks(previousTasks);
-            toast.danger('Sync failed, changes reverted');
+            toast.danger(error instanceof Error ? error.message : 'Sync failed, changes reverted');
         }
     };
 
@@ -320,7 +320,7 @@ export function TaskList({
             setSelectedIds(new Set());
             setSelectionMode(false);
             toast.success(`${ids.length} task${ids.length !== 1 ? 's' : ''} completed`);
-        } catch { toast.danger('Bulk complete failed'); }
+        } catch (error) { toast.danger(error instanceof Error ? error.message : 'Bulk complete failed'); }
     };
 
     const handleBulkDelete = async () => {

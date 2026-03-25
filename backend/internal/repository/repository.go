@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -153,7 +154,7 @@ func scanTasks(rows pgx.Rows) ([]models.Task, error) {
 	var out []models.Task
 	for rows.Next() {
 		var t models.Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -164,9 +165,43 @@ func scanTasks(rows pgx.Rows) ([]models.Task, error) {
 	return out, nil
 }
 
+func (r *Repo) GetTask(ctx context.Context, id, userID string) (*models.Task, error) {
+	t := &models.Task{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+		 FROM tasks WHERE id = $1 AND user_id = $2`, id, userID,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get task: %w", err)
+	}
+	return t, nil
+}
+
+func (r *Repo) HasIncompleteDependencies(ctx context.Context, userID string, dependencyIDs []string) (bool, error) {
+	if len(dependencyIDs) == 0 {
+		return false, nil
+	}
+
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*)
+		 FROM tasks
+		 WHERE user_id = $1 AND id = ANY($2::uuid[]) AND completed = false`,
+		userID, dependencyIDs,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("check incomplete dependencies: %w", err)
+	}
+
+	return count > 0, nil
+}
+
 func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at
+		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
 		 FROM tasks WHERE project_id = $1 AND user_id = $2 ORDER BY sort_order ASC`, projectID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
@@ -177,7 +212,7 @@ func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]model
 
 func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at
+		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
 		 FROM tasks WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list all tasks: %w", err)
@@ -193,11 +228,11 @@ func (r *Repo) CreateTask(ctx context.Context, userID string, req models.CreateT
 		kanban = "todo"
 	}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags)
-		 VALUES ($1, $2, $3, false, $4, 'medium', $5, $6, $7, COALESCE($8::text[], '{}'::text[]))
-		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at`,
-		userID, req.ProjectID, req.Title, req.Order, kanban, req.IsEncrypted, req.ParentID, req.Tags,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+		`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags, dependencies, recurrence)
+		 VALUES ($1, $2, $3, false, $4, 'medium', $5, $6, $7, COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), NULLIF($10::text, ''))
+		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		userID, req.ProjectID, req.Title, req.Order, kanban, req.IsEncrypted, req.ParentID, req.Tags, req.Dependencies, req.Recurrence,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create task: %w", err)
 	}
@@ -224,6 +259,29 @@ func (r *Repo) CreateTasksBatch(ctx context.Context, userID string, req models.C
 	return tasks, nil
 }
 
+func (r *Repo) CreateRecurringTask(ctx context.Context, userID string, source models.Task, nextDeadline time.Time) (*models.Task, error) {
+	t := &models.Task{}
+	var nextOrder int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1 AND user_id = $2`,
+		source.ProjectID, userID,
+	).Scan(&nextOrder); err != nil {
+		return nil, fmt.Errorf("next recurring task order: %w", err)
+	}
+
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, deadline, tags, dependencies, recurrence, is_encrypted)
+		 VALUES ($1, $2, $3, false, $4, $5, 'todo', $6, COALESCE($7::text[], '{}'::text[]), COALESCE($8::text[], '{}'::text[]), $9, $10)
+		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		userID, source.ProjectID, source.Title, nextOrder, source.Priority, nextDeadline, source.Tags, source.Dependencies, source.Recurrence, source.IsEncrypted,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create recurring task: %w", err)
+	}
+
+	return t, nil
+}
+
 func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.UpdateTaskRequest) (*models.Task, error) {
 	t := &models.Task{}
 	err := r.pool.QueryRow(ctx,
@@ -234,11 +292,13 @@ func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.Upd
 			time_entries = COALESCE($9, time_entries), sort_order = COALESCE($10, sort_order),
 			priority = COALESCE($11, priority), kanban_status = COALESCE($12, kanban_status),
 			deadline = CASE WHEN $13::text IS NOT NULL THEN $13::timestamptz ELSE deadline END,
-			notes = COALESCE($14, notes), tags = COALESCE($15, tags), is_encrypted = COALESCE($16, is_encrypted)
+			notes = COALESCE($14, notes), tags = COALESCE($15, tags), dependencies = COALESCE($16, dependencies),
+			recurrence = CASE WHEN $17::text IS NOT NULL THEN NULLIF($17::text, '') ELSE recurrence END,
+			is_encrypted = COALESCE($18, is_encrypted)
 		 WHERE id = $1 AND user_id = $2
-		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at`,
-		id, userID, req.Title, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.IsEncrypted,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		id, userID, req.Title, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
 	}

@@ -1,12 +1,13 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { api } from '@/lib/api';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { mergeUserPreferences, parseUserPreferences } from '@/lib/preferences';
 import { promptForPwaInstall, usePwaInstallState } from '@/lib/pwa';
 import { Button, Form, toast } from '@heroui/react';
 import {
+    Bell,
     CheckCircle,
     Database,
     Download,
@@ -58,7 +59,7 @@ function SettingsContent() {
         router.push(`?${params.toString()}`, { scroll: false });
     };
 
-    const { user, hasVault, privateKey, userKeys, setupVault, unlockVault } = useAuth();
+    const { user, hasVault, privateKey, userKeys, setupVault, unlockVault, updateProfile } = useAuth();
     const [vaultPassword, setVaultPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [vaultError, setVaultError] = useState<string | null>(null);
@@ -66,14 +67,27 @@ function SettingsContent() {
     // Core states
     const [userName, setUserName] = useState('');
     const [workspaceName, setWorkspaceName] = useState('');
+    const [remindersEnabled, setRemindersEnabled] = useState(false);
+    const [reminderLeadTime, setReminderLeadTime] = useState(15);
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
 
     useEffect(() => {
         if (user) {
             setUserName(user.name || '');
-            const prefs = (user.preferences || {}) as Record<string, string | undefined>;
-            setWorkspaceName(prefs?.workspaceName || 'justspace');
+            const prefs = parseUserPreferences(user.preferences);
+            setWorkspaceName(prefs.workspaceName);
+            setRemindersEnabled(prefs.reminders.enabled);
+            setReminderLeadTime(prefs.reminders.minutesBefore);
         }
     }, [user]);
+
+    useEffect(() => {
+		if (typeof Notification === 'undefined') {
+			setNotificationPermission('unsupported');
+			return;
+		}
+		setNotificationPermission(Notification.permission);
+	}, []);
 
     // Migration state
     const [isMigrating, setIsMigrating] = useState(false);
@@ -130,12 +144,17 @@ function SettingsContent() {
     const handleSaveChanges = async () => {
         setIsSubmitting(true);
         try {
-            await api.updateProfile({
+            const preferences = mergeUserPreferences(user?.preferences, {
+				workspaceName,
+				reminders: {
+					enabled: remindersEnabled,
+					minutesBefore: reminderLeadTime,
+				},
+			});
+
+            await updateProfile({
                 ...(userName !== user?.name ? { name: userName } : {}),
-                preferences: {
-                    ...(user?.preferences || {}),
-                    workspaceName,
-                },
+                preferences,
             });
             toast.success('Settings synchronized');
         } catch (error) {
@@ -267,11 +286,32 @@ function SettingsContent() {
 
     const menuItems = [
         { id: 'General', label: 'General', icon: Settings },
+        { id: 'Notifications', label: 'Notifications', icon: Bell },
         { id: 'User', label: 'Account', icon: User },
         { id: 'Security', label: 'Security & Vault', icon: Vault },
         { id: 'Appearance', label: 'Appearance', icon: Palette },
         { id: 'Shortcuts', label: 'Shortcuts', icon: Keyboard },
     ];
+
+    const handleNotificationPermission = async () => {
+        if (typeof Notification === 'undefined') {
+            toast.danger('This browser does not support notifications');
+            return;
+        }
+
+        try {
+            const permission = await Notification.requestPermission();
+            setNotificationPermission(permission);
+            if (permission === 'granted') {
+                toast.success('Browser notifications enabled');
+            } else {
+                toast.danger('Notifications remain blocked for this browser');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.danger('Unable to update notification permission');
+        }
+    };
 
     const handleVaultAction = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -418,6 +458,63 @@ function SettingsContent() {
                                     <div className="p-3 rounded-xl bg-surface-secondary border border-border">
                                         <p className="text-xs font-medium text-muted-foreground mb-1">User ID</p>
                                         <p className="text-xs font-mono text-muted-foreground truncate">{user?.id}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'Notifications' && (
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="text-base font-semibold">Notifications</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Remind yourself before deadlines while justspace is open in the browser or installed app.</p>
+                                </div>
+
+                                <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h4 className="text-sm font-medium text-foreground">Task reminders</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">Check upcoming deadlines every minute and raise a reminder before they are due.</p>
+                                        </div>
+                                        <label className="inline-flex items-center gap-2 text-sm text-foreground">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 rounded border-border"
+                                                checked={remindersEnabled}
+                                                onChange={(event) => setRemindersEnabled(event.target.checked)}
+                                            />
+                                            Enabled
+                                        </label>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium text-foreground">Lead Time</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={120}
+                                            className="w-full h-9 bg-background rounded-xl border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
+                                            value={reminderLeadTime}
+                                            onChange={(event) => setReminderLeadTime(Math.max(1, Math.min(120, Number(event.target.value) || 1)))}
+                                        />
+                                        <p className="text-xs text-muted-foreground">Notify me this many minutes before a task deadline.</p>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            variant="secondary"
+                                            className="h-8 rounded-xl px-3 text-[12px] font-medium"
+                                            onPress={() => {
+                                                void handleNotificationPermission();
+                                            }}
+                                        >
+                                            <Bell size={12} className="mr-1.5" />
+                                            Request browser permission
+                                        </Button>
+
+                                        <span className="rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-muted-foreground">
+                                            Permission: {notificationPermission}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

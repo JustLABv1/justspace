@@ -9,6 +9,8 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 
 - **Projekte & Aufgaben:** Kanban-Board, Statusverwaltung, Zeitplanung
 - **Task-Tags:** Freie Tags pro Aufgabe mit Filterung im Projektkontext
+- **Gespeicherte Ansichten & Suche:** Projektansichten mit Filtern speichern und per Command Palette schneller finden
+- **Erinnerungen & Wiederholungen:** Deadline-Reminders, persistente Abhängigkeiten und automatisch nachlaufende wiederkehrende Tasks
 - **Wiki & Snippets:** Markdown-basierte Wissensdatenbank und Code-Snippet-Verwaltung
 - **Aktivitäts-Feed & Versionierung**
 - **Verschlüsselung:** Optionale Verschlüsselung sensibler Daten
@@ -28,7 +30,7 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 
 2. **Umgebungsvariablen setzen:**
 	- Kopiere `.env.example` nach `.env` und passe die Werte ggf. an.
-	- Für Appwrite-Integration siehe `POSTGRES_SCHEMA.md` und ggf. `.env.local`.
+	- Für das relationale Schema und Persistenzdetails siehe `POSTGRES_SCHEMA.md`.
 
 3. **Container starten:**
 	```bash
@@ -77,11 +79,11 @@ Siehe `.env.example` für alle relevanten Umgebungsvariablen (DB, API, JWT, CORS
 
 ---
 
-## Datenbank & Appwrite
+## Datenbank
 
-Das System nutzt primär PostgreSQL. Für optionale Features (z.B. verschlüsselte User-Daten, erweiterte Authentifizierung) kann Appwrite integriert werden.
+Das System nutzt PostgreSQL als primäre Persistenzschicht.
 
-Siehe [POSTGRES_SCHEMA.md](POSTGRES_SCHEMA.md) für das relationale Schema und Hinweise zur Appwrite-Einbindung.
+Siehe [POSTGRES_SCHEMA.md](POSTGRES_SCHEMA.md) für das relationale Schema, Task-Metadaten und Migrationshinweise.
 
 ---
 

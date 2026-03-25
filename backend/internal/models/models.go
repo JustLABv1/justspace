@@ -45,9 +45,16 @@ type Task struct {
 	Deadline       *time.Time      `json:"deadline"`
 	Notes          json.RawMessage `json:"notes"`
 	Tags           []string        `json:"tags"`
+	Dependencies   []string        `json:"dependencies"`
+	Recurrence     *string         `json:"recurrence"`
 	IsEncrypted    bool            `json:"isEncrypted"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
+}
+
+type RecurrenceRule struct {
+	Type     string `json:"type"`
+	Interval int    `json:"interval"`
 }
 
 type WikiGuide struct {
@@ -184,6 +191,8 @@ type CreateTaskRequest struct {
 	ParentID     *string  `json:"parentId,omitempty"`
 	KanbanStatus string   `json:"kanbanStatus"`
 	Tags         []string `json:"tags,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty"`
+	Recurrence   *string  `json:"recurrence,omitempty"`
 }
 
 type CreateTasksBatchRequest struct {
@@ -206,6 +215,8 @@ type UpdateTaskRequest struct {
 	Deadline       *string          `json:"deadline,omitempty"`
 	Notes          *json.RawMessage `json:"notes,omitempty"`
 	Tags           []string         `json:"tags,omitempty"`
+	Dependencies   []string         `json:"dependencies,omitempty"`
+	Recurrence     *string          `json:"recurrence,omitempty"`
 	IsEncrypted    *bool            `json:"isEncrypted,omitempty"`
 	WorkDuration   *string          `json:"workDuration,omitempty"`
 }

@@ -6,6 +6,7 @@ This document reflects the current PostgreSQL schema used by justspace.
 
 - `backend/migrations/001_initial.up.sql`: base schema
 - `backend/migrations/002_task_tags.up.sql`: adds searchable task tags
+- `backend/migrations/003_task_dependencies_recurrence.up.sql`: adds task dependencies and recurrence persistence
 
 ## Core Tables
 
@@ -60,6 +61,8 @@ Indexes:
 | `deadline` | `timestamptz` | Optional deadline |
 | `notes` | `jsonb` | Communication/history entries |
 | `tags` | `text[]` | Freeform, searchable task tags |
+| `dependencies` | `text[]` | Referenced prerequisite task IDs |
+| `recurrence` | `text` | JSON recurrence rule (`daily`, `weekly`, `monthly`) |
 | `is_encrypted` | `boolean` | Vault/E2EE flag |
 | `created_at` | `timestamptz` | Creation timestamp |
 | `updated_at` | `timestamptz` | Auto-updated by trigger |
@@ -69,11 +72,14 @@ Indexes:
 - `idx_tasks_project_id` on `project_id`
 - `idx_tasks_user_id` on `user_id`
 - `idx_tasks_tags` GIN index on `tags`
+- `idx_tasks_dependencies` GIN index on `dependencies`
 
 Notes:
 
 - Task tags are stored in plaintext even when task titles are encrypted.
 - Tag filtering is implemented client-side with match-all semantics for multiple selected tags.
+- Task completion is blocked while incomplete dependencies remain.
+- Completing a recurring top-level task creates the next instance automatically using the stored recurrence rule.
 
 ### wiki_guides
 

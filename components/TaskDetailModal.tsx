@@ -72,15 +72,16 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         setTagsInput(currentTaskTags);
     }
 
-    // Sync recurrence state when task prop changes (e.g. after saving)
-    useEffect(() => {
+    const currentTaskRecurrence = task.recurrence || '';
+    const [prevTaskRecurrence, setPrevTaskRecurrence] = useState(currentTaskRecurrence);
+    if (currentTaskRecurrence !== prevTaskRecurrence) {
+        setPrevTaskRecurrence(currentTaskRecurrence);
         try {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setRecurrence(task.recurrence ? JSON.parse(task.recurrence) : null);
         } catch {
             setRecurrence(null);
         }
-    }, [task.recurrence]);
+    }
 
     const handleAddDependency = async (depId: string) => {
         const current = task.dependencies || [];
@@ -103,7 +104,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
     const handleSaveRecurrence = async (rec: typeof recurrence) => {
         try {
-            await db.updateTask(task.id, { recurrence: rec ? JSON.stringify(rec) : null });
+            await db.updateTask(task.id, { recurrence: rec ? JSON.stringify(rec) : '' });
             setRecurrence(rec);
             onUpdate();
         } catch (err) {
@@ -236,7 +237,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             if (taskId !== task.id) {
                 setSubtasks(previousSubtasks);
             }
-            toast.danger('Sync failed');
+            toast.danger(error instanceof Error ? error.message : 'Sync failed');
         }
     };
 

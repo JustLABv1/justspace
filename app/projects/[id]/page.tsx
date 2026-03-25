@@ -11,6 +11,7 @@ import { TimelineView } from '@/components/TimelineView';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserPreferences, SavedProjectView } from '@/lib/preferences';
 import { collectTaskTags } from '@/lib/task-filters';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Project, Task } from '@/types';
@@ -34,7 +35,7 @@ import {
     Trash2,
 } from "lucide-react";
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 const VIEW_TABS = [
@@ -50,18 +51,28 @@ type ViewMode = typeof VIEW_TABS[number]['id'];
 export default function ProjectDetailPage() {
     const { id } = useParams() as { id: string };
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+	const searchParamsKey = searchParams.toString();
     const [project, setProject] = useState<Project | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<ViewMode>('kanban');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [hideCompleted, setHideCompleted] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+		const requestedView = searchParams.get('view');
+		return isSavedViewMode(requestedView) ? requestedView : 'kanban';
+	});
+    const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
+    const [selectedTags, setSelectedTags] = useState<string[]>(() => {
+		const tags = searchParams.get('tags');
+		return tags ? tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
+	});
+    const [hideCompleted, setHideCompleted] = useState(() => searchParams.get('hideCompleted') === '1');
     const [showTimeReport, setShowTimeReport] = useState(false);
     const [timeReportTasks, setTimeReportTasks] = useState<Task[]>([]);
-    const { user, privateKey } = useAuth();
+    const { user, privateKey, updateProfile } = useAuth();
+	const savedViews = parseUserPreferences(user?.preferences).savedViews.filter((view) => view.projectId === id);
 
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
@@ -109,6 +120,45 @@ export default function ProjectDetailPage() {
     }, [fetchProjectTasks]);
 
     useEffect(() => {
+                const params = new URLSearchParams(searchParamsKey);
+		const nextView = params.get('view');
+		const nextSearchQuery = params.get('q') || '';
+		const nextSelectedTags = (params.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+		const nextHideCompleted = params.get('hideCompleted') === '1';
+
+        setViewMode(isSavedViewMode(nextView) ? nextView : 'kanban');
+        setSearchQuery(nextSearchQuery);
+        setSelectedTags(nextSelectedTags);
+        setHideCompleted(nextHideCompleted);
+        }, [searchParamsKey]);
+
+    useEffect(() => {
+		const params = new URLSearchParams(searchParamsKey);
+        params.set('view', viewMode);
+        if (searchQuery.trim()) {
+            params.set('q', searchQuery.trim());
+        } else {
+            params.delete('q');
+        }
+        if (selectedTags.length > 0) {
+            params.set('tags', selectedTags.join(','));
+        } else {
+            params.delete('tags');
+        }
+        if (hideCompleted) {
+            params.set('hideCompleted', '1');
+        } else {
+            params.delete('hideCompleted');
+        }
+
+        const nextHref = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        const currentHref = searchParamsKey ? `${pathname}?${searchParamsKey}` : pathname;
+        if (nextHref !== currentHref) {
+            router.replace(nextHref, { scroll: false });
+        }
+    }, [hideCompleted, pathname, router, searchParamsKey, searchQuery, selectedTags, viewMode]);
+
+    useEffect(() => {
         if (!id) return;
 
         const handleRefresh = () => {
@@ -137,6 +187,60 @@ export default function ProjectDetailPage() {
     }, [fetchProjectTasks, id]);
 
     const availableTags = collectTaskTags(timeReportTasks);
+
+    const handleSaveCurrentView = async () => {
+        if (!user) {
+            return;
+        }
+
+        const name = window.prompt('Name this view');
+        if (!name || !name.trim()) {
+            return;
+        }
+
+        const preferences = parseUserPreferences(user.preferences);
+        const nextView: SavedProjectView = {
+            id: crypto.randomUUID(),
+            projectId: id,
+            name: name.trim(),
+            viewMode,
+            searchQuery,
+            selectedTags,
+            hideCompleted,
+            createdAt: new Date().toISOString(),
+        };
+
+        try {
+            await updateProfile({
+                preferences: mergeUserPreferences(user.preferences, {
+                    savedViews: [nextView, ...preferences.savedViews.filter((view) => view.id !== nextView.id)],
+                }),
+            });
+            toast.success('View saved');
+        } catch (error) {
+            console.error(error);
+            toast.danger('Failed to save view');
+        }
+    };
+
+    const handleDeleteSavedView = async (viewId: string) => {
+        if (!user) {
+            return;
+        }
+
+        const preferences = parseUserPreferences(user.preferences);
+        try {
+            await updateProfile({
+                preferences: mergeUserPreferences(user.preferences, {
+                    savedViews: preferences.savedViews.filter((view) => view.id !== viewId),
+                }),
+            });
+            toast.success('Saved view removed');
+        } catch (error) {
+            console.error(error);
+            toast.danger('Failed to remove saved view');
+        }
+    };
 
     const handleUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         if (project && user && privateKey) {
@@ -372,6 +476,61 @@ export default function ProjectDetailPage() {
                             <Filter size={12} className="mr-1" />
                             {hideCompleted ? 'Pending' : 'All'}
                         </Button>
+                        <Dropdown>
+                            <Dropdown.Trigger>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                >
+                                    <ChevronDown size={12} className="mr-1" />
+                                    Views
+                                </Button>
+                            </Dropdown.Trigger>
+                            <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
+                                <Dropdown.Menu>
+                                    <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
+                                        <div className="flex items-center gap-2 text-[13px]">
+                                            <Plus size={13} />
+                                            <Label className="cursor-pointer text-[13px]">Save current view</Label>
+                                        </div>
+                                    </Dropdown.Item>
+                                    {savedViews.map((savedView) => (
+                                        <Dropdown.Item
+                                            key={savedView.id}
+                                            id={`view-${savedView.id}`}
+                                            textValue={savedView.name}
+                                            onAction={() => router.push(buildProjectViewHref(savedView))}
+                                        >
+                                            <div className="flex items-center justify-between gap-3 text-[13px] w-full">
+                                                <div className="truncate">
+                                                    <div className="font-medium truncate">{savedView.name}</div>
+                                                    <div className="text-[11px] text-muted-foreground truncate">
+                                                        {savedView.viewMode}{savedView.searchQuery ? ` · ${savedView.searchQuery}` : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Dropdown.Item>
+                                    ))}
+                                    {savedViews.map((savedView) => (
+                                        <Dropdown.Item
+                                            key={`delete-${savedView.id}`}
+                                            id={`delete-${savedView.id}`}
+                                            textValue={`Delete ${savedView.name}`}
+                                            variant="danger"
+                                            onAction={() => {
+                                                void handleDeleteSavedView(savedView.id);
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 text-[13px]">
+                                                <Trash2 size={13} />
+                                                <Label className="cursor-pointer text-[13px]">Delete {savedView.name}</Label>
+                                            </div>
+                                        </Dropdown.Item>
+                                    ))}
+                                </Dropdown.Menu>
+                            </Dropdown.Popover>
+                        </Dropdown>
                         {selectedTags.length > 0 && (
                             <Button
                                 variant="ghost"

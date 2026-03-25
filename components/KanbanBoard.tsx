@@ -157,7 +157,7 @@ export function KanbanBoard({
         } catch (error) {
             console.error('Failed to move task, rolling back:', error);
             setTasks(previousTasks);
-            toast.danger('Sync failed, movement reverted');
+            toast.danger(error instanceof Error ? error.message : 'Sync failed, movement reverted');
         }
     };
 

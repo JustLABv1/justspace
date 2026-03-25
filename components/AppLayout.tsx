@@ -2,6 +2,7 @@
 
 import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
+import { TaskReminderBootstrap } from "@/components/TaskReminderBootstrap";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { VaultBanner } from "@/components/VaultBanner";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -236,6 +237,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                 </header>
 
                 <VaultBanner />
+					<TaskReminderBootstrap />
 
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {children}
