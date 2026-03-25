@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { taskMatchesFilters } from '@/lib/task-filters';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import { Avatar, Chip, ScrollShadow } from '@heroui/react';
@@ -29,10 +30,12 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: 'danger' | 'warnin
 export function TableView({
     projectId,
     searchQuery = '',
+    selectedTags = [],
     hideCompleted = false,
 }: {
     projectId: string;
     searchQuery?: string;
+    selectedTags?: string[];
     hideCompleted?: boolean;
 }) {
     const { user, privateKey } = useAuth();
@@ -68,10 +71,15 @@ export function TableView({
                 return task;
             }));
 
-            const filtered = decrypted.filter(t => {
-                if (t.parentId) return false;
-                if (!t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                if (hideCompleted && (t.kanbanStatus === 'done' || t.completed)) return false;
+            const filtered = decrypted.filter(task => {
+                if (task.parentId) return false;
+
+                const subtasks = decrypted.filter(subtask => subtask.parentId === task.id);
+                const matchesTask = taskMatchesFilters(task, searchQuery, selectedTags);
+                const matchesSubtask = subtasks.some(subtask => taskMatchesFilters(subtask, searchQuery, selectedTags));
+
+                if (!(matchesTask || matchesSubtask)) return false;
+                if (hideCompleted && (task.kanbanStatus === 'done' || task.completed)) return false;
                 return true;
             });
 
@@ -81,7 +89,7 @@ export function TableView({
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey, documentKey, searchQuery, hideCompleted]);
+    }, [projectId, user, privateKey, documentKey, searchQuery, selectedTags, hideCompleted]);
 
     useEffect(() => { fetchTasks(true); }, [fetchTasks]);
 
@@ -149,12 +157,22 @@ export function TableView({
 
                                     {/* Title */}
                                     <td className="py-3 px-3">
-                                        <div className="flex items-center gap-2">
-                                            {task.isEncrypted && <Lock size={11} className="text-muted-foreground shrink-0" />}
-                                            {task.completed
-                                                ? <span className="text-[13px] text-muted-foreground line-through">{task.title}</span>
-                                                : <span className="text-[13px] font-medium text-foreground">{task.title}</span>
-                                            }
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                {task.isEncrypted && <Lock size={11} className="text-muted-foreground shrink-0" />}
+                                                {task.completed
+                                                    ? <span className="text-[13px] text-muted-foreground line-through">{task.title}</span>
+                                                    : <span className="text-[13px] font-medium text-foreground">{task.title}</span>
+                                                }
+                                            </div>
+                                            {task.tags && task.tags.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                                                    {task.tags.slice(0, 3).map(tag => (
+                                                        <span key={tag}>#{tag}</span>
+                                                    ))}
+                                                    {task.tags.length > 3 && <span>+{task.tags.length - 3}</span>}
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
 

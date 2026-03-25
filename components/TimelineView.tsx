@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { taskMatchesFilters } from '@/lib/task-filters';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import dayjs from 'dayjs';
@@ -25,10 +26,12 @@ const DAY_WIDTH = 40;
 export function TimelineView({
     projectId,
     searchQuery = '',
+    selectedTags = [],
     hideCompleted = false,
 }: {
     projectId: string;
     searchQuery?: string;
+    selectedTags?: string[];
     hideCompleted?: boolean;
 }) {
     const { user, privateKey } = useAuth();
@@ -65,10 +68,15 @@ export function TimelineView({
                 return task;
             }));
 
-            const filtered = decrypted.filter(t => {
-                if (t.parentId) return false;
-                if (!t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                if (hideCompleted && (t.kanbanStatus === 'done' || t.completed)) return false;
+            const filtered = decrypted.filter(task => {
+                if (task.parentId) return false;
+
+                const subtasks = decrypted.filter(subtask => subtask.parentId === task.id);
+                const matchesTask = taskMatchesFilters(task, searchQuery, selectedTags);
+                const matchesSubtask = subtasks.some(subtask => taskMatchesFilters(subtask, searchQuery, selectedTags));
+
+                if (!(matchesTask || matchesSubtask)) return false;
+                if (hideCompleted && (task.kanbanStatus === 'done' || task.completed)) return false;
                 return true;
             });
 
@@ -78,7 +86,7 @@ export function TimelineView({
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey, documentKey, searchQuery, hideCompleted]);
+    }, [projectId, user, privateKey, documentKey, searchQuery, selectedTags, hideCompleted]);
 
     useEffect(() => { fetchTasks(true); }, [fetchTasks]);
 

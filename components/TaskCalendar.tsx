@@ -3,25 +3,29 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { taskMatchesFilters } from '@/lib/task-filters';
 import { Project, Task } from '@/types';
 import { Calendar } from '@heroui/react';
 import type { DateValue } from '@internationalized/date';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { CheckCircle2, Clock } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
 interface TaskCalendarProps {
     tasks?: Task[];
     projectId?: string;
     projects?: Project[];
+    searchQuery?: string;
+    selectedTags?: string[];
+    hideCompleted?: boolean;
     onUpdate?: () => void;
 }
 
 const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
-export function TaskCalendar({ tasks: propTasks, projectId, projects = [], onUpdate }: TaskCalendarProps) {
+export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searchQuery = '', selectedTags = [], hideCompleted = false, onUpdate }: TaskCalendarProps) {
     const [fetchedTasks, setFetchedTasks] = useState<Task[]>([]);
     const [selectedDate, setSelectedDate] = useState<DateValue | null>(() => {
         try { return parseDate(dayjs().format('YYYY-MM-DD')); } catch { return null; }
@@ -68,21 +72,32 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], onUpd
         }
     }, [projectId, privateKey, user]);
 
+    const loadFetchedTasks = useEffectEvent(() => {
+        void fetchAndDecryptTasks();
+    });
+
     useEffect(() => {
         if (propTasks || !projectId) return;
-        fetchAndDecryptTasks();
-    }, [propTasks, fetchAndDecryptTasks]);
+        loadFetchedTasks();
+    }, [projectId, propTasks]);
+
+    const visibleTasks = useMemo(() => {
+        return tasks.filter(task => {
+            if (hideCompleted && task.completed) return false;
+            return taskMatchesFilters(task, searchQuery, selectedTags);
+        });
+    }, [hideCompleted, searchQuery, selectedTags, tasks]);
 
     // Build map: YYYY-MM-DD → tasks sorted by priority
     const tasksByDate = useMemo(() => {
-        return tasks.reduce((acc, task) => {
+        return visibleTasks.reduce((acc, task) => {
             if (!task.deadline || task.completed) return acc;
             const dateStr = dayjs(task.deadline).format('YYYY-MM-DD');
             if (!acc[dateStr]) acc[dateStr] = [];
             acc[dateStr].push(task);
             return acc;
         }, {} as Record<string, Task[]>);
-    }, [tasks]);
+    }, [visibleTasks]);
 
     // Sort tasks within each date by priority
     const sortedTasksByDate = useMemo(() => {
@@ -155,8 +170,8 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], onUpd
     const upcomingCount = useMemo(() => {
         const start = dayjs().startOf('day');
         const end = dayjs().add(7, 'day').endOf('day');
-        return tasks.filter(t => t.deadline && !t.completed && dayjs(t.deadline).isAfter(start) && dayjs(t.deadline).isBefore(end)).length;
-    }, [tasks]);
+        return visibleTasks.filter(t => t.deadline && !t.completed && dayjs(t.deadline).isAfter(start) && dayjs(t.deadline).isBefore(end)).length;
+    }, [visibleTasks]);
 
     return (
         <div className="space-y-3">

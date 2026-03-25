@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { taskMatchesFilters } from '@/lib/task-filters';
 import { DEPLOYMENT_TEMPLATES } from '@/lib/templates';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
@@ -21,11 +22,13 @@ export function TaskList({
     projectId, 
     hideHeader = false,
     searchQuery: externalSearchQuery,
+    selectedTags = [],
     hideCompleted: externalHideCompleted
 }: { 
     projectId: string, 
     hideHeader?: boolean,
     searchQuery?: string,
+    selectedTags?: string[],
     hideCompleted?: boolean
 }) {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -284,7 +287,7 @@ export function TaskList({
         } catch (error) {
             console.error('Task update failed, rolling back:', error);
             setTasks(previousTasks);
-            toast.danger('Sync failed, changes reverted');
+            toast.danger(error instanceof Error ? error.message : 'Sync failed, changes reverted');
         }
     };
 
@@ -317,7 +320,7 @@ export function TaskList({
             setSelectedIds(new Set());
             setSelectionMode(false);
             toast.success(`${ids.length} task${ids.length !== 1 ? 's' : ''} completed`);
-        } catch { toast.danger('Bulk complete failed'); }
+        } catch (error) { toast.danger(error instanceof Error ? error.message : 'Bulk complete failed'); }
     };
 
     const handleBulkDelete = async () => {
@@ -339,15 +342,13 @@ export function TaskList({
 
     const allMainTasks = tasks.filter(t => !t.parentId);
     const filteredMainTasks = allMainTasks.filter(t => {
-        // Search matches if title matches OR if any subtask matches
         const subtasks = tasks.filter(st => st.parentId === t.id);
-        const anySubtaskMatches = subtasks.some(st => st.title.toLowerCase().includes(searchQuery.toLowerCase()));
-        const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || anySubtaskMatches;
+        const matchesTask = taskMatchesFilters(t, searchQuery, selectedTags);
+        const anySubtaskMatches = subtasks.some(st => taskMatchesFilters(st, searchQuery, selectedTags));
         
-        // Filter matches (excluding completed)
         const matchesFilter = hideCompleted ? !t.completed : true;
         
-        return matchesSearch && matchesFilter;
+        return (matchesTask || anySubtaskMatches) && matchesFilter;
     });
 
     const activeTasks = filteredMainTasks.filter(t => !t.completed);

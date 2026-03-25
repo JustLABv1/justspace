@@ -24,6 +24,7 @@ export interface Task {
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
     kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'waiting' | 'done';
     notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }
+    tags?: string[];
     deadline?: string | null; // ISO date string
     isEncrypted?: boolean;
     dependencies?: string[]; // Array of task IDs this task depends on

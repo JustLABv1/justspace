@@ -3,27 +3,34 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { collectTaskTags, normalizeTaskTags } from '@/lib/task-filters';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import {
     Button,
     Calendar,
     Checkbox,
+    ComboBox,
     DateField,
     DatePicker,
     Dropdown,
+    EmptyState,
     Input,
     Label,
+    ListBox,
     Modal,
     ScrollShadow,
+    Tag,
+    TagGroup,
     TimeField,
-    toast
+    toast,
+    useFilter
 } from '@heroui/react';
 import { parseAbsoluteToLocal } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, GitBranch, Link2, Pencil as Edit, Mail as Email, History, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 dayjs.extend(duration);
@@ -39,10 +46,12 @@ interface TaskDetailModalProps {
 
 export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdate }: TaskDetailModalProps) {
     const { user, privateKey } = useAuth();
+    const { contains } = useFilter({ sensitivity: 'base' });
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
     const [subtasks, setSubtasks] = useState<Task[]>([]);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newNote, setNewNote] = useState('');
+    const [tagSearchValue, setTagSearchValue] = useState('');
     const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
     const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -50,6 +59,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
     const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+    const [projectTags, setProjectTags] = useState<string[]>([]);
     const [showDepPicker, setShowDepPicker] = useState(false);
     const [recurrence, setRecurrence] = useState<{ type: 'daily' | 'weekly' | 'monthly'; interval: number } | null>(() => {
         try { return task.recurrence ? JSON.parse(task.recurrence) : null; } catch { return null; }
@@ -63,15 +73,16 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         setIsEditingTitle(false);
     }
 
-    // Sync recurrence state when task prop changes (e.g. after saving)
-    useEffect(() => {
+    const currentTaskRecurrence = task.recurrence || '';
+    const [prevTaskRecurrence, setPrevTaskRecurrence] = useState(currentTaskRecurrence);
+    if (currentTaskRecurrence !== prevTaskRecurrence) {
+        setPrevTaskRecurrence(currentTaskRecurrence);
         try {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setRecurrence(task.recurrence ? JSON.parse(task.recurrence) : null);
         } catch {
             setRecurrence(null);
         }
-    }, [task.recurrence]);
+    }
 
     const handleAddDependency = async (depId: string) => {
         const current = task.dependencies || [];
@@ -94,13 +105,40 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
     const handleSaveRecurrence = async (rec: typeof recurrence) => {
         try {
-            await db.updateTask(task.id, { recurrence: rec ? JSON.stringify(rec) : null });
+            await db.updateTask(task.id, { recurrence: rec ? JSON.stringify(rec) : '' });
             setRecurrence(rec);
             onUpdate();
         } catch (err) {
             console.error('Failed to save recurrence:', err);
             toast.danger('Failed to save recurrence');
         }
+    };
+
+    const persistTags = async (nextTags: string[]) => {
+        const currentTags = [...normalizeTaskTags(task.tags)].sort();
+        const comparableNextTags = [...normalizeTaskTags(nextTags)].sort();
+
+        if (currentTags.join('|') === comparableNextTags.join('|')) {
+            return;
+        }
+
+        try {
+            await db.updateTask(task.id, { tags: comparableNextTags });
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to update tags:', error);
+            toast.danger('Failed to update tags');
+        }
+    };
+
+    const commitTagDraft = async (rawValue: string) => {
+        const draftedTags = normalizeTaskTags(rawValue);
+        if (draftedTags.length === 0) {
+            return;
+        }
+
+        await persistTags([...(task.tags || []), ...draftedTags]);
+        setTagSearchValue('');
     };
 
     const fetchDetails = useCallback(async () => {
@@ -155,6 +193,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 return t;
             }));
             setProjectTasks(decryptedDepCandidates);
+            setProjectTags(collectTaskTags(allTasks));
         } catch (error) {
             console.error('Failed to fetch subtasks:', error);
         }
@@ -207,7 +246,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             if (taskId !== task.id) {
                 setSubtasks(previousSubtasks);
             }
-            toast.danger('Sync failed');
+            toast.danger(error instanceof Error ? error.message : 'Sync failed');
         }
     };
 
@@ -425,6 +464,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    const currentTags = normalizeTaskTags(task.tags);
+    const autocompleteTags = [...new Set([...projectTags, ...currentTags])].sort((left, right) => left.localeCompare(right));
+    const filteredAutocompleteTags = autocompleteTags.filter((tag) => !currentTags.includes(tag) && (tagSearchValue.trim() === '' || contains(tag, tagSearchValue.trim())));
+
+    const handleRemoveTags = (keys: Set<React.Key>) => {
+        const nextTags = currentTags.filter((tag) => !keys.has(tag));
+        void persistTags(nextTags);
+    };
+
     return (
         <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
             <Modal.Backdrop>
@@ -602,7 +650,66 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             )}
                                         </DatePicker>
                                     </div>
-                                </div>
+
+                                    <div className="w-full sm:ml-auto sm:max-w-[320px]">
+                                        <div className="flex flex-col gap-2">
+                                            <ComboBox
+                                                allowsCustomValue
+                                                className="w-full"
+                                                inputValue={tagSearchValue}
+                                                menuTrigger="focus"
+                                                onInputChange={setTagSearchValue}
+                                            >
+                                                <Label className="sr-only">Tags</Label>
+                                                <ComboBox.InputGroup className="h-8 rounded-md border border-border bg-surface-secondary/50">
+                                                    <Input
+                                                        placeholder={currentTags.length > 0 ? 'Add tag' : 'Add or reuse tags'}
+                                                        className="text-xs"
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Enter' || event.key === ',') {
+                                                                event.preventDefault();
+                                                                void commitTagDraft(tagSearchValue);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <ComboBox.Trigger className="mr-1 text-muted-foreground/60" />
+                                                </ComboBox.InputGroup>
+                                                <ComboBox.Popover className="rounded-xl border border-border bg-surface p-2 shadow-lg">
+                                                    <ListBox
+                                                        className="max-h-48"
+                                                        renderEmptyState={() => <EmptyState>No matching tags. Press comma or Enter to create one.</EmptyState>}
+                                                    >
+                                                        {filteredAutocompleteTags.map((tag) => (
+                                                            <ListBox.Item
+                                                                key={tag}
+                                                                id={tag}
+                                                                textValue={tag}
+                                                                onAction={() => {
+                                                                    void commitTagDraft(tag);
+                                                                }}
+                                                            >
+                                                                #{tag}
+                                                                <ListBox.ItemIndicator />
+                                                            </ListBox.Item>
+                                                        ))}
+                                                    </ListBox>
+                                                </ComboBox.Popover>
+                                            </ComboBox>
+
+                                            {currentTags.length > 0 && (
+                                                <TagGroup size="sm" onRemove={handleRemoveTags}>
+                                                    <TagGroup.List>
+                                                        {currentTags.map((tag) => (
+                                                            <Tag key={tag} id={tag}>
+                                                                {tag}
+                                                            </Tag>
+                                                        ))}
+                                                    </TagGroup.List>
+                                                </TagGroup>
+                                            )}
+                                        </div>
+                                    </div>
+                                            </div>
                             </div>
                         </Modal.Header>
                         <Modal.Body className="p-0">
