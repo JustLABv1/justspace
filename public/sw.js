@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'justspace-static-v1';
+const STATIC_CACHE = 'justspace-static-v2';
 const CACHEABLE_DESTINATIONS = new Set(['font', 'image', 'manifest', 'script', 'style']);
 
 self.addEventListener('install', () => {
@@ -6,7 +6,15 @@ self.addEventListener('install', () => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames
+          .filter((cacheName) => cacheName !== STATIC_CACHE)
+          .map((cacheName) => caches.delete(cacheName))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {

@@ -102,6 +102,7 @@ docker-compose up --build -d
 ### PWA-Hinweise
 
 - Die App liefert jetzt ein Web App Manifest und einen Service Worker für installierbare Browser aus.
+- In lokaler Entwicklung wird der Service Worker automatisch entfernt, damit keine veralteten Frontend-Bundles aus dem PWA-Cache geladen werden.
 - Für die Installation außerhalb von `localhost` ist HTTPS erforderlich.
 - Chrome und Edge können eine Installationsaufforderung anzeigen.
 - Safari auf macOS verwendet stattdessen den Menüpunkt `File > Add to Dock`.

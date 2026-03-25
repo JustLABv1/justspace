@@ -1,15 +1,31 @@
 'use client';
 
 import {
-    BeforeInstallPromptEvent,
-    detectInstallBrowser,
-    markAppInstalled,
-    setInstallPromptEvent,
-    setPwaBrowser,
-    setPwaServiceWorkerReady,
-    setPwaStandalone,
+  BeforeInstallPromptEvent,
+  detectInstallBrowser,
+  markAppInstalled,
+  setInstallPromptEvent,
+  setPwaBrowser,
+  setPwaServiceWorkerReady,
+  setPwaStandalone,
 } from '@/lib/pwa';
 import { useEffect } from 'react';
+
+const isProduction = process.env.NODE_ENV === 'production';
+
+async function unregisterServiceWorkersAndClearCaches() {
+    if (!('serviceWorker' in navigator)) {
+        return;
+    }
+
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+
+    if ('caches' in window) {
+        const cacheNames = await window.caches.keys();
+        await Promise.all(cacheNames.map((cacheName) => window.caches.delete(cacheName)));
+    }
+}
 
 function getStandaloneMode() {
     const standaloneNavigator = window.navigator as Navigator & { standalone?: boolean };
@@ -40,9 +56,17 @@ export function PwaBootstrap() {
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
         window.addEventListener('appinstalled', handleAppInstalled);
 
-        if ('serviceWorker' in navigator) {
+        if (!isProduction) {
+            unregisterServiceWorkersAndClearCaches()
+                .catch((error) => {
+                    console.error('Failed to clear development service workers:', error);
+                })
+                .finally(() => {
+                    setPwaServiceWorkerReady(false);
+                });
+        } else if ('serviceWorker' in navigator) {
             navigator.serviceWorker
-                .register('/sw.js')
+                .register('/sw.js', { updateViaCache: 'none' })
                 .then(() => navigator.serviceWorker.ready)
                 .then(() => setPwaServiceWorkerReady(true))
                 .catch((error) => {
