@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { taskMatchesFilters } from '@/lib/task-filters';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import { Button, Dropdown, Label, ScrollShadow, toast } from "@heroui/react";
@@ -31,10 +32,12 @@ function getPriorityConfig(priority?: string) {
 export function KanbanBoard({
     projectId,
     searchQuery = '',
+    selectedTags = [],
     hideCompleted = false
 }: {
     projectId: string,
     searchQuery?: string,
+    selectedTags?: string[],
     hideCompleted?: boolean
 }) {
     const { user, privateKey } = useAuth();
@@ -83,10 +86,24 @@ export function KanbanBoard({
                 return task;
             }));
 
-            const filteredTasks = decryptedTasks.filter(t => {
-                const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
-                const matchesCompleted = hideCompleted ? (t.kanbanStatus !== 'done' && !t.completed) : true;
-                return matchesSearch && matchesCompleted;
+            const visibleParentIds = new Set(
+                decryptedTasks
+                    .filter(task => !task.parentId)
+                    .filter(task => {
+                        const subtasks = decryptedTasks.filter(subtask => subtask.parentId === task.id);
+                        const matchesTask = taskMatchesFilters(task, searchQuery, selectedTags);
+                        const matchesSubtask = subtasks.some(subtask => taskMatchesFilters(subtask, searchQuery, selectedTags));
+                        const matchesCompleted = hideCompleted ? (task.kanbanStatus !== 'done' && !task.completed) : true;
+                        return (matchesTask || matchesSubtask) && matchesCompleted;
+                    })
+                    .map(task => task.id)
+            );
+
+            const filteredTasks = decryptedTasks.filter(task => {
+                if (!task.parentId) {
+                    return visibleParentIds.has(task.id);
+                }
+                return visibleParentIds.has(task.parentId);
             });
 
             setTasks(filteredTasks);
@@ -95,7 +112,7 @@ export function KanbanBoard({
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey, documentKey, searchQuery, hideCompleted]);
+    }, [projectId, user, privateKey, documentKey, searchQuery, selectedTags, hideCompleted]);
 
     useEffect(() => {
         fetchTasks(true);
@@ -306,7 +323,7 @@ export function KanbanBoard({
                                             )}
 
                                             {/* Footer: priority + metadata chips */}
-                                            {(priorityConfig || task.deadline || (task.timeSpent && task.timeSpent > 0) || (task.notes && task.notes.length > 0)) && (
+                                            {(priorityConfig || (task.tags && task.tags.length > 0) || task.deadline || (task.timeSpent && task.timeSpent > 0) || (task.notes && task.notes.length > 0)) && (
                                                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                                                     {priorityConfig && (
                                                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
@@ -316,6 +333,14 @@ export function KanbanBoard({
                                                         }`}>
                                                             {priorityConfig.label}
                                                         </span>
+                                                    )}
+                                                    {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map(tag => (
+                                                        <span key={tag} className="text-[10px] text-muted-foreground/70">
+                                                            #{tag}
+                                                        </span>
+                                                    ))}
+                                                    {task.tags && task.tags.length > 2 && (
+                                                        <span className="text-[10px] text-muted-foreground/50">+{task.tags.length - 2}</span>
                                                     )}
                                                     {task.deadline && (
                                                         <span className={`flex items-center gap-1 text-[10px] ${

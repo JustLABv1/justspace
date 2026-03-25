@@ -8,9 +8,11 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 ## Features
 
 - **Projekte & Aufgaben:** Kanban-Board, Statusverwaltung, Zeitplanung
+- **Task-Tags:** Freie Tags pro Aufgabe mit Filterung im Projektkontext
 - **Wiki & Snippets:** Markdown-basierte Wissensdatenbank und Code-Snippet-Verwaltung
 - **Aktivitäts-Feed & Versionierung**
 - **Verschlüsselung:** Optionale Verschlüsselung sensibler Daten
+- **PWA-Installation:** Als installierbare Desktop-App mit Dock-Support in kompatiblen Browsern
 - **Moderne UI:** HeroUI v3, Tailwind CSS v4
 - **WebSocket-Unterstützung**
 
@@ -94,6 +96,13 @@ docker-compose up --build -d
 1. Backend bauen: `cd backend && go build -o server ./cmd/server/`
 2. Frontend bauen: `pnpm run build`
 3. Reverse Proxy (z.B. nginx) für Port 3000 (Frontend) und 8080 (Backend) einrichten
+
+### PWA-Hinweise
+
+- Die App liefert jetzt ein Web App Manifest und einen Service Worker für installierbare Browser aus.
+- Für die Installation außerhalb von `localhost` ist HTTPS erforderlich.
+- Chrome und Edge können eine Installationsaufforderung anzeigen.
+- Safari auf macOS verwendet stattdessen den Menüpunkt `File > Add to Dock`.
 
 ---
 

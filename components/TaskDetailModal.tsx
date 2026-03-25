@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { normalizeTaskTags } from '@/lib/task-filters';
 import { wsClient, WSEvent } from '@/lib/ws';
 import { Task } from '@/types';
 import {
@@ -23,7 +24,7 @@ import { parseAbsoluteToLocal } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, GitBranch, Link2, Pencil as Edit, Mail as Email, History, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 dayjs.extend(duration);
@@ -43,6 +44,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [subtasks, setSubtasks] = useState<Task[]>([]);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newNote, setNewNote] = useState('');
+    const [tagsInput, setTagsInput] = useState((task.tags || []).join(', '));
     const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
     const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -61,6 +63,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         setPrevTaskTitle(task.title);
         setEditedTitle(task.title);
         setIsEditingTitle(false);
+    }
+
+    const currentTaskTags = (task.tags || []).join(', ');
+    const [prevTaskTags, setPrevTaskTags] = useState(currentTaskTags);
+    if (currentTaskTags !== prevTaskTags) {
+        setPrevTaskTags(currentTaskTags);
+        setTagsInput(currentTaskTags);
     }
 
     // Sync recurrence state when task prop changes (e.g. after saving)
@@ -100,6 +109,26 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch (err) {
             console.error('Failed to save recurrence:', err);
             toast.danger('Failed to save recurrence');
+        }
+    };
+
+    const handleUpdateTags = async () => {
+        const nextTags = normalizeTaskTags(tagsInput);
+        const currentTags = [...normalizeTaskTags(task.tags)].sort();
+        const comparableNextTags = [...nextTags].sort();
+
+        if (currentTags.join('|') === comparableNextTags.join('|')) {
+            setTagsInput(nextTags.join(', '));
+            return;
+        }
+
+        try {
+            await db.updateTask(task.id, { tags: nextTags });
+            setTagsInput(nextTags.join(', '));
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to update tags:', error);
+            toast.danger('Failed to update tags');
         }
     };
 
@@ -602,6 +631,28 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             )}
                                         </DatePicker>
                                     </div>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5 max-w-md">
+                                    <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</Label>
+                                    <Input
+                                        value={tagsInput}
+                                        onChange={(e) => setTagsInput(e.target.value)}
+                                        onBlur={() => {
+                                            void handleUpdateTags();
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                void handleUpdateTags();
+                                            }
+                                            if (e.key === 'Escape') {
+                                                setTagsInput((task.tags || []).join(', '));
+                                            }
+                                        }}
+                                        placeholder="client, follow-up, release"
+                                        className="bg-surface-secondary text-xs"
+                                    />
                                 </div>
                             </div>
                         </Modal.Header>

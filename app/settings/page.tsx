@@ -4,10 +4,12 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { promptForPwaInstall, usePwaInstallState } from '@/lib/pwa';
 import { Button, Form, toast } from '@heroui/react';
 import {
     CheckCircle,
     Database,
+    Download,
     Keyboard,
     Loader2,
     Moon,
@@ -39,6 +41,7 @@ function SettingsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();
+    const pwa = usePwaInstallState();
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'General');
     
     useEffect(() => {
@@ -76,6 +79,30 @@ function SettingsContent() {
     const [isMigrating, setIsMigrating] = useState(false);
     const [stats, setStats] = useState({ projects: 0, wiki: 0, snippets: 0 });
     const [migrationProgress, setMigrationProgress] = useState('');
+
+    const pwaStatusLabel = pwa.isStandalone
+        ? 'Installed'
+        : pwa.canInstall
+            ? 'Ready to install'
+            : pwa.browser === 'safari'
+                ? 'Manual install'
+                : 'Browser dependent';
+
+    const pwaStatusClass = pwa.isStandalone
+        ? 'bg-success-muted text-success border-success/20'
+        : pwa.canInstall
+            ? 'bg-accent/10 text-accent border-accent/20'
+            : pwa.browser === 'safari'
+                ? 'bg-warning-muted text-warning border-warning/20'
+                : 'bg-surface-secondary text-muted-foreground border-border';
+
+    const pwaDescription = pwa.isStandalone
+        ? 'justspace is running as an installed app. You can reopen it directly from the Dock.'
+        : pwa.canInstall
+            ? 'This browser can install justspace as a standalone desktop app with its own Dock entry.'
+            : pwa.browser === 'safari'
+                ? 'Safari on macOS does not expose an install prompt. Use File > Add to Dock to install justspace manually.'
+                : 'Install support depends on the browser. Chrome and Edge will show an install prompt once the app is eligible.';
 
     const fetchStats = useCallback(async () => {
         if (!user) return;
@@ -313,6 +340,55 @@ function SettingsContent() {
                                         onChange={(e) => setWorkspaceName(e.target.value)}
                                         placeholder="Enter workspace name..."
                                     />
+                                </div>
+
+                                <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                            <h4 className="text-sm font-medium text-foreground">Desktop App</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">Install justspace in your browser so it opens in a dedicated app window and can live in your Dock.</p>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md border ${pwaStatusClass}`}>
+                                            <Download size={12} />
+                                            {pwaStatusLabel}
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-2 text-xs text-muted-foreground">
+                                        <p>{pwaDescription}</p>
+                                        <p>
+                                            {pwa.serviceWorkerReady
+                                                ? 'Install support is active and static assets can be cached locally for faster relaunches.'
+                                                : 'Install support is still initializing in this browser session.'}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {pwa.canInstall && !pwa.isStandalone && (
+                                            <Button
+                                                variant="primary"
+                                                className="h-8 rounded-xl px-3 text-[12px] font-medium"
+                                                onPress={() => {
+                                                    void promptForPwaInstall();
+                                                }}
+                                            >
+                                                <Download size={12} className="mr-1.5" />
+                                                Install justspace
+                                            </Button>
+                                        )}
+
+                                        {pwa.browser === 'safari' && !pwa.isStandalone && (
+                                            <div className="rounded-lg border border-warning/20 bg-warning-muted px-3 py-2 text-[12px] text-warning">
+                                                Safari path: File &gt; Add to Dock
+                                            </div>
+                                        )}
+
+                                        {pwa.isStandalone && (
+                                            <div className="rounded-lg border border-success/20 bg-success-muted px-3 py-2 text-[12px] text-success">
+                                                The installed app should be available from your Dock and Applications folder.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}

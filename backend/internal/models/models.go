@@ -44,6 +44,7 @@ type Task struct {
 	KanbanStatus   string          `json:"kanbanStatus"`
 	Deadline       *time.Time      `json:"deadline"`
 	Notes          json.RawMessage `json:"notes"`
+	Tags           []string        `json:"tags"`
 	IsEncrypted    bool            `json:"isEncrypted"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
@@ -176,12 +177,13 @@ type UpdateProjectRequest struct {
 }
 
 type CreateTaskRequest struct {
-	ProjectID    string  `json:"projectId"`
-	Title        string  `json:"title"`
-	Order        int     `json:"order"`
-	IsEncrypted  bool    `json:"isEncrypted"`
-	ParentID     *string `json:"parentId,omitempty"`
-	KanbanStatus string  `json:"kanbanStatus"`
+	ProjectID    string   `json:"projectId"`
+	Title        string   `json:"title"`
+	Order        int      `json:"order"`
+	IsEncrypted  bool     `json:"isEncrypted"`
+	ParentID     *string  `json:"parentId,omitempty"`
+	KanbanStatus string   `json:"kanbanStatus"`
+	Tags         []string `json:"tags,omitempty"`
 }
 
 type CreateTasksBatchRequest struct {
@@ -203,6 +205,7 @@ type UpdateTaskRequest struct {
 	KanbanStatus   *string          `json:"kanbanStatus,omitempty"`
 	Deadline       *string          `json:"deadline,omitempty"`
 	Notes          *json.RawMessage `json:"notes,omitempty"`
+	Tags           []string         `json:"tags,omitempty"`
 	IsEncrypted    *bool            `json:"isEncrypted,omitempty"`
 	WorkDuration   *string          `json:"workDuration,omitempty"`
 }

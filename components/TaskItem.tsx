@@ -321,6 +321,22 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         </Chip>
                     )}
 
+                    {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map((tag) => (
+                        <Chip
+                            key={tag}
+                            size="sm"
+                            variant="soft"
+                            color="default"
+                            className="h-5 px-1.5"
+                        >
+                            <Chip.Label className="text-[10px] px-0">#{tag}</Chip.Label>
+                        </Chip>
+                    ))}
+
+                    {task.tags && task.tags.length > 2 && (
+                        <span className="text-[10px] text-muted-foreground">+{task.tags.length - 2} tags</span>
+                    )}
+
                     {subtasks.length > 0 && (
                         <span className="text-[10px] text-muted-foreground">
                             {subtasks.filter(s => s.completed).length}/{subtasks.length} sub

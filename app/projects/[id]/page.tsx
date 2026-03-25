@@ -11,7 +11,9 @@ import { TimelineView } from '@/components/TimelineView';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Project } from '@/types';
+import { collectTaskTags } from '@/lib/task-filters';
+import { wsClient, WSEvent } from '@/lib/ws';
+import { Project, Task } from '@/types';
 import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
 import {
     Calendar,
@@ -55,9 +57,10 @@ export default function ProjectDetailPage() {
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('kanban');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [hideCompleted, setHideCompleted] = useState(false);
     const [showTimeReport, setShowTimeReport] = useState(false);
-    const [timeReportTasks, setTimeReportTasks] = useState<import('@/types').Task[]>([]);
+    const [timeReportTasks, setTimeReportTasks] = useState<Task[]>([]);
     const { user, privateKey } = useAuth();
 
     const fetchProject = useCallback(async () => {
@@ -91,14 +94,49 @@ export default function ProjectDetailPage() {
 
     useEffect(() => { if (id) fetchProject(); }, [id, fetchProject]);
 
+    const fetchProjectTasks = useCallback(async () => {
+        if (!id) return;
+        try {
+            const res = await db.listTasks(id as string);
+            setTimeReportTasks(res.documents as unknown as Task[]);
+        } catch {
+            // Ignore background refresh failures for the reporting/filter toolbar.
+        }
+    }, [id]);
+
+    useEffect(() => {
+        void fetchProjectTasks();
+    }, [fetchProjectTasks]);
+
     useEffect(() => {
         if (!id) return;
-        import('@/lib/db').then(({ db: dbMod }) => {
-            dbMod.listTasks(id as string).then(res => {
-                setTimeReportTasks(res.documents as unknown as import('@/types').Task[]);
-            }).catch(() => {});
+
+        const handleRefresh = () => {
+            void fetchProjectTasks();
+        };
+
+        window.addEventListener('refresh-tasks', handleRefresh);
+
+        const unsubscribe = wsClient.subscribe((event: WSEvent) => {
+            if (event.collection !== 'tasks') {
+                return;
+            }
+
+            const payload = event.document as unknown as Task;
+            if (payload.projectId !== id) {
+                return;
+            }
+
+            void fetchProjectTasks();
         });
-    }, [id]);
+
+        return () => {
+            window.removeEventListener('refresh-tasks', handleRefresh);
+            unsubscribe();
+        };
+    }, [fetchProjectTasks, id]);
+
+    const availableTags = collectTaskTags(timeReportTasks);
 
     const handleUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         if (project && user && privateKey) {
@@ -313,47 +351,87 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Toolbar */}
-                <div className="flex items-center gap-2 py-3">
-                    <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface">
-                        <Search size={12} className="text-muted-foreground" />
-                        <input
-                            type="text"
-                            placeholder="Search tasks..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
-                        />
+                <div className="flex flex-col gap-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface">
+                            <Search size={12} className="text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Search tasks or tags..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
+                            />
+                        </div>
+                        <Button
+                            variant={hideCompleted ? 'primary' : 'ghost'}
+                            size="sm"
+                            className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                            onPress={() => setHideCompleted(!hideCompleted)}
+                        >
+                            <Filter size={12} className="mr-1" />
+                            {hideCompleted ? 'Pending' : 'All'}
+                        </Button>
+                        {selectedTags.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                onPress={() => setSelectedTags([])}
+                            >
+                                Clear tags
+                            </Button>
+                        )}
                     </div>
-                    <Button
-                        variant={hideCompleted ? 'primary' : 'ghost'}
-                        size="sm"
-                        className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
-                        onPress={() => setHideCompleted(!hideCompleted)}
-                    >
-                        <Filter size={12} className="mr-1" />
-                        {hideCompleted ? 'Pending' : 'All'}
-                    </Button>
+
+                    {availableTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</span>
+                            {availableTags.map((tag) => {
+                                const isSelected = selectedTags.includes(tag);
+                                return (
+                                    <button
+                                        key={tag}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedTags((currentTags) => currentTags.includes(tag)
+                                                ? currentTags.filter((currentTag) => currentTag !== tag)
+                                                : [...currentTags, tag]
+                                            );
+                                        }}
+                                        className={`h-7 px-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
+                                            isSelected
+                                                ? 'border-accent bg-accent text-accent-foreground'
+                                                : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-accent/30'
+                                        }`}
+                                    >
+                                        #{tag}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Task Content */}
             <div>
                 {viewMode === 'list' && (
-                    <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'kanban' && (
-                    <KanbanBoard projectId={project.id} searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'table' && (
-                    <TableView projectId={project.id} searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'timeline' && (
-                    <TimelineView projectId={project.id} searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'calendar' && (
                     <div className="max-w-md mx-auto py-4">
                         <div className="bg-surface rounded-2xl border border-border p-5">
-                            <TaskCalendar projectId={project.id} onUpdate={fetchProject} />
+                            <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
                         </div>
                     </div>
                 )}
