@@ -30,7 +30,7 @@ ENV HOME=/tmp
 COPY services/backend/go.mod services/backend/go.sum ./
 RUN go mod download
 COPY services/backend/ ./
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o justspace-backend
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o justspace-backend ./cmd/server/
 
 # Stage 3: Final image
 FROM base AS runner
