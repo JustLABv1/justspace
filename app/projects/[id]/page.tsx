@@ -11,7 +11,10 @@ import { TimelineView } from '@/components/TimelineView';
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { Project } from '@/types';
+import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserPreferences, SavedProjectView } from '@/lib/preferences';
+import { collectTaskTags } from '@/lib/task-filters';
+import { wsClient, WSEvent } from '@/lib/ws';
+import { Project, Task } from '@/types';
 import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
 import {
     Calendar,
@@ -32,7 +35,7 @@ import {
     Trash2,
 } from "lucide-react";
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 const VIEW_TABS = [
@@ -48,17 +51,28 @@ type ViewMode = typeof VIEW_TABS[number]['id'];
 export default function ProjectDetailPage() {
     const { id } = useParams() as { id: string };
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+	const searchParamsKey = searchParams.toString();
     const [project, setProject] = useState<Project | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<ViewMode>('kanban');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [hideCompleted, setHideCompleted] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+		const requestedView = searchParams.get('view');
+		return isSavedViewMode(requestedView) ? requestedView : 'kanban';
+	});
+    const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
+    const [selectedTags, setSelectedTags] = useState<string[]>(() => {
+		const tags = searchParams.get('tags');
+		return tags ? tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
+	});
+    const [hideCompleted, setHideCompleted] = useState(() => searchParams.get('hideCompleted') === '1');
     const [showTimeReport, setShowTimeReport] = useState(false);
-    const [timeReportTasks, setTimeReportTasks] = useState<import('@/types').Task[]>([]);
-    const { user, privateKey } = useAuth();
+    const [timeReportTasks, setTimeReportTasks] = useState<Task[]>([]);
+    const { user, privateKey, updateProfile } = useAuth();
+	const savedViews = parseUserPreferences(user?.preferences).savedViews.filter((view) => view.projectId === id);
 
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
@@ -91,14 +105,142 @@ export default function ProjectDetailPage() {
 
     useEffect(() => { if (id) fetchProject(); }, [id, fetchProject]);
 
+    const fetchProjectTasks = useCallback(async () => {
+        if (!id) return;
+        try {
+            const res = await db.listTasks(id as string);
+            setTimeReportTasks(res.documents as unknown as Task[]);
+        } catch {
+            // Ignore background refresh failures for the reporting/filter toolbar.
+        }
+    }, [id]);
+
+    useEffect(() => {
+        void fetchProjectTasks();
+    }, [fetchProjectTasks]);
+
+    useEffect(() => {
+                const params = new URLSearchParams(searchParamsKey);
+		const nextView = params.get('view');
+		const nextSearchQuery = params.get('q') || '';
+		const nextSelectedTags = (params.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+		const nextHideCompleted = params.get('hideCompleted') === '1';
+
+        setViewMode(isSavedViewMode(nextView) ? nextView : 'kanban');
+        setSearchQuery(nextSearchQuery);
+        setSelectedTags(nextSelectedTags);
+        setHideCompleted(nextHideCompleted);
+        }, [searchParamsKey]);
+
+    useEffect(() => {
+		const params = new URLSearchParams(searchParamsKey);
+        params.set('view', viewMode);
+        if (searchQuery.trim()) {
+            params.set('q', searchQuery.trim());
+        } else {
+            params.delete('q');
+        }
+        if (selectedTags.length > 0) {
+            params.set('tags', selectedTags.join(','));
+        } else {
+            params.delete('tags');
+        }
+        if (hideCompleted) {
+            params.set('hideCompleted', '1');
+        } else {
+            params.delete('hideCompleted');
+        }
+
+        const nextHref = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        const currentHref = searchParamsKey ? `${pathname}?${searchParamsKey}` : pathname;
+        if (nextHref !== currentHref) {
+            router.replace(nextHref, { scroll: false });
+        }
+    }, [hideCompleted, pathname, router, searchParamsKey, searchQuery, selectedTags, viewMode]);
+
     useEffect(() => {
         if (!id) return;
-        import('@/lib/db').then(({ db: dbMod }) => {
-            dbMod.listTasks(id as string).then(res => {
-                setTimeReportTasks(res.documents as unknown as import('@/types').Task[]);
-            }).catch(() => {});
+
+        const handleRefresh = () => {
+            void fetchProjectTasks();
+        };
+
+        window.addEventListener('refresh-tasks', handleRefresh);
+
+        const unsubscribe = wsClient.subscribe((event: WSEvent) => {
+            if (event.collection !== 'tasks') {
+                return;
+            }
+
+            const payload = event.document as unknown as Task;
+            if (payload.projectId !== id) {
+                return;
+            }
+
+            void fetchProjectTasks();
         });
-    }, [id]);
+
+        return () => {
+            window.removeEventListener('refresh-tasks', handleRefresh);
+            unsubscribe();
+        };
+    }, [fetchProjectTasks, id]);
+
+    const availableTags = collectTaskTags(timeReportTasks);
+
+    const handleSaveCurrentView = async () => {
+        if (!user) {
+            return;
+        }
+
+        const name = window.prompt('Name this view');
+        if (!name || !name.trim()) {
+            return;
+        }
+
+        const preferences = parseUserPreferences(user.preferences);
+        const nextView: SavedProjectView = {
+            id: crypto.randomUUID(),
+            projectId: id,
+            name: name.trim(),
+            viewMode,
+            searchQuery,
+            selectedTags,
+            hideCompleted,
+            createdAt: new Date().toISOString(),
+        };
+
+        try {
+            await updateProfile({
+                preferences: mergeUserPreferences(user.preferences, {
+                    savedViews: [nextView, ...preferences.savedViews.filter((view) => view.id !== nextView.id)],
+                }),
+            });
+            toast.success('View saved');
+        } catch (error) {
+            console.error(error);
+            toast.danger('Failed to save view');
+        }
+    };
+
+    const handleDeleteSavedView = async (viewId: string) => {
+        if (!user) {
+            return;
+        }
+
+        const preferences = parseUserPreferences(user.preferences);
+        try {
+            await updateProfile({
+                preferences: mergeUserPreferences(user.preferences, {
+                    savedViews: preferences.savedViews.filter((view) => view.id !== viewId),
+                }),
+            });
+            toast.success('Saved view removed');
+        } catch (error) {
+            console.error(error);
+            toast.danger('Failed to remove saved view');
+        }
+    };
 
     const handleUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         if (project && user && privateKey) {
@@ -313,47 +455,142 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Toolbar */}
-                <div className="flex items-center gap-2 py-3">
-                    <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface">
-                        <Search size={12} className="text-muted-foreground" />
-                        <input
-                            type="text"
-                            placeholder="Search tasks..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
-                        />
+                <div className="flex flex-col gap-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface">
+                            <Search size={12} className="text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Search tasks or tags..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
+                            />
+                        </div>
+                        <Button
+                            variant={hideCompleted ? 'primary' : 'ghost'}
+                            size="sm"
+                            className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                            onPress={() => setHideCompleted(!hideCompleted)}
+                        >
+                            <Filter size={12} className="mr-1" />
+                            {hideCompleted ? 'Pending' : 'All'}
+                        </Button>
+                        <Dropdown>
+                            <Dropdown.Trigger>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                >
+                                    <ChevronDown size={12} className="mr-1" />
+                                    Views
+                                </Button>
+                            </Dropdown.Trigger>
+                            <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
+                                <Dropdown.Menu>
+                                    <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
+                                        <div className="flex items-center gap-2 text-[13px]">
+                                            <Plus size={13} />
+                                            <Label className="cursor-pointer text-[13px]">Save current view</Label>
+                                        </div>
+                                    </Dropdown.Item>
+                                    {savedViews.map((savedView) => (
+                                        <Dropdown.Item
+                                            key={savedView.id}
+                                            id={`view-${savedView.id}`}
+                                            textValue={savedView.name}
+                                            onAction={() => router.push(buildProjectViewHref(savedView))}
+                                        >
+                                            <div className="flex items-center justify-between gap-3 text-[13px] w-full">
+                                                <div className="truncate">
+                                                    <div className="font-medium truncate">{savedView.name}</div>
+                                                    <div className="text-[11px] text-muted-foreground truncate">
+                                                        {savedView.viewMode}{savedView.searchQuery ? ` · ${savedView.searchQuery}` : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Dropdown.Item>
+                                    ))}
+                                    {savedViews.map((savedView) => (
+                                        <Dropdown.Item
+                                            key={`delete-${savedView.id}`}
+                                            id={`delete-${savedView.id}`}
+                                            textValue={`Delete ${savedView.name}`}
+                                            variant="danger"
+                                            onAction={() => {
+                                                void handleDeleteSavedView(savedView.id);
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 text-[13px]">
+                                                <Trash2 size={13} />
+                                                <Label className="cursor-pointer text-[13px]">Delete {savedView.name}</Label>
+                                            </div>
+                                        </Dropdown.Item>
+                                    ))}
+                                </Dropdown.Menu>
+                            </Dropdown.Popover>
+                        </Dropdown>
+                        {selectedTags.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                onPress={() => setSelectedTags([])}
+                            >
+                                Clear tags
+                            </Button>
+                        )}
                     </div>
-                    <Button
-                        variant={hideCompleted ? 'primary' : 'ghost'}
-                        size="sm"
-                        className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
-                        onPress={() => setHideCompleted(!hideCompleted)}
-                    >
-                        <Filter size={12} className="mr-1" />
-                        {hideCompleted ? 'Pending' : 'All'}
-                    </Button>
+
+                    {availableTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</span>
+                            {availableTags.map((tag) => {
+                                const isSelected = selectedTags.includes(tag);
+                                return (
+                                    <button
+                                        key={tag}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedTags((currentTags) => currentTags.includes(tag)
+                                                ? currentTags.filter((currentTag) => currentTag !== tag)
+                                                : [...currentTags, tag]
+                                            );
+                                        }}
+                                        className={`h-7 px-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
+                                            isSelected
+                                                ? 'border-accent bg-accent text-accent-foreground'
+                                                : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-accent/30'
+                                        }`}
+                                    >
+                                        #{tag}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Task Content */}
             <div>
                 {viewMode === 'list' && (
-                    <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'kanban' && (
-                    <KanbanBoard projectId={project.id} searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'table' && (
-                    <TableView projectId={project.id} searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'timeline' && (
-                    <TimelineView projectId={project.id} searchQuery={searchQuery} hideCompleted={hideCompleted} />
+                    <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                 )}
                 {viewMode === 'calendar' && (
                     <div className="max-w-md mx-auto py-4">
                         <div className="bg-surface rounded-2xl border border-border p-5">
-                            <TaskCalendar projectId={project.id} onUpdate={fetchProject} />
+                            <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
                         </div>
                     </div>
                 )}

@@ -8,9 +8,13 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 ## Features
 
 - **Projekte & Aufgaben:** Kanban-Board, Statusverwaltung, Zeitplanung
+- **Task-Tags:** Freie Tags pro Aufgabe mit Filterung im Projektkontext
+- **Gespeicherte Ansichten & Suche:** Projektansichten mit Filtern speichern und per Command Palette schneller finden
+- **Erinnerungen & Wiederholungen:** Deadline-Reminders, persistente Abhängigkeiten und automatisch nachlaufende wiederkehrende Tasks
 - **Wiki & Snippets:** Markdown-basierte Wissensdatenbank und Code-Snippet-Verwaltung
 - **Aktivitäts-Feed & Versionierung**
 - **Verschlüsselung:** Optionale Verschlüsselung sensibler Daten
+- **PWA-Installation:** Als installierbare Desktop-App mit Dock-Support in kompatiblen Browsern
 - **Moderne UI:** HeroUI v3, Tailwind CSS v4
 - **WebSocket-Unterstützung**
 
@@ -26,7 +30,7 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 
 2. **Umgebungsvariablen setzen:**
 	- Kopiere `.env.example` nach `.env` und passe die Werte ggf. an.
-	- Für Appwrite-Integration siehe `POSTGRES_SCHEMA.md` und ggf. `.env.local`.
+	- Für das relationale Schema und Persistenzdetails siehe `POSTGRES_SCHEMA.md`.
 
 3. **Container starten:**
 	```bash
@@ -75,11 +79,11 @@ Siehe `.env.example` für alle relevanten Umgebungsvariablen (DB, API, JWT, CORS
 
 ---
 
-## Datenbank & Appwrite
+## Datenbank
 
-Das System nutzt primär PostgreSQL. Für optionale Features (z.B. verschlüsselte User-Daten, erweiterte Authentifizierung) kann Appwrite integriert werden.
+Das System nutzt PostgreSQL als primäre Persistenzschicht.
 
-Siehe [POSTGRES_SCHEMA.md](POSTGRES_SCHEMA.md) für das relationale Schema und Hinweise zur Appwrite-Einbindung.
+Siehe [POSTGRES_SCHEMA.md](POSTGRES_SCHEMA.md) für das relationale Schema, Task-Metadaten und Migrationshinweise.
 
 ---
 
@@ -94,6 +98,14 @@ docker-compose up --build -d
 1. Backend bauen: `cd backend && go build -o server ./cmd/server/`
 2. Frontend bauen: `pnpm run build`
 3. Reverse Proxy (z.B. nginx) für Port 3000 (Frontend) und 8080 (Backend) einrichten
+
+### PWA-Hinweise
+
+- Die App liefert jetzt ein Web App Manifest und einen Service Worker für installierbare Browser aus.
+- In lokaler Entwicklung wird der Service Worker automatisch entfernt, damit keine veralteten Frontend-Bundles aus dem PWA-Cache geladen werden.
+- Für die Installation außerhalb von `localhost` ist HTTPS erforderlich.
+- Chrome und Edge können eine Installationsaufforderung anzeigen.
+- Safari auf macOS verwendet stattdessen den Menüpunkt `File > Add to Dock`.
 
 ---
 

@@ -2,11 +2,13 @@
 
 import { CommandPalette } from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
+import { TaskReminderBootstrap } from "@/components/TaskReminderBootstrap";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { VaultBanner } from "@/components/VaultBanner";
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { Avatar, Dropdown, Label } from "@heroui/react";
-import { ChevronDown, LogOut, Search, Settings, User } from "lucide-react";
+import { promptForPwaInstall, usePwaInstallState } from '@/lib/pwa';
+import { Avatar, Button, Dropdown, Label } from "@heroui/react";
+import { ChevronDown, Download, LogOut, Search, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
@@ -25,6 +27,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, isLoading, logout } = useAuth();
+    const pwa = usePwaInstallState();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -177,6 +180,19 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                     </button>
 
                     <div className="flex items-center gap-2 w-48 justify-end">
+                        {pwa.canInstall && !pwa.isStandalone && (
+                            <Button
+                                variant="secondary"
+                                className="hidden lg:inline-flex h-8 px-3 rounded-xl text-[12px] font-medium"
+                                onPress={() => {
+                                    void promptForPwaInstall();
+                                }}
+                            >
+                                <Download size={13} className="mr-1.5" />
+                                Install app
+                            </Button>
+                        )}
+
                         <ThemeSwitcher />
 
                         <Dropdown>
@@ -221,6 +237,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                 </header>
 
                 <VaultBanner />
+					<TaskReminderBootstrap />
 
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {children}

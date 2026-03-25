@@ -1,8 +1,8 @@
 'use client';
 
+import { api, AuthUser } from '@/lib/api';
 import { decryptPrivateKey, generateUserKeyPair } from '@/lib/crypto';
 import { db } from '@/lib/db';
-import { api, AuthUser } from '@/lib/api';
 import { UserKeys } from '@/types';
 import { useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -18,6 +18,7 @@ interface AuthContextType {
     logout: () => Promise<void>;
     unlockVault: (password: string) => Promise<void>;
     setupVault: (password: string) => Promise<void>;
+    updateProfile: (data: { name?: string; preferences?: Record<string, unknown> }) => Promise<AuthUser>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -191,6 +192,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
+    const updateProfile = async (data: { name?: string; preferences?: Record<string, unknown> }) => {
+		const updatedUser = await api.updateProfile(data);
+		setUser(updatedUser);
+		return updatedUser;
+	};
+
     return (
         <AuthContext.Provider value={{ 
             user, 
@@ -202,7 +209,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             signup, 
             logout, 
             unlockVault, 
-            setupVault 
+            setupVault,
+			updateProfile,
         }}>
             {children}
         </AuthContext.Provider>

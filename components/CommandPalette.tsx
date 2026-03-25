@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/lib/crypto';
 import { db } from '@/lib/db';
+import { buildProjectViewHref, parseUserPreferences, SavedProjectView } from '@/lib/preferences';
 import { Project, Snippet, Task, WikiGuide } from '@/types';
 import { Command } from 'cmdk';
 import { ArrowRight, BookOpen, CheckCircle2, Code2, FolderOpen, ListTodo, Search } from 'lucide-react';
@@ -19,6 +20,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     const [guides, setGuides] = useState<WikiGuide[]>([]);
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [savedViews, setSavedViews] = useState<SavedProjectView[]>([]);
     const router = useRouter();
     const { user, privateKey } = useAuth();
 
@@ -107,6 +109,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
             setGuides(processedGuides);
             setSnippets(processedSnippets);
             setTasks(processedTasks);
+			setSavedViews(user ? parseUserPreferences(user.preferences).savedViews : []);
         } catch (error) {
             console.error('Failed to fetch command palette data:', error);
         } finally {
@@ -122,6 +125,8 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         onClose();
         command();
     };
+
+	const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
 
     return (
         <>
@@ -213,6 +218,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                                 {projects.map((project) => (
                                     <Command.Item
                                         key={project.id}
+                                        value={`project ${project.name} ${project.description || ''} ${project.status}`}
                                         onSelect={() => runCommand(() => router.push(`/projects/${project.id}`))}
                                         className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                     >
@@ -231,6 +237,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                                 {guides.map((guide) => (
                                     <Command.Item
                                         key={guide.id}
+                                        value={`guide ${guide.title} ${guide.description || ''}`}
                                         onSelect={() => runCommand(() => router.push(`/wiki/${guide.id}`))}
                                         className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                     >
@@ -248,10 +255,11 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                             <Command.Group heading="Tasks" className="px-1 pb-1 text-xs font-medium text-muted-foreground mt-3 mb-1">
                                 {tasks.slice(0, 8).map((task) => {
                                     const priorityColor = task.priority === 'urgent' ? 'text-danger' : task.priority === 'high' ? 'text-warning' : task.priority === 'medium' ? 'text-accent' : 'text-muted-foreground';
+                                    const projectName = projectNameById.get(task.projectId) || 'Project';
                                     return (
                                         <Command.Item
                                             key={task.id}
-                                            value={`task-${task.id}-${task.title}`}
+                                            value={`task ${task.title} ${projectName} ${task.priority || ''} ${(task.tags || []).join(' ')} ${(task.dependencies || []).join(' ')}`}
                                             onSelect={() => runCommand(() => router.push(`/projects/${task.projectId}`))}
                                             className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                         >
@@ -260,7 +268,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                                             </div>
                                             <div className="flex flex-col flex-1 truncate">
                                                 <span className="truncate text-sm font-medium">{task.title}</span>
-                                                {task.priority && <span className={`text-xs group-aria-selected:text-white/70 ${priorityColor}`}>{task.priority}</span>}
+												<span className={`text-xs group-aria-selected:text-white/70 ${priorityColor}`}>
+													{task.priority ? `${task.priority} · ${projectName}` : projectName}
+												</span>
                                             </div>
                                             <ArrowRight size={14} className="opacity-0 group-aria-selected:opacity-100 transition-all" />
                                         </Command.Item>
@@ -269,11 +279,36 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                             </Command.Group>
                         )}
 
+                        {savedViews.length > 0 && (
+                            <Command.Group heading="Saved Views" className="px-1 pb-1 text-xs font-medium text-muted-foreground mt-3 mb-1">
+                                {savedViews.map((view) => (
+                                    <Command.Item
+                                        key={view.id}
+                                        value={`view ${view.name} ${view.viewMode} ${view.searchQuery} ${view.selectedTags.join(' ')} ${projectNameById.get(view.projectId) || ''}`}
+                                        onSelect={() => runCommand(() => router.push(buildProjectViewHref(view)))}
+                                        className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
+                                    >
+                                        <div className="w-7 h-7 rounded-md bg-surface-secondary flex items-center justify-center text-muted-foreground group-aria-selected:bg-white/20 group-aria-selected:text-white">
+                                            <ListTodo size={14} />
+                                        </div>
+                                        <div className="flex flex-col flex-1 truncate">
+                                            <span className="truncate text-sm font-medium">{view.name}</span>
+                                            <span className="text-xs text-muted-foreground group-aria-selected:text-white/70">
+                                                {projectNameById.get(view.projectId) || 'Project'} · {view.viewMode}
+                                            </span>
+                                        </div>
+                                        <ArrowRight size={14} className="opacity-0 group-aria-selected:opacity-100 transition-all" />
+                                    </Command.Item>
+                                ))}
+                            </Command.Group>
+                        )}
+
                         {snippets.length > 0 && (
                             <Command.Group heading="Snippets" className="px-1 pb-1 text-xs font-medium text-muted-foreground mt-3 mb-1">
                                 {snippets.map((snippet) => (
                                     <Command.Item
                                         key={snippet.id}
+                                        value={`snippet ${snippet.title} ${snippet.description || ''} ${snippet.language} ${(snippet.tags || []).join(' ')}`}
                                         onSelect={() => runCommand(() => router.push('/snippets'))}
                                         className="flex cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm text-foreground outline-none aria-selected:bg-accent aria-selected:text-white transition-colors gap-3 group"
                                     >

@@ -1,175 +1,190 @@
-# Appwrite Database Schema
+# PostgreSQL Schema
 
-This document outlines the required database, collections, and attributes for **justspace**.
+This document reflects the current PostgreSQL schema used by justspace.
 
-## Database
-- **Name:** `consultant_hub` (or your preferred name)
-- **ID:** Use the ID set in `NEXT_PUBLIC_APPWRITE_DATABASE_ID` in `.env.local`.
+## Migration Files
 
----
+- `backend/migrations/001_initial.up.sql`: base schema
+- `backend/migrations/002_task_tags.up.sql`: adds searchable task tags
+- `backend/migrations/003_task_dependencies_recurrence.up.sql`: adds task dependencies and recurrence persistence
 
-## Automated Setup
+## Core Tables
 
-You can use the provided setup script to automatically create the database, collections, and attributes.
+### users
 
-### Prerequisites
-1.  **Appwrite API Key**: Create an API key in your Appwrite console with the following scopes:
-    - `databases.read`
-    - `databases.write`
-    - `collections.read`
-    - `collections.write`
-    - `attributes.read`
-    - `attributes.write`
-    - `indexes.read`
-    - `indexes.write`
-2.  **Environment Variables**: Ensure your `.env.local` has the following variables:
-    ```env
-    APPWRITE_API_KEY=your_api_key_here
-    NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-    NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
-    NEXT_PUBLIC_APPWRITE_DATABASE_ID=consultant_hub
-    ```
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key, generated with `gen_random_uuid()` |
+| `email` | `varchar(255)` | Unique login identity |
+| `name` | `varchar(255)` | Display name |
+| `password_hash` | `varchar(255)` | Backend-managed password hash |
+| `preferences` | `jsonb` | User settings payload |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-### Running the Script
-Run the following command in your terminal:
-```bash
-pnpm run setup:appwrite
-```
+### projects
 
----
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `name` | `varchar(512)` | Project title |
+| `description` | `text` | Project summary |
+| `status` | `varchar(20)` | `todo`, `in-progress`, `completed` |
+| `days_per_week` | `real` | Optional staffing value |
+| `allocated_days` | `integer` | Optional total allocation |
+| `is_encrypted` | `boolean` | Vault/E2EE flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-## Collections
+Indexes:
 
-### 1. Projects
-- **Collection ID:** `projects`
-- **Permissions:** `Any` or `Authenticated` (Document-level or Collection-level depending on your security needs)
+- `idx_projects_user_id` on `user_id`
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `name` | String | 512 | Yes | The name of the consulting project (Large size for encryption). |
-| `description` | String | 16384 | Yes | Detailed overview of the project. |
-| `status` | String (Enum) | `todo`, `in-progress`, `completed` | Yes | Current status of the project. |
-| `daysPerWeek` | Float | - | No | Amount of days the consultant is on this project per week. |
-| `allocatedDays` | Integer | - | No | Total number of days allocated for this project. |
-| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+### tasks
 
-### 2. Tasks
-- **Collection ID:** `tasks`
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `title` | `varchar(256)` | Task title |
+| `completed` | `boolean` | Completion flag |
+| `parent_id` | `uuid` | Optional self-reference for subtasks |
+| `time_spent` | `integer` | Total tracked seconds |
+| `is_timer_running` | `boolean` | Active timer state |
+| `timer_started_at` | `timestamptz` | Current timer start |
+| `time_entries` | `jsonb` | Historical time-entry array |
+| `sort_order` | `integer` | Manual ordering key |
+| `priority` | `varchar(10)` | `low`, `medium`, `high`, `urgent` |
+| `kanban_status` | `varchar(20)` | `todo`, `in-progress`, `review`, `waiting`, `done` |
+| `deadline` | `timestamptz` | Optional deadline |
+| `notes` | `jsonb` | Communication/history entries |
+| `tags` | `text[]` | Freeform, searchable task tags |
+| `dependencies` | `text[]` | Referenced prerequisite task IDs |
+| `recurrence` | `text` | JSON recurrence rule (`daily`, `weekly`, `monthly`) |
+| `is_encrypted` | `boolean` | Vault/E2EE flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `projectId` | String | 36 | Yes | ID of the parent project. |
-| `title` | String | 256 | Yes | Task title. |
-| `completed` | Boolean | - | No | Task completion status. |
-| `parentId` | String | 36 | No | ID of parent task for nesting. |
-| `timeSpent` | Integer | - | No | Seconds spent on task. |
-| `isTimerRunning` | Boolean | - | No | Active timer status. |
-| `timerStartedAt` | String (ISO) | - | No | Time when current timer started. |
-| `timeEntries` | String Array | 255 | No | Historical log of time entries (JSON stringified). |
-| `order` | Integer | - | No | Display order for DnD. |
-| `priority` | String (Enum) | `low`, `medium`, `high`, `urgent` | No | Task priority level. |
-| `kanbanStatus` | String (Enum) | `todo`, `in-progress`, `review`, `waiting`, `done` | No | Status for Kanban board. |
-| `deadline` | String (ISO) | - | No | Deadline for the task. |
-| `notes` | String Array | 16384 | No | Communication log. JSON: `{"date": "ISOString", "text": "string", "type": "note|email|call"}` |
-| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+Indexes:
 
-### 3. Wiki Guides
-- **Collection ID:** `wiki_guides` (Deployment guides hub)
+- `idx_tasks_project_id` on `project_id`
+- `idx_tasks_user_id` on `user_id`
+- `idx_tasks_tags` GIN index on `tags`
+- `idx_tasks_dependencies` GIN index on `dependencies`
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `title` | String | 512 | Yes | Title of the guide (Large size for encryption). |
-| `description` | String | 16384 | Yes | High-level (Markdown enabled) overview of the stack. |
-| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+Notes:
 
-### 4. Installations
-- **Collection ID:** `installations` (Target-specific details)
+- Task tags are stored in plaintext even when task titles are encrypted.
+- Tag filtering is implemented client-side with match-all semantics for multiple selected tags.
+- Task completion is blocked while incomplete dependencies remain.
+- Completing a recurring top-level task creates the next instance automatically using the stored recurrence rule.
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `guideId` | String | 36 | Yes | ID of the parent Wiki Guide. |
-| `target` | String | 512 | Yes | The target environment (Large size for encryption). |
-| `gitRepo` | String (URL) | 512 | No | URL to the git repository. |
-| `documentation` | String (URL) | 512 | No | URL to official documentation. |
-| `notes` | String (Markdown) | 16384 | No | Specific installation notes or instructions. |
-| `tasks` | String Array | 512 | No | Templated checklist tasks to apply to projects. |
-| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
-| `iv` | String | 32 | No | Initialization vector for encrypted content. |
+### wiki_guides
 
-### 7. User Keys
-- **Collection ID:** `user_keys`
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `title` | `varchar(512)` | Guide title |
+| `description` | `text` | Markdown-capable summary |
+| `is_encrypted` | `boolean` | Vault/E2EE flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `userId` | String | 36 | Yes | ID of the user. |
-| `email` | String | 128 | No | Email of the user. |
-| `publicKey` | String | 1024 | Yes | Public RSA key (SPKI format). |
-| `encryptedPrivateKey` | String | 2048 | Yes | Private RSA key encrypted with vault password. |
-| `salt` | String | 32 | Yes | Salt used for password derivation. |
-| `iv` | String | 32 | Yes | IV for private key encryption. |
+### installations
 
-### 8. Access Control
-- **Collection ID:** `access_control`
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `guide_id` | `uuid` | FK to `wiki_guides(id)` |
+| `target` | `varchar(512)` | Installation target/environment |
+| `git_repo` | `varchar(512)` | Optional repository link |
+| `documentation` | `varchar(512)` | Optional docs link |
+| `notes` | `text` | Target-specific notes |
+| `tasks` | `jsonb` | Installation checklist |
+| `is_encrypted` | `boolean` | Vault/E2EE flag |
+| `iv` | `varchar(32)` | Optional IV for encrypted content |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `resourceId` | String | 36 | Yes | ID of the encrypted resource (e.g., Wiki Guide). |
-| `userId` | String | 36 | Yes | ID of the user who has access. |
-| `encryptedKey` | String | 1024 | Yes | Resource AES key encrypted with owner's public key for persistence. |
-| `resourceType` | String | 32 | Yes | `Wiki`, `Snippet`, etc. |
+### activity
 
-### 5. Activity
-- **Collection ID:** `activity`
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `type` | `varchar(32)` | `create`, `update`, `complete`, `delete`, `work` |
+| `entity_type` | `varchar(32)` | `Project`, `Task`, `Wiki`, `Installation`, `Snippet` |
+| `entity_name` | `varchar(128)` | Human-readable entity name |
+| `project_id` | `uuid` | Optional related project |
+| `metadata` | `varchar(128)` | Optional detail text |
+| `created_at` | `timestamptz` | Event timestamp |
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `type` | String | 32 | Yes | `create`, `update`, `complete`, `delete`, `work`. |
-| `entityType` | String | 32 | Yes | `Project`, `Task`, `Wiki`, `Installation`, `Snippet`. |
-| `entityName` | String | 128 | Yes | Name of the entity being modified. |
-| `projectId` | String | 36 | No | Associated project ID. |
-| `metadata` | String | 128 | No | Context like "Worked 2h 30m". |
+### snippets
 
-### 6. Snippets
-- **Collection ID:** `snippets`
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `title` | `varchar(512)` | Snippet title |
+| `content` | `text` | Primary content |
+| `blocks` | `text` | Optional multi-block JSON payload |
+| `language` | `varchar(32)` | Syntax language |
+| `tags` | `text[]` | Searchable snippet tags |
+| `description` | `varchar(1024)` | Optional description |
+| `is_encrypted` | `boolean` | Vault/E2EE flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `title` | String | 512 | Yes | Snippet title (Large size for encryption). |
-| `content` | String | 16384 | Yes | Code or text content. |
-| `blocks` | String | 16384 | No | JSON stringified multi-block content. |
-| `language` | String | 32 | Yes | Programming language for highlighting. |
-| `tags` | String Array | 255 | No | Searchable tags. |
-| `description` | String | 1024 | No | Additional context. |
-| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+### user_keys
 
-### 9. Resource Versions
-- **Collection ID:** `resource_versions` (Set via `NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID`)
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `email` | `varchar(128)` | Optional cached email |
+| `public_key` | `varchar(1024)` | Public key material |
+| `encrypted_private_key` | `varchar(2048)` | Private key encrypted with vault password |
+| `salt` | `varchar(32)` | Password-derivation salt |
+| `iv` | `varchar(32)` | Encryption IV |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-| Attribute | Type | Size / Options | Required | Description |
-|-----------|------|----------------|----------|-------------|
-| `resourceId` | String | 36 | Yes | ID of the parent resource (Wiki/Snippet). |
-| `resourceType` | String | 16 | Yes | `Wiki`, `Snippet`, or `Installation`. |
-| `content` | String | 16384 | Yes | Content snapshot. |
-| `title` | String | 512 | No | Title snapshot (Large size for encryption). |
-| `metadata` | String | 1024 | No | Change details. |
-| `isEncrypted` | Boolean | - | No | Flag for user-based encryption. |
+### access_control
 
----
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `resource_id` | `uuid` | Related encrypted resource |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `encrypted_key` | `varchar(1024)` | Wrapped document key |
+| `resource_type` | `varchar(32)` | Resource discriminator |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
 
-## Permissions Strategy
+### resource_versions
 
-This project uses **Document Level Security (DLS)** to ensure that data only belongs to the user that created it.
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `resource_id` | `uuid` | Related resource |
+| `resource_type` | `varchar(16)` | `Wiki`, `Snippet`, `Installation` |
+| `content` | `text` | Snapshot payload |
+| `title` | `varchar(512)` | Optional snapshot title |
+| `metadata` | `varchar(1024)` | Optional change metadata |
+| `is_encrypted` | `boolean` | Vault/E2EE flag |
+| `created_at` | `timestamptz` | Snapshot timestamp |
 
-### Collection-Level Permissions
-Permissions are automatically managed by `scripts/setup-appwrite.ts`.
+## Triggers
 
-- **All collections**:
-  - `create(Role.users())`: Any logged-in user can create documents. 
-  - Once created, only the owner has access by default via DLS rules.
-  - Sharing is disabled. All data is private to the creator.
+The schema defines one shared trigger function, `update_updated_at_column()`, and applies it to all mutable tables so `updated_at` changes automatically on updates.
 
----
+## Operational Notes
 
-## Initialization Tips
-- Ensure your `.env.local` file contains the correct `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_DATABASE_ID`, and all `COLLECTION_ID` variables (e.g., `NEXT_PUBLIC_APPWRITE_VERSIONS_COLLECTION_ID`).
-- You can use the [Appwrite CLI](https://appwrite.io/docs/command-line) to automate the creation of these collections if you have many targets.
+- The frontend expects migration files in `backend/migrations` to be applied before the app starts.
+- If you add or change task metadata, update both the Go structs in `backend/internal/models/models.go` and the repository scan/return column lists in `backend/internal/repository/repository.go`.
+- Encrypted projects currently encrypt task titles, while task tags remain plaintext to support filtering.
