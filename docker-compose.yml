@@ -20,7 +20,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./services/backend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -42,7 +42,7 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ./services/frontend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
