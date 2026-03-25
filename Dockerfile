@@ -1,65 +1,72 @@
 FROM node:25-alpine AS base
-LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
 
-# Install dependencies only when needed
-FROM base AS deps
-LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
+# Stage 1: Build the frontend
+FROM base AS frontend-builder
+WORKDIR /app/frontend
 
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
+RUN npm install -g pnpm
 
-# Install pnpm and dependencies
-COPY package.json ./
-RUN corepack enable pnpm && pnpm install
+COPY services/frontend/package.json services/frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Rebuild the source code only when needed
-FROM base AS builder
-LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
+COPY services/frontend/ ./
 
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV GENERATE_SOURCEMAP=false
+ENV NEXT_LINT_DISABLED=1
+ENV NEXT_TYPECHECK_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
-# BUILD TIME: No environment variables needed anymore!
-# The app will read them at runtime from the container environment.
-RUN corepack enable pnpm && pnpm run build
+RUN pnpm run build
 
-# Production image, copy all the files and run next
+# Stage 2: Build the backend
+FROM golang:1.25-alpine AS backend-builder
+WORKDIR /app/backend
+
+ENV GOCACHE=/tmp/go-cache
+ENV GOPATH=/go
+ENV HOME=/tmp
+
+COPY services/backend/go.mod services/backend/go.sum ./
+RUN go mod download
+COPY services/backend/ ./
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o justspace-backend
+
+# Stage 3: Final image
 FROM base AS runner
-LABEL org.opencontainers.image.source = "https://github.com/JustLabV1/justspace"
-
 WORKDIR /app
+
+RUN apk update && apk add --no-cache \
+    ca-certificates \
+    tini \
+    postgresql-client
+
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
+
+RUN mkdir .next \
+    && chown nextjs:nodejs .next
+
+COPY --from=frontend-builder --chown=nextjs:nodejs /app/frontend/.next/standalone ./
+COPY --from=frontend-builder --chown=nextjs:nodejs /app/frontend/.next/static ./.next/static
+COPY --from=frontend-builder --chown=nextjs:nodejs /app/frontend/public /app/public
+
+COPY --from=backend-builder /app/backend/justspace-backend /app/justspace-backend
+
+RUN chown -R nextjs:nodejs /app
+
+RUN mkdir -p /etc/justspace \
+    && chown -R nextjs:nodejs /etc/justspace
+
+RUN mkdir -p /app/data \
+    && chown -R nextjs:nodejs /app/data
 
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Optional: Add volume for persistent config if needed
-RUN mkdir -p /etc/justspace && chown -R nextjs:nodejs /etc/justspace
-VOLUME [ "/etc/justspace" ]
+EXPOSE 8080 3000
 
 USER nextjs
 
-EXPOSE 3000
+ENTRYPOINT ["/sbin/tini", "--"]
 
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# server.js is created by next build from the standalone output
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "./justspace-backend & node /app/server.js"]

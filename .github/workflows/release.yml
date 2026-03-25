@@ -16,21 +16,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Build Combined Docker Image (Stable)
+        if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
+        run: docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:${{ github.sha }} --tag ghcr.io/justlabv1/justspace:${{ github.ref_name }}
+
+      - name: Build Combined Docker Image (Pre-release)
+        if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+        run: docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:beta --tag ghcr.io/justlabv1/justspace:${{ github.sha }} --tag ghcr.io/justlabv1/justspace:${{ github.ref_name }}
+
       - name: Build Frontend Docker Image (Stable)
         if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
-        run: docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:frontend-latest --tag ghcr.io/justlabv1/justspace:frontend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
+        run: cd services/frontend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:frontend-latest --tag ghcr.io/justlabv1/justspace:frontend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
 
       - name: Build Frontend Docker Image (Pre-release)
         if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
-        run: docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:frontend-beta --tag ghcr.io/justlabv1/justspace:frontend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
+        run: cd services/frontend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:frontend-beta --tag ghcr.io/justlabv1/justspace:frontend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
 
       - name: Build Backend Docker Image (Stable)
         if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
-        run: cd backend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:backend-latest --tag ghcr.io/justlabv1/justspace:backend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
+        run: cd services/backend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:backend-latest --tag ghcr.io/justlabv1/justspace:backend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
 
       - name: Build Backend Docker Image (Pre-release)
         if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
-        run: cd backend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:backend-beta --tag ghcr.io/justlabv1/justspace:backend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
+        run: cd services/backend && docker build . --file Dockerfile --tag ghcr.io/justlabv1/justspace:backend-beta --tag ghcr.io/justlabv1/justspace:backend-${{ github.sha }} --tag ghcr.io/justlabv1/justspace:backend-${{ github.ref_name }}
 
       - name: 'Login to GitHub Container Registry'
         uses: docker/login-action@v3
@@ -42,6 +50,9 @@ jobs:
       - name: Push Docker Images (Stable)
         if: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-rc') }}
         run: |
+          docker push ghcr.io/justlabv1/justspace:latest
+          docker push ghcr.io/justlabv1/justspace:${{ github.sha }}
+          docker push ghcr.io/justlabv1/justspace:${{ github.ref_name }}
           docker push ghcr.io/justlabv1/justspace:frontend-latest
           docker push ghcr.io/justlabv1/justspace:frontend-${{ github.sha }}
           docker push ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
@@ -52,6 +63,9 @@ jobs:
       - name: Push Docker Images (Pre-release)
         if: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
         run: |
+          docker push ghcr.io/justlabv1/justspace:beta
+          docker push ghcr.io/justlabv1/justspace:${{ github.sha }}
+          docker push ghcr.io/justlabv1/justspace:${{ github.ref_name }}
           docker push ghcr.io/justlabv1/justspace:frontend-beta
           docker push ghcr.io/justlabv1/justspace:frontend-${{ github.sha }}
           docker push ghcr.io/justlabv1/justspace:frontend-${{ github.ref_name }}
