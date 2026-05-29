@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
+  "extends": [
+    "config:recommended"
+  ],
+
+  "timezone": "Europe/Berlin",
+
+  "labels": ["dependencies"],
+
+  "rangeStrategy": "bump",
+
+  "packageRules": [
+    {
+      "description": "Automerge patch and minor updates",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "minimumReleaseAge": "2 days"
+    },
+    {
+      "description": "Group all minor/patch updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "minimumReleaseAge": "2 days"
+    },
+    {
+      "description": "Separate major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "minimumReleaseAge": "2 days"
+    },
+    {
+      "description": "Go modules",
+      "matchManagers": ["gomod"],
+      "groupName": "go dependencies",
+      "minimumReleaseAge": "2 days"
+    },
+    {
+      "description": "Node / Next.js dependencies",
+      "matchManagers": ["npm"],
+      "groupName": "frontend dependencies",
+      "minimumReleaseAge": "2 days"
+    }
+  ],
+
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am every weekday"]
+  },
+
+  "ignoreDeps": ["eslint"],
+
+  "schedule": ["before 5am every weekday"],
+
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2
+}
