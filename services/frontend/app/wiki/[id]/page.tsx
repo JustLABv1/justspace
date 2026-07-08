@@ -1,6 +1,7 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { EmptyState, EmptyStateAction } from '@/components/EmptyState';
 import { InstallationModal } from '@/components/InstallationModal';
 import { Markdown } from '@/components/Markdown';
 import { ProjectSelectorModal } from '@/components/ProjectSelectorModal';
@@ -11,7 +12,7 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { EncryptedData, InstallationTarget, ResourceVersion, WikiGuide } from '@/services/frontend/types';
-import { Button, toast } from "@heroui/react";
+import { Button, Card, Tabs, toast } from "@heroui/react";
 import {
     BookOpen,
     Edit,
@@ -110,7 +111,10 @@ export default function WikiDetailPage() {
 
     useEffect(() => {
         if ((guide?.installations?.length ?? 0) > 0) {
-            setActiveTab(prev => prev || guide!.installations![0].id);
+            setActiveTab(prev => {
+                const installations = guide!.installations!;
+                return installations.some(inst => inst.id === prev) ? prev : installations[0].id;
+            });
         }
     }, [guide]);
 
@@ -327,25 +331,21 @@ export default function WikiDetailPage() {
 
     if (!guide) {
         return (
-            <div className="p-8 text-center text-muted-foreground text-[13px]">
-                Guide not found.
-            </div>
+            <EmptyState
+                icon={BookOpen}
+                title="Guide not found"
+                description="This knowledge base article may have been deleted or moved."
+            />
         );
     }
 
     if (guide.isEncrypted && !privateKey) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-surface-secondary flex items-center justify-center">
-                    <Lock size={22} className="text-muted-foreground" />
-                </div>
-                <div className="text-center">
-                    <h2 className="text-[15px] font-semibold text-foreground">Secured Guide</h2>
-                    <p className="text-[13px] text-muted-foreground mt-1">
-                        Unlock your vault to access this encrypted guide.
-                    </p>
-                </div>
-            </div>
+            <EmptyState
+                icon={Lock}
+                title="Secured guide"
+                description="Unlock your vault to access this encrypted guide."
+            />
         );
     }
 
@@ -354,7 +354,7 @@ export default function WikiDetailPage() {
     return (
         <div className="w-full px-6 py-8">
             {/* Breadcrumb + Actions */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <nav className="flex items-center gap-1.5 text-[13px]">
                     <Link
                         href="/wiki"
@@ -367,11 +367,12 @@ export default function WikiDetailPage() {
                         {guide.title}
                     </span>
                 </nav>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                     <Button
                         variant="ghost"
                         isIconOnly
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground"
                         onPress={() => setIsHistoryModalOpen(true)}
                         aria-label="Version history"
                     >
@@ -380,7 +381,8 @@ export default function WikiDetailPage() {
                     <Button
                         variant="ghost"
                         isIconOnly
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground"
                         onPress={() => setIsWikiModalOpen(true)}
                         aria-label="Edit guide"
                     >
@@ -388,7 +390,7 @@ export default function WikiDetailPage() {
                     </Button>
                     <Button
                         variant="primary"
-                        className="rounded-xl h-8 px-3 text-[12px] font-medium shadow-sm"
+                        size="sm"
                         onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}
                     >
                         <Plus size={13} className="mr-1.5" />
@@ -399,7 +401,7 @@ export default function WikiDetailPage() {
 
             {/* Guide Header */}
             <div className="mb-8 pb-8 border-b border-border">
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 max-w-4xl">
                     <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
                         <BookOpen size={18} className="text-accent" />
                     </div>
@@ -428,30 +430,31 @@ export default function WikiDetailPage() {
             {/* Installations */}
             {guide.installations.length > 0 ? (
                 <div>
-                    {/* Tab bar */}
-                    <div className="flex items-center gap-0 border-b border-border mb-6 overflow-x-auto no-scrollbar">
-                        {guide.installations.map(inst => (
-                            <button
-                                key={inst.id}
-                                onClick={() => setActiveTab(inst.id)}
-                                className={`px-3.5 py-2 text-[13px] font-medium border-b-2 -mb-px transition-colors shrink-0 ${
-                                    activeTab === inst.id
-                                        ? 'border-accent text-foreground'
-                                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                {inst.target}
-                            </button>
-                        ))}
-                    </div>
+                    <Tabs
+                        selectedKey={activeTab}
+                        onSelectionChange={(key) => setActiveTab(String(key))}
+                        variant="secondary"
+                        className="mb-6 overflow-x-auto no-scrollbar"
+                    >
+                        <Tabs.ListContainer className="min-w-max">
+                            <Tabs.List aria-label="Installation sections" className="w-max">
+                                {guide.installations.map(inst => (
+                                    <Tabs.Tab key={inst.id} id={inst.id} className="shrink-0">
+                                        {inst.target}
+                                        <Tabs.Indicator />
+                                    </Tabs.Tab>
+                                ))}
+                            </Tabs.List>
+                        </Tabs.ListContainer>
+                    </Tabs>
 
                     {/* Active installation content */}
                     {activeInstallation && (
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                             {/* Content card */}
                             <div className="lg:col-span-8">
-                                <div className="rounded-2xl border border-border bg-surface">
-                                    <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+                                <Card variant="default" className="p-0 overflow-hidden">
+                                    <Card.Header className="px-5 py-3.5 border-b border-border flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <BookOpen size={13} className="text-muted-foreground" />
                                             <h2 className="text-[13px] font-semibold text-foreground">
@@ -467,53 +470,59 @@ export default function WikiDetailPage() {
                                             <Button
                                                 variant="ghost"
                                                 isIconOnly
-                                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                                                size="sm"
+                                                className="text-muted-foreground hover:text-foreground"
                                                 onPress={() => { setSelectedInst(activeInstallation); setIsInstHistoryModalOpen(true); }}
+                                                aria-label={`Version history for ${activeInstallation.target}`}
                                             >
                                                 <History size={12} />
                                             </Button>
                                             <Button
                                                 variant="ghost"
                                                 isIconOnly
-                                                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                                                size="sm"
+                                                className="text-muted-foreground hover:text-foreground"
                                                 onPress={() => { setSelectedInst(activeInstallation); setIsInstModalOpen(true); }}
+                                                aria-label={`Edit ${activeInstallation.target}`}
                                             >
                                                 <Edit size={12} />
                                             </Button>
                                             <Button
                                                 variant="ghost"
                                                 isIconOnly
-                                                className="h-7 w-7 rounded-lg text-danger hover:bg-danger/10"
+                                                size="sm"
+                                                className="text-danger hover:bg-danger/10"
                                                 onPress={() => { setSelectedInst(activeInstallation); setIsDeleteModalOpen(true); }}
+                                                aria-label={`Delete ${activeInstallation.target}`}
                                             >
                                                 <Trash2 size={12} />
                                             </Button>
                                         </div>
-                                    </div>
+                                    </Card.Header>
 
-                                    <div className="p-6" ref={contentRef}>
+                                    <Card.Content className="p-6" ref={contentRef}>
                                         {activeInstallation.notes ? (
-                                            <Markdown content={activeInstallation.notes} />
+                                            <Markdown content={activeInstallation.notes} className="max-w-3xl" />
                                         ) : (
-                                            <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
-                                                <div className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center">
-                                                    <Edit size={16} className="text-muted-foreground" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[13px] font-medium text-foreground">No content yet</p>
-                                                    <p className="text-[12px] text-muted-foreground mt-0.5">
-                                                        Click edit to add documentation
-                                                    </p>
-                                                </div>
-                                            </div>
+                                            <EmptyState
+                                                icon={Edit}
+                                                title="No content yet"
+                                                description="Add installation notes, commands, links, or handoff steps for this section."
+                                                action={(
+                                                    <EmptyStateAction onPress={() => { setSelectedInst(activeInstallation); setIsInstModalOpen(true); }}>
+                                                        <Edit size={13} className="mr-1" />
+                                                        Edit section
+                                                    </EmptyStateAction>
+                                                )}
+                                            />
                                         )}
-                                    </div>
+                                    </Card.Content>
 
                                     {(activeInstallation.gitRepo || activeInstallation.documentation) && (
-                                        <div className="px-5 py-3.5 border-t border-border flex items-center gap-2">
+                                        <Card.Footer className="px-5 py-3.5 border-t border-border flex items-center gap-2">
                                             {activeInstallation.gitRepo && (
                                                 <Link href={activeInstallation.gitRepo} target="_blank">
-                                                    <Button variant="secondary" className="rounded-xl h-8 px-3 text-[12px] font-medium">
+                                                    <Button variant="secondary" size="sm">
                                                         <Github size={12} className="mr-1.5" />
                                                         Source
                                                     </Button>
@@ -521,74 +530,69 @@ export default function WikiDetailPage() {
                                             )}
                                             {activeInstallation.documentation && (
                                                 <Link href={activeInstallation.documentation} target="_blank">
-                                                    <Button variant="ghost" className="rounded-xl h-8 px-3 text-[12px] font-medium">
+                                                    <Button variant="ghost" size="sm">
                                                         <ExternalLink size={12} className="mr-1.5" />
                                                         Docs
                                                     </Button>
                                                 </Link>
                                             )}
-                                        </div>
+                                        </Card.Footer>
                                     )}
-                                </div>
+                                </Card>
                             </div>
 
                             {/* Sidebar */}
                             <aside className="lg:col-span-4 space-y-4">
                                 {activeInstallation.tasks && activeInstallation.tasks.length > 0 && (
-                                    <div className="rounded-2xl border border-border bg-surface p-4">
-                                        <div className="flex items-center justify-between mb-4">
+                                    <Card variant="default" className="p-4">
+                                        <Card.Header className="p-0 flex items-center justify-between mb-4">
                                             <h3 className="text-[13px] font-semibold text-foreground">Tasks</h3>
                                             <span className="text-[11px] font-medium text-muted-foreground bg-surface-secondary rounded-full px-2 py-0.5">
                                                 {activeInstallation.tasks.length}
                                             </span>
-                                        </div>
+                                        </Card.Header>
 
-                                        <ul className="space-y-2 mb-4">
-                                            {activeInstallation.tasks.map((task, i) => (
-                                                <li key={i} className="flex items-start gap-2.5">
-                                                    <span className="mt-0.5 w-4 h-4 rounded-full bg-accent/10 text-accent text-[10px] font-bold flex items-center justify-center shrink-0">
-                                                        {i + 1}
-                                                    </span>
-                                                    <span className="text-[12px] text-muted-foreground leading-relaxed">
-                                                        {task}
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <Card.Content className="p-0">
+                                            <ul className="space-y-2 mb-4">
+                                                {activeInstallation.tasks.map((task, i) => (
+                                                    <li key={i} className="flex items-start gap-2.5">
+                                                        <span className="mt-0.5 w-4 h-4 rounded-full bg-accent/10 text-accent text-[10px] font-bold flex items-center justify-center shrink-0">
+                                                            {i + 1}
+                                                        </span>
+                                                        <span className="text-[12px] text-muted-foreground leading-relaxed">
+                                                            {task}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
 
-                                        <Button
-                                            variant="primary"
-                                            className="w-full h-8 rounded-xl text-[12px] font-medium shadow-sm"
-                                            onPress={() => { setSelectedInst(activeInstallation); setIsProjectSelectorOpen(true); }}
-                                        >
-                                            Apply to Project
-                                        </Button>
-                                    </div>
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                className="w-full"
+                                                onPress={() => { setSelectedInst(activeInstallation); setIsProjectSelectorOpen(true); }}
+                                            >
+                                                Apply to Project
+                                            </Button>
+                                        </Card.Content>
+                                    </Card>
                                 )}
                             </aside>
                         </div>
                     )}
                 </div>
             ) : (
-                <div className="py-24 flex flex-col items-center gap-4 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-secondary flex items-center justify-center">
-                        <BookOpen size={22} className="text-muted-foreground" />
-                    </div>
-                    <div>
-                        <h2 className="text-[14px] font-medium text-foreground">No sections yet</h2>
-                        <p className="text-[12px] text-muted-foreground mt-0.5">
-                            Add sections to structure your documentation
-                        </p>
-                    </div>
-                    <Button
-                        variant="primary"
-                        className="rounded-xl h-8 px-4 text-[13px] font-medium"
-                        onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}
-                    >
-                        <Plus size={13} className="mr-1.5" />
-                        Add First Section
-                    </Button>
-                </div>
+                <EmptyState
+                    icon={BookOpen}
+                    title="Add your first section"
+                    description="Sections keep deployment targets, setup notes, and reusable task lists structured inside this guide."
+                    action={(
+                        <EmptyStateAction onPress={() => { setSelectedInst(undefined); setIsInstModalOpen(true); }}>
+                            <Plus size={13} className="mr-1.5" />
+                            Add first section
+                        </EmptyStateAction>
+                    )}
+                />
             )}
 
             <InstallationModal

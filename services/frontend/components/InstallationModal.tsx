@@ -6,6 +6,10 @@ import { Server } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Markdown } from './Markdown';
 
+const fieldClass = "w-full flex flex-col gap-1.5";
+const labelClass = "text-[12px] font-medium text-muted-foreground";
+const inputClass = "h-10 rounded-xl text-sm px-3";
+
 interface InstallationModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -91,12 +95,13 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         value={target}
                                         onChange={setTarget}
                                         isRequired
-                                        className="w-full flex flex-col"
+                                        className={fieldClass}
                                     >
-                                        <Label className="text-[12px] font-medium text-muted-foreground">Target Name</Label>
+                                        <Label className={labelClass}>Target Name</Label>
                                         <Input
                                             placeholder="e.g. Azure, Linux"
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3"
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
 
@@ -105,12 +110,13 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         type="url"
                                         value={gitRepo}
                                         onChange={setGitRepo}
-                                        className="w-full flex flex-col"
+                                        className={fieldClass}
                                     >
-                                        <Label className="text-[12px] font-medium text-muted-foreground">Git Repository</Label>
+                                        <Label className={labelClass}>Git Repository</Label>
                                         <Input
                                             placeholder="https://..."
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3"
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
 
@@ -119,19 +125,20 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                         type="url"
                                         value={documentation}
                                         onChange={setDocumentation}
-                                        className="md:col-span-2 w-full flex flex-col"
+                                        className={`md:col-span-2 ${fieldClass}`}
                                     >
-                                        <Label className="text-[12px] font-medium text-muted-foreground">Documentation URL</Label>
+                                        <Label className={labelClass}>Documentation URL</Label>
                                         <Input
                                             placeholder="https://docs..."
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3"
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
                                 </div>
 
                                 {/* Tasks */}
                                 <div className="flex flex-col gap-1.5">
-                                    <Label className="text-[12px] font-medium text-muted-foreground">
+                                    <Label className={labelClass}>
                                         Tasks <span className="text-muted-foreground/50 font-normal">(one per line)</span>
                                     </Label>
                                     <textarea
@@ -145,7 +152,7 @@ export const InstallationModal = ({ isOpen, onClose, onSubmit, installation, gui
                                 {/* Notes markdown editor */}
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-[12px] font-medium text-muted-foreground">Notes (Markdown)</Label>
+                                        <Label className={labelClass}>Notes (Markdown)</Label>
                                         <div className="flex items-center gap-0.5 p-0.5 bg-surface-secondary rounded-lg">
                                             <button
                                                 type="button"

@@ -1,13 +1,14 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { EmptyState, EmptyStateAction } from '@/components/EmptyState';
 import { ProjectModal } from '@/components/ProjectModal';
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Project } from '@/services/frontend/types';
-import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
+import { Button, Chip, Dropdown, Label, Spinner, Tabs, toast } from "@heroui/react";
 import {
     Archive,
     Edit,
@@ -218,34 +219,37 @@ export default function ProjectsPage() {
                     <h1 className="text-lg font-semibold text-foreground">Projects</h1>
                     <p className="text-[13px] text-muted-foreground">Track and manage your consulting engagements.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <Button
                         variant={showArchived ? 'secondary' : 'ghost'}
                         onPress={() => setShowArchived(v => !v)}
-                        className="h-8 px-3 rounded-xl text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground"
                     >
                         <Archive size={13} className="mr-1.5" />
                         Archived
                     </Button>
-                    <div className="flex rounded-xl border border-border overflow-hidden">
-                        <Button
-                            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
-                            onPress={() => setViewMode('kanban')}
-                            className={`h-8 px-3 rounded-none text-[12px] font-medium transition-colors ${viewMode === 'kanban' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <List size={13} className="mr-1.5" />
-                            Board
-                        </Button>
-                        <Button
-                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                            onPress={() => setViewMode('grid')}
-                            className={`h-8 px-3 rounded-none text-[12px] font-medium transition-colors ${viewMode === 'grid' ? 'bg-surface-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <LayoutGrid size={13} className="mr-1.5" />
-                            Grid
-                        </Button>
-                    </div>
-                    <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                    <Tabs
+                        selectedKey={viewMode}
+                        onSelectionChange={(key) => setViewMode(String(key) as ViewMode)}
+                        className="w-fit"
+                    >
+                        <Tabs.ListContainer>
+                            <Tabs.List aria-label="Project view" className="*:h-8 *:px-3 *:text-xs">
+                                <Tabs.Tab id="kanban">
+                                    <List size={13} className="mr-1.5" />
+                                    Board
+                                    <Tabs.Indicator />
+                                </Tabs.Tab>
+                                <Tabs.Tab id="grid">
+                                    <LayoutGrid size={13} className="mr-1.5" />
+                                    Grid
+                                    <Tabs.Indicator />
+                                </Tabs.Tab>
+                            </Tabs.List>
+                        </Tabs.ListContainer>
+                    </Tabs>
+                    <Button variant="primary" size="sm" onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
                         <Plus size={13} className="mr-1" />
                         New project
                     </Button>
@@ -255,10 +259,11 @@ export default function ProjectsPage() {
             {showArchived ? (
                 <div>
                     {archivedProjects.length === 0 ? (
-                        <div className="py-20 flex flex-col items-center gap-3 text-muted-foreground">
-                            <Archive size={24} />
-                            <p className="text-sm">No archived projects</p>
-                        </div>
+                        <EmptyState
+                            icon={Archive}
+                            title="No archived projects"
+                            description="Archived consulting engagements will appear here when you move them out of active work."
+                        />
                     ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {archivedProjects.map((project) => (
@@ -274,6 +279,20 @@ export default function ProjectsPage() {
                             ))}
                         </div>
                     )}
+                </div>
+            ) : activeProjects.length === 0 ? (
+                <div>
+                    <EmptyState
+                        icon={FolderKanban}
+                        title="Create your first project"
+                        description="Track consulting engagements, weekly capacity, open tasks, and project documentation from one place."
+                        action={(
+                            <EmptyStateAction onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
+                                <Plus size={13} className="mr-1" />
+                                New project
+                            </EmptyStateAction>
+                        )}
+                    />
                 </div>
             ) : viewMode === 'kanban' ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
@@ -403,7 +422,8 @@ function ProjectCard({ project, onEdit, onDelete, onArchive, isArchived }: Proje
                     <Button
                         variant="ghost"
                         isIconOnly
-                        className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        size="sm"
+                        className="md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
                         aria-label="Project actions"
                     >
                         <MoreHorizontal size={13} />

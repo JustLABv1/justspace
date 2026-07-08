@@ -36,71 +36,116 @@
 }
 
 :root {
-  /* Light mode — soft neutral palette */
-  --background: #f8f9fa;
-  --foreground: #1a1a2e;
-  --field-placeholder: var(--muted-foreground);
-  --surface: #ffffff;
-  --surface-secondary: #f1f3f5;
-  --surface-tertiary: #e9ecef;
-  --surface-lowest: #f8f9fa;
-  --border: #dee2e6;
-  --muted: #f1f3f5;
-  --muted-foreground: #868e96;
-  --card: #ffffff;
-  --card-foreground: #1a1a2e;
-  --ring: #5c7cfa;
+  color-scheme: light;
 
-  /* Accent: Soft blue */
-  --accent: #5c7cfa;
-  --accent-foreground: #ffffff;
-  --accent-hover: #4c6ef5;
-  --accent-muted: #edf2ff;
+  /* HeroUI primitives */
+  --white: oklch(100% 0 0);
+  --black: oklch(0% 0 0);
+  --snow: oklch(0.9911 0 0);
+  --eclipse: oklch(0.2103 0.0059 285.89);
+
+  /* Base and surfaces */
+  --background: oklch(0.9702 0 0);
+  --foreground: var(--eclipse);
+  --surface: var(--white);
+  --surface-foreground: var(--foreground);
+  --overlay: var(--white);
+  --overlay-foreground: var(--foreground);
+  --default: oklch(94% 0.001 286.375);
+  --default-foreground: var(--eclipse);
+  --muted: oklch(0.5517 0.0138 285.94);
+  --muted-foreground: var(--muted);
+  --border: oklch(92% 0.004 286.32);
+  --separator: var(--border);
+
+  /* Compatibility surface aliases used by the app */
+  --surface-secondary: var(--default);
+  --surface-tertiary: oklch(90.2% 0.005 286.29);
+  --surface-lowest: var(--background);
+  --card: var(--surface);
+  --card-foreground: var(--surface-foreground);
+
+  /* Accent */
+  --accent: oklch(0.6204 0.195 253.83);
+  --accent-foreground: var(--snow);
+  --accent-hover: oklch(0.565 0.205 253.83);
+  --accent-muted: oklch(0.948 0.035 253.83);
+  --accent-soft: var(--accent-muted);
+  --accent-soft-foreground: var(--accent);
+  --focus: var(--accent);
+  --ring: var(--focus);
+  --link: var(--accent);
+
+  /* Form fields and components */
+  --field-background: var(--white);
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --field-border: transparent;
+  --segment: var(--white);
+  --segment-foreground: var(--foreground);
+  --scrollbar: oklch(87.1% 0.006 286.286);
 
   /* Status */
-  --success: #40c057;
-  --success-foreground: #ffffff;
-  --success-muted: #ebfbee;
-  --warning: #fab005;
-  --warning-foreground: #1a1a2e;
-  --warning-muted: #fff9db;
-  --danger: #fa5252;
-  --danger-foreground: #ffffff;
-  --danger-muted: #fff5f5;
+  --success: oklch(0.7329 0.1935 150.81);
+  --success-foreground: var(--eclipse);
+  --success-muted: oklch(0.955 0.045 150.81);
+  --warning: oklch(0.7819 0.1585 72.33);
+  --warning-foreground: var(--eclipse);
+  --warning-muted: oklch(0.962 0.05 72.33);
+  --danger: oklch(0.6532 0.2328 25.74);
+  --danger-foreground: var(--snow);
+  --danger-muted: oklch(0.955 0.035 25.74);
 }
 
 .dark {
-  /* Dark mode — deep neutral */
-  --background: #0f0f12;
-  --foreground: #e4e4e7;
-  --field-placeholder: var(--muted-foreground);
-  --surface: #1a1a20;
-  --surface-secondary: #212127;
-  --surface-tertiary: #2c2c34;
-  --surface-lowest: #0f0f12;
-  --border: #2c2c34;
-  --muted: #212127;
-  --muted-foreground: #8b8b96;
-  --card: #1a1a20;
-  --card-foreground: #e4e4e7;
-  --ring: #7c8cf5;
+  color-scheme: dark;
 
-  /* Accent */
-  --accent: #7c8cf5;
-  --accent-foreground: #0f0f12;
-  --accent-hover: #6b7cf5;
-  --accent-muted: rgba(124, 140, 245, 0.12);
+  --background: oklch(0.145 0.006 285.93);
+  --foreground: var(--snow);
+  --surface: oklch(0.2103 0.0059 285.89);
+  --surface-foreground: var(--foreground);
+  --overlay: oklch(0.225 0.006 285.89);
+  --overlay-foreground: var(--foreground);
+  --default: oklch(27.4% 0.006 286.033);
+  --default-foreground: var(--snow);
+  --muted: oklch(70.5% 0.015 286.067);
+  --muted-foreground: var(--muted);
+  --border: oklch(27.4% 0.006 286.033);
+  --separator: var(--border);
 
-  /* Status */
-  --success: #51cf66;
-  --success-foreground: #0f0f12;
-  --success-muted: rgba(81, 207, 102, 0.1);
-  --warning: #fcc419;
-  --warning-foreground: #0f0f12;
-  --warning-muted: rgba(252, 196, 25, 0.1);
-  --danger: #ff6b6b;
-  --danger-foreground: #0f0f12;
-  --danger-muted: rgba(255, 107, 107, 0.1);
+  --surface-secondary: var(--default);
+  --surface-tertiary: oklch(32% 0.008 286.03);
+  --surface-lowest: var(--background);
+  --card: var(--surface);
+  --card-foreground: var(--surface-foreground);
+
+  --accent: oklch(0.7204 0.145 253.83);
+  --accent-foreground: var(--eclipse);
+  --accent-hover: oklch(0.665 0.16 253.83);
+  --accent-muted: oklch(0.7204 0.145 253.83 / 18%);
+  --accent-soft: var(--accent-muted);
+  --accent-soft-foreground: var(--accent);
+  --focus: var(--accent);
+  --ring: var(--focus);
+  --link: var(--accent);
+
+  --field-background: var(--default);
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --field-border: transparent;
+  --segment: oklch(0.3964 0.01 285.93);
+  --segment-foreground: var(--foreground);
+  --scrollbar: oklch(70.5% 0.015 286.067);
+
+  --success: oklch(0.7329 0.1935 150.81);
+  --success-foreground: var(--eclipse);
+  --success-muted: oklch(0.7329 0.1935 150.81 / 14%);
+  --warning: oklch(0.8203 0.1388 76.34);
+  --warning-foreground: var(--eclipse);
+  --warning-muted: oklch(0.8203 0.1388 76.34 / 14%);
+  --danger: oklch(0.594 0.1967 24.63);
+  --danger-foreground: var(--snow);
+  --danger-muted: oklch(0.594 0.1967 24.63 / 16%);
 }
 
 @layer base {
@@ -109,7 +154,7 @@
     font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     transition: background-color 150ms ease, color 150ms ease;
-    letter-spacing: -0.011em;
+    letter-spacing: 0;
   }
 
   ::selection {
@@ -133,7 +178,7 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--scrollbar);
     border-radius: 99px;
   }
 
@@ -152,8 +197,6 @@
   }
 }
 
-/* HeroUI uses var(--muted) for inactive tab text — we use --muted as a
-   surface background color, so override to --muted-foreground for readability. */
 .tabs__tab {
   color: var(--muted-foreground);
 }

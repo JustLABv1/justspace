@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { TaskReminderBootstrap } from "@/components/TaskReminderBootstrap";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { VaultBanner } from "@/components/VaultBanner";
+import { VaultSetupNotice } from "@/components/VaultSetupNotice";
 import { AuthProvider, useAuth } from '@/services/frontend/context/AuthContext';
 import { promptForPwaInstall, usePwaInstallState } from '@/services/frontend/lib/pwa';
 import { Avatar, Button, Dropdown, Label } from "@heroui/react";
@@ -237,6 +238,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                 </header>
 
                 <VaultBanner />
+                <VaultSetupNotice />
 					<TaskReminderBootstrap />
 
                 <div className="flex-1 overflow-y-auto no-scrollbar">

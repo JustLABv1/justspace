@@ -6,6 +6,11 @@ import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "
 import { FolderOpen, Lock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
+const fieldClass = "w-full flex flex-col gap-1.5";
+const labelClass = "text-sm font-medium text-muted-foreground";
+const inputClass = "h-10 rounded-xl text-sm px-3";
+const textAreaClass = "rounded-xl text-sm min-h-[90px] p-3 resize-none";
+
 interface ProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -116,24 +121,26 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     </div>
                                 )}
 
-                                <TextField autoFocus isRequired value={name} onChange={setName} className="w-full">
-                                    <Label className="text-sm font-medium text-muted-foreground">Project Name</Label>
+                                <TextField autoFocus isRequired value={name} onChange={setName} className={fieldClass}>
+                                    <Label className={labelClass}>Project Name</Label>
                                     <Input 
                                         placeholder="Enter project name..." 
-                                        className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                        variant="secondary"
+                                        className={inputClass}
                                     />
                                 </TextField>
 
-                                <TextField value={description} onChange={setDescription} className="w-full">
-                                    <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                                <TextField value={description} onChange={setDescription} className={fieldClass}>
+                                    <Label className={labelClass}>Description</Label>
                                     <TextArea 
                                         placeholder="Briefly describe the project objectives..."
-                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[90px] p-3" 
+                                        variant="secondary"
+                                        className={textAreaClass}
                                     />
                                 </TextField>
 
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                                    <Label className={labelClass}>Status</Label>
                                     <div className="flex bg-surface-secondary/50 p-1 rounded-xl border border-border">
                                         {(['todo', 'in-progress', 'completed'] as const).map((s) => (
                                             <Button
@@ -151,23 +158,25 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <TextField value={daysPerWeek} onChange={setDaysPerWeek} className="w-full">
-                                        <Label className="text-sm font-medium text-muted-foreground">Days / Week</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <TextField value={daysPerWeek} onChange={setDaysPerWeek} className={fieldClass}>
+                                        <Label className={labelClass}>Days / Week</Label>
                                         <Input 
                                             type="number"
                                             step="0.5"
                                             placeholder="e.g. 5" 
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
 
-                                    <TextField value={allocatedDays} onChange={setAllocatedDays} className="w-full">
-                                        <Label className="text-sm font-medium text-muted-foreground">Total Allocation</Label>
+                                    <TextField value={allocatedDays} onChange={setAllocatedDays} className={fieldClass}>
+                                        <Label className={labelClass}>Total Allocation</Label>
                                         <Input 
                                             type="number"
                                             placeholder="e.g. 100" 
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
                                 </div>
