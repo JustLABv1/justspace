@@ -1,6 +1,7 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { EmptyState, EmptyStateAction } from '@/components/EmptyState';
 import { SnippetDetailModal } from '@/components/SnippetDetailModal';
 import { SnippetModal } from '@/components/SnippetModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
@@ -9,7 +10,7 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { EncryptedData, ResourceVersion, Snippet } from '@/services/frontend/types';
-import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
+import { Button, Card, Chip, Dropdown, Label, SearchField, Spinner, toast } from "@heroui/react";
 import {
     Code,
     Edit,
@@ -20,7 +21,6 @@ import {
     Lock,
     MoreHorizontal,
     Plus,
-    Search,
     Tag,
     Trash2
 } from "lucide-react";
@@ -256,21 +256,25 @@ export default function SnippetsPage() {
                     <h1 className="text-lg font-semibold text-foreground">Snippets</h1>
                     <p className="text-[13px] text-muted-foreground">Store and reuse your code snippets.</p>
                 </div>
-                <Button variant="primary" className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                <Button variant="primary" size="sm" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
                     <Plus size={13} className="mr-1" />
                     New snippet
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl border border-border px-3 h-9 bg-background max-w-sm focus-within:border-accent transition-colors">
-                <Search size={13} className="text-muted-foreground shrink-0" />
-                <input
-                    className="bg-transparent border-none outline-none flex-1 text-sm placeholder:text-muted-foreground"
-                    placeholder="Search snippets..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-            </div>
+            <SearchField
+                value={searchQuery}
+                onChange={setSearchQuery}
+                variant="secondary"
+                className="max-w-sm"
+                aria-label="Search snippets"
+            >
+                <SearchField.Group className="h-10 rounded-lg">
+                    <SearchField.SearchIcon />
+                    <SearchField.Input placeholder="Search snippets..." />
+                    <SearchField.ClearButton />
+                </SearchField.Group>
+            </SearchField>
 
             <div className="flex gap-6">
                 {/* Collections sidebar */}
@@ -316,34 +320,48 @@ export default function SnippetsPage() {
                 <div className="flex-1 min-w-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSnippets.map((snippet) => (
-                    <div
+                    <Card
                         key={snippet.id}
-                        className="rounded-2xl border border-border bg-surface group flex flex-col overflow-hidden hover:shadow-sm transition-all"
+                        role="article"
+                        aria-labelledby={`snippet-${snippet.id}-title`}
+                        className="group flex h-full flex-col overflow-hidden p-0 transition-shadow hover:shadow-sm"
                     >
                         {/* Clickable content area */}
                         <div
                             className="p-4 flex-1 flex flex-col gap-3 cursor-pointer"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Open snippet ${snippet.title}`}
                             onClick={() => { setSelectedSnippet(snippet); setIsDetailModalOpen(true); }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    setSelectedSnippet(snippet);
+                                    setIsDetailModalOpen(true);
+                                }
+                            }}
                         >
                             <div className="flex items-start gap-3">
                                 <div className="w-8 h-8 rounded-xl bg-warning-muted flex items-center justify-center text-warning shrink-0">
                                     <Code size={15} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <h3 className="text-[13px] font-semibold text-foreground truncate leading-snug flex-1">{snippet.title}</h3>
-                                        {snippet.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
-                                    </div>
-                                    {snippet.description && (
-                                        <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-1">{snippet.description}</p>
-                                    )}
+                                    <Card.Header className="p-0 block">
+                                        <div className="flex items-center gap-1.5">
+                                            <Card.Title id={`snippet-${snippet.id}-title`} className="truncate text-sm leading-snug flex-1">{snippet.title}</Card.Title>
+                                            {snippet.isEncrypted && <Lock size={11} className="text-warning shrink-0" />}
+                                        </div>
+                                        {snippet.description && (
+                                            <Card.Description className="mt-0.5 line-clamp-1 text-xs">{snippet.description}</Card.Description>
+                                        )}
+                                    </Card.Header>
                                 </div>
                                 <Chip size="sm" variant="soft" color="accent" className="shrink-0">
                                     <Chip.Label className="text-[10px] font-mono px-0.5">{snippet.language}</Chip.Label>
                                 </Chip>
                             </div>
 
-                            <div className="rounded-xl bg-surface-secondary border border-border/60 overflow-hidden">
+                            <Card.Content className="rounded-xl bg-surface-secondary border border-border/60 overflow-hidden p-0">
                                 <div className="p-3 font-mono text-[11px] text-muted-foreground overflow-hidden">
                                     {snippet.blocks ? (
                                         (() => {
@@ -358,11 +376,11 @@ export default function SnippetsPage() {
                                         <pre className="line-clamp-4 whitespace-pre-wrap">{snippet.content}</pre>
                                     )}
                                 </div>
-                            </div>
+                            </Card.Content>
                         </div>
 
                         {/* Footer - separate from clickable area */}
-                        <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
+                        <Card.Footer className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
                             <div className="flex flex-wrap gap-1.5 min-w-0 flex-1">
                                 {snippet.tags && snippet.tags.length > 0 ? (
                                     snippet.tags.slice(0, 3).map(tag => (
@@ -376,8 +394,9 @@ export default function SnippetsPage() {
                                 <Button
                                     variant="ghost"
                                     isIconOnly
-                                    className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                    aria-label="Snippet actions"
+                                    size="sm"
+                                    className="shrink-0 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+                                    aria-label={`Actions for ${snippet.title}`}
                                 >
                                     <MoreHorizontal size={13} />
                                 </Button>
@@ -409,15 +428,26 @@ export default function SnippetsPage() {
                                     </Dropdown.Menu>
                                 </Dropdown.Popover>
                             </Dropdown>
-                        </div>
-                    </div>
+                        </Card.Footer>
+                    </Card>
                 ))}
 
                 {filteredSnippets.length === 0 && (
-                    <div className="col-span-full py-20 flex flex-col items-center gap-3 text-muted-foreground">
-                        <Code size={24} />
-                        <p className="text-sm">No snippets found</p>
-                    </div>
+                    <EmptyState
+                        icon={Code}
+                        title={searchQuery || activeCollection ? 'No snippets found' : 'Create your first snippet'}
+                        description={
+                            searchQuery || activeCollection
+                                ? 'No reusable code matches the current search or collection filter.'
+                                : 'Save commands, code blocks, and implementation notes so they are quick to reuse later.'
+                        }
+                        action={!searchQuery && !activeCollection && (
+                            <EmptyStateAction onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                                <Plus size={13} className="mr-1" />
+                                New snippet
+                            </EmptyStateAction>
+                        )}
+                    />
                 )}
             </div>
                 </div>

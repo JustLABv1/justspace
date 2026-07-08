@@ -21,7 +21,7 @@ export default function SignupPage() {
         try {
             await signup(email, password, name);
             toast.success('Account created', {
-                description: 'Welcome to justspace.'
+                description: 'Next step: create your vault to enable encrypted workspace data.'
             });
         } catch (err: unknown) {
             const e = err as { message?: string; response?: { message?: string } };
@@ -36,7 +36,7 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-muted p-4">
+        <div className="min-h-screen flex items-center justify-center bg-surface-lowest p-4">
             <div className="w-full max-w-sm">
                 {/* Logo */}
                 <div className="flex justify-center mb-8">

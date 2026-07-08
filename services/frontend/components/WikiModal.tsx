@@ -7,6 +7,10 @@ import { BookOpen, Lock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Markdown } from './Markdown';
 
+const fieldClass = "w-full flex flex-col gap-1.5";
+const labelClass = "text-[12px] font-medium text-muted-foreground";
+const inputClass = "h-10 rounded-xl text-sm px-3";
+
 interface WikiModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -113,19 +117,20 @@ export const WikiModal = ({ isOpen, onClose, onSubmit, guide }: WikiModalProps) 
                                     onChange={setTitle}
                                     isRequired
                                     fullWidth
-                                    className="w-full flex flex-col"
+                                    className={fieldClass}
                                 >
-                                    <Label className="text-[12px] font-medium text-muted-foreground">Document Title</Label>
+                                    <Label className={labelClass}>Document Title</Label>
                                     <Input
                                         placeholder="e.g. System Architecture Guide"
-                                        className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3"
+                                        variant="secondary"
+                                        className={inputClass}
                                     />
                                 </TextField>
 
                                 {/* Markdown editor */}
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-[12px] font-medium text-muted-foreground">Content (Markdown)</Label>
+                                        <Label className={labelClass}>Content (Markdown)</Label>
                                         <div className="flex items-center gap-0.5 p-0.5 bg-surface-secondary rounded-lg">
                                             <button
                                                 type="button"

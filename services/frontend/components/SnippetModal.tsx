@@ -6,6 +6,11 @@ import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "
 import { Code, FileText, Lock, Trash2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
+const fieldClass = "w-full flex flex-col gap-1.5";
+const labelClass = "text-sm font-medium text-muted-foreground";
+const inputClass = "h-10 rounded-xl text-sm px-3";
+const textAreaClass = "rounded-xl text-sm p-3 resize-none";
+
 interface SnippetModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -120,36 +125,40 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                         
                         <Form onSubmit={handleSubmit} className="flex flex-col min-h-0 overflow-hidden flex-1">
                             <Modal.Body className="px-6 py-4 space-y-4 overflow-y-auto">
-                                <TextField autoFocus isRequired value={title} onChange={setTitle} className="w-full flex flex-col">
-                                    <Label className="text-sm font-medium text-muted-foreground">Title</Label>
+                                <TextField autoFocus isRequired value={title} onChange={setTitle} className={fieldClass}>
+                                    <Label className={labelClass}>Title</Label>
                                     <Input 
                                         placeholder="Snippet title..." 
-                                        className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                        variant="secondary"
+                                        className={inputClass}
                                     />
                                 </TextField>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <TextField isRequired value={language} onChange={setLanguage} className="w-full flex flex-col">
-                                        <Label className="text-sm font-medium text-muted-foreground">Language</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <TextField isRequired value={language} onChange={setLanguage} className={fieldClass}>
+                                        <Label className={labelClass}>Language</Label>
                                         <Input 
                                             placeholder="e.g. typescript, bash" 
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
-                                    <TextField value={tags} onChange={setTags} className="w-full flex flex-col">
-                                        <Label className="text-sm font-medium text-muted-foreground">Tags (comma separated)</Label>
+                                    <TextField value={tags} onChange={setTags} className={fieldClass}>
+                                        <Label className={labelClass}>Tags (comma separated)</Label>
                                         <Input 
                                             placeholder="e.g. azure, auth, deployment" 
-                                            className="h-9 rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 px-3" 
+                                            variant="secondary"
+                                            className={inputClass}
                                         />
                                     </TextField>
                                 </div>
 
-                                <TextField value={description} onChange={setDescription} className="w-full flex flex-col">
-                                    <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                                <TextField value={description} onChange={setDescription} className={fieldClass}>
+                                    <Label className={labelClass}>Description</Label>
                                     <TextArea
                                         placeholder="Short explanation..."
-                                        className="rounded-xl border border-border bg-surface-secondary/50 text-sm mt-1 min-h-[60px] p-3"
+                                        variant="secondary"
+                                        className={`${textAreaClass} min-h-[60px]`}
                                     />
                                 </TextField>
 
@@ -182,7 +191,7 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
 
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-sm font-medium text-muted-foreground">Blocks</Label>
+                                        <Label className={labelClass}>Blocks</Label>
                                         <div className="flex gap-2">
                                             <Button variant="secondary" size="sm" className="h-7 rounded-md text-xs font-medium" onPress={() => addBlock('code')}>
                                                 <Code size={12} className="mr-1" />
@@ -210,7 +219,8 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                                     variant="ghost" 
                                                     size="sm" 
                                                     isIconOnly 
-                                                    className="h-6 w-6 text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove block"
+                                                    className="h-8 w-8 text-danger sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                                     onPress={() => removeBlock(block.id)}
                                                 >
                                                     <Trash2 size={13} />
@@ -218,10 +228,11 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                             </div>
 
                                             {block.type === 'code' && (
-                                                <TextField value={block.language} onChange={(l) => updateBlockLanguage(block.id, l)} className="w-fit">
+                                                <TextField value={block.language} onChange={(l) => updateBlockLanguage(block.id, l)} className="w-fit flex flex-col">
                                                     <Input 
                                                         placeholder="Language..." 
-                                                        className="h-7 px-3 rounded-md border border-border bg-surface-secondary text-xs w-24" 
+                                                        variant="secondary"
+                                                        className="h-8 px-3 rounded-md text-xs w-28"
                                                     />
                                                 </TextField>
                                             )}
@@ -230,7 +241,8 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                                 value={block.content} 
                                                 onChange={(e) => updateBlock(block.id, e.target.value)}
                                                 placeholder={block.type === 'code' ? 'Paste code here...' : 'Enter documentation...'}
-                                                className={`rounded-xl border border-border w-full bg-surface-secondary/50 text-sm min-h-[100px] ${block.type === 'code' ? 'font-mono' : 'font-medium'}`} 
+                                                variant="secondary"
+                                                className={`rounded-xl w-full text-sm min-h-[100px] p-3 resize-none ${block.type === 'code' ? 'font-mono' : 'font-medium'}`}
                                             />
                                         </div>
                                     ))}

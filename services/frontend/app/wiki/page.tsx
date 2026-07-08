@@ -1,6 +1,7 @@
 'use client';
 
 import { DeleteModal } from '@/components/DeleteModal';
+import { EmptyState, EmptyStateAction } from '@/components/EmptyState';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/services/frontend/context/AuthContext';
@@ -8,7 +9,7 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ResourceVersion, WikiGuide } from '@/services/frontend/types';
-import { Button, Dropdown, Label } from "@heroui/react";
+import { Button, Card, Dropdown, Label, SearchField } from "@heroui/react";
 import dayjs from 'dayjs';
 import {
     BookOpen,
@@ -17,11 +18,17 @@ import {
     Lock,
     MoreHorizontal,
     Plus,
-    Search,
     Trash2
 } from "lucide-react";
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+
+function stripMarkdownPreview(content: string) {
+    return content
+        .replace(/#{1,6}\s/g, '')
+        .replace(/[*_`~]/g, '')
+        .replace(/\n+/g, ' ');
+}
 
 export default function WikiPage() {
     const [guides, setGuides] = useState<WikiGuide[]>([]);
@@ -249,18 +256,22 @@ export default function WikiPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-border px-3 h-8 bg-background focus-within:border-accent/60 transition-colors">
-                        <Search size={12} className="text-muted-foreground shrink-0" />
-                        <input
-                            className="bg-transparent border-none outline-none w-36 text-[13px] placeholder:text-muted-foreground"
-                            placeholder="Search guides..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
+                    <SearchField
+                        value={searchTerm}
+                        onChange={setSearchTerm}
+                        variant="secondary"
+                        className="hidden sm:flex w-56"
+                        aria-label="Search guides"
+                    >
+                        <SearchField.Group className="h-9 rounded-lg">
+                            <SearchField.SearchIcon />
+                            <SearchField.Input placeholder="Search guides..." />
+                            <SearchField.ClearButton />
+                        </SearchField.Group>
+                    </SearchField>
                     <Button
                         variant="primary"
-                        className="rounded-xl h-8 px-3.5 text-[13px] font-medium shadow-sm"
+                        size="sm"
                         onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}
                     >
                         <Plus size={13} className="mr-1" />
@@ -270,15 +281,20 @@ export default function WikiPage() {
             </div>
 
             {/* Mobile search */}
-            <div className="sm:hidden flex items-center gap-1.5 rounded-xl border border-border px-3 h-9 bg-background focus-within:border-accent/60 transition-colors mb-6">
-                <Search size={13} className="text-muted-foreground shrink-0" />
-                <input
-                    className="bg-transparent border-none outline-none flex-1 text-[13px] placeholder:text-muted-foreground"
-                    placeholder="Search guides..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
+            <SearchField
+                value={searchTerm}
+                onChange={setSearchTerm}
+                variant="secondary"
+                fullWidth
+                className="sm:hidden mb-6"
+                aria-label="Search guides"
+            >
+                <SearchField.Group className="h-10 rounded-lg">
+                    <SearchField.SearchIcon />
+                    <SearchField.Input placeholder="Search guides..." />
+                    <SearchField.ClearButton />
+                </SearchField.Group>
+            </SearchField>
 
             {/* Count */}
             {filteredGuides.length > 0 && (
@@ -291,38 +307,34 @@ export default function WikiPage() {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredGuides.length === 0 ? (
-                    <div className="col-span-full py-24 flex flex-col items-center gap-4 text-center">
-                        <div className="w-14 h-14 rounded-2xl bg-surface-secondary flex items-center justify-center">
-                            <BookOpen size={22} className="text-muted-foreground" />
-                        </div>
-                        <div>
-                            <p className="text-[14px] font-medium text-foreground">
-                                {searchTerm ? 'No guides found' : 'No guides yet'}
-                            </p>
-                            <p className="text-[12px] text-muted-foreground mt-0.5">
-                                {searchTerm
-                                    ? 'Try a different search term'
-                                    : 'Create your first knowledge base article'}
-                            </p>
-                        </div>
-                        {!searchTerm && (
-                            <Button
-                                variant="primary"
-                                className="rounded-xl h-8 px-4 text-[13px] font-medium"
-                                onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}
-                            >
+                    <EmptyState
+                        icon={BookOpen}
+                        title={searchTerm ? 'No guides found' : 'Create your first guide'}
+                        description={
+                            searchTerm
+                                ? 'No knowledge base article matches this search. Clear it or try a more specific deployment term.'
+                                : 'Capture Markdown notes, deployment steps, and client-specific documentation in one searchable place.'
+                        }
+                        action={!searchTerm && (
+                            <EmptyStateAction onPress={() => { setSelectedGuide(undefined); setIsWikiModalOpen(true); }}>
                                 <Plus size={13} className="mr-1" />
                                 New guide
-                            </Button>
+                            </EmptyStateAction>
                         )}
-                    </div>
+                    />
                 ) : (
                     filteredGuides.map((guide) => (
-                        <div
+                        <Card
                             key={guide.id}
-                            className="rounded-2xl border border-border bg-surface group flex flex-col hover:shadow-sm hover:border-border/80 transition-all overflow-hidden"
+                            role="article"
+                            aria-labelledby={`guide-${guide.id}-title`}
+                            className="group flex h-full flex-col overflow-hidden p-0 transition-shadow hover:shadow-sm"
                         >
-                            <Link href={`/wiki/${guide.id}`} className="p-5 flex-1 flex flex-col gap-4">
+                            <Link
+                                href={`/wiki/${guide.id}`}
+                                aria-label={`Open guide ${guide.title}`}
+                                className="p-5 flex-1 flex flex-col gap-4 rounded-lg focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                            >
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
                                         <BookOpen size={16} className="text-accent" />
@@ -334,22 +346,19 @@ export default function WikiPage() {
                                         </div>
                                     )}
                                 </div>
-                                <div>
-                                    <h3 className="text-[14px] font-semibold text-foreground leading-snug line-clamp-1">
+                                <Card.Header className="p-0 block">
+                                    <Card.Title id={`guide-${guide.id}-title`} className="text-sm leading-snug line-clamp-1">
                                         {guide.title}
-                                    </h3>
+                                    </Card.Title>
                                     {guide.description && (
-                                        <p className="text-[12px] text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-                                            {guide.description
-                                                .replace(/#{1,6}\s/g, '')
-                                                .replace(/[*_`~]/g, '')
-                                                .replace(/\n+/g, ' ')}
-                                        </p>
+                                        <Card.Description className="mt-1.5 line-clamp-2 text-xs leading-relaxed">
+                                            {stripMarkdownPreview(guide.description)}
+                                        </Card.Description>
                                     )}
-                                </div>
+                                </Card.Header>
                             </Link>
 
-                            <div className="px-5 py-3 border-t border-border/60 flex items-center justify-between">
+                            <Card.Footer className="px-5 py-3 border-t border-border/60 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <span className="text-[11px] text-muted-foreground">
                                         {dayjs(guide.createdAt).format('MMM D, YYYY')}
@@ -367,8 +376,9 @@ export default function WikiPage() {
                                     <Button
                                         variant="ghost"
                                         isIconOnly
-                                        className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                        aria-label="Guide actions"
+                                        size="sm"
+                                        className="md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+                                        aria-label={`Actions for ${guide.title}`}
                                     >
                                         <MoreHorizontal size={13} />
                                     </Button>
@@ -395,8 +405,8 @@ export default function WikiPage() {
                                         </Dropdown.Menu>
                                     </Dropdown.Popover>
                                 </Dropdown>
-                            </div>
-                        </div>
+                            </Card.Footer>
+                        </Card>
                     ))
                 )}
             </div>
