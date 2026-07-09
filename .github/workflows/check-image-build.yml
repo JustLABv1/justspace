@@ -20,7 +20,7 @@ jobs:
       backend: ${{ steps.changes.outputs.backend }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: changes
         with:
@@ -36,7 +36,7 @@ jobs:
     if: ${{ needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build Frontend Docker Image
         run: docker build . --file Dockerfile --tag justnz/justspace:test
@@ -47,7 +47,7 @@ jobs:
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build Frontend Docker Image
         run: cd services/frontend && docker build . --file Dockerfile --tag justnz/justspace:frontend-test
@@ -58,7 +58,7 @@ jobs:
     if: ${{ needs.changes.outputs.backend == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build Backend Docker Image
         run: cd services/backend && docker build . --file Dockerfile --tag justnz/justspace:backend-test
