@@ -1,17 +1,19 @@
 # Base image
-FROM node:25.9.0-alpine AS base
+FROM node:26.4.0-alpine AS base
 
 # 1. Platform Setup: Install pnpm and configure auth
 FROM base AS platform
 WORKDIR /app
 
+RUN apk add --upgrade --no-cache libcrypto3 libssl3
+
 # Install pnpm using the secret mount for CA trust
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.33.4
 
 # 2. Dependencies Stage
 FROM platform AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install project dependencies
 RUN pnpm install --frozen-lockfile
