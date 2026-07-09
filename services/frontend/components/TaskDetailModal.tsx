@@ -833,11 +833,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                             </div>
                         </Modal.Header>
                         <Modal.Body className="min-h-0 flex-1 overflow-hidden p-0">
-                            <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+                            <div className="h-full min-h-0 overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden">
                                 {/* Main task work area */}
-                                <div className="min-h-0 border-r border-border bg-surface">
-                                    <ScrollShadow className="h-full p-5" hideScrollBar>
-                                    <div className="h-full flex flex-col gap-6">
+                                <div className="min-h-0 bg-surface lg:border-r lg:border-border">
+                                    <ScrollShadow className="h-auto p-5 lg:h-full" hideScrollBar>
+                                    <div className="flex min-h-[520px] flex-col gap-6 lg:h-full">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
@@ -858,7 +858,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             />
                                         </div>
 
-                                        <div className="flex-grow flex flex-col gap-4 min-h-0">
+                                        <div className="flex min-h-[260px] flex-col gap-4 lg:min-h-0 lg:flex-grow">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
                                                     <Plus size={14} /> Subtasks
@@ -885,7 +885,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 </Button>
                                             </form>
 
-                                            <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
+                                            <ScrollShadow className="-mx-2 max-h-[360px] px-2 lg:flex-1 lg:max-h-none" hideScrollBar>
                                                 <div className="space-y-2">
                                                     {subtasks.length === 0 ? (
                                                         <div className="py-8 text-center border-2 border-dashed border-border/30 rounded-xl">
@@ -1001,9 +1001,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                 </div>
 
                                 {/* Right Side: properties and communication */}
-                                <div className="min-h-0 bg-surface-secondary/25">
-                                    <ScrollShadow className="h-full p-5" hideScrollBar>
-                                    <div className="h-full flex flex-col gap-6">
+                                <div className="min-h-0 border-t border-border bg-surface-secondary/25 lg:border-t-0">
+                                    <ScrollShadow className="h-auto p-5 lg:h-full" hideScrollBar>
+                                    <div className="flex flex-col gap-6 lg:h-full">
                                         <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
                                             <div className="flex items-center justify-between gap-3">
                                                 <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</h4>

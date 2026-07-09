@@ -121,8 +121,8 @@ export function KanbanBoard({
             });
 
             setTasks(filteredTasks);
-            const parentTasks = filteredTasks.filter((task) => !task.parentId).slice(0, 50);
-            const metaEntries = await Promise.all(parentTasks.map(async (task) => {
+            const metaTasks = filteredTasks.slice(0, 100);
+            const metaEntries = await Promise.all(metaTasks.map(async (task) => {
                 try {
                     const [assigneesRes, filesRes, commentsRes] = await Promise.all([
                         db.listTaskAssignees(task.id),
@@ -356,14 +356,41 @@ export function KanbanBoard({
 
                                             {/* Subtask progress */}
                                             {subtasks.length > 0 && (
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div className="flex-1 h-0.5 bg-surface-secondary rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-accent/40 rounded-full transition-all"
-                                                            style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
-                                                        />
+                                                <div className="mt-2 space-y-2 rounded-md border border-border/60 bg-surface-secondary/25 p-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 h-0.5 bg-surface-secondary rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-accent/40 rounded-full transition-all"
+                                                                style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
+                                                            />
+                                                        </div>
+                                                        <span className="text-[10px] text-muted-foreground/60 tabular-nums">{completedSubtasks}/{subtasks.length}</span>
                                                     </div>
-                                                    <span className="text-[10px] text-muted-foreground/60 tabular-nums">{completedSubtasks}/{subtasks.length}</span>
+                                                    <div className="space-y-1">
+                                                        {[...subtasks]
+                                                            .sort((a, b) => Number(a.completed) - Number(b.completed))
+                                                            .slice(0, 3)
+                                                            .map((subtask) => (
+                                                                <button
+                                                                    key={subtask.id}
+                                                                    type="button"
+                                                                    className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-surface-secondary hover:text-foreground"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        setSelectedTask(subtask);
+                                                                        setIsDetailModalOpen(true);
+                                                                    }}
+                                                                >
+                                                                    <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${subtask.completed ? 'border-success bg-success/15 text-success' : 'border-border text-transparent'}`}>
+                                                                        <Check size={9} />
+                                                                    </span>
+                                                                    <span className={`truncate ${subtask.completed ? 'line-through text-muted-foreground/60' : ''}`}>{subtask.title}</span>
+                                                                </button>
+                                                            ))}
+                                                        {subtasks.length > 3 && (
+                                                            <div className="px-1.5 text-[10px] text-muted-foreground/60">+{subtasks.length - 3} more subtasks</div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
 

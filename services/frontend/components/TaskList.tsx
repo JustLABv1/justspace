@@ -117,8 +117,8 @@ export function TaskList({
             }));
 
             setTasks(rawTasks);
-            const parentTasks = rawTasks.filter((task) => !task.parentId).slice(0, 50);
-            const metaEntries = await Promise.all(parentTasks.map(async (task) => {
+            const metaTasks = rawTasks.slice(0, 100);
+            const metaEntries = await Promise.all(metaTasks.map(async (task) => {
                 try {
                     const [assigneesRes, filesRes, commentsRes] = await Promise.all([
                         db.listTaskAssignees(task.id),
@@ -341,6 +341,80 @@ export function TaskList({
         );
     };
 
+    const renderActivity = (task: Task, meta: TaskMeta) => (
+        <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
+            {task.deadline && <span className={`inline-flex items-center gap-1 ${dayjs(task.deadline).isBefore(dayjs(), 'minute') && !task.completed ? 'text-danger' : ''}`}><Calendar size={12} />{dayjs(task.deadline).format('MMM D')}</span>}
+            {task.timeSpent ? <span className="inline-flex items-center gap-1"><Clock size={12} />{Math.floor(task.timeSpent / 3600)}h</span> : null}
+            {meta.comments.length > 0 && <span className="inline-flex items-center gap-1"><MessageCircle size={12} />{meta.comments.length}</span>}
+            {meta.files.length > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={12} />{meta.files.length}</span>}
+        </div>
+    );
+
+    const renderSubtaskRow = (subtask: Task, parentTask: Task, isCompleted = false) => {
+        const status = statusConfig[subtask.completed ? 'done' : (subtask.kanbanStatus || 'todo')];
+        const priority = subtask.priority ? priorityConfig[subtask.priority] : undefined;
+        const meta = taskMeta[subtask.id] || { assignees: [], files: [], comments: [] };
+
+        return (
+            <div
+                key={subtask.id}
+                className={`cursor-pointer border-b border-border/60 bg-surface-secondary/20 p-3 transition-colors hover:bg-surface-secondary/45 md:grid md:grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] md:items-center md:gap-2 md:px-3 md:py-2 ${isCompleted ? 'opacity-60' : ''}`}
+                onClick={() => { if (selectionMode) { toggleSelect(subtask.id); return; } setSelectedTask(subtask); setIsDetailModalOpen(true); }}
+            >
+                <div className="hidden md:block" onClick={(event) => event.stopPropagation()}>
+                    <Checkbox
+                        aria-label={`Select ${subtask.title}`}
+                        isSelected={selectedIds.has(subtask.id)}
+                        onChange={() => { setSelectionMode(true); toggleSelect(subtask.id); }}
+                    >
+                        <Checkbox.Control className="size-4 rounded-md">
+                            <Checkbox.Indicator />
+                        </Checkbox.Control>
+                    </Checkbox>
+                </div>
+
+                <div className="min-w-0 border-l border-border pl-4 md:border-l-0 md:pl-0">
+                    <div className="flex items-center gap-2">
+                        <span className="h-px w-4 bg-border" />
+                        <span className={`truncate text-[13px] font-medium ${subtask.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{subtask.title}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 pl-6 text-[11px] text-muted-foreground">
+                        <span>Subtask of {parentTask.title}</span>
+                        <span>JS-{subtask.id.slice(0, 4).toUpperCase()}</span>
+                        {subtask.tags?.slice(0, 2).map((tag) => <span key={tag}>#{tag}</span>)}
+                    </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 pl-5 md:mt-0 md:pl-0">
+                    <Chip size="sm" variant="soft" color={status.color} className="w-fit rounded-md">
+                        <Chip.Label className="text-[11px]">{status.label}</Chip.Label>
+                    </Chip>
+                    {priority ? (
+                        <Chip size="sm" variant="soft" color={priority.color} className="w-fit rounded-md md:hidden">
+                            <Chip.Label className="text-[11px]">{priority.label}</Chip.Label>
+                        </Chip>
+                    ) : null}
+                    <div className="md:hidden">{renderAssignees(subtask)}</div>
+                    <div className="md:hidden">{renderActivity(subtask, meta)}</div>
+                </div>
+
+                <div className="hidden md:block">
+                    {priority ? (
+                        <Chip size="sm" variant="soft" color={priority.color} className="w-fit rounded-md">
+                            <Chip.Label className="text-[11px]">{priority.label}</Chip.Label>
+                        </Chip>
+                    ) : (
+                        <span className="text-[12px] text-muted-foreground">No priority</span>
+                    )}
+                </div>
+
+                <div className="hidden md:block">{renderAssignees(subtask)}</div>
+                <div className="hidden text-[12px] text-muted-foreground md:block">Child issue</div>
+                <div className="hidden md:block">{renderActivity(subtask, meta)}</div>
+            </div>
+        );
+    };
+
     const renderIssueRow = (task: Task, isCompleted = false) => {
         const subtasks = tasks.filter(st => st.parentId === task.id);
         const completedSubtasks = subtasks.filter(st => st.completed).length;
@@ -349,68 +423,79 @@ export function TaskList({
         const meta = taskMeta[task.id] || { assignees: [], files: [], comments: [] };
 
         return (
-            <div
-                key={task.id}
-                className={`grid grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] items-center gap-2 border-b border-border px-3 py-2.5 text-sm transition-colors hover:bg-surface-secondary/40 ${isCompleted ? 'opacity-60' : ''}`}
-                onClick={() => { if (selectionMode) { toggleSelect(task.id); return; } setSelectedTask(task); setIsDetailModalOpen(true); }}
-            >
-                <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
-                    <Checkbox
-                        aria-label={`Select ${task.title}`}
-                        isSelected={selectedIds.has(task.id)}
-                        onChange={() => { setSelectionMode(true); toggleSelect(task.id); }}
-                    >
-                        <Checkbox.Control className="size-4 rounded-md">
-                            <Checkbox.Indicator />
-                        </Checkbox.Control>
-                    </Checkbox>
-                    <GripVertical size={13} className="hidden text-muted-foreground/40 lg:block" />
+            <div key={task.id}>
+                <div
+                    className={`cursor-pointer border-b border-border p-3 text-sm transition-colors hover:bg-surface-secondary/40 md:grid md:grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] md:items-center md:gap-2 md:px-3 md:py-2.5 ${isCompleted ? 'opacity-60' : ''}`}
+                    onClick={() => { if (selectionMode) { toggleSelect(task.id); return; } setSelectedTask(task); setIsDetailModalOpen(true); }}
+                >
+                    <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                            aria-label={`Select ${task.title}`}
+                            isSelected={selectedIds.has(task.id)}
+                            onChange={() => { setSelectionMode(true); toggleSelect(task.id); }}
+                        >
+                            <Checkbox.Control className="size-4 rounded-md">
+                                <Checkbox.Indicator />
+                            </Checkbox.Control>
+                        </Checkbox>
+                        <GripVertical size={13} className="hidden text-muted-foreground/40 lg:block" />
+                    </div>
+
+                    <div className="mt-2 min-w-0 md:mt-0">
+                        <div className="flex items-center gap-2">
+                            <span className={`truncate font-medium ${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
+                            {task.isEncrypted && <span className="text-[10px] text-warning">secure</span>}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>JS-{task.id.slice(0, 4).toUpperCase()}</span>
+                            {task.tags?.slice(0, 2).map((tag) => <span key={tag}>#{tag}</span>)}
+                            {(task.dependencies || []).length > 0 && <span className="inline-flex items-center gap-1"><GitBranch size={10} />{task.dependencies?.length}</span>}
+                        </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
+                        <Chip size="sm" variant="soft" color={status.color} className="w-fit rounded-md">
+                            <Chip.Label className="text-[11px]">{status.label}</Chip.Label>
+                        </Chip>
+                        {priority ? (
+                            <Chip size="sm" variant="soft" color={priority.color} className="w-fit rounded-md md:hidden">
+                                <Chip.Label className="text-[11px]">{priority.label}</Chip.Label>
+                            </Chip>
+                        ) : null}
+                        <div className="md:hidden">{renderAssignees(task)}</div>
+                        <div className="md:hidden">{renderActivity(task, meta)}</div>
+                    </div>
+
+                    <div className="hidden md:block">
+                        {priority ? (
+                            <Chip size="sm" variant="soft" color={priority.color} className="w-fit rounded-md">
+                                <Chip.Label className="text-[11px]">{priority.label}</Chip.Label>
+                            </Chip>
+                        ) : (
+                            <span className="text-[12px] text-muted-foreground">No priority</span>
+                        )}
+                    </div>
+
+                    <div className="hidden md:block">{renderAssignees(task)}</div>
+
+                    <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground md:mt-0">
+                        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-surface-secondary">
+                            <div className="h-full rounded-full bg-accent" style={{ width: subtasks.length ? `${(completedSubtasks / subtasks.length) * 100}%` : '0%' }} />
+                        </div>
+                        <span>{completedSubtasks}/{subtasks.length}</span>
+                    </div>
+
+                    <div className="hidden md:block">{renderActivity(task, meta)}</div>
                 </div>
 
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className={`truncate font-medium ${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
-                        {task.isEncrypted && <span className="text-[10px] text-warning">secure</span>}
+                {subtasks.length > 0 && (
+                    <div>
+                        {[...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((subtask) => renderSubtaskRow(subtask, task, isCompleted || subtask.completed))}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>JS-{task.id.slice(0, 4).toUpperCase()}</span>
-                        {task.tags?.slice(0, 2).map((tag) => <span key={tag}>#{tag}</span>)}
-                        {(task.dependencies || []).length > 0 && <span className="inline-flex items-center gap-1"><GitBranch size={10} />{task.dependencies?.length}</span>}
-                    </div>
-                </div>
-
-                <Chip size="sm" variant="soft" color={status.color} className="w-fit rounded-md">
-                    <Chip.Label className="text-[11px]">{status.label}</Chip.Label>
-                </Chip>
-
-                {priority ? (
-                    <Chip size="sm" variant="soft" color={priority.color} className="w-fit rounded-md">
-                        <Chip.Label className="text-[11px]">{priority.label}</Chip.Label>
-                    </Chip>
-                ) : (
-                    <span className="text-[12px] text-muted-foreground">No priority</span>
                 )}
-
-                {renderAssignees(task)}
-
-                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                    <div className="h-1.5 w-14 overflow-hidden rounded-full bg-surface-secondary">
-                        <div className="h-full rounded-full bg-accent" style={{ width: subtasks.length ? `${(completedSubtasks / subtasks.length) * 100}%` : '0%' }} />
-                    </div>
-                    <span>{completedSubtasks}/{subtasks.length}</span>
-                </div>
-
-                <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
-                    {task.deadline && <span className={`inline-flex items-center gap-1 ${dayjs(task.deadline).isBefore(dayjs(), 'minute') && !task.completed ? 'text-danger' : ''}`}><Calendar size={12} />{dayjs(task.deadline).format('MMM D')}</span>}
-                    {task.timeSpent ? <span className="inline-flex items-center gap-1"><Clock size={12} />{Math.floor(task.timeSpent / 3600)}h</span> : null}
-                    {meta.comments.length > 0 && <span className="inline-flex items-center gap-1"><MessageCircle size={12} />{meta.comments.length}</span>}
-                    {meta.files.length > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={12} />{meta.files.length}</span>}
-                </div>
-
             </div>
         );
     };
-
     return (
         <div className="flex flex-col h-full gap-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -509,7 +594,7 @@ export function TaskList({
             )}
 
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
-                <div className="flex-grow min-h-[520px] overflow-x-auto pb-2">
+                <div className="flex-grow min-h-[420px] overflow-x-auto pb-2 md:min-h-[520px]">
                     {activeTasks.length === 0 && completedTasks.length === 0 ? (
                         <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
                             <ListChecks size={20} className="text-muted-foreground/40" />
@@ -519,8 +604,8 @@ export function TaskList({
                             </div>
                         </div>
                     ) : (
-                        <div className="min-w-[760px] overflow-hidden rounded-xl border border-border bg-surface">
-                            <div className="grid grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] items-center gap-2 border-b border-border bg-surface-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <div className="overflow-hidden rounded-xl border border-border bg-surface md:min-w-[760px]">
+                            <div className="hidden grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] items-center gap-2 border-b border-border bg-surface-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:grid">
                                 <div onClick={(event) => event.stopPropagation()}>
                                     <Checkbox aria-label="Select visible tasks" isSelected={allVisibleSelected} onChange={togglePageSelection}>
                                         <Checkbox.Control className="size-4 rounded-md">
