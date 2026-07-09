@@ -58,13 +58,18 @@ export function TimelineView({
                 }
             }
 
-            const decrypted = await Promise.all(rawTasks.map(async (task) => {
-                if (task.isEncrypted && docKey) {
-                    try {
-                        const enc = JSON.parse(task.title);
-                        return { ...task, title: await decryptData(enc, docKey) };
-                    } catch { return { ...task, title: 'Decryption Error' }; }
-                }
+	            const decrypted = await Promise.all(rawTasks.map(async (task) => {
+	                if (task.isEncrypted && docKey) {
+	                    try {
+	                        const enc = JSON.parse(task.title);
+	                        const title = await decryptData(enc, docKey);
+	                        let description = task.description || '';
+	                        if (task.description) {
+	                            description = await decryptData(JSON.parse(task.description), docKey);
+	                        }
+	                        return { ...task, title, description };
+	                    } catch { return { ...task, title: 'Decryption Error', description: '' }; }
+	                }
                 return task;
             }));
 

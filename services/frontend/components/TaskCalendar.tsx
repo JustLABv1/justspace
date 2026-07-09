@@ -6,7 +6,7 @@ import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { Project, Task } from '@/services/frontend/types';
 import { Button, Calendar } from '@heroui/react';
-import type { DateValue } from '@internationalized/date';
+import type { CalendarDate } from '@internationalized/date';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { CheckCircle2, Clock } from 'lucide-react';
@@ -27,7 +27,7 @@ const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, l
 
 export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searchQuery = '', selectedTags = [], hideCompleted = false, onUpdate }: TaskCalendarProps) {
     const [fetchedTasks, setFetchedTasks] = useState<Task[]>([]);
-    const [selectedDate, setSelectedDate] = useState<DateValue | null>(() => {
+    const [selectedDate, setSelectedDate] = useState<CalendarDate | null>(() => {
         try { return parseDate(dayjs().format('YYYY-MM-DD')); } catch { return null; }
     });
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -134,7 +134,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
     const selectedDateStr = selectedDate?.toString() ?? '';
     const selectedTasks = sortedTasksByDate[selectedDateStr] ?? [];
 
-    const handleDateChange = (date: DateValue) => {
+    const handleDateChange = (date: CalendarDate) => {
         setSelectedDate(date);
     };
 

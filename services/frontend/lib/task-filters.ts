@@ -31,6 +31,7 @@ export function taskMatchesFilters(task: Task, searchQuery = '', selectedTags: s
 
     const matchesSearch = !normalizedQuery
         || task.title.toLowerCase().includes(normalizedQuery)
+        || (task.description || '').toLowerCase().includes(normalizedQuery)
         || taskTags.some((tag) => tag.includes(normalizedQuery));
 
     const matchesTags = normalizedSelectedTags.length === 0

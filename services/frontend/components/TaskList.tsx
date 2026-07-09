@@ -7,10 +7,10 @@ import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { DEPLOYMENT_TEMPLATES } from '@/services/frontend/lib/templates';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ProjectFile, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
-import { Button, Avatar, Checkbox, Chip, Dropdown, Header, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
+import { Button, Avatar, Checkbox, Chip, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
 import dayjs from 'dayjs';
-import { Calendar, CheckCircle2, ChevronRight, Clock, Filter, GitBranch, GripVertical, ListChecks, MessageCircle, MoreHorizontal, Paperclip, Plus, Search, Square, SquareCheck, Trash2, UserCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronRight, Clock, Filter, GitBranch, GripVertical, ListChecks, MessageCircle, Paperclip, Plus, Search, Trash2, UserCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pagination } from './Pagination';
 import { TaskDetailModal } from './TaskDetailModal';
@@ -96,18 +96,23 @@ export function TaskList({
             }
 
             rawTasks = await Promise.all(rawTasks.map(async (task) => {
-                if (task.isEncrypted) {
-                    if (docKey) {
-                        try {
-                            const titleData = JSON.parse(task.title);
-                            const decryptedTitle = await decryptData(titleData, docKey);
-                            return { ...task, title: decryptedTitle };
-                        } catch {
-                            return { ...task, title: 'Decryption Error' };
-                        }
-                    }
-                    return { ...task, title: 'Encrypted Task' };
-                }
+	                if (task.isEncrypted) {
+	                    if (docKey) {
+	                        try {
+	                            const titleData = JSON.parse(task.title);
+	                            const decryptedTitle = await decryptData(titleData, docKey);
+	                            let decryptedDescription = task.description || '';
+	                            if (task.description) {
+	                                const descriptionData = JSON.parse(task.description);
+	                                decryptedDescription = await decryptData(descriptionData, docKey);
+	                            }
+	                            return { ...task, title: decryptedTitle, description: decryptedDescription };
+	                        } catch {
+	                            return { ...task, title: 'Decryption Error', description: '' };
+	                        }
+	                    }
+	                    return { ...task, title: 'Encrypted Task', description: '' };
+	                }
                 return task;
             }));
 
@@ -244,19 +249,6 @@ export function TaskList({
         }
     };
 
-    const deleteTask = async (taskId: string) => {
-        const previousTasks = [...tasks];
-        try {
-            setTasks(tasks.filter(t => t.id !== taskId));
-            await db.deleteTask(taskId);
-            toast.success('Task deleted');
-        } catch (error) {
-            console.error('Task deletion failed, rolling back:', error);
-            setTasks(previousTasks);
-            toast.danger('Failed to delete task');
-        }
-    };
-
     const toggleSelect = (id: string) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -359,7 +351,7 @@ export function TaskList({
         return (
             <div
                 key={task.id}
-                className={`grid min-w-[880px] grid-cols-[40px_minmax(260px,1fr)_120px_112px_120px_120px_120px_36px] items-center gap-3 border-b border-border px-3 py-2.5 text-sm transition-colors hover:bg-surface-secondary/40 ${isCompleted ? 'opacity-60' : ''}`}
+                className={`grid grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] items-center gap-2 border-b border-border px-3 py-2.5 text-sm transition-colors hover:bg-surface-secondary/40 ${isCompleted ? 'opacity-60' : ''}`}
                 onClick={() => { if (selectionMode) { toggleSelect(task.id); return; } setSelectedTask(task); setIsDetailModalOpen(true); }}
             >
                 <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
@@ -415,23 +407,6 @@ export function TaskList({
                     {meta.files.length > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={12} />{meta.files.length}</span>}
                 </div>
 
-                <Dropdown>
-                    <Dropdown.Trigger>
-                        <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground" onClick={(event) => event.stopPropagation()}>
-                            <MoreHorizontal size={14} />
-                        </Button>
-                    </Dropdown.Trigger>
-                    <Dropdown.Popover placement="bottom end">
-                        <Dropdown.Menu>
-                            <Dropdown.Item id={`open-${task.id}`} textValue="Open" onAction={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}>
-                                <Label className="cursor-pointer text-sm">Open</Label>
-                            </Dropdown.Item>
-                            <Dropdown.Item id={`delete-${task.id}`} textValue="Delete" variant="danger" onAction={() => deleteTask(task.id)}>
-                                <div className="flex items-center gap-2 text-sm"><Trash2 size={13} />Delete</div>
-                            </Dropdown.Item>
-                        </Dropdown.Menu>
-                    </Dropdown.Popover>
-                </Dropdown>
             </div>
         );
     };
@@ -500,15 +475,6 @@ export function TaskList({
                             </Button>
                         </>
                     )}
-                    <Button
-                        variant={selectionMode ? 'primary' : 'secondary'}
-                        size="sm"
-                        className="h-8 px-2.5 rounded-xl text-[12px] font-medium"
-                        onPress={() => { setSelectionMode(v => !v); setSelectedIds(new Set()); }}
-                    >
-                        {selectionMode ? <SquareCheck size={12} className="mr-1" /> : <Square size={12} className="mr-1" />}
-                        Select
-                    </Button>
                 </div>
             </div>
 
@@ -543,7 +509,7 @@ export function TaskList({
             )}
 
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
-                <ScrollShadow className="flex-grow min-h-[520px]" orientation="horizontal">
+                <div className="flex-grow min-h-[520px] overflow-x-auto pb-2">
                     {activeTasks.length === 0 && completedTasks.length === 0 ? (
                         <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
                             <ListChecks size={20} className="text-muted-foreground/40" />
@@ -553,8 +519,8 @@ export function TaskList({
                             </div>
                         </div>
                     ) : (
-                        <div className="overflow-hidden rounded-xl border border-border bg-surface">
-                            <div className="grid min-w-[880px] grid-cols-[40px_minmax(260px,1fr)_120px_112px_120px_120px_120px_36px] items-center gap-3 border-b border-border bg-surface-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <div className="min-w-[760px] overflow-hidden rounded-xl border border-border bg-surface">
+                            <div className="grid grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] items-center gap-2 border-b border-border bg-surface-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                                 <div onClick={(event) => event.stopPropagation()}>
                                     <Checkbox aria-label="Select visible tasks" isSelected={allVisibleSelected} onChange={togglePageSelection}>
                                         <Checkbox.Control className="size-4 rounded-md">
@@ -568,7 +534,6 @@ export function TaskList({
                                 <span>Assignee</span>
                                 <span>Subtasks</span>
                                 <span>Activity</span>
-                                <span />
                             </div>
                                     {paginatedTasks.length === 0 && completedTasks.length === 0 ? (
                                         <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
@@ -621,25 +586,25 @@ export function TaskList({
                             />
                         </div>
                     )}
-                </ScrollShadow>
+                </div>
 
                 <div className="pt-3 border-t border-border">
-                    <form ref={addTaskFormRef} onSubmit={handleAddTask} className="flex items-center gap-2">
-                        <div className="relative flex-grow">
+                    <form ref={addTaskFormRef} onSubmit={handleAddTask} className="rounded-xl border border-border bg-surface-secondary/40 p-2">
+                        <div className="flex items-center gap-2">
                             <Input 
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 placeholder="Add a new task..." 
                                 variant="secondary"
-                                className="h-8 rounded-xl pl-3 pr-10 text-sm"
+                                className="h-10 flex-1 rounded-lg text-sm"
                             />
                             <Button 
                                 type="submit" 
                                 variant="primary" 
-                                isIconOnly 
-                                className="absolute right-1 top-1 h-6 w-6 rounded-md"
+                                className="h-10 rounded-lg px-3 text-xs font-semibold"
                             >
                                 <Plus size={14} />
+                                Add task
                             </Button>
                         </div>
                     </form>

@@ -1,0 +1,85 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.dockerignore'
+      - 'Dockerfile'
+      - 'services/**'
+
+jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.18.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('services/frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: services/backend/go.mod
+          cache-dependency-path: services/backend/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o justspace-backend .

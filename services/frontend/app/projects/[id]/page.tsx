@@ -4,7 +4,6 @@ import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ProjectCollaborationPanel } from '@/components/ProjectCollaborationPanel';
 import { ProjectModal } from '@/components/ProjectModal';
-import { TableView } from '@/components/TableView';
 import { TaskCalendar } from '@/components/TaskCalendar';
 import { TaskList } from '@/components/TaskList';
 import { TemplateModal } from '@/components/TemplateModal';
@@ -33,7 +32,6 @@ import {
     Search,
     ShieldCheck,
     Sparkles,
-    Table2,
     Trash2,
 } from "lucide-react";
 import Link from 'next/link';
@@ -43,7 +41,6 @@ import { useCallback, useEffect, useState } from 'react';
 const VIEW_TABS = [
     { id: 'list',     label: 'List',     icon: LayoutList },
     { id: 'kanban',   label: 'Board',    icon: Kanban },
-    { id: 'table',    label: 'Table',    icon: Table2 },
     { id: 'timeline', label: 'Timeline', icon: GanttChart },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
 ] as const;
@@ -64,6 +61,7 @@ export default function ProjectDetailPage() {
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
 		const requestedView = searchParams.get('view');
+        if (requestedView === 'table') return 'list';
 		return isSavedViewMode(requestedView) ? requestedView : 'kanban';
 	});
     const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
@@ -130,7 +128,7 @@ export default function ProjectDetailPage() {
 		const nextSelectedTags = (params.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
 		const nextHideCompleted = params.get('hideCompleted') === '1';
 
-        setViewMode(isSavedViewMode(nextView) ? nextView : 'kanban');
+        setViewMode(nextView === 'table' ? 'list' : isSavedViewMode(nextView) ? nextView : 'kanban');
         setSearchQuery(nextSearchQuery);
         setSelectedTags(nextSelectedTags);
         setHideCompleted(nextHideCompleted);
@@ -638,9 +636,6 @@ export default function ProjectDetailPage() {
                     {viewMode === 'kanban' && (
                         <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
                     )}
-                    {viewMode === 'table' && (
-                        <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                    )}
                     {viewMode === 'timeline' && (
                         <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                     )}
@@ -655,7 +650,7 @@ export default function ProjectDetailPage() {
                     </Card>
                 </main>
 
-                <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-7rem)]">
+                <aside className="min-w-0 self-start">
                     <ProjectCollaborationPanel project={project} compact />
                 </aside>
             </div>

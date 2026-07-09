@@ -82,16 +82,21 @@ export function KanbanBoard({
             const decryptedTasks = await Promise.all(rawTasks.map(async (task) => {
                 if (task.isEncrypted) {
                     if (docKey) {
-                        try {
-                            const encryptedData = JSON.parse(task.title);
-                            const decryptedTitle = await decryptData(encryptedData, docKey);
-                            return { ...task, title: decryptedTitle };
-                        } catch {
-                            return { ...task, title: 'Decryption Error' };
-                        }
-                    }
-                    return { ...task, title: 'Encrypted Task' };
-                }
+	                        try {
+	                            const encryptedData = JSON.parse(task.title);
+	                            const decryptedTitle = await decryptData(encryptedData, docKey);
+	                            let decryptedDescription = task.description || '';
+	                            if (task.description) {
+	                                const descriptionData = JSON.parse(task.description);
+	                                decryptedDescription = await decryptData(descriptionData, docKey);
+	                            }
+	                            return { ...task, title: decryptedTitle, description: decryptedDescription };
+	                        } catch {
+	                            return { ...task, title: 'Decryption Error', description: '' };
+	                        }
+	                    }
+	                    return { ...task, title: 'Encrypted Task', description: '' };
+	                }
                 return task;
             }));
 

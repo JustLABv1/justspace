@@ -52,6 +52,7 @@ Indexes:
 | `user_id` | `uuid` | FK to `users(id)` |
 | `project_id` | `uuid` | FK to `projects(id)` |
 | `title` | `varchar(256)` | Task title |
+| `description` | `text` | Task description/body shown above subtasks |
 | `completed` | `boolean` | Completion flag |
 | `parent_id` | `uuid` | Optional self-reference for subtasks |
 | `time_spent` | `integer` | Total tracked seconds |

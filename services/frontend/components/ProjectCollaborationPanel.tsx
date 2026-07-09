@@ -268,7 +268,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
     };
 
     return (
-        <div className={`rounded-xl border border-border bg-surface overflow-hidden ${compact ? 'flex h-full min-h-[520px] flex-col' : ''}`}>
+        <div className={`rounded-xl border border-border bg-surface overflow-hidden ${compact ? 'flex flex-col' : ''}`}>
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -308,7 +308,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                 </div>
             </div>
 
-            <Tabs selectedKey={selectedTab} onSelectionChange={(key) => setSelectedTab(key as CollaborationTab)} variant="secondary" className={`w-full ${compact ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
+            <Tabs selectedKey={selectedTab} onSelectionChange={(key) => setSelectedTab(key as CollaborationTab)} variant="secondary" className={`w-full ${compact ? 'flex flex-col' : ''}`}>
                 <Tabs.ListContainer className="border-b border-border px-4">
                     <Tabs.List aria-label="Collaboration tabs" className="h-10 w-full *:flex-1 *:text-sm">
                         <Tabs.Tab id="team" className="px-3">Team<Tabs.Indicator /></Tabs.Tab>
@@ -317,7 +317,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                     </Tabs.List>
                 </Tabs.ListContainer>
 
-                <Tabs.Panel id="team" className={`p-4 ${compact ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
+                <Tabs.Panel id="team" className={`p-4 ${compact ? 'max-h-[360px] overflow-y-auto' : ''}`}>
                     <div className="space-y-3">
                         {members.map((member) => (
                             <div key={member.userId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
@@ -403,7 +403,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                     </div>
                 </Tabs.Panel>
 
-                <Tabs.Panel id="files" className={`p-4 ${compact ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
+                <Tabs.Panel id="files" className={`p-4 ${compact ? 'max-h-[360px] overflow-y-auto' : ''}`}>
                     <div className="space-y-3">
                         {files.length === 0 && (
                             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -416,7 +416,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                     </div>
                 </Tabs.Panel>
 
-                <Tabs.Panel id="activity" className={`p-4 ${compact ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
+                <Tabs.Panel id="activity" className={`p-4 ${compact ? 'max-h-[360px] overflow-y-auto' : ''}`}>
                     <div className="space-y-2">
                         {decryptedActivity.length === 0 && (
                             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">

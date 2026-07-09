@@ -74,6 +74,7 @@ type Task struct {
 	UserID         string          `json:"userId"`
 	ProjectID      string          `json:"projectId"`
 	Title          string          `json:"title"`
+	Description    string          `json:"description"`
 	Completed      bool            `json:"completed"`
 	ParentID       *string         `json:"parentId"`
 	TimeSpent      int             `json:"timeSpent"`
@@ -298,6 +299,7 @@ type CreateProjectFileRequest struct {
 type CreateTaskRequest struct {
 	ProjectID    string   `json:"projectId"`
 	Title        string   `json:"title"`
+	Description  string   `json:"description"`
 	Order        int      `json:"order"`
 	IsEncrypted  bool     `json:"isEncrypted"`
 	ParentID     *string  `json:"parentId,omitempty"`
@@ -315,6 +317,7 @@ type CreateTasksBatchRequest struct {
 
 type UpdateTaskRequest struct {
 	Title          *string          `json:"title,omitempty"`
+	Description    *string          `json:"description,omitempty"`
 	Completed      *bool            `json:"completed,omitempty"`
 	ParentID       *string          `json:"parentId,omitempty"`
 	TimeSpent      *int             `json:"timeSpent,omitempty"`
