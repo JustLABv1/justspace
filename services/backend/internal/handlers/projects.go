@@ -35,6 +35,9 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *ProjectHandler) Get(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
 	id := chi.URLParam(r, "id")
+	if !ensureProjectAccess(w, r, h.repo, id, userID) {
+		return
+	}
 	project, err := h.repo.GetProject(r.Context(), id, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get project")
@@ -61,13 +64,20 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.repo.LogActivity(r.Context(), userID, "create", "Project", project.Name, &project.ID, nil)
-	h.hub.Broadcast(userID, models.WSEvent{Type: "create", Collection: "projects", Document: project, UserID: userID})
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), project.ID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "create", Collection: "projects", Document: project, UserID: userID})
+	if activity, err := h.repo.ListProjectActivity(r.Context(), project.ID, 25); err == nil {
+		h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "project_activity", Document: activity, UserID: userID})
+	}
 	writeJSON(w, http.StatusCreated, project)
 }
 
 func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
 	id := chi.URLParam(r, "id")
+	if !ensureProjectRole(w, r, h.repo, id, userID, "owner", "admin", "editor") {
+		return
+	}
 	var req models.UpdateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -80,13 +90,20 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.repo.LogActivity(r.Context(), userID, "update", "Project", project.Name, &project.ID, nil)
-	h.hub.Broadcast(userID, models.WSEvent{Type: "update", Collection: "projects", Document: project, UserID: userID})
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), project.ID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "projects", Document: project, UserID: userID})
+	if activity, err := h.repo.ListProjectActivity(r.Context(), project.ID, 25); err == nil {
+		h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "project_activity", Document: activity, UserID: userID})
+	}
 	writeJSON(w, http.StatusOK, project)
 }
 
 func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
 	id := chi.URLParam(r, "id")
+	if !ensureProjectRole(w, r, h.repo, id, userID, "owner") {
+		return
+	}
 	if err := h.repo.DeleteProject(r.Context(), id, userID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete project")
 		return

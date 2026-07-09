@@ -403,8 +403,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
             </div>
 
             {isExpanded && (
-                <div className="mx-3 mb-3 mt-0 p-3 bg-surface-secondary/50 rounded-xl border border-border space-y-4">
-                    <div className="space-y-2">
+                <div className="mx-3 mb-3 mt-0 space-y-3 rounded-xl border border-border/70 bg-surface/80 p-3">
+                    <div className="space-y-2 rounded-xl border border-border/60 bg-surface-secondary/20 p-3">
                         <div className="flex items-center justify-between">
                             <h5 className="text-xs font-medium text-muted-foreground">Subtasks</h5>
                             <span className="text-xs text-muted-foreground">{subtasks.filter(s => s.completed).length}/{subtasks.length}</span>
@@ -427,8 +427,6 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 />
                             ))}
                         </div>
-                        </div>
-
                         <form 
                             onSubmit={(e) => {
                                 e.preventDefault();
@@ -443,21 +441,23 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 placeholder="Add subtask..." 
                                 value={newSubtaskTitle}
                                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                className="h-8 rounded-xl bg-background border border-border text-sm pl-3 pr-9"
+                                variant="secondary"
+                                className="h-8 rounded-xl pl-3 pr-9 text-sm"
                             />
                             <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
                                 <Plus size={12} />
                             </Button>
                         </form>
+                    </div>
 
-                    <div className="space-y-2 pt-3 border-t border-border">
+                    <div className="space-y-2 rounded-xl border border-border/60 bg-surface-secondary/20 p-3">
                         <div className="flex items-center justify-between">
                             <h5 className="text-xs font-medium text-muted-foreground">Notes</h5>
                         </div>
 
                         <div className="space-y-1">
                             {parsedNotes.length === 0 ? (
-                                <div className="py-4 flex items-center justify-center gap-2 text-muted-foreground/40">
+                                <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/50 bg-surface/40 py-6 text-muted-foreground/40">
                                     <MessageCircle size={14} />
                                     <p className="text-xs">No notes yet</p>
                                 </div>
@@ -467,7 +467,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         <div key={i} className={`p-2.5 rounded-xl border flex gap-2 group/note ${
                                             editingNoteIndex === note.originalIndex 
                                                 ? 'bg-accent/5 border-accent/30' 
-                                                : 'bg-background border-border'
+                                                : 'bg-surface/55 border-border/60'
                                         }`}>
                                             <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-md flex items-center justify-center ${
                                                 note.type === 'email' ? 'bg-accent/10 text-accent' :
@@ -510,30 +510,30 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                             <form onSubmit={handleAddNote} className="space-y-2">
                                 <div className="flex items-center gap-1.5">
                                     {(['note', 'email', 'call'] as const).map((type) => (
-                                        <button
+                                        <Button
                                             key={type}
                                             type="button"
-                                            className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors capitalize ${
-                                                noteType === type 
-                                                    ? 'bg-accent text-white' 
-                                                    : 'bg-background border border-border text-muted-foreground hover:text-foreground'
-                                            }`}
-                                            onClick={() => setNoteType(type)}
+                                            size="sm"
+                                            variant={noteType === type ? 'primary' : 'secondary'}
+                                            className="h-6 rounded-md px-2 text-xs font-medium capitalize"
+                                            onPress={() => setNoteType(type)}
                                         >
                                             {type}
-                                        </button>
+                                        </Button>
                                     ))}
                                     {editingNoteIndex !== null && (
-                                        <button 
+                                        <Button 
                                             type="button"
-                                            className="ml-auto px-2 py-0.5 rounded-md text-xs text-danger hover:bg-danger/10"
-                                            onClick={() => {
+                                            size="sm"
+                                            variant="ghost"
+                                            className="ml-auto h-6 rounded-md px-2 text-xs text-danger"
+                                            onPress={() => {
                                                 setEditingNoteIndex(null);
                                                 setNewNote('');
                                             }}
                                         >
                                             Cancel
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                                 <div className="relative">
@@ -541,7 +541,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         placeholder={editingNoteIndex !== null ? 'Edit note...' : `Add ${noteType}...`}
                                         value={newNote}
                                         onChange={(e) => setNewNote(e.target.value)}
-                                        className="h-8 rounded-xl bg-background border border-border text-sm pl-3 pr-9"
+                                        variant="secondary"
+                                        className="h-8 rounded-xl pl-3 pr-9 text-sm"
                                     />
                                     <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
                                         <Plus size={12} />

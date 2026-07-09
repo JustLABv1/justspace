@@ -6,7 +6,7 @@ import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Task } from '@/services/frontend/types';
-import { Button, Dropdown, Label, ScrollShadow, toast } from "@heroui/react";
+import { Button, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
 import dayjs from 'dayjs';
 import { Calendar, Check, Clock, Lock, MessageCircle, MoreHorizontal, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -207,8 +207,8 @@ export function KanbanBoard({
     };
 
     if (isLoading) return (
-        <div className="h-64 flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full border-2 border-accent/30 border-t-accent animate-spin" />
+            <div className="h-64 flex items-center justify-center">
+            <Spinner size="sm" color="accent" />
         </div>
     );
 
@@ -274,12 +274,14 @@ export function KanbanBoard({
                                                 </div>
                                                 <Dropdown>
                                                     <Dropdown.Trigger>
-                                                        <button
+                                                        <Button
+                                                            variant="ghost"
+                                                            isIconOnly
+                                                            className="h-6 w-6 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground/50 hover:text-muted-foreground shrink-0"
                                                             onClick={(e) => e.stopPropagation()}
-                                                            className="p-0.5 rounded text-muted-foreground/0 group-hover:text-muted-foreground/50 hover:text-muted-foreground transition-all shrink-0"
                                                         >
                                                             <MoreHorizontal size={13} />
-                                                        </button>
+                                                        </Button>
                                                     </Dropdown.Trigger>
                                                     <Dropdown.Popover placement="bottom end" className="min-w-[140px]">
                                                         <Dropdown.Menu>
@@ -373,7 +375,7 @@ export function KanbanBoard({
                                 {/* Add task inline */}
                                 {addingToColumn === column.id ? (
                                     <div className="p-3 rounded-xl border border-accent/40 bg-surface space-y-2">
-                                        <input
+                                        <Input
                                             ref={newTaskInputRef}
                                             value={newTaskTitle}
                                             onChange={e => setNewTaskTitle(e.target.value)}
@@ -382,7 +384,8 @@ export function KanbanBoard({
                                                 if (e.key === 'Escape') cancelAdding();
                                             }}
                                             placeholder="Task title..."
-                                            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/50 outline-none"
+                                            variant="secondary"
+                                            className="w-full rounded-xl text-[13px]"
                                         />
                                         <div className="flex items-center gap-1.5">
                                             <Button

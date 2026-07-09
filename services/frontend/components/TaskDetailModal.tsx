@@ -1,11 +1,11 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
-import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
+import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { collectTaskTags, normalizeTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { Task } from '@/services/frontend/types';
+import { ProjectFile, Task } from '@/services/frontend/types';
 import {
     Button,
     Calendar,
@@ -22,6 +22,7 @@ import {
     ScrollShadow,
     Tag,
     TagGroup,
+    TextArea,
     TimeField,
     toast,
     useFilter
@@ -30,8 +31,9 @@ import { parseAbsoluteToLocal } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { saveAs } from 'file-saver';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -60,7 +62,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
     const [projectTasks, setProjectTasks] = useState<Task[]>([]);
     const [projectTags, setProjectTags] = useState<string[]>([]);
+    const [taskFiles, setTaskFiles] = useState<ProjectFile[]>([]);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [showDepPicker, setShowDepPicker] = useState(false);
+    const attachmentInputRef = useRef<HTMLInputElement | null>(null);
     const [recurrence, setRecurrence] = useState<{ type: 'daily' | 'weekly' | 'monthly'; interval: number } | null>(() => {
         try { return task.recurrence ? JSON.parse(task.recurrence) : null; } catch { return null; }
     });
@@ -194,8 +199,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             }));
             setProjectTasks(decryptedDepCandidates);
             setProjectTags(collectTaskTags(allTasks));
+            const fileRes = await db.listTaskFiles(task.id);
+            setTaskFiles(fileRes.documents);
         } catch (error) {
-            console.error('Failed to fetch subtasks:', error);
+            console.error('Failed to fetch task details:', error);
         }
     }, [isOpen, projectId, task.id, task.isEncrypted, privateKey, user, documentKey]);
 
@@ -221,6 +228,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                     return;
                 }
 
+                await fetchDetails();
+            }
+            if (event.collection === 'project_files') {
+                const payload = event.document as Partial<ProjectFile> & { taskId?: string };
+                if (payload.taskId !== task.id) return;
                 await fetchDetails();
             }
         });
@@ -471,6 +483,95 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const handleRemoveTags = (keys: Set<React.Key>) => {
         const nextTags = currentTags.filter((tag) => !keys.has(tag));
         void persistTags(nextTags);
+    };
+
+    const handleDownloadFile = async (file: ProjectFile) => {
+        try {
+            const blob = await db.downloadProjectFile(file.id);
+            if (!task.isEncrypted || !documentKey) {
+                saveAs(blob, `task-file-${file.id}`);
+                return;
+            }
+            const encryptedBytes = await blob.arrayBuffer();
+            const decrypted = await decryptBytes({ ciphertext: encryptedBytes, iv: file.iv || '' }, documentKey);
+            const decryptedName = await decryptData(JSON.parse(file.encryptedName), documentKey);
+            saveAs(new Blob([decrypted]), decryptedName);
+        } catch (error) {
+            console.error('Failed to download task file:', error);
+            toast.danger('File download failed');
+        }
+    };
+
+    const handleUploadFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (task.isEncrypted && !documentKey) {
+            toast.danger('Unlock your vault before uploading encrypted files');
+            return;
+        }
+
+        setIsUploadingFile(true);
+        try {
+            let uploadBlob = file;
+            let encryptedName = file.name;
+            const contentType = file.type || 'application/octet-stream';
+            let iv = '';
+
+            if (task.isEncrypted && documentKey) {
+                const [encryptedFile, encryptedFileName] = await Promise.all([
+                    encryptBytes(await file.arrayBuffer(), documentKey),
+                    encryptData(file.name, documentKey),
+                ]);
+                const encryptedBytes = new Uint8Array(encryptedFile.ciphertext.byteLength);
+                encryptedBytes.set(encryptedFile.ciphertext);
+                uploadBlob = new File([encryptedBytes], 'cipher.bin', { type: 'application/octet-stream' });
+                encryptedName = JSON.stringify(encryptedFileName);
+                iv = encryptedFile.iv;
+            }
+
+            const formData = new FormData();
+            formData.append('file', uploadBlob);
+            formData.append('encryptedName', encryptedName);
+            formData.append('contentType', contentType);
+            formData.append('isEncrypted', String(!!task.isEncrypted));
+            if (iv) {
+                formData.append('iv', iv);
+            }
+            await db.uploadTaskFile(task.id, formData);
+            const response = await db.listTaskFiles(task.id);
+            setTaskFiles(response.documents);
+            toast.success('Attachment uploaded');
+        } catch (error) {
+            console.error('Failed to upload task file:', error);
+            toast.danger('File upload failed');
+        } finally {
+            setIsUploadingFile(false);
+            if (attachmentInputRef.current) {
+                attachmentInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDeleteFile = async (fileId: string) => {
+        try {
+            await db.deleteProjectFile(fileId);
+            setTaskFiles((current) => current.filter((file) => file.id !== fileId));
+            toast.success('Attachment removed');
+        } catch (error) {
+            console.error('Failed to delete task file:', error);
+            toast.danger('Failed to remove file');
+        }
+    };
+
+    const resolveFileName = async (file: ProjectFile) => {
+        if (!task.isEncrypted || !documentKey) {
+            return file.encryptedName;
+        }
+        try {
+            return await decryptData(JSON.parse(file.encryptedName), documentKey);
+        } catch {
+            return 'Secure attachment';
+        }
     };
 
     return (
@@ -813,18 +914,62 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         )}
 
+                                        <div className="pt-6 border-t border-border">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                                    <FileText size={13} className="text-muted-foreground" /> Attachments
+                                                </h4>
+                                                <input
+                                                    ref={attachmentInputRef}
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={handleUploadFile}
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-6 px-2 rounded-lg text-[11px] text-accent"
+                                                    isPending={isUploadingFile}
+                                                    onPress={() => attachmentInputRef.current?.click()}
+                                                >
+                                                    <FolderUp size={11} className="mr-1" />
+                                                    Upload
+                                                </Button>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {taskFiles.length === 0 ? (
+                                                    <div className="rounded-xl border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
+                                                        No files attached to this task yet.
+                                                    </div>
+                                                ) : (
+                                                    taskFiles.map((file) => (
+                                                        <TaskAttachmentRow
+                                                            key={file.id}
+                                                            file={file}
+                                                            resolveFileName={resolveFileName}
+                                                            onDownload={() => handleDownloadFile(file)}
+                                                            onDelete={() => handleDeleteFile(file.id)}
+                                                        />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
                                         {/* Dependencies */}
                                         <div className="pt-6 border-t border-border">
                                             <div className="flex items-center justify-between mb-3">
                                                 <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                                                     <GitBranch size={13} className="text-muted-foreground" /> Dependencies
                                                 </h4>
-                                                <button
-                                                    onClick={() => setShowDepPicker(v => !v)}
-                                                    className="text-[11px] text-accent hover:text-accent/80 transition-colors"
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-6 px-2 rounded-lg text-[11px] text-accent"
+                                                    onPress={() => setShowDepPicker(v => !v)}
                                                 >
-                                                    + Add
-                                                </button>
+                                                    <Plus size={11} className="mr-1" />
+                                                    Add
+                                                </Button>
                                             </div>
                                             {showDepPicker && (
                                                 <div className="mb-2 rounded-xl border border-border bg-surface-secondary overflow-hidden max-h-32 overflow-y-auto">
@@ -834,14 +979,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         projectTasks
                                                             .filter(t => !(task.dependencies || []).includes(t.id))
                                                             .map(t => (
-                                                                <button
+                                                                <Button
                                                                     key={t.id}
-                                                                    onClick={() => handleAddDependency(t.id)}
-                                                                    className="w-full text-left px-3 py-2 text-[12px] text-foreground hover:bg-accent/10 transition-colors truncate flex items-center gap-2"
+                                                                    variant="ghost"
+                                                                    className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[12px]"
+                                                                    onPress={() => handleAddDependency(t.id)}
                                                                 >
                                                                     <Link2 size={10} className="text-muted-foreground shrink-0" />
                                                                     {t.title}
-                                                                </button>
+                                                                </Button>
                                                             ))
                                                     )}
                                                 </div>
@@ -856,12 +1002,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             <div key={depId} className="flex items-center gap-2 py-1 px-2 rounded-lg bg-surface-secondary/50 border border-border/60 group">
                                                                 <Link2 size={10} className="text-muted-foreground shrink-0" />
                                                                 <span className="text-[12px] text-foreground truncate flex-1">{depTask?.title || 'Unknown task'}</span>
-                                                                <button
-                                                                    onClick={() => handleRemoveDependency(depId)}
-                                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-danger"
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    isIconOnly
+                                                                    className="h-5 w-5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-danger"
+                                                                    onPress={() => handleRemoveDependency(depId)}
                                                                 >
                                                                     <X size={10} />
-                                                                </button>
+                                                                </Button>
                                                             </div>
                                                         );
                                                     })
@@ -879,37 +1027,36 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             <div className="space-y-2">
                                                 <div className="flex gap-1 flex-wrap">
                                                     {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
-                                                        <button
+                                                        <Button
                                                             key={type}
-                                                            onClick={() => {
+                                                            size="sm"
+                                                            variant={(type === 'none' ? !recurrence : recurrence?.type === type) ? 'primary' : 'secondary'}
+                                                            className="h-7 rounded-lg px-2.5 text-[11px] font-medium"
+                                                            onPress={() => {
                                                                 if (type === 'none') { handleSaveRecurrence(null); }
                                                                 else { handleSaveRecurrence({ type, interval: 1 }); }
                                                             }}
-                                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                                                                (type === 'none' ? !recurrence : recurrence?.type === type)
-                                                                    ? 'bg-accent text-white'
-                                                                    : 'bg-surface-secondary text-muted-foreground hover:text-foreground'
-                                                            }`}
                                                         >
                                                             {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
-                                                        </button>
+                                                        </Button>
                                                     ))}
                                                 </div>
                                                 {recurrence && (
                                                     <div className="flex items-center gap-2 mt-2">
                                                         <span className="text-[11px] text-muted-foreground">Every</span>
-                                                        <input
+                                                        <Input
                                                             type="number"
                                                             min={1}
                                                             max={99}
                                                             value={recurrence.interval}
                                                             onChange={e => {
-                                                                const interval = Math.max(1, parseInt(e.target.value) || 1);
+                                                                const interval = Math.max(1, parseInt(e.target.value, 10) || 1);
                                                                 const updated = { ...recurrence, interval };
                                                                 setRecurrence(updated);
                                                                 handleSaveRecurrence(updated);
                                                             }}
-                                                            className="w-12 text-center bg-surface-secondary text-foreground border border-border rounded-lg px-1 py-0.5 text-[12px] outline-none focus:border-accent"
+                                                            variant="secondary"
+                                                            className="w-16 rounded-lg text-center text-[12px]"
                                                         />
                                                         <span className="text-[11px] text-muted-foreground">
                                                             {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
@@ -1015,11 +1162,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 </Button>
                                             </div>
                                             <div className="relative">
-                                                <textarea
+                                                <TextArea
                                                     value={newNote}
                                                     onChange={(e) => setNewNote(e.target.value)}
                                                     placeholder={editingNoteIndex !== null ? "Edit note..." : `Add ${noteType}...`}
-                                                    className="w-full h-24 p-3 rounded-xl bg-surface-secondary border border-border focus:border-warning/50 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs resize-none text-foreground placeholder:text-muted-foreground/50"
+                                                    rows={5}
+                                                    variant="secondary"
+                                                    className="w-full resize-none rounded-xl text-xs"
                                                 />
                                                 <Button 
                                                     type="submit" 
@@ -1044,5 +1193,63 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 </Modal.Container>
             </Modal.Backdrop>
         </Modal>
+    );
+}
+
+function TaskAttachmentRow({
+    file,
+    resolveFileName,
+    onDownload,
+    onDelete,
+}: {
+    file: ProjectFile;
+    resolveFileName: (file: ProjectFile) => Promise<string>;
+    onDownload: () => void;
+    onDelete: () => void;
+}) {
+    const [displayName, setDisplayName] = useState(file.encryptedName);
+
+    useEffect(() => {
+        let ignore = false;
+        const loadName = async () => {
+            const nextName = await resolveFileName(file);
+            if (!ignore) {
+                setDisplayName(nextName);
+            }
+        };
+        void loadName();
+        return () => {
+            ignore = true;
+        };
+    }, [file, resolveFileName]);
+
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-secondary/20 px-3 py-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-muted-foreground">
+                <FileText size={14} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto justify-start truncate px-0 py-0 text-left text-[12px] font-medium text-foreground hover:text-accent"
+                    onPress={onDownload}
+                >
+                    {displayName}
+                </Button>
+                <div className="text-[11px] text-muted-foreground">
+                    {Math.max(1, Math.round(file.sizeBytes / 1024))} KB
+                    {file.uploaderName ? ` · ${file.uploaderName}` : ''}
+                </div>
+            </div>
+            <Button
+                variant="ghost"
+                isIconOnly
+                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger"
+                onPress={onDelete}
+            >
+                <Trash size={12} />
+            </Button>
+        </div>
     );
 }

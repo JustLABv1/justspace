@@ -15,9 +15,11 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /server .
 COPY migrations/ ./migrations/
+RUN mkdir -p /data/uploads
 
 ENV PORT=8080
 ENV MIGRATIONS_DIR=/app/migrations
+ENV FILE_STORAGE_ROOT=/data/uploads
 
 EXPOSE 8080
 CMD ["./server"]

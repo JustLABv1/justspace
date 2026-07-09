@@ -10,7 +10,7 @@ import { Task } from '@/services/frontend/types';
 import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
+import { Button, Checkbox, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
 import { CheckCircle2, ChevronRight, Filter, ListChecks, Plus, Search, Square, SquareCheck, Trash2 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -396,33 +396,23 @@ export function TaskList({
                         </div>
                     </div>
                 )}
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant={selectionMode ? 'primary' : 'ghost'}
-                        size="sm"
-                        className="h-8 px-2.5 rounded-xl text-[12px] font-medium"
-                        onPress={() => { setSelectionMode(v => !v); setSelectedIds(new Set()); }}
-                    >
-                        {selectionMode ? <SquareCheck size={12} className="mr-1" /> : <Square size={12} className="mr-1" />}
-                        Select
-                    </Button>
-                </div>
-                <div className={`flex items-center gap-2 flex-grow ${!hideHeader ? 'max-w-[400px]' : ''}`}>
+                <div className={`flex items-center gap-2 md:justify-end ${!hideHeader ? 'md:flex-1' : 'flex-grow'}`}>
                     {!externalSearchQuery && !hideHeader && (
                         <>
-                            <div className="relative flex-grow">
+                            <div className="relative flex-grow md:max-w-[320px]">
                                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <Input 
                                     placeholder="Filter tasks..." 
                                     value={internalSearchQuery}
                                     onChange={(e) => { setInternalSearchQuery(e.target.value); setCurrentPage(1); }}
-                                    className="w-full h-8 bg-background border border-border rounded-xl pl-8 text-xs"
+                                    variant="secondary"
+                                    className="w-full h-8 rounded-xl pl-8 text-xs"
                                 />
                             </div>
                             <Button 
                                 variant={internalHideCompleted ? 'primary' : 'secondary'} 
                                 size="sm" 
-                                className="h-8 px-2.5 rounded-xl text-xs border border-border"
+                                className="h-8 px-2.5 rounded-xl text-xs"
                                 onPress={() => { setInternalHideCompleted(!internalHideCompleted); setCurrentPage(1); }}
                             >
                                 <Filter size={12} className="mr-1" />
@@ -430,6 +420,15 @@ export function TaskList({
                             </Button>
                         </>
                     )}
+                    <Button
+                        variant={selectionMode ? 'primary' : 'secondary'}
+                        size="sm"
+                        className="h-8 px-2.5 rounded-xl text-[12px] font-medium"
+                        onPress={() => { setSelectionMode(v => !v); setSelectedIds(new Set()); }}
+                    >
+                        {selectionMode ? <SquareCheck size={12} className="mr-1" /> : <Square size={12} className="mr-1" />}
+                        Select
+                    </Button>
                 </div>
             </div>
 
@@ -452,12 +451,14 @@ export function TaskList({
                     >
                         <Trash2 size={12} className="mr-1" /> Delete
                     </Button>
-                    <button
-                        onClick={() => { setSelectedIds(new Set()); setSelectionMode(false); }}
-                        className="text-[11px] text-muted-foreground hover:text-foreground transition-colors ml-1"
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 rounded-lg text-[12px] text-muted-foreground"
+                        onPress={() => { setSelectedIds(new Set()); setSelectionMode(false); }}
                     >
                         Cancel
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -497,13 +498,17 @@ export function TaskList({
                                         paginatedTasks.map((task) => (
                                             <div key={task.id} className={`relative ${selectionMode ? 'flex items-start gap-2' : ''}`}>
                                                 {selectionMode && (
-                                                    <button
-                                                        onClick={() => toggleSelect(task.id)}
-                                                        className="mt-3 shrink-0 w-4 h-4 rounded border-2 border-border flex items-center justify-center transition-colors hover:border-accent"
-                                                        style={{ background: selectedIds.has(task.id) ? 'var(--color-accent)' : 'transparent', borderColor: selectedIds.has(task.id) ? 'var(--color-accent)' : undefined }}
-                                                    >
-                                                        {selectedIds.has(task.id) && <CheckCircle2 size={10} className="text-white" />}
-                                                    </button>
+                                                    <div className="mt-2.5 shrink-0">
+                                                        <Checkbox
+                                                            aria-label={`Select ${task.title}`}
+                                                            isSelected={selectedIds.has(task.id)}
+                                                            onChange={() => toggleSelect(task.id)}
+                                                        >
+                                                            <Checkbox.Control className="size-5 rounded-lg border-2">
+                                                                <Checkbox.Indicator />
+                                                            </Checkbox.Control>
+                                                        </Checkbox>
+                                                    </div>
                                                 )}
                                                 <div className="flex-1 min-w-0">
                                                     <TaskItem
@@ -532,14 +537,15 @@ export function TaskList({
                         {/* Completed tasks — collapsible, outside DnD */}
                         {completedTasks.length > 0 && !hideCompleted && (
                             <div className="mt-1">
-                                <button
-                                    onClick={() => setShowCompleted(v => !v)}
-                                    className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors py-1.5 px-1"
+                                <Button
+                                    variant="ghost"
+                                    className="h-auto justify-start gap-1.5 px-1 py-1.5 text-[12px] text-muted-foreground"
+                                    onPress={() => setShowCompleted(v => !v)}
                                 >
                                     <ChevronRight size={13} className={`transition-transform duration-150 ${showCompleted ? 'rotate-90' : ''}`} />
                                     <CheckCircle2 size={12} className="text-success" />
                                     {completedTasks.length} completed
-                                </button>
+                                </Button>
                                 {showCompleted && (
                                     <div className="mt-1 space-y-1">
                                         {completedTasks.map(task => (
@@ -550,13 +556,15 @@ export function TaskList({
                                             >
                                                 <CheckCircle2 size={14} className="text-success shrink-0" />
                                                 <span className="text-[13px] text-muted-foreground line-through truncate flex-1">{task.title}</span>
-                                                <button
-                                                    className="text-muted-foreground/40 hover:text-danger transition-colors shrink-0"
-                                                    onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                                                <Button
+                                                    variant="ghost"
+                                                    isIconOnly
+                                                    className="h-6 w-6 rounded-md text-muted-foreground/40 hover:text-danger shrink-0"
+                                                    onPress={() => deleteTask(task.id)}
                                                     aria-label="Delete task"
                                                 >
-                                                    &#x2715;
-                                                </button>
+                                                    <Trash2 size={12} />
+                                                </Button>
                                             </div>
                                         ))}
                                     </div>
@@ -588,7 +596,8 @@ export function TaskList({
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 placeholder="Add a new task..." 
-                                className="h-8 bg-background border border-border rounded-xl pl-3 pr-10 text-sm"
+                                variant="secondary"
+                                className="h-8 rounded-xl pl-3 pr-10 text-sm"
                             />
                             <Button 
                                 type="submit" 
@@ -614,4 +623,3 @@ export function TaskList({
         </div>
     );
 }
-

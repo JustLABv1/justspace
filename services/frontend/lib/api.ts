@@ -267,4 +267,114 @@ export const api = {
             body: JSON.stringify(data),
         });
     },
+
+    // Collaboration
+    async searchUsers<T>(query: string): Promise<ListResponse<T>> {
+        return request(`/api/users/search?q=${encodeURIComponent(query)}`);
+    },
+
+    async listProjectMembers<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/members`);
+    },
+
+    async addProjectMember<T>(projectId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${projectId}/members`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateProjectMember<T>(projectId: string, userId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${projectId}/members/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async removeProjectMember(projectId: string, userId: string): Promise<void> {
+        return request(`/api/projects/${projectId}/members/${userId}`, { method: 'DELETE' });
+    },
+
+    async listProjectInvitations<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/invitations`);
+    },
+
+    async createProjectInvitation<T>(projectId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${projectId}/invitations`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async cancelProjectInvitation(projectId: string, invitationId: string): Promise<void> {
+        return request(`/api/projects/${projectId}/invitations/${invitationId}`, { method: 'DELETE' });
+    },
+
+    async acceptInvitation(data: Record<string, unknown>): Promise<{ projectId: string }> {
+        return request('/api/invitations/accept', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async listProjectFiles<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/files`);
+    },
+
+    async uploadProjectFile<T>(projectId: string, formData: FormData): Promise<T> {
+        const url = `${getBaseURL()}/api/projects/${projectId}/files`;
+        const res = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+        });
+        if (!res.ok) {
+            let message = res.statusText;
+            try {
+                const body = await res.json();
+                message = body.error || message;
+            } catch { /* ignore */ }
+            throw new ApiError(message, res.status);
+        }
+        return res.json();
+    },
+
+    async downloadProjectFile(fileId: string): Promise<Blob> {
+        const url = `${getBaseURL()}/api/files/${fileId}`;
+        const res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) {
+            throw new ApiError(res.statusText, res.status);
+        }
+        return res.blob();
+    },
+
+    async deleteProjectFile(fileId: string): Promise<void> {
+        return request(`/api/files/${fileId}`, { method: 'DELETE' });
+    },
+
+    async listTaskFiles<T>(taskId: string): Promise<ListResponse<T>> {
+        return request(`/api/tasks/${taskId}/files`);
+    },
+
+    async uploadTaskFile<T>(taskId: string, formData: FormData): Promise<T> {
+        const url = `${getBaseURL()}/api/tasks/${taskId}/files`;
+        const res = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+        });
+        if (!res.ok) {
+            let message = res.statusText;
+            try {
+                const body = await res.json();
+                message = body.error || message;
+            } catch { /* ignore */ }
+            throw new ApiError(message, res.status);
+        }
+        return res.json();
+    },
+
+    async listProjectActivity<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/activity`);
+    },
 };

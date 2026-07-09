@@ -1,12 +1,61 @@
 export interface Project {
     id: string;
+    userId?: string;
     name: string;
     description: string;
     status: 'todo' | 'in-progress' | 'completed' | 'archived';
     daysPerWeek?: number;
     allocatedDays?: number;
     isEncrypted?: boolean;
+    role?: 'owner' | 'admin' | 'editor' | 'viewer';
     createdAt: string;
+}
+
+export interface ProjectMember {
+    id: string;
+    projectId: string;
+    userId: string;
+    email: string;
+    name: string;
+    role: 'owner' | 'admin' | 'editor' | 'viewer';
+    joinedAt: string;
+}
+
+export interface TeamInvitation {
+    id: string;
+    projectId: string;
+    email: string;
+    role: 'admin' | 'editor' | 'viewer';
+    token?: string;
+    status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+    invitedUserId?: string;
+    invitedById: string;
+    expiresAt: string;
+    acceptedAt?: string;
+    createdAt: string;
+}
+
+export interface UserLookup {
+    userId: string;
+    email: string;
+    name: string;
+    publicKey?: string;
+    hasVault: boolean;
+}
+
+export interface ProjectFile {
+    id: string;
+    projectId: string;
+    taskId?: string;
+    uploaderId: string;
+    encryptedName: string;
+    contentType: string;
+    iv?: string;
+    sizeBytes: number;
+    storagePath: string;
+    isEncrypted: boolean;
+    createdAt: string;
+    uploaderName?: string;
 }
 
 export interface Task {
@@ -79,7 +128,7 @@ export interface AccessControl {
 export interface ActivityLog {
     id: string;
     type: 'create' | 'update' | 'delete' | 'complete' | 'work';
-    entityType: 'Project' | 'Task' | 'Wiki' | 'Installation' | 'Snippet';
+    entityType: 'Project' | 'Task' | 'Wiki' | 'Installation' | 'Snippet' | 'File';
     entityName: string;
     projectId?: string;
     metadata?: string; // For things like "Worked 2h 30m"

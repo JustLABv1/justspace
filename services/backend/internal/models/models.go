@@ -24,8 +24,49 @@ type Project struct {
 	DaysPerWeek   *float64  `json:"daysPerWeek"`
 	AllocatedDays *int      `json:"allocatedDays"`
 	IsEncrypted   bool      `json:"isEncrypted"`
+	Role          *string   `json:"role,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type ProjectMember struct {
+	ID        string    `json:"id"`
+	ProjectID string    `json:"projectId"`
+	UserID    string    `json:"userId"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	Role      string    `json:"role"`
+	JoinedAt  time.Time `json:"joinedAt"`
+}
+
+type TeamInvitation struct {
+	ID            string     `json:"id"`
+	ProjectID     string     `json:"projectId"`
+	Email         string     `json:"email"`
+	Role          string     `json:"role"`
+	Token         *string    `json:"token,omitempty"`
+	Status        string     `json:"status"`
+	InvitedUserID *string    `json:"invitedUserId,omitempty"`
+	InvitedByID   string     `json:"invitedById"`
+	ExpiresAt     time.Time  `json:"expiresAt"`
+	AcceptedAt    *time.Time `json:"acceptedAt,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+}
+
+type ProjectFile struct {
+	ID            string    `json:"id"`
+	ProjectID     string    `json:"projectId"`
+	TaskID        *string   `json:"taskId,omitempty"`
+	UploaderID    string    `json:"uploaderId"`
+	EncryptedName string    `json:"encryptedName"`
+	ContentType   string    `json:"contentType"`
+	IV            *string   `json:"iv,omitempty"`
+	SizeBytes     int64     `json:"sizeBytes"`
+	StoragePath   string    `json:"storagePath"`
+	IsEncrypted   bool      `json:"isEncrypted"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UploaderName  *string   `json:"uploaderName,omitempty"`
+	DownloadURL   *string   `json:"downloadUrl,omitempty"`
 }
 
 type Task struct {
@@ -120,6 +161,14 @@ type UserKeys struct {
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
+type UserLookup struct {
+	UserID    string  `json:"userId"`
+	Email     string  `json:"email"`
+	Name      string  `json:"name"`
+	PublicKey *string `json:"publicKey,omitempty"`
+	HasVault  bool    `json:"hasVault"`
+}
+
 type AccessControl struct {
 	ID           string    `json:"id"`
 	ResourceID   string    `json:"resourceId"`
@@ -181,6 +230,38 @@ type UpdateProjectRequest struct {
 	DaysPerWeek   *float64 `json:"daysPerWeek,omitempty"`
 	AllocatedDays *int     `json:"allocatedDays,omitempty"`
 	IsEncrypted   *bool    `json:"isEncrypted,omitempty"`
+}
+
+type CreateProjectMemberRequest struct {
+	ProjectID    string  `json:"projectId"`
+	UserID       string  `json:"userId"`
+	Role         string  `json:"role"`
+	EncryptedKey *string `json:"encryptedKey,omitempty"`
+	ResourceType *string `json:"resourceType,omitempty"`
+}
+
+type UpdateProjectMemberRequest struct {
+	Role string `json:"role"`
+}
+
+type CreateInvitationRequest struct {
+	ProjectID    string  `json:"projectId"`
+	Email        string  `json:"email"`
+	Role         string  `json:"role"`
+	EncryptedKey *string `json:"encryptedKey,omitempty"`
+}
+
+type AcceptInvitationRequest struct {
+	Token string `json:"token"`
+}
+
+type CreateProjectFileRequest struct {
+	ProjectID     string `json:"projectId"`
+	TaskID        string `json:"taskId"`
+	EncryptedName string `json:"encryptedName"`
+	ContentType   string `json:"contentType"`
+	IV            string `json:"iv"`
+	IsEncrypted   bool   `json:"isEncrypted"`
 }
 
 type CreateTaskRequest struct {

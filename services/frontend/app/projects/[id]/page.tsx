@@ -2,6 +2,7 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { ProjectCollaborationPanel } from '@/components/ProjectCollaborationPanel';
 import { ProjectModal } from '@/components/ProjectModal';
 import { TableView } from '@/components/TableView';
 import { TaskCalendar } from '@/components/TaskCalendar';
@@ -15,7 +16,7 @@ import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserP
 import { collectTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Project, Task } from '@/services/frontend/types';
-import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
+import { Button, Card, Chip, Dropdown, Label, Spinner, Tabs, toast } from "@heroui/react";
 import {
     Calendar,
     ChevronDown,
@@ -357,248 +358,291 @@ export default function ProjectDetailPage() {
 
     return (
         <div className="w-full px-6 py-6 space-y-6 transition-all">
-            {/* Breadcrumb + Actions */}
-            <div className="flex items-center justify-between">
-                <nav className="flex items-center gap-1.5 text-sm">
-                    <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-                        Projects
-                    </Link>
-                    <span className="text-border">›</span>
-                    <span className="text-foreground font-medium">{project.name}</span>
-                </nav>
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
+                <Card variant="default" className="rounded-2xl border border-border bg-surface">
+                    <Card.Header className="border-b border-border px-5 py-4">
+                        <div className="flex w-full items-start justify-between gap-4">
+                            <div className="space-y-3 min-w-0">
+                                <nav className="flex items-center gap-1.5 text-sm">
+                                    <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
+                                        Projects
+                                    </Link>
+                                    <span className="text-border">›</span>
+                                    <span className="text-foreground font-medium">{project.name}</span>
+                                </nav>
 
-                <Dropdown>
-                    <Dropdown.Trigger>
-                        <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground">
-                            <MoreHorizontal size={16} />
-                        </Button>
-                    </Dropdown.Trigger>
-                    <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
-                        <Dropdown.Menu>
-                            <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
-                                <div className="flex items-center gap-2"><Edit size={13} /><Label className="cursor-pointer text-[13px]">Edit</Label></div>
-                            </Dropdown.Item>
-                            <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
-                                <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
-                            </Dropdown.Item>
-                            <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
-                                <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
-                            </Dropdown.Item>
-                        </Dropdown.Menu>
-                    </Dropdown.Popover>
-                </Dropdown>
-            </div>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2.5">
+                                        <Card.Title className="text-2xl font-semibold text-foreground">{project.name}</Card.Title>
+                                        {project.isEncrypted && <Lock size={14} className="text-warning" />}
+                                        {project.role && (
+                                            <Chip size="sm" variant="soft" color="accent" className="h-5 rounded-md">
+                                                <Chip.Label className="text-[10px] font-semibold px-0.5">{project.role}</Chip.Label>
+                                            </Chip>
+                                        )}
+                                    </div>
 
-            {/* Project Header */}
-            <div className="space-y-3">
-                <div className="flex items-center gap-2.5">
-                    <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
-                    {project.isEncrypted && <Lock size={14} className="text-warning" />}
-                </div>
+                                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                        <Chip size="sm" variant="soft" color={status.color} className="h-5 rounded-md">
+                                            <Chip.Label className="text-[10px] font-semibold px-0.5">{status.label}</Chip.Label>
+                                        </Chip>
 
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                    <Chip size="sm" variant="soft" color={status.color} className="h-5 rounded-md">
-                        <Chip.Label className="text-[10px] font-semibold px-0.5">{status.label}</Chip.Label>
-                    </Chip>
-
-                    {project.daysPerWeek && (
-                        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                            <Calendar size={13} />
-                            <span>{project.daysPerWeek} days/week</span>
-                        </div>
-                    )}
-                    {project.allocatedDays && (
-                        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                            <Clock size={13} />
-                            <span>{project.allocatedDays} days total</span>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                        <Calendar size={12} />
-                        <span>{new Date(project.createdAt).toLocaleDateString()}</span>
-                    </div>
-                </div>
-
-                {project.description && (
-                    <p className="text-[13px] text-muted-foreground max-w-2xl">{project.description}</p>
-                )}
-            </div>
-
-            {/* Tabs + Actions */}
-            <div>
-                <div className="flex items-center justify-between border-b border-border">
-                    <div className="flex items-center">
-                        {VIEW_TABS.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setViewMode(tab.id)}
-                                className={`flex items-center gap-1.5 px-4 h-10 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
-                                    viewMode === tab.id
-                                        ? 'border-accent text-foreground'
-                                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                <tab.icon size={14} />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <Button
-                        variant="primary"
-                        className="rounded-xl h-8 px-3.5 text-[12px] font-semibold mb-1"
-                        onPress={handleAddTask}
-                    >
-                        <Plus size={14} className="mr-1" />
-                        Add new task
-                    </Button>
-                </div>
-
-                {/* Toolbar */}
-                <div className="flex flex-col gap-3 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface">
-                            <Search size={12} className="text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search tasks or tags..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
-                            />
-                        </div>
-                        <Button
-                            variant={hideCompleted ? 'primary' : 'ghost'}
-                            size="sm"
-                            className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
-                            onPress={() => setHideCompleted(!hideCompleted)}
-                        >
-                            <Filter size={12} className="mr-1" />
-                            {hideCompleted ? 'Pending' : 'All'}
-                        </Button>
-                        <Dropdown>
-                            <Dropdown.Trigger>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
-                                >
-                                    <ChevronDown size={12} className="mr-1" />
-                                    Views
-                                </Button>
-                            </Dropdown.Trigger>
-                            <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
-                                <Dropdown.Menu>
-                                    <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
-                                        <div className="flex items-center gap-2 text-[13px]">
-                                            <Plus size={13} />
-                                            <Label className="cursor-pointer text-[13px]">Save current view</Label>
+                                        {project.daysPerWeek && (
+                                            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                <Calendar size={13} />
+                                                <span>{project.daysPerWeek} days/week</span>
+                                            </div>
+                                        )}
+                                        {project.allocatedDays && (
+                                            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                <Clock size={13} />
+                                                <span>{project.allocatedDays} days total</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                            <Calendar size={12} />
+                                            <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                                         </div>
-                                    </Dropdown.Item>
-                                    {savedViews.map((savedView) => (
-                                        <Dropdown.Item
-                                            key={savedView.id}
-                                            id={`view-${savedView.id}`}
-                                            textValue={savedView.name}
-                                            onAction={() => router.push(buildProjectViewHref(savedView))}
-                                        >
-                                            <div className="flex items-center justify-between gap-3 text-[13px] w-full">
-                                                <div className="truncate">
-                                                    <div className="font-medium truncate">{savedView.name}</div>
-                                                    <div className="text-[11px] text-muted-foreground truncate">
-                                                        {savedView.viewMode}{savedView.searchQuery ? ` · ${savedView.searchQuery}` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Dropdown.Item>
-                                    ))}
-                                    {savedViews.map((savedView) => (
-                                        <Dropdown.Item
-                                            key={`delete-${savedView.id}`}
-                                            id={`delete-${savedView.id}`}
-                                            textValue={`Delete ${savedView.name}`}
-                                            variant="danger"
-                                            onAction={() => {
-                                                void handleDeleteSavedView(savedView.id);
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-2 text-[13px]">
-                                                <Trash2 size={13} />
-                                                <Label className="cursor-pointer text-[13px]">Delete {savedView.name}</Label>
-                                            </div>
-                                        </Dropdown.Item>
-                                    ))}
-                                </Dropdown.Menu>
-                            </Dropdown.Popover>
-                        </Dropdown>
-                        {selectedTags.length > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
-                                onPress={() => setSelectedTags([])}
-                            >
-                                Clear tags
-                            </Button>
-                        )}
-                    </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {availableTags.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</span>
-                            {availableTags.map((tag) => {
-                                const isSelected = selectedTags.includes(tag);
-                                return (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedTags((currentTags) => currentTags.includes(tag)
-                                                ? currentTags.filter((currentTag) => currentTag !== tag)
-                                                : [...currentTags, tag]
-                                            );
-                                        }}
-                                        className={`h-7 px-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
-                                            isSelected
-                                                ? 'border-accent bg-accent text-accent-foreground'
-                                                : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-accent/30'
-                                        }`}
+                            <Dropdown>
+                                <Dropdown.Trigger>
+                                    <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
+                                        <MoreHorizontal size={16} />
+                                    </Button>
+                                </Dropdown.Trigger>
+                                <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
+                                    <Dropdown.Menu>
+                                        <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
+                                            <div className="flex items-center gap-2"><Edit size={13} /><Label className="cursor-pointer text-[13px]">Edit</Label></div>
+                                        </Dropdown.Item>
+                                        <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
+                                            <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
+                                        </Dropdown.Item>
+                                        <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
+                                            <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
+                                        </Dropdown.Item>
+                                    </Dropdown.Menu>
+                                </Dropdown.Popover>
+                            </Dropdown>
+                        </div>
+                    </Card.Header>
+                    <Card.Content className="px-5 py-4">
+                        <div className="grid gap-5 sm:grid-cols-3">
+                            <div className="rounded-xl border border-border bg-surface-secondary/40 px-4 py-3">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Summary</p>
+                                <p className="mt-2 text-sm text-foreground">
+                                    {project.description || 'No project summary yet. Add context so your team knows what this workspace is for.'}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-border bg-surface-secondary/40 px-4 py-3">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Schedule</p>
+                                <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span>Days per week</span>
+                                        <span className="text-foreground">{project.daysPerWeek ?? '—'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span>Allocated days</span>
+                                        <span className="text-foreground">{project.allocatedDays ?? '—'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="rounded-xl border border-border bg-surface-secondary/40 px-4 py-3">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Access</p>
+                                <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span>Encryption</span>
+                                        <span className="text-foreground">{project.isEncrypted ? 'Vault protected' : 'Standard'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span>Your role</span>
+                                        <span className="text-foreground capitalize">{project.role || 'member'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card.Content>
+                </Card>
+
+                <ProjectCollaborationPanel project={project} />
+            </div>
+
+            <Card variant="default" className="rounded-2xl border border-border bg-surface">
+                <Card.Header className="border-b border-border px-5 py-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="space-y-3 min-w-0">
+                            <Tabs selectedKey={viewMode} onSelectionChange={(key) => setViewMode(key as ViewMode)} variant="secondary" className="w-full">
+                                <Tabs.ListContainer className="overflow-x-auto">
+                                    <Tabs.List aria-label="Task views" className="h-10 w-max min-w-full gap-1 *:rounded-lg *:px-3 *:text-[13px] *:font-medium">
+                                        {VIEW_TABS.map((tab) => (
+                                            <Tabs.Tab key={tab.id} id={tab.id} className="gap-1.5 whitespace-nowrap">
+                                                <tab.icon size={14} />
+                                                {tab.label}
+                                                <Tabs.Indicator />
+                                            </Tabs.Tab>
+                                        ))}
+                                    </Tabs.List>
+                                </Tabs.ListContainer>
+                            </Tabs>
+
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface-secondary/50">
+                                        <Search size={12} className="text-muted-foreground" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search tasks or tags..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
+                                        />
+                                    </div>
+                                    <Button
+                                        variant={hideCompleted ? 'primary' : 'ghost'}
+                                        size="sm"
+                                        className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                                        onPress={() => setHideCompleted(!hideCompleted)}
                                     >
-                                        #{tag}
-                                    </button>
-                                );
-                            })}
+                                        <Filter size={12} className="mr-1" />
+                                        {hideCompleted ? 'Pending' : 'All'}
+                                    </Button>
+                                    <Dropdown>
+                                        <Dropdown.Trigger>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                            >
+                                                <ChevronDown size={12} className="mr-1" />
+                                                Views
+                                            </Button>
+                                        </Dropdown.Trigger>
+                                        <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
+                                            <Dropdown.Menu>
+                                                <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
+                                                    <div className="flex items-center gap-2 text-[13px]">
+                                                        <Plus size={13} />
+                                                        <Label className="cursor-pointer text-[13px]">Save current view</Label>
+                                                    </div>
+                                                </Dropdown.Item>
+                                                {savedViews.map((savedView) => (
+                                                    <Dropdown.Item
+                                                        key={savedView.id}
+                                                        id={`view-${savedView.id}`}
+                                                        textValue={savedView.name}
+                                                        onAction={() => router.push(buildProjectViewHref(savedView))}
+                                                    >
+                                                        <div className="flex items-center justify-between gap-3 text-[13px] w-full">
+                                                            <div className="truncate">
+                                                                <div className="font-medium truncate">{savedView.name}</div>
+                                                                <div className="text-[11px] text-muted-foreground truncate">
+                                                                    {savedView.viewMode}{savedView.searchQuery ? ` · ${savedView.searchQuery}` : ''}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </Dropdown.Item>
+                                                ))}
+                                                {savedViews.map((savedView) => (
+                                                    <Dropdown.Item
+                                                        key={`delete-${savedView.id}`}
+                                                        id={`delete-${savedView.id}`}
+                                                        textValue={`Delete ${savedView.name}`}
+                                                        variant="danger"
+                                                        onAction={() => {
+                                                            void handleDeleteSavedView(savedView.id);
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-2 text-[13px]">
+                                                            <Trash2 size={13} />
+                                                            <Label className="cursor-pointer text-[13px]">Delete {savedView.name}</Label>
+                                                        </div>
+                                                    </Dropdown.Item>
+                                                ))}
+                                            </Dropdown.Menu>
+                                        </Dropdown.Popover>
+                                    </Dropdown>
+                                    {selectedTags.length > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                            onPress={() => setSelectedTags([])}
+                                        >
+                                            Clear tags
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {availableTags.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</span>
+                                        {availableTags.map((tag) => {
+                                            const isSelected = selectedTags.includes(tag);
+                                            return (
+                                                <button
+                                                    key={tag}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedTags((currentTags) => currentTags.includes(tag)
+                                                            ? currentTags.filter((currentTag) => currentTag !== tag)
+                                                            : [...currentTags, tag]
+                                                        );
+                                                    }}
+                                                    className={`h-7 px-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
+                                                        isSelected
+                                                            ? 'border-accent bg-accent text-accent-foreground'
+                                                            : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-accent/30'
+                                                    }`}
+                                                >
+                                                    #{tag}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <Button
+                            variant="primary"
+                            className="rounded-xl h-9 px-3.5 text-[12px] font-semibold shrink-0"
+                            onPress={handleAddTask}
+                        >
+                            <Plus size={14} className="mr-1" />
+                            Add new task
+                        </Button>
+                    </div>
+                </Card.Header>
+
+                <Card.Content className="px-5 py-5">
+                    {viewMode === 'list' && (
+                        <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                    )}
+                    {viewMode === 'kanban' && (
+                        <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                    )}
+                    {viewMode === 'table' && (
+                        <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                    )}
+                    {viewMode === 'timeline' && (
+                        <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                    )}
+                    {viewMode === 'calendar' && (
+                        <div className="max-w-md mx-auto py-4">
+                            <div className="rounded-2xl border border-border bg-surface-secondary/40 p-5">
+                                <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
+                            </div>
                         </div>
                     )}
-                </div>
-            </div>
-
-            {/* Task Content */}
-            <div>
-                {viewMode === 'list' && (
-                    <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'kanban' && (
-                    <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'table' && (
-                    <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'timeline' && (
-                    <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'calendar' && (
-                    <div className="max-w-md mx-auto py-4">
-                        <div className="bg-surface rounded-2xl border border-border p-5">
-                            <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
-                        </div>
-                    </div>
-                )}
-            </div>
+                </Card.Content>
+            </Card>
 
             {/* Time Report */}
             {timeReportTasks.some(t => (t.timeSpent || 0) > 0) && (
-                <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+                <Card variant="default" className="rounded-2xl border border-border bg-surface overflow-hidden">
                     <button
                         onClick={() => setShowTimeReport(v => !v)}
                         className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-surface-secondary/40 transition-colors"
@@ -651,7 +695,7 @@ export default function ProjectDetailPage() {
                             </div>
                         </div>
                     )}
-                </div>
+                </Card>
             )}
 
             <ProjectModal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} onSubmit={handleUpdate} project={project} />

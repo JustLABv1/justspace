@@ -92,6 +92,17 @@ func (h *Hub) Broadcast(userID string, event interface{}) {
 	h.broadcast <- broadcastMsg{userID: userID, data: data}
 }
 
+func (h *Hub) BroadcastUsers(userIDs []string, event interface{}) {
+	data, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("WS broadcast marshal error: %v", err)
+		return
+	}
+	for _, userID := range userIDs {
+		h.broadcast <- broadcastMsg{userID: userID, data: data}
+	}
+}
+
 func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	tokenStr := r.URL.Query().Get("token")
 	if tokenStr == "" {
