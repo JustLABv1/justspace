@@ -15,6 +15,7 @@ import (
 	"github.com/justlabv1/justspace/backend/internal/handlers"
 	"github.com/justlabv1/justspace/backend/internal/middleware"
 	"github.com/justlabv1/justspace/backend/internal/repository"
+	"github.com/justlabv1/justspace/backend/internal/storage"
 	"github.com/justlabv1/justspace/backend/internal/websocket"
 )
 
@@ -42,6 +43,10 @@ func main() {
 	log.Println("Migrations complete")
 
 	repo := repository.New(pool)
+	fileStore, err := storage.NewFileStore(cfg.FileStorageRoot)
+	if err != nil {
+		log.Fatalf("Failed to initialize file storage: %v", err)
+	}
 	hub := websocket.NewHub(cfg.JWTSecret)
 	go hub.Run()
 
@@ -55,6 +60,7 @@ func main() {
 	vaultH := handlers.NewVaultHandler(repo)
 	accessH := handlers.NewAccessHandler(repo, hub)
 	versionH := handlers.NewVersionHandler(repo)
+	collabH := handlers.NewCollaborationHandler(repo, hub, fileStore, cfg.MaxUploadBytes)
 
 	r := chi.NewRouter()
 	r.Use(chimw.Logger)
@@ -90,6 +96,15 @@ func main() {
 		r.Get("/api/projects/{projectId}/tasks", taskH.ListByProject)
 		r.Put("/api/tasks/{id}", taskH.Update)
 		r.Delete("/api/tasks/{id}", taskH.Delete)
+		r.Get("/api/tasks/{taskId}/assignees", collabH.ListTaskAssignees)
+		r.Post("/api/tasks/{taskId}/assignees", collabH.AddTaskAssignee)
+		r.Delete("/api/tasks/{taskId}/assignees/{userId}", collabH.RemoveTaskAssignee)
+		r.Get("/api/tasks/{taskId}/comments", collabH.ListTaskComments)
+		r.Post("/api/tasks/{taskId}/comments", collabH.CreateTaskComment)
+		r.Delete("/api/tasks/{taskId}/comments/{commentId}", collabH.DeleteTaskComment)
+		r.Get("/api/tasks/{taskId}/activity", collabH.ListTaskActivity)
+		r.Post("/api/projects/{projectId}/presence", collabH.HeartbeatProjectPresence)
+		r.Post("/api/tasks/{taskId}/presence", collabH.HeartbeatTaskPresence)
 
 		r.Get("/api/wiki", wikiH.List)
 		r.Post("/api/wiki", wikiH.Create)
@@ -117,6 +132,23 @@ func main() {
 
 		r.Get("/api/versions/{resourceId}", versionH.List)
 		r.Post("/api/versions", versionH.Create)
+
+		r.Get("/api/users/search", collabH.SearchUsers)
+		r.Get("/api/projects/{projectId}/members", collabH.ListMembers)
+		r.Post("/api/projects/{projectId}/members", collabH.AddMember)
+		r.Put("/api/projects/{projectId}/members/{userId}", collabH.UpdateMemberRole)
+		r.Delete("/api/projects/{projectId}/members/{userId}", collabH.RemoveMember)
+		r.Get("/api/projects/{projectId}/invitations", collabH.ListInvitations)
+		r.Post("/api/projects/{projectId}/invitations", collabH.CreateInvitation)
+		r.Delete("/api/projects/{projectId}/invitations/{invitationId}", collabH.CancelInvitation)
+		r.Post("/api/invitations/accept", collabH.AcceptInvitation)
+		r.Get("/api/projects/{projectId}/files", collabH.ListProjectFiles)
+		r.Post("/api/projects/{projectId}/files", collabH.UploadProjectFile)
+		r.Get("/api/tasks/{taskId}/files", collabH.ListTaskFiles)
+		r.Post("/api/tasks/{taskId}/files", collabH.UploadTaskFile)
+		r.Get("/api/files/{fileId}", collabH.DownloadProjectFile)
+		r.Delete("/api/files/{fileId}", collabH.DeleteProjectFile)
+		r.Get("/api/projects/{projectId}/activity", collabH.ListProjectActivity)
 	})
 
 	addr := fmt.Sprintf(":%d", cfg.Port)

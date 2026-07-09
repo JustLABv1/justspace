@@ -7,7 +7,7 @@ import { getEnv } from './env-config';
 export interface WSEvent {
     type: 'create' | 'update' | 'delete';
     collection: string;
-    document: Record<string, unknown>;
+    document: unknown;
     userId: string;
 }
 

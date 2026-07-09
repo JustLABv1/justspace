@@ -7,6 +7,9 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/001_initial.up.sql`: base schema
 - `backend/migrations/002_task_tags.up.sql`: adds searchable task tags
 - `backend/migrations/003_task_dependencies_recurrence.up.sql`: adds task dependencies and recurrence persistence
+- `backend/migrations/004_collaboration.up.sql`: adds project members, invitations, and encrypted project files
+- `backend/migrations/005_task_file_attachments.up.sql`: scopes project files to optional task attachments
+- `backend/migrations/006_task_collaboration_presence.up.sql`: adds task assignees, task comments, task presence, project presence, and task-scoped activity
 
 ## Core Tables
 
@@ -120,8 +123,145 @@ Notes:
 | `entity_type` | `varchar(32)` | `Project`, `Task`, `Wiki`, `Installation`, `Snippet` |
 | `entity_name` | `varchar(128)` | Human-readable entity name |
 | `project_id` | `uuid` | Optional related project |
+| `task_id` | `uuid` | Optional related task |
 | `metadata` | `varchar(128)` | Optional detail text |
 | `created_at` | `timestamptz` | Event timestamp |
+
+Indexes:
+
+- `idx_activity_task_id` on `task_id`
+
+### project_members
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `role` | `varchar(16)` | `owner`, `admin`, `editor`, `viewer` |
+| `joined_at` | `timestamptz` | Membership acceptance timestamp |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+Indexes:
+
+- `idx_project_members_project_id` on `project_id`
+- `idx_project_members_user_id` on `user_id`
+
+Notes:
+
+- Existing projects are backfilled with one `owner` membership for `projects.user_id`.
+- Project access, task access, and collaboration broadcasts now resolve through project membership rather than ownership alone.
+
+### team_invitations
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `invited_by_id` | `uuid` | FK to `users(id)` |
+| `invited_user_id` | `uuid` | Optional FK to `users(id)` |
+| `email` | `varchar(255)` | Invite target email |
+| `role` | `varchar(16)` | `admin`, `editor`, `viewer` |
+| `token_hash` | `varchar(255)` | SHA-256 hash of the invite token |
+| `status` | `varchar(16)` | `pending`, `accepted`, `cancelled`, `expired` |
+| `expires_at` | `timestamptz` | Invite validity window |
+| `accepted_at` | `timestamptz` | Acceptance timestamp |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+Indexes:
+
+- `idx_team_invitations_project_id` on `project_id`
+- `idx_team_invitations_email` on `email`
+
+Notes:
+
+- Encrypted projects currently require the invite target to already exist and have a vault so the project key can be wrapped before acceptance.
+
+### project_files
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `task_id` | `uuid` | Optional FK to `tasks(id)` for task attachments |
+| `uploader_id` | `uuid` | FK to `users(id)` |
+| `encrypted_name` | `text` | Client-encrypted file name or plain fallback |
+| `content_type` | `varchar(255)` | Original MIME type |
+| `iv` | `varchar(128)` | AES-GCM IV for encrypted file blobs |
+| `size_bytes` | `bigint` | Stored ciphertext size |
+| `storage_path` | `varchar(1024)` | Local blob storage path |
+| `is_encrypted` | `boolean` | File ciphertext flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+Indexes:
+
+- `idx_project_files_project_id` on `project_id`
+- `idx_project_files_task_id` on `task_id`
+- `idx_project_files_uploader_id` on `uploader_id`
+
+Notes:
+
+- Rows with `task_id IS NULL` are project-level collaboration files.
+- Rows with `task_id` set are task attachments stored through the same encrypted file pipeline.
+
+### task_assignees
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `task_id` | `uuid` | FK to `tasks(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `assigned_by_id` | `uuid` | FK to `users(id)` |
+| `created_at` | `timestamptz` | Assignment timestamp |
+
+Indexes:
+
+- Primary key on (`task_id`, `user_id`)
+- `idx_task_assignees_user_id` on `user_id`
+
+### task_comments
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `task_id` | `uuid` | FK to `tasks(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `body` | `text` | Comment body, encrypted client-side when the task is encrypted |
+| `mentioned_user_ids` | `text[]` | Mentioned teammate user IDs |
+| `is_encrypted` | `boolean` | Comment ciphertext flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+Indexes:
+
+- `idx_task_comments_task_id` on `task_id`
+- `idx_task_comments_user_id` on `user_id`
+
+### project_presence
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `last_seen` | `timestamptz` | Latest presence heartbeat |
+
+Indexes:
+
+- Primary key on (`project_id`, `user_id`)
+
+### task_presence
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `task_id` | `uuid` | FK to `tasks(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `last_seen` | `timestamptz` | Latest presence heartbeat |
+
+Indexes:
+
+- Primary key on (`task_id`, `user_id`)
 
 ### snippets
 
@@ -188,3 +328,7 @@ The schema defines one shared trigger function, `update_updated_at_column()`, an
 - The frontend expects migration files in `backend/migrations` to be applied before the app starts.
 - If you add or change task metadata, update both the Go structs in `backend/internal/models/models.go` and the repository scan/return column lists in `backend/internal/repository/repository.go`.
 - Encrypted projects currently encrypt task titles, while task tags remain plaintext to support filtering.
+- Collaboration file blobs are stored on disk under `FILE_STORAGE_ROOT` and tracked in `project_files`.
+- New collaboration-related runtime variables:
+  `FILE_STORAGE_ROOT` defaults to `/data/uploads`
+  `MAX_UPLOAD_BYTES` defaults to `52428800`

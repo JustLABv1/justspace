@@ -5,7 +5,7 @@ import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto'
 import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { Project, Task } from '@/services/frontend/types';
-import { Calendar } from '@heroui/react';
+import { Button, Calendar } from '@heroui/react';
 import type { DateValue } from '@internationalized/date';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
@@ -266,10 +266,11 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
                                 const deadline = task.deadline ? formatDeadline(task.deadline) : null;
                                 const project = projects.find(p => p.id === task.projectId);
                                 return (
-                                    <button
+                                    <Button
                                         key={task.id}
-                                        onClick={() => setSelectedTask(task)}
-                                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface-secondary/50 transition-colors group"
+                                        variant="ghost"
+                                        className="h-auto w-full justify-start gap-2.5 rounded-none px-3 py-2.5 text-left group"
+                                        onPress={() => setSelectedTask(task)}
                                     >
                                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-px ${getTaskPriorityColor(task)}`} />
                                         <span className="text-[12px] text-foreground truncate flex-1 group-hover:text-accent transition-colors">
@@ -285,7 +286,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
                                                 {deadline.label}
                                             </span>
                                         )}
-                                    </button>
+                                    </Button>
                                 );
                             })}
                         </div>

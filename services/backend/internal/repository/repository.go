@@ -19,6 +19,28 @@ func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
+const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, p.days_per_week, p.allocated_days, p.is_encrypted,
+	pm.role, p.created_at, p.updated_at
+	FROM projects p
+	JOIN project_members pm ON pm.project_id = p.id
+	WHERE pm.user_id = $1`
+
+func scanProject(row pgx.Row, project *models.Project) error {
+	return row.Scan(
+		&project.ID,
+		&project.UserID,
+		&project.Name,
+		&project.Description,
+		&project.Status,
+		&project.DaysPerWeek,
+		&project.AllocatedDays,
+		&project.IsEncrypted,
+		&project.Role,
+		&project.CreatedAt,
+		&project.UpdatedAt,
+	)
+}
+
 // ---- Users ----
 
 func (r *Repo) CreateUser(ctx context.Context, email, name, passwordHash string) (*models.User, error) {
@@ -62,6 +84,35 @@ func (r *Repo) GetUserByID(ctx context.Context, id string) (*models.User, error)
 	return u, nil
 }
 
+func (r *Repo) SearchUsers(ctx context.Context, query string, limit int) ([]models.UserLookup, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT u.id, u.email, u.name, uk.public_key, uk.user_id IS NOT NULL
+		 FROM users u
+		 LEFT JOIN user_keys uk ON uk.user_id = u.id
+		 WHERE u.email ILIKE '%' || $1 || '%' OR u.name ILIKE '%' || $1 || '%'
+		 ORDER BY u.email ASC
+		 LIMIT $2`,
+		query, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("search users: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.UserLookup
+	for rows.Next() {
+		var item models.UserLookup
+		if err := rows.Scan(&item.UserID, &item.Email, &item.Name, &item.PublicKey, &item.HasVault); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if out == nil {
+		out = []models.UserLookup{}
+	}
+	return out, nil
+}
+
 func (r *Repo) UpdateUser(ctx context.Context, id string, name *string, prefs *json.RawMessage) (*models.User, error) {
 	u := &models.User{}
 	err := r.pool.QueryRow(ctx,
@@ -79,8 +130,7 @@ func (r *Repo) UpdateUser(ctx context.Context, id string, name *string, prefs *j
 
 func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Project, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, name, description, status, days_per_week, allocated_days, is_encrypted, created_at, updated_at
-		 FROM projects WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+		projectSelect+` ORDER BY p.created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
@@ -88,7 +138,7 @@ func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Projec
 	var out []models.Project
 	for rows.Next() {
 		var p models.Project
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.Role, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -101,10 +151,7 @@ func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Projec
 
 func (r *Repo) GetProject(ctx context.Context, id, userID string) (*models.Project, error) {
 	p := &models.Project{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, name, description, status, days_per_week, allocated_days, is_encrypted, created_at, updated_at
-		 FROM projects WHERE id = $1 AND user_id = $2`, id, userID,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt)
+	err := scanProject(r.pool.QueryRow(ctx, projectSelect+` AND p.id = $2`, userID, id), p)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -115,16 +162,36 @@ func (r *Repo) GetProject(ctx context.Context, id, userID string) (*models.Proje
 }
 
 func (r *Repo) CreateProject(ctx context.Context, userID string, req models.CreateProjectRequest) (*models.Project, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin create project: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	p := &models.Project{}
-	err := r.pool.QueryRow(ctx,
+	if err := tx.QueryRow(ctx,
 		`INSERT INTO projects (user_id, name, description, status, days_per_week, allocated_days, is_encrypted)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, user_id, name, description, status, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
 		userID, req.Name, req.Description, req.Status, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt)
-	if err != nil {
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("create project: %w", err)
 	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, 'owner')
+		 ON CONFLICT (project_id, user_id) DO NOTHING`,
+		p.ID, userID,
+	); err != nil {
+		return nil, fmt.Errorf("create project owner membership: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit create project: %w", err)
+	}
+
+	role := "owner"
+	p.Role = &role
 	return p, nil
 }
 
@@ -133,19 +200,549 @@ func (r *Repo) UpdateProject(ctx context.Context, id, userID string, req models.
 	err := r.pool.QueryRow(ctx,
 		`UPDATE projects SET name = COALESCE($3, name), description = COALESCE($4, description), status = COALESCE($5, status),
 		 days_per_week = COALESCE($6, days_per_week), allocated_days = COALESCE($7, allocated_days), is_encrypted = COALESCE($8, is_encrypted)
-		 WHERE id = $1 AND user_id = $2
+		 WHERE id = $1 AND EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = projects.id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
+		 )
 		 RETURNING id, user_id, name, description, status, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
 		id, userID, req.Name, req.Description, req.Status, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
 	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update project: %w", err)
 	}
+	role := "editor"
+	if memberRole, roleErr := r.GetProjectRole(ctx, id, userID); roleErr == nil && memberRole != "" {
+		role = memberRole
+	}
+	p.Role = &role
 	return p, nil
 }
 
 func (r *Repo) DeleteProject(ctx context.Context, id, userID string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM projects WHERE id = $1 AND user_id = $2`, id, userID)
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM projects WHERE id = $1 AND EXISTS (
+			SELECT 1 FROM project_members pm
+			WHERE pm.project_id = projects.id AND pm.user_id = $2 AND pm.role = 'owner'
+		)`,
+		id, userID,
+	)
 	return err
+}
+
+func (r *Repo) GetProjectRole(ctx context.Context, projectID, userID string) (string, error) {
+	var role string
+	err := r.pool.QueryRow(ctx,
+		`SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2`,
+		projectID, userID,
+	).Scan(&role)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("get project role: %w", err)
+	}
+	return role, nil
+}
+
+func (r *Repo) CanAccessProject(ctx context.Context, projectID, userID string) (bool, error) {
+	role, err := r.GetProjectRole(ctx, projectID, userID)
+	if err != nil {
+		return false, err
+	}
+	return role != "", nil
+}
+
+func (r *Repo) RequireProjectRole(ctx context.Context, projectID, userID string, allowedRoles ...string) (bool, error) {
+	role, err := r.GetProjectRole(ctx, projectID, userID)
+	if err != nil {
+		return false, err
+	}
+	for _, allowedRole := range allowedRoles {
+		if role == allowedRole {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *Repo) ListProjectMemberUserIDs(ctx context.Context, projectID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT user_id::text FROM project_members WHERE project_id = $1`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list project member user ids: %w", err)
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			return nil, err
+		}
+		out = append(out, userID)
+	}
+	if out == nil {
+		out = []string{}
+	}
+	return out, nil
+}
+
+func (r *Repo) ListProjectMembers(ctx context.Context, projectID string) ([]models.ProjectMember, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT pm.id, pm.project_id, pm.user_id, u.email, u.name, pm.role, pm.joined_at
+		 FROM project_members pm
+		 JOIN users u ON u.id = pm.user_id
+		 WHERE pm.project_id = $1
+		 ORDER BY CASE pm.role
+		 	WHEN 'owner' THEN 0
+		 	WHEN 'admin' THEN 1
+		 	WHEN 'editor' THEN 2
+		 	ELSE 3
+		 END, u.email ASC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project members: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.ProjectMember
+	for rows.Next() {
+		var member models.ProjectMember
+		if err := rows.Scan(&member.ID, &member.ProjectID, &member.UserID, &member.Email, &member.Name, &member.Role, &member.JoinedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, member)
+	}
+	if out == nil {
+		out = []models.ProjectMember{}
+	}
+	return out, nil
+}
+
+func (r *Repo) CreateProjectMember(ctx context.Context, projectID, userID, role string) (*models.ProjectMember, error) {
+	member := &models.ProjectMember{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO project_members (project_id, user_id, role)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
+		 RETURNING id, project_id, user_id, joined_at`,
+		projectID, userID, role,
+	).Scan(&member.ID, &member.ProjectID, &member.UserID, &member.JoinedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create project member: %w", err)
+	}
+
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("load project member user: %w", err)
+	}
+	member.Email = user.Email
+	member.Name = user.Name
+	member.Role = role
+	return member, nil
+}
+
+func (r *Repo) UpdateProjectMemberRole(ctx context.Context, projectID, userID, role string) (*models.ProjectMember, error) {
+	member := &models.ProjectMember{}
+	err := r.pool.QueryRow(ctx,
+		`UPDATE project_members pm
+		 SET role = $3
+		 FROM users u
+		 WHERE pm.project_id = $1 AND pm.user_id = $2 AND u.id = pm.user_id
+		 RETURNING pm.id, pm.project_id, pm.user_id, u.email, u.name, pm.role, pm.joined_at`,
+		projectID, userID, role,
+	).Scan(&member.ID, &member.ProjectID, &member.UserID, &member.Email, &member.Name, &member.Role, &member.JoinedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update project member role: %w", err)
+	}
+	return member, nil
+}
+
+func (r *Repo) RemoveProjectMember(ctx context.Context, projectID, userID string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`, projectID, userID)
+	if err != nil {
+		return fmt.Errorf("remove project member: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) CreateInvitation(ctx context.Context, invitedByID string, req models.CreateInvitationRequest, tokenHash string, invitedUserID *string, expiresAt time.Time) (*models.TeamInvitation, error) {
+	invite := &models.TeamInvitation{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO team_invitations (project_id, invited_by_id, invited_user_id, email, role, token_hash, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, project_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at`,
+		req.ProjectID, invitedByID, invitedUserID, req.Email, req.Role, tokenHash, expiresAt,
+	).Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create invitation: %w", err)
+	}
+	return invite, nil
+}
+
+func (r *Repo) ListInvitations(ctx context.Context, projectID string) ([]models.TeamInvitation, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, project_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
+		 FROM team_invitations
+		 WHERE project_id = $1
+		 ORDER BY created_at DESC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list invitations: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.TeamInvitation
+	for rows.Next() {
+		var invite models.TeamInvitation
+		if err := rows.Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, invite)
+	}
+	if out == nil {
+		out = []models.TeamInvitation{}
+	}
+	return out, nil
+}
+
+func (r *Repo) GetInvitationByTokenHash(ctx context.Context, tokenHash string) (*models.TeamInvitation, error) {
+	invite := &models.TeamInvitation{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, project_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
+		 FROM team_invitations
+		 WHERE token_hash = $1`,
+		tokenHash,
+	).Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get invitation by token hash: %w", err)
+	}
+	return invite, nil
+}
+
+func (r *Repo) AcceptInvitation(ctx context.Context, invitationID, userID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE team_invitations
+		 SET status = 'accepted', invited_user_id = $2, accepted_at = NOW()
+		 WHERE id = $1`,
+		invitationID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("accept invitation: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) CancelInvitation(ctx context.Context, invitationID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE team_invitations
+		 SET status = 'cancelled'
+		 WHERE id = $1`,
+		invitationID,
+	)
+	if err != nil {
+		return fmt.Errorf("cancel invitation: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) CreateProjectFile(ctx context.Context, uploaderID string, req models.CreateProjectFileRequest, sizeBytes int64, storagePath string) (*models.ProjectFile, error) {
+	file := &models.ProjectFile{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO project_files (project_id, task_id, uploader_id, encrypted_name, content_type, iv, size_bytes, storage_path, is_encrypted)
+		 VALUES ($1, NULLIF($2, '')::uuid, $3, $4, $5, NULLIF($6, ''), $7, $8, $9)
+		 RETURNING id, project_id, task_id, uploader_id, encrypted_name, content_type, iv, size_bytes, storage_path, is_encrypted, created_at`,
+		req.ProjectID, req.TaskID, uploaderID, req.EncryptedName, req.ContentType, req.IV, sizeBytes, storagePath, req.IsEncrypted,
+	).Scan(&file.ID, &file.ProjectID, &file.TaskID, &file.UploaderID, &file.EncryptedName, &file.ContentType, &file.IV, &file.SizeBytes, &file.StoragePath, &file.IsEncrypted, &file.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create project file: %w", err)
+	}
+
+	user, err := r.GetUserByID(ctx, uploaderID)
+	if err == nil && user != nil {
+		file.UploaderName = &user.Name
+	}
+	return file, nil
+}
+
+func (r *Repo) ListProjectFiles(ctx context.Context, projectID string) ([]models.ProjectFile, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT pf.id, pf.project_id, pf.task_id, pf.uploader_id, pf.encrypted_name, pf.content_type, pf.iv, pf.size_bytes, pf.storage_path, pf.is_encrypted, pf.created_at, u.name
+		 FROM project_files pf
+		 JOIN users u ON u.id = pf.uploader_id
+		 WHERE pf.project_id = $1 AND pf.task_id IS NULL
+		 ORDER BY pf.created_at DESC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project files: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.ProjectFile
+	for rows.Next() {
+		var file models.ProjectFile
+		if err := rows.Scan(&file.ID, &file.ProjectID, &file.TaskID, &file.UploaderID, &file.EncryptedName, &file.ContentType, &file.IV, &file.SizeBytes, &file.StoragePath, &file.IsEncrypted, &file.CreatedAt, &file.UploaderName); err != nil {
+			return nil, err
+		}
+		out = append(out, file)
+	}
+	if out == nil {
+		out = []models.ProjectFile{}
+	}
+	return out, nil
+}
+
+func (r *Repo) ListTaskFiles(ctx context.Context, taskID, userID string) ([]models.ProjectFile, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT pf.id, pf.project_id, pf.task_id, pf.uploader_id, pf.encrypted_name, pf.content_type, pf.iv, pf.size_bytes, pf.storage_path, pf.is_encrypted, pf.created_at, u.name
+		 FROM project_files pf
+		 JOIN users u ON u.id = pf.uploader_id
+		 JOIN tasks t ON t.id = pf.task_id
+		 WHERE pf.task_id = $1 AND EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = t.project_id AND pm.user_id = $2
+		 )
+		 ORDER BY pf.created_at DESC`,
+		taskID, userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task files: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.ProjectFile
+	for rows.Next() {
+		var file models.ProjectFile
+		if err := rows.Scan(&file.ID, &file.ProjectID, &file.TaskID, &file.UploaderID, &file.EncryptedName, &file.ContentType, &file.IV, &file.SizeBytes, &file.StoragePath, &file.IsEncrypted, &file.CreatedAt, &file.UploaderName); err != nil {
+			return nil, err
+		}
+		out = append(out, file)
+	}
+	if out == nil {
+		out = []models.ProjectFile{}
+	}
+	return out, nil
+}
+
+func (r *Repo) GetProjectFile(ctx context.Context, fileID, userID string) (*models.ProjectFile, error) {
+	file := &models.ProjectFile{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT pf.id, pf.project_id, pf.task_id, pf.uploader_id, pf.encrypted_name, pf.content_type, pf.iv, pf.size_bytes, pf.storage_path, pf.is_encrypted, pf.created_at, u.name
+		 FROM project_files pf
+		 JOIN users u ON u.id = pf.uploader_id
+		 WHERE pf.id = $1 AND EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = pf.project_id AND pm.user_id = $2
+		 )`,
+		fileID, userID,
+	).Scan(&file.ID, &file.ProjectID, &file.TaskID, &file.UploaderID, &file.EncryptedName, &file.ContentType, &file.IV, &file.SizeBytes, &file.StoragePath, &file.IsEncrypted, &file.CreatedAt, &file.UploaderName)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get project file: %w", err)
+	}
+	return file, nil
+}
+
+func (r *Repo) DeleteProjectFile(ctx context.Context, fileID string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM project_files WHERE id = $1`, fileID)
+	if err != nil {
+		return fmt.Errorf("delete project file: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) ListTaskAssignees(ctx context.Context, taskID string) ([]models.TaskAssignee, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT ta.task_id, ta.user_id, u.name, u.email, ta.assigned_by_id, ta.created_at
+		 FROM task_assignees ta
+		 JOIN users u ON u.id = ta.user_id
+		 WHERE ta.task_id = $1
+		 ORDER BY ta.created_at ASC`,
+		taskID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task assignees: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.TaskAssignee
+	for rows.Next() {
+		var assignee models.TaskAssignee
+		if err := rows.Scan(&assignee.TaskID, &assignee.UserID, &assignee.Name, &assignee.Email, &assignee.AssignedBy, &assignee.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, assignee)
+	}
+	if out == nil {
+		out = []models.TaskAssignee{}
+	}
+	return out, nil
+}
+
+func (r *Repo) AddTaskAssignee(ctx context.Context, taskID, userID, assignedByID string) (*models.TaskAssignee, error) {
+	assignee := &models.TaskAssignee{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO task_assignees (task_id, user_id, assigned_by_id)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (task_id, user_id) DO UPDATE SET assigned_by_id = EXCLUDED.assigned_by_id
+		 RETURNING task_id, user_id, assigned_by_id, created_at`,
+		taskID, userID, assignedByID,
+	).Scan(&assignee.TaskID, &assignee.UserID, &assignee.AssignedBy, &assignee.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("add task assignee: %w", err)
+	}
+	user, err := r.GetUserByID(ctx, userID)
+	if err == nil && user != nil {
+		assignee.Name = user.Name
+		assignee.Email = user.Email
+	}
+	return assignee, nil
+}
+
+func (r *Repo) RemoveTaskAssignee(ctx context.Context, taskID, userID string) error {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM task_assignees WHERE task_id = $1 AND user_id = $2`, taskID, userID); err != nil {
+		return fmt.Errorf("remove task assignee: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) ListTaskComments(ctx context.Context, taskID string) ([]models.TaskComment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT tc.id, tc.task_id, tc.user_id, u.name, u.email, tc.body, tc.mentioned_user_ids, tc.is_encrypted, tc.created_at, tc.updated_at
+		 FROM task_comments tc
+		 JOIN users u ON u.id = tc.user_id
+		 WHERE tc.task_id = $1
+		 ORDER BY tc.created_at ASC`,
+		taskID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task comments: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.TaskComment
+	for rows.Next() {
+		var comment models.TaskComment
+		if err := rows.Scan(&comment.ID, &comment.TaskID, &comment.UserID, &comment.UserName, &comment.UserEmail, &comment.Body, &comment.MentionedUserIDs, &comment.IsEncrypted, &comment.CreatedAt, &comment.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, comment)
+	}
+	if out == nil {
+		out = []models.TaskComment{}
+	}
+	return out, nil
+}
+
+func (r *Repo) CreateTaskComment(ctx context.Context, taskID, userID string, req models.CreateTaskCommentRequest) (*models.TaskComment, error) {
+	comment := &models.TaskComment{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO task_comments (task_id, user_id, body, mentioned_user_ids, is_encrypted)
+		 VALUES ($1, $2, $3, COALESCE($4::text[], '{}'::text[]), $5)
+		 RETURNING id, task_id, user_id, body, mentioned_user_ids, is_encrypted, created_at, updated_at`,
+		taskID, userID, req.Body, req.MentionedUserIDs, req.IsEncrypted,
+	).Scan(&comment.ID, &comment.TaskID, &comment.UserID, &comment.Body, &comment.MentionedUserIDs, &comment.IsEncrypted, &comment.CreatedAt, &comment.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create task comment: %w", err)
+	}
+	user, err := r.GetUserByID(ctx, userID)
+	if err == nil && user != nil {
+		comment.UserName = user.Name
+		comment.UserEmail = user.Email
+	}
+	return comment, nil
+}
+
+func (r *Repo) DeleteTaskComment(ctx context.Context, commentID, userID string) error {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM task_comments WHERE id = $1 AND user_id = $2`, commentID, userID); err != nil {
+		return fmt.Errorf("delete task comment: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) UpsertProjectPresence(ctx context.Context, projectID, userID string) error {
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO project_presence (project_id, user_id, last_seen)
+		 VALUES ($1, $2, NOW())
+		 ON CONFLICT (project_id, user_id) DO UPDATE SET last_seen = NOW()`,
+		projectID, userID,
+	); err != nil {
+		return fmt.Errorf("upsert project presence: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) UpsertTaskPresence(ctx context.Context, taskID, userID string) error {
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO task_presence (task_id, user_id, last_seen)
+		 VALUES ($1, $2, NOW())
+		 ON CONFLICT (task_id, user_id) DO UPDATE SET last_seen = NOW()`,
+		taskID, userID,
+	); err != nil {
+		return fmt.Errorf("upsert task presence: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) ListProjectPresence(ctx context.Context, projectID string) ([]models.PresenceSession, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT pp.user_id, u.name, u.email, pp.last_seen
+		 FROM project_presence pp
+		 JOIN users u ON u.id = pp.user_id
+		 WHERE pp.project_id = $1 AND pp.last_seen >= NOW() - INTERVAL '45 seconds'
+		 ORDER BY pp.last_seen DESC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project presence: %w", err)
+	}
+	defer rows.Close()
+	var out []models.PresenceSession
+	for rows.Next() {
+		var item models.PresenceSession
+		if err := rows.Scan(&item.UserID, &item.Name, &item.Email, &item.LastSeen); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if out == nil {
+		out = []models.PresenceSession{}
+	}
+	return out, nil
+}
+
+func (r *Repo) ListTaskPresence(ctx context.Context, taskID string) ([]models.PresenceSession, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT tp.user_id, u.name, u.email, tp.last_seen
+		 FROM task_presence tp
+		 JOIN users u ON u.id = tp.user_id
+		 WHERE tp.task_id = $1 AND tp.last_seen >= NOW() - INTERVAL '45 seconds'
+		 ORDER BY tp.last_seen DESC`,
+		taskID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task presence: %w", err)
+	}
+	defer rows.Close()
+	var out []models.PresenceSession
+	for rows.Next() {
+		var item models.PresenceSession
+		if err := rows.Scan(&item.UserID, &item.Name, &item.Email, &item.LastSeen); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if out == nil {
+		out = []models.PresenceSession{}
+	}
+	return out, nil
 }
 
 // ---- Tasks ----
@@ -169,7 +766,11 @@ func (r *Repo) GetTask(ctx context.Context, id, userID string) (*models.Task, er
 	t := &models.Task{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
-		 FROM tasks WHERE id = $1 AND user_id = $2`, id, userID,
+		 FROM tasks
+		 WHERE id = $1 AND EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2
+		 )`, id, userID,
 	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -188,8 +789,9 @@ func (r *Repo) HasIncompleteDependencies(ctx context.Context, userID string, dep
 	var count int
 	err := r.pool.QueryRow(ctx,
 		`SELECT COUNT(*)
-		 FROM tasks
-		 WHERE user_id = $1 AND id = ANY($2::uuid[]) AND completed = false`,
+		 FROM tasks t
+		 JOIN project_members pm ON pm.project_id = t.project_id
+		 WHERE pm.user_id = $1 AND t.id = ANY($2::uuid[]) AND t.completed = false`,
 		userID, dependencyIDs,
 	).Scan(&count)
 	if err != nil {
@@ -202,7 +804,12 @@ func (r *Repo) HasIncompleteDependencies(ctx context.Context, userID string, dep
 func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
-		 FROM tasks WHERE project_id = $1 AND user_id = $2 ORDER BY sort_order ASC`, projectID, userID)
+		 FROM tasks
+		 WHERE project_id = $1 AND EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2
+		 )
+		 ORDER BY sort_order ASC`, projectID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
@@ -213,7 +820,12 @@ func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]model
 func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
-		 FROM tasks WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`, userID, limit)
+		 FROM tasks
+		 WHERE EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $1
+		 )
+		 ORDER BY created_at DESC LIMIT $2`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list all tasks: %w", err)
 	}
@@ -229,7 +841,11 @@ func (r *Repo) CreateTask(ctx context.Context, userID string, req models.CreateT
 	}
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags, dependencies, recurrence)
-		 VALUES ($1, $2, $3, false, $4, 'medium', $5, $6, $7, COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), NULLIF($10::text, ''))
+		 SELECT $1, $2, $3, false, $4, 'medium', $5, $6, $7, COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), NULLIF($10::text, '')
+		 WHERE EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
+		 )
 		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
 		userID, req.ProjectID, req.Title, req.Order, kanban, req.IsEncrypted, req.ParentID, req.Tags, req.Dependencies, req.Recurrence,
 	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
@@ -241,13 +857,17 @@ func (r *Repo) CreateTask(ctx context.Context, userID string, req models.CreateT
 
 func (r *Repo) CreateTasksBatch(ctx context.Context, userID string, req models.CreateTasksBatchRequest) ([]models.Task, error) {
 	var startOrder int
-	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1 AND user_id = $2`, req.ProjectID, userID).Scan(&startOrder)
+	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1`, req.ProjectID).Scan(&startOrder)
 	var tasks []models.Task
 	for i, title := range req.Titles {
 		t := &models.Task{}
 		err := r.pool.QueryRow(ctx,
 			`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, is_encrypted)
-			 VALUES ($1, $2, $3, false, $4, 'medium', 'todo', $5)
+			 SELECT $1, $2, $3, false, $4, 'medium', 'todo', $5
+			 WHERE EXISTS (
+			 	SELECT 1 FROM project_members pm
+			 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
+			 )
 			 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at`,
 			userID, req.ProjectID, title, startOrder+i, req.IsEncrypted,
 		).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
@@ -263,8 +883,8 @@ func (r *Repo) CreateRecurringTask(ctx context.Context, userID string, source mo
 	t := &models.Task{}
 	var nextOrder int
 	if err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1 AND user_id = $2`,
-		source.ProjectID, userID,
+		`SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1`,
+		source.ProjectID,
 	).Scan(&nextOrder); err != nil {
 		return nil, fmt.Errorf("next recurring task order: %w", err)
 	}
@@ -295,7 +915,10 @@ func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.Upd
 			notes = COALESCE($14, notes), tags = COALESCE($15, tags), dependencies = COALESCE($16, dependencies),
 			recurrence = CASE WHEN $17::text IS NOT NULL THEN NULLIF($17::text, '') ELSE recurrence END,
 			is_encrypted = COALESCE($18, is_encrypted)
-		 WHERE id = $1 AND user_id = $2
+		 WHERE id = $1 AND EXISTS (
+		 	SELECT 1 FROM project_members pm
+		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
+		 )
 		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
 		id, userID, req.Title, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
 	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
@@ -306,7 +929,13 @@ func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.Upd
 }
 
 func (r *Repo) DeleteTask(ctx context.Context, id, userID string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM tasks WHERE id = $1 AND user_id = $2`, id, userID)
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM tasks WHERE id = $1 AND EXISTS (
+			SELECT 1 FROM project_members pm
+			WHERE pm.project_id = tasks.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
+		)`,
+		id, userID,
+	)
 	return err
 }
 
@@ -454,17 +1083,11 @@ func (r *Repo) DeleteInstallation(ctx context.Context, id, userID string) error 
 
 // ---- Activity ----
 
-func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.ActivityLog, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, type, entity_type, entity_name, project_id, metadata, created_at FROM activity WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list activity: %w", err)
-	}
-	defer rows.Close()
+func scanActivityRows(rows pgx.Rows) ([]models.ActivityLog, error) {
 	var out []models.ActivityLog
 	for rows.Next() {
 		var a models.ActivityLog
-		if err := rows.Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.Metadata, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.UserID, &a.UserName, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.TaskID, &a.Metadata, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -475,13 +1098,62 @@ func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.Activi
 	return out, nil
 }
 
-func (r *Repo) LogActivity(ctx context.Context, userID, actType, entityType, entityName string, projectID *string, metadata *string) (*models.ActivityLog, error) {
+func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.ActivityLog, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
+		 FROM activity a
+		 JOIN users u ON u.id = a.user_id
+		 WHERE a.user_id = $1
+		 ORDER BY a.created_at DESC LIMIT 10`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list activity: %w", err)
+	}
+	defer rows.Close()
+	return scanActivityRows(rows)
+}
+
+func (r *Repo) ListProjectActivity(ctx context.Context, projectID string, limit int) ([]models.ActivityLog, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
+		 FROM activity a
+		 JOIN users u ON u.id = a.user_id
+		 WHERE a.project_id = $1
+		 ORDER BY a.created_at DESC
+		 LIMIT $2`,
+		projectID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project activity: %w", err)
+	}
+	defer rows.Close()
+	return scanActivityRows(rows)
+}
+
+func (r *Repo) ListTaskActivity(ctx context.Context, taskID string, limit int) ([]models.ActivityLog, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
+		 FROM activity a
+		 JOIN users u ON u.id = a.user_id
+		 WHERE a.task_id = $1
+		 ORDER BY a.created_at DESC
+		 LIMIT $2`,
+		taskID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task activity: %w", err)
+	}
+	defer rows.Close()
+	return scanActivityRows(rows)
+}
+
+func (r *Repo) LogActivity(ctx context.Context, userID, actType, entityType, entityName string, projectID, taskID, metadata *string) (*models.ActivityLog, error) {
 	a := &models.ActivityLog{}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO activity (user_id, type, entity_type, entity_name, project_id, metadata) VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING id, user_id, type, entity_type, entity_name, project_id, metadata, created_at`,
-		userID, actType, entityType, entityName, projectID, metadata,
-	).Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.Metadata, &a.CreatedAt)
+		`INSERT INTO activity (user_id, type, entity_type, entity_name, project_id, task_id, metadata)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, user_id, type, entity_type, entity_name, project_id, task_id, metadata, created_at`,
+		userID, actType, entityType, entityName, projectID, taskID, metadata,
+	).Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.TaskID, &a.Metadata, &a.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("log activity: %w", err)
 	}
@@ -616,6 +1288,17 @@ func (r *Repo) GrantAccess(ctx context.Context, req models.GrantAccessRequest) (
 		return nil, fmt.Errorf("grant access: %w", err)
 	}
 	return ac, nil
+}
+
+func (r *Repo) RemoveAccess(ctx context.Context, resourceID, userID string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM access_control WHERE resource_id = $1 AND user_id = $2`,
+		resourceID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("remove access: %w", err)
+	}
+	return nil
 }
 
 // ---- Resource Versions ----

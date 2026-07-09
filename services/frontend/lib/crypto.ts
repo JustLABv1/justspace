@@ -10,6 +10,30 @@ export interface EncryptedData {
     iv: string;
 }
 
+export interface EncryptedBytes {
+    ciphertext: Uint8Array;
+    iv: string;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes));
+}
+
+function base64ToBytes(value: string): Uint8Array {
+    const raw = atob(value);
+    const out = new Uint8Array(raw.length);
+    for (let index = 0; index < raw.length; index += 1) {
+        out[index] = raw.charCodeAt(index);
+    }
+    return out;
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+    const out = new Uint8Array(bytes.byteLength);
+    out.set(bytes);
+    return out.buffer;
+}
+
 export interface UserKeyPair {
     publicKey: string;
     encryptedPrivateKey: string;
@@ -33,7 +57,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     return await crypto.subtle.deriveKey(
         {
             name: 'PBKDF2',
-            salt: salt as BufferSource,
+            salt: toArrayBuffer(salt),
             iterations: 100000,
             hash: 'SHA-256'
         },
@@ -49,11 +73,13 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
  * The private key is encrypted with the derived vault key.
  */
 export async function generateUserKeyPair(vaultPassword: string): Promise<UserKeyPair> {
+    const publicExponent = new Uint8Array(3);
+    publicExponent.set([1, 0, 1]);
     const keyPair = await crypto.subtle.generateKey(
         {
             name: ALGORITHM_RSA,
             modulusLength: 2048,
-            publicExponent: new Uint8Array([1, 0, 1]),
+            publicExponent,
             hash: 'SHA-256'
         },
         true,
@@ -81,8 +107,8 @@ export async function generateUserKeyPair(vaultPassword: string): Promise<UserKe
     return {
         publicKey: publicKeyStr,
         encryptedPrivateKey: encryptedPrivateKeyStr,
-        salt: btoa(String.fromCharCode(...salt)),
-        iv: btoa(String.fromCharCode(...iv))
+        salt: bytesToBase64(salt),
+        iv: bytesToBase64(iv)
     };
 }
 
@@ -95,16 +121,16 @@ export async function decryptPrivateKey(
     saltStr: string,
     ivStr: string
 ): Promise<CryptoKey> {
-    const encryptedPrivateKey = new Uint8Array(atob(encryptedPrivateKeyStr).split('').map(c => c.charCodeAt(0)));
-    const salt = new Uint8Array(atob(saltStr).split('').map(c => c.charCodeAt(0)));
-    const iv = new Uint8Array(atob(ivStr).split('').map(c => c.charCodeAt(0)));
+    const encryptedPrivateKey = base64ToBytes(encryptedPrivateKeyStr);
+    const salt = base64ToBytes(saltStr);
+    const iv = base64ToBytes(ivStr);
 
     const vaultKey = await deriveKey(vaultPassword, salt);
 
     const privateKeyBuffer = await crypto.subtle.decrypt(
-        { name: ALGORITHM_AES, iv },
+        { name: ALGORITHM_AES, iv: toArrayBuffer(iv) },
         vaultKey,
-        encryptedPrivateKey
+        toArrayBuffer(encryptedPrivateKey)
     );
 
     return await crypto.subtle.importKey(
@@ -134,14 +160,14 @@ export async function encryptData(data: string, key: CryptoKey): Promise<Encrypt
     const encoder = new TextEncoder();
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const ciphertextBuffer = await crypto.subtle.encrypt(
-        { name: ALGORITHM_AES, iv },
+        { name: ALGORITHM_AES, iv: toArrayBuffer(iv) },
         key,
         encoder.encode(data)
     );
 
     return {
-        ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertextBuffer))),
-        iv: btoa(String.fromCharCode(...iv))
+        ciphertext: bytesToBase64(new Uint8Array(ciphertextBuffer)),
+        iv: bytesToBase64(iv)
     };
 }
 
@@ -150,26 +176,48 @@ export async function encryptData(data: string, key: CryptoKey): Promise<Encrypt
  */
 export async function decryptData(encryptedData: EncryptedData, key: CryptoKey): Promise<string> {
     const decoder = new TextDecoder();
-    const ciphertext = new Uint8Array(atob(encryptedData.ciphertext).split('').map(c => c.charCodeAt(0)));
-    const iv = new Uint8Array(atob(encryptedData.iv).split('').map(c => c.charCodeAt(0)));
+    const ciphertext = base64ToBytes(encryptedData.ciphertext);
+    const iv = base64ToBytes(encryptedData.iv);
 
     const plaintextBuffer = await crypto.subtle.decrypt(
-        { name: ALGORITHM_AES, iv },
+        { name: ALGORITHM_AES, iv: toArrayBuffer(iv) },
         key,
-        ciphertext
+        toArrayBuffer(ciphertext)
     );
 
     return decoder.decode(plaintextBuffer);
+}
+
+export async function encryptBytes(data: ArrayBuffer, key: CryptoKey): Promise<EncryptedBytes> {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertextBuffer = await crypto.subtle.encrypt(
+        { name: ALGORITHM_AES, iv: toArrayBuffer(iv) },
+        key,
+        data
+    );
+
+    return {
+        ciphertext: new Uint8Array(ciphertextBuffer),
+        iv: bytesToBase64(iv)
+    };
+}
+
+export async function decryptBytes(data: { ciphertext: ArrayBuffer; iv: string }, key: CryptoKey): Promise<ArrayBuffer> {
+    return crypto.subtle.decrypt(
+        { name: ALGORITHM_AES, iv: toArrayBuffer(base64ToBytes(data.iv)) },
+        key,
+        data.ciphertext
+    );
 }
 
 /**
  * Encrypts a document key using a user's public key (RSA-OAEP).
  */
 export async function encryptDocumentKey(docKey: CryptoKey, publicKeyStr: string): Promise<string> {
-    const publicKeyBuffer = new Uint8Array(atob(publicKeyStr).split('').map(c => c.charCodeAt(0)));
+    const publicKeyBuffer = base64ToBytes(publicKeyStr);
     const publicKey = await crypto.subtle.importKey(
         'spki',
-        publicKeyBuffer,
+        toArrayBuffer(publicKeyBuffer),
         { name: ALGORITHM_RSA, hash: 'SHA-256' },
         true,
         ['encrypt']
@@ -189,12 +237,12 @@ export async function encryptDocumentKey(docKey: CryptoKey, publicKeyStr: string
  * Decrypts a document key using a user's private key (RSA-OAEP).
  */
 export async function decryptDocumentKey(encryptedKeyStr: string, privateKey: CryptoKey): Promise<CryptoKey> {
-    const encryptedKey = new Uint8Array(atob(encryptedKeyStr).split('').map(c => c.charCodeAt(0)));
+    const encryptedKey = base64ToBytes(encryptedKeyStr);
 
     const docKeyBuffer = await crypto.subtle.decrypt(
         { name: ALGORITHM_RSA },
         privateKey,
-        encryptedKey
+        toArrayBuffer(encryptedKey)
     );
 
     return await crypto.subtle.importKey(

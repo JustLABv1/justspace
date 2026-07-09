@@ -9,10 +9,17 @@ import {
     AccessControl,
     ActivityLog,
     InstallationTarget,
+    PresenceSession,
     Project,
+    ProjectFile,
+    ProjectMember,
     ResourceVersion,
     Snippet,
     Task,
+    TaskAssignee,
+    TaskComment,
+    TeamInvitation,
+    UserLookup,
     UserKeys,
     WikiGuide
 } from '@/services/frontend/types';
@@ -137,5 +144,82 @@ export const db = {
     },
     async grantAccess(data: Omit<AccessControl, 'id'>) {
         return await api.grantAccess<AccessControl>(data as Record<string, unknown>);
-    }
+    },
+
+    // Collaboration
+    async searchUsers(query: string) {
+        return await api.searchUsers<UserLookup>(query);
+    },
+    async listProjectMembers(projectId: string) {
+        return await api.listProjectMembers<ProjectMember>(projectId);
+    },
+    async addProjectMember(projectId: string, data: { userId: string; role: ProjectMember['role']; encryptedKey?: string }) {
+        return await api.addProjectMember<ProjectMember>(projectId, data as Record<string, unknown>);
+    },
+    async updateProjectMember(projectId: string, userId: string, data: { role: ProjectMember['role'] }) {
+        return await api.updateProjectMember<ProjectMember>(projectId, userId, data as Record<string, unknown>);
+    },
+    async removeProjectMember(projectId: string, userId: string) {
+        return await api.removeProjectMember(projectId, userId);
+    },
+    async listProjectInvitations(projectId: string) {
+        return await api.listProjectInvitations<TeamInvitation>(projectId);
+    },
+    async createProjectInvitation(projectId: string, data: { email: string; role: TeamInvitation['role']; encryptedKey?: string }) {
+        return await api.createProjectInvitation<TeamInvitation>(projectId, data as Record<string, unknown>);
+    },
+    async cancelProjectInvitation(projectId: string, invitationId: string) {
+        return await api.cancelProjectInvitation(projectId, invitationId);
+    },
+    async acceptInvitation(token: string) {
+        return await api.acceptInvitation({ token });
+    },
+    async listProjectFiles(projectId: string) {
+        return await api.listProjectFiles<ProjectFile>(projectId);
+    },
+    async uploadProjectFile(projectId: string, formData: FormData) {
+        return await api.uploadProjectFile<ProjectFile>(projectId, formData);
+    },
+    async downloadProjectFile(fileId: string) {
+        return await api.downloadProjectFile(fileId);
+    },
+    async deleteProjectFile(fileId: string) {
+        return await api.deleteProjectFile(fileId);
+    },
+    async listTaskFiles(taskId: string) {
+        return await api.listTaskFiles<ProjectFile>(taskId);
+    },
+    async uploadTaskFile(taskId: string, formData: FormData) {
+        return await api.uploadTaskFile<ProjectFile>(taskId, formData);
+    },
+    async listTaskAssignees(taskId: string) {
+        return await api.listTaskAssignees<TaskAssignee>(taskId);
+    },
+    async addTaskAssignee(taskId: string, userId: string) {
+        return await api.addTaskAssignee<TaskAssignee>(taskId, { userId });
+    },
+    async removeTaskAssignee(taskId: string, userId: string) {
+        return await api.removeTaskAssignee(taskId, userId);
+    },
+    async listTaskComments(taskId: string) {
+        return await api.listTaskComments<TaskComment>(taskId);
+    },
+    async createTaskComment(taskId: string, data: { body: string; mentionedUserIds?: string[]; isEncrypted?: boolean }) {
+        return await api.createTaskComment<TaskComment>(taskId, data as Record<string, unknown>);
+    },
+    async deleteTaskComment(taskId: string, commentId: string) {
+        return await api.deleteTaskComment(taskId, commentId);
+    },
+    async listTaskActivity(taskId: string) {
+        return await api.listTaskActivity<ActivityLog>(taskId);
+    },
+    async heartbeatProjectPresence(projectId: string) {
+        return await api.heartbeatProjectPresence<PresenceSession>(projectId);
+    },
+    async heartbeatTaskPresence(taskId: string) {
+        return await api.heartbeatTaskPresence<PresenceSession>(taskId);
+    },
+    async listProjectActivity(projectId: string) {
+        return await api.listProjectActivity<ActivityLog>(projectId);
+    },
 };

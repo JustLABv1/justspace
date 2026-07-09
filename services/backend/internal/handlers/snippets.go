@@ -44,7 +44,7 @@ func (h *SnippetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create snippet")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "create", "Snippet", snippet.Title, &snippet.ID, nil)
+	h.repo.LogActivity(r.Context(), userID, "create", "Snippet", snippet.Title, &snippet.ID, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "create", Collection: "snippets", Document: snippet, UserID: userID})
 	writeJSON(w, http.StatusCreated, snippet)
 }
@@ -64,7 +64,7 @@ func (h *SnippetHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Title != nil || req.IsEncrypted != nil {
-		h.repo.LogActivity(r.Context(), userID, "update", "Snippet", snippet.Title, &snippet.ID, nil)
+		h.repo.LogActivity(r.Context(), userID, "update", "Snippet", snippet.Title, &snippet.ID, nil, nil)
 	}
 	h.hub.Broadcast(userID, models.WSEvent{Type: "update", Collection: "snippets", Document: snippet, UserID: userID})
 	writeJSON(w, http.StatusOK, snippet)
@@ -77,7 +77,7 @@ func (h *SnippetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete snippet")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "delete", "Snippet", "Snippet", nil, nil)
+	h.repo.LogActivity(r.Context(), userID, "delete", "Snippet", "Snippet", nil, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "delete", Collection: "snippets", Document: map[string]string{"id": id}, UserID: userID})
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
 }
@@ -189,13 +189,18 @@ func (h *AccessHandler) Grant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	userID := middleware.GetUserID(r)
+	if req.ResourceType == "Project" {
+		if !ensureProjectRole(w, r, h.repo, req.ResourceID, userID, "owner", "admin") {
+			return
+		}
+	}
 	ac, err := h.repo.GrantAccess(r.Context(), req)
 	if err != nil {
 		log.Printf("GrantAccess error: %v", err)
 		writeError(w, http.StatusInternalServerError, "failed to grant access")
 		return
 	}
-	userID := middleware.GetUserID(r)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "create", Collection: "access_control", Document: ac, UserID: userID})
 	writeJSON(w, http.StatusCreated, ac)
 }

@@ -35,8 +35,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       MIGRATIONS_DIR: /app/migrations
+      FILE_STORAGE_ROOT: /data/uploads
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-52428800}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - uploads:/data/uploads
 
   frontend:
     image: ghcr.io/justlabv1/justspace:frontend-latest
@@ -51,3 +55,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

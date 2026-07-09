@@ -1,12 +1,13 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
-import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
+import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { collectTaskTags, normalizeTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { Task } from '@/services/frontend/types';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
 import {
+    Avatar,
     Button,
     Calendar,
     Checkbox,
@@ -22,6 +23,7 @@ import {
     ScrollShadow,
     Tag,
     TagGroup,
+    TextArea,
     TimeField,
     toast,
     useFilter
@@ -30,8 +32,9 @@ import { parseAbsoluteToLocal } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { saveAs } from 'file-saver';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, UserPlus, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -60,7 +63,18 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
     const [projectTasks, setProjectTasks] = useState<Task[]>([]);
     const [projectTags, setProjectTags] = useState<string[]>([]);
+    const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+    const [projectRole, setProjectRole] = useState<Project['role'] | null>(null);
+    const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
+    const [comments, setComments] = useState<TaskComment[]>([]);
+    const [taskActivity, setTaskActivity] = useState<ActivityLog[]>([]);
+    const [presence, setPresence] = useState<PresenceSession[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+    const [taskFiles, setTaskFiles] = useState<ProjectFile[]>([]);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [showDepPicker, setShowDepPicker] = useState(false);
+    const attachmentInputRef = useRef<HTMLInputElement | null>(null);
     const [recurrence, setRecurrence] = useState<{ type: 'daily' | 'weekly' | 'monthly'; interval: number } | null>(() => {
         try { return task.recurrence ? JSON.parse(task.recurrence) : null; } catch { return null; }
     });
@@ -144,6 +158,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const fetchDetails = useCallback(async () => {
         if (!isOpen) return;
         try {
+            const project = await db.getProject(projectId);
+            setProjectRole(project.role);
+
             // Get decryption key if project is encrypted
             let docKey = documentKey;
             if (task.isEncrypted && privateKey && user && !docKey) {
@@ -194,8 +211,34 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             }));
             setProjectTasks(decryptedDepCandidates);
             setProjectTags(collectTaskTags(allTasks));
+            const [fileRes, memberRes, assigneeRes, commentRes, activityRes, presenceRes] = await Promise.all([
+                db.listTaskFiles(task.id),
+                db.listProjectMembers(projectId),
+                db.listTaskAssignees(task.id),
+                db.listTaskComments(task.id),
+                db.listTaskActivity(task.id),
+                db.heartbeatTaskPresence(task.id),
+            ]);
+            setTaskFiles(fileRes.documents);
+            setProjectMembers(memberRes.documents);
+            setAssignees(assigneeRes.documents);
+            setTaskActivity(activityRes.documents);
+            setPresence(presenceRes.documents);
+
+            const decryptedComments = await Promise.all(commentRes.documents.map(async (comment) => {
+                if (!comment.isEncrypted || !docKey) {
+                    return comment;
+                }
+                try {
+                    const decryptedBody = await decryptData(JSON.parse(comment.body), docKey);
+                    return { ...comment, body: decryptedBody };
+                } catch {
+                    return { ...comment, body: 'Secure comment' };
+                }
+            }));
+            setComments(decryptedComments);
         } catch (error) {
-            console.error('Failed to fetch subtasks:', error);
+            console.error('Failed to fetch task details:', error);
         }
     }, [isOpen, projectId, task.id, task.isEncrypted, privateKey, user, documentKey]);
 
@@ -205,6 +248,18 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         };
         load();
     }, [fetchDetails]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const tick = () => {
+            void db.heartbeatTaskPresence(task.id)
+                .then((response) => setPresence(response.documents))
+                .catch(console.error);
+        };
+        tick();
+        const timer = window.setInterval(tick, 15000);
+        return () => window.clearInterval(timer);
+    }, [isOpen, task.id]);
 
     useEffect(() => {
         const unsub = wsClient.subscribe(async (event: WSEvent) => {
@@ -222,6 +277,30 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 }
 
                 await fetchDetails();
+            }
+            if (event.collection === 'project_files') {
+                const payload = event.document as Partial<ProjectFile> & { taskId?: string };
+                if (payload.taskId !== task.id) return;
+                await fetchDetails();
+            }
+            if (event.collection === 'task_assignees' || event.collection === 'task_comments') {
+                const payload = event.document as { taskId?: string };
+                if (payload.taskId !== task.id) return;
+                await fetchDetails();
+            }
+            if (event.collection === 'task_activity') {
+                const payload = event.document as { taskId?: string; activity?: ActivityLog[] };
+                if (payload.taskId !== task.id) return;
+                if (Array.isArray(payload.activity)) {
+                    setTaskActivity(payload.activity);
+                }
+            }
+            if (event.collection === 'task_presence') {
+                const payload = event.document as { taskId?: string; sessions?: PresenceSession[] };
+                if (payload.taskId !== task.id) return;
+                if (Array.isArray(payload.sessions)) {
+                    setPresence(payload.sessions);
+                }
             }
         });
 
@@ -473,15 +552,175 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         void persistTags(nextTags);
     };
 
+    const canEditTask = projectRole === 'owner' || projectRole === 'admin' || projectRole === 'editor';
+    const availableAssignees = projectMembers.filter((member) => !assignees.some((assignee) => assignee.userId === member.userId));
+    const mentionableMembers = projectMembers.filter((member) => member.userId !== user?.id);
+
+    const toggleMention = (memberId: string) => {
+        setMentionedUserIds((current) => current.includes(memberId)
+            ? current.filter((id) => id !== memberId)
+            : [...current, memberId],
+        );
+    };
+
+    const handleAssignMember = async (memberId: string) => {
+        try {
+            const assignee = await db.addTaskAssignee(task.id, memberId);
+            setAssignees((current) => [...current.filter((item) => item.userId !== assignee.userId), assignee]);
+            toast.success('Assignee added');
+        } catch (error) {
+            console.error('Failed to assign member:', error);
+            toast.danger('Failed to assign teammate');
+        }
+    };
+
+    const handleRemoveAssignee = async (memberId: string) => {
+        try {
+            await db.removeTaskAssignee(task.id, memberId);
+            setAssignees((current) => current.filter((item) => item.userId !== memberId));
+            toast.success('Assignee removed');
+        } catch (error) {
+            console.error('Failed to remove assignee:', error);
+            toast.danger('Failed to remove assignee');
+        }
+    };
+
+    const handleCreateComment = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!newComment.trim()) return;
+
+        try {
+            let body = newComment.trim();
+            let isEncrypted = false;
+            if (task.isEncrypted && documentKey) {
+                const encrypted = await encryptData(body, documentKey);
+                body = JSON.stringify(encrypted);
+                isEncrypted = true;
+            }
+            const comment = await db.createTaskComment(task.id, {
+                body,
+                mentionedUserIds,
+                isEncrypted,
+            });
+            setComments((current) => [...current, { ...comment, body: newComment.trim() }]);
+            setNewComment('');
+            setMentionedUserIds([]);
+            toast.success('Comment added');
+        } catch (error) {
+            console.error('Failed to create comment:', error);
+            toast.danger('Failed to save comment');
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        try {
+            await db.deleteTaskComment(task.id, commentId);
+            setComments((current) => current.filter((comment) => comment.id !== commentId));
+            toast.success('Comment removed');
+        } catch (error) {
+            console.error('Failed to remove comment:', error);
+            toast.danger('Failed to remove comment');
+        }
+    };
+
+    const handleDownloadFile = async (file: ProjectFile) => {
+        try {
+            const blob = await db.downloadProjectFile(file.id);
+            if (!task.isEncrypted || !documentKey) {
+                saveAs(blob, `task-file-${file.id}`);
+                return;
+            }
+            const encryptedBytes = await blob.arrayBuffer();
+            const decrypted = await decryptBytes({ ciphertext: encryptedBytes, iv: file.iv || '' }, documentKey);
+            const decryptedName = await decryptData(JSON.parse(file.encryptedName), documentKey);
+            saveAs(new Blob([decrypted]), decryptedName);
+        } catch (error) {
+            console.error('Failed to download task file:', error);
+            toast.danger('File download failed');
+        }
+    };
+
+    const handleUploadFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (task.isEncrypted && !documentKey) {
+            toast.danger('Unlock your vault before uploading encrypted files');
+            return;
+        }
+
+        setIsUploadingFile(true);
+        try {
+            let uploadBlob = file;
+            let encryptedName = file.name;
+            const contentType = file.type || 'application/octet-stream';
+            let iv = '';
+
+            if (task.isEncrypted && documentKey) {
+                const [encryptedFile, encryptedFileName] = await Promise.all([
+                    encryptBytes(await file.arrayBuffer(), documentKey),
+                    encryptData(file.name, documentKey),
+                ]);
+                const encryptedBytes = new Uint8Array(encryptedFile.ciphertext.byteLength);
+                encryptedBytes.set(encryptedFile.ciphertext);
+                uploadBlob = new File([encryptedBytes], 'cipher.bin', { type: 'application/octet-stream' });
+                encryptedName = JSON.stringify(encryptedFileName);
+                iv = encryptedFile.iv;
+            }
+
+            const formData = new FormData();
+            formData.append('file', uploadBlob);
+            formData.append('encryptedName', encryptedName);
+            formData.append('contentType', contentType);
+            formData.append('isEncrypted', String(!!task.isEncrypted));
+            if (iv) {
+                formData.append('iv', iv);
+            }
+            await db.uploadTaskFile(task.id, formData);
+            const response = await db.listTaskFiles(task.id);
+            setTaskFiles(response.documents);
+            toast.success('Attachment uploaded');
+        } catch (error) {
+            console.error('Failed to upload task file:', error);
+            toast.danger('File upload failed');
+        } finally {
+            setIsUploadingFile(false);
+            if (attachmentInputRef.current) {
+                attachmentInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDeleteFile = async (fileId: string) => {
+        try {
+            await db.deleteProjectFile(fileId);
+            setTaskFiles((current) => current.filter((file) => file.id !== fileId));
+            toast.success('Attachment removed');
+        } catch (error) {
+            console.error('Failed to delete task file:', error);
+            toast.danger('Failed to remove file');
+        }
+    };
+
+    const resolveFileName = async (file: ProjectFile) => {
+        if (!task.isEncrypted || !documentKey) {
+            return file.encryptedName;
+        }
+        try {
+            return await decryptData(JSON.parse(file.encryptedName), documentKey);
+        } catch {
+            return 'Secure attachment';
+        }
+    };
+
     return (
         <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-            <Modal.Backdrop>
-                <Modal.Container size="cover">
-                    <Modal.Dialog className="bg-surface border border-border overflow-hidden">
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex flex-col items-start gap-4">
+            <Modal.Backdrop className="bg-background/60 backdrop-blur-sm">
+                <Modal.Container size="cover" className="items-stretch justify-end p-0">
+                    <Modal.Dialog className="ml-auto flex h-screen w-full max-w-[1120px] flex-col overflow-hidden rounded-none border-l border-border bg-surface shadow-2xl">
+                        <Modal.Header className="px-5 pt-4 pb-3 border-b border-border flex flex-col items-start gap-3">
                             <Modal.CloseTrigger className="text-muted-foreground hover:text-foreground hover:bg-surface-secondary transition-colors" />
                             
-                            <div className="w-full space-y-6">
+                            <div className="w-full space-y-4 pr-8">
                                 {isEditingTitle ? (
                                     <form 
                                         onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}
@@ -496,16 +735,30 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         />
                                     </form>
                                 ) : (
-                                    <Modal.Heading 
-                                        className="text-base font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
-                                        onClick={() => setIsEditingTitle(true)}
-                                    >
-                                        {task.title}
-                                        <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
-                                    </Modal.Heading>
+                                    <div className="space-y-3">
+                                        <Modal.Heading 
+                                            className="text-lg font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
+                                            onClick={() => setIsEditingTitle(true)}
+                                        >
+                                            {task.title}
+                                            <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                                        </Modal.Heading>
+                                        {presence.length > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex -space-x-2">
+                                                    {presence.slice(0, 4).map((session) => (
+                                                        <Avatar key={session.userId} size="sm" color="accent" variant="soft" className="border border-surface">
+                                                            <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                        </Avatar>
+                                                    ))}
+                                                </div>
+                                                <span className="text-[11px] text-muted-foreground">{presence.length} viewing now</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
-                                <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {/* Status Pill */}
                                     <div className="flex items-center gap-2 bg-surface-secondary/50 p-1 px-2 rounded-md border border-border">
                                         <div className={`w-1.5 h-1.5 rounded-full ml-1 ${
@@ -712,14 +965,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                             </div>
                         </Modal.Header>
-                        <Modal.Body className="p-0">
-                            <div className="flex flex-col md:flex-row h-full max-h-[70vh]">
-                                {/* Left Side: Subtasks */}
-                                <div className="flex-1 p-6 border-r border-border bg-surface-secondary/20 h-full">
+                        <Modal.Body className="min-h-0 flex-1 overflow-hidden p-0">
+                            <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+                                {/* Main task work area */}
+                                <div className="min-h-0 border-r border-border bg-surface">
+                                    <ScrollShadow className="h-full p-5" hideScrollBar>
                                     <div className="h-full flex flex-col gap-6">
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-xs font-medium text-accent flex items-center gap-2">
+                                                <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
                                                     <Plus size={14} /> Subtasks
                                                 </h4>
                                                 <span className="text-xs text-muted-foreground/60">{subtasks.filter(s => s.completed).length}/{subtasks.length} completed</span>
@@ -730,7 +984,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     placeholder="Add technical milestone..."
                                                     value={newSubtaskTitle}
                                                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                                    className="w-full bg-surface-secondary"
+                                                    variant="secondary"
+                                                    className="w-full rounded-lg"
                                                 />
                                                 <Button 
                                                     type="submit" 
@@ -751,7 +1006,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         </div>
                                                     ) : (
                                                         [...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((st) => (
-                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
+                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
                                                                 <Checkbox 
                                                                     isSelected={st.completed} 
                                                                     onChange={(val) => handleUpdateTask(st.id, { completed: val })}
@@ -813,18 +1068,121 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         )}
 
+                                        <div className="pt-6 border-t border-border">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                                    <FileText size={13} className="text-muted-foreground" /> Attachments
+                                                </h4>
+                                                <input
+                                                    ref={attachmentInputRef}
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={handleUploadFile}
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-6 px-2 rounded-lg text-[11px] text-accent"
+                                                    isPending={isUploadingFile}
+                                                    onPress={() => attachmentInputRef.current?.click()}
+                                                >
+                                                    <FolderUp size={11} className="mr-1" />
+                                                    Upload
+                                                </Button>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {taskFiles.length === 0 ? (
+                                                    <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
+                                                        No files attached to this task yet.
+                                                    </div>
+                                                ) : (
+                                                    taskFiles.map((file) => (
+                                                        <TaskAttachmentRow
+                                                            key={file.id}
+                                                            file={file}
+                                                            resolveFileName={resolveFileName}
+                                                            onDownload={() => handleDownloadFile(file)}
+                                                            onDelete={() => handleDeleteFile(file.id)}
+                                                        />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 border-t border-border">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                                    <Users size={13} className="text-muted-foreground" /> Assignees
+                                                </h4>
+                                                {canEditTask && availableAssignees.length > 0 && (
+                                                    <Dropdown>
+                                                        <Dropdown.Trigger>
+                                                            <Button size="sm" variant="ghost" className="h-6 px-2 rounded-lg text-[11px] text-accent">
+                                                                <UserPlus size={11} className="mr-1" />
+                                                                Assign
+                                                            </Button>
+                                                        </Dropdown.Trigger>
+                                                        <Dropdown.Popover placement="bottom end">
+                                                            <Dropdown.Menu>
+                                                                {availableAssignees.map((member) => (
+                                                                    <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => handleAssignMember(member.userId)}>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Avatar size="sm" color="accent" variant="soft">
+                                                                                <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                            </Avatar>
+                                                                            <div className="min-w-0">
+                                                                                <div className="text-sm text-foreground truncate">{member.name}</div>
+                                                                                <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </Dropdown.Item>
+                                                                ))}
+                                                            </Dropdown.Menu>
+                                                        </Dropdown.Popover>
+                                                    </Dropdown>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                {assignees.length === 0 ? (
+                                                    <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
+                                                        No teammates assigned yet.
+                                                    </div>
+                                                ) : (
+                                                    assignees.map((assignee) => (
+                                                        <div key={assignee.userId} className="flex items-center gap-3 rounded-lg border border-border/60 bg-surface-secondary/20 px-3 py-2">
+                                                            <Avatar size="sm" color="accent" variant="soft">
+                                                                <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                            </Avatar>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="text-[12px] font-medium text-foreground truncate">{assignee.name}</div>
+                                                                <div className="text-[11px] text-muted-foreground truncate">{assignee.email}</div>
+                                                            </div>
+                                                            {canEditTask && (
+                                                                <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleRemoveAssignee(assignee.userId)}>
+                                                                    <Trash size={12} />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
                                         {/* Dependencies */}
                                         <div className="pt-6 border-t border-border">
                                             <div className="flex items-center justify-between mb-3">
                                                 <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                                                     <GitBranch size={13} className="text-muted-foreground" /> Dependencies
                                                 </h4>
-                                                <button
-                                                    onClick={() => setShowDepPicker(v => !v)}
-                                                    className="text-[11px] text-accent hover:text-accent/80 transition-colors"
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-6 px-2 rounded-lg text-[11px] text-accent"
+                                                    onPress={() => setShowDepPicker(v => !v)}
                                                 >
-                                                    + Add
-                                                </button>
+                                                    <Plus size={11} className="mr-1" />
+                                                    Add
+                                                </Button>
                                             </div>
                                             {showDepPicker && (
                                                 <div className="mb-2 rounded-xl border border-border bg-surface-secondary overflow-hidden max-h-32 overflow-y-auto">
@@ -834,14 +1192,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         projectTasks
                                                             .filter(t => !(task.dependencies || []).includes(t.id))
                                                             .map(t => (
-                                                                <button
+                                                                <Button
                                                                     key={t.id}
-                                                                    onClick={() => handleAddDependency(t.id)}
-                                                                    className="w-full text-left px-3 py-2 text-[12px] text-foreground hover:bg-accent/10 transition-colors truncate flex items-center gap-2"
+                                                                    variant="ghost"
+                                                                    className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[12px]"
+                                                                    onPress={() => handleAddDependency(t.id)}
                                                                 >
                                                                     <Link2 size={10} className="text-muted-foreground shrink-0" />
                                                                     {t.title}
-                                                                </button>
+                                                                </Button>
                                                             ))
                                                     )}
                                                 </div>
@@ -856,12 +1215,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             <div key={depId} className="flex items-center gap-2 py-1 px-2 rounded-lg bg-surface-secondary/50 border border-border/60 group">
                                                                 <Link2 size={10} className="text-muted-foreground shrink-0" />
                                                                 <span className="text-[12px] text-foreground truncate flex-1">{depTask?.title || 'Unknown task'}</span>
-                                                                <button
-                                                                    onClick={() => handleRemoveDependency(depId)}
-                                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-danger"
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    isIconOnly
+                                                                    className="h-5 w-5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-danger"
+                                                                    onPress={() => handleRemoveDependency(depId)}
                                                                 >
                                                                     <X size={10} />
-                                                                </button>
+                                                                </Button>
                                                             </div>
                                                         );
                                                     })
@@ -879,37 +1240,36 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             <div className="space-y-2">
                                                 <div className="flex gap-1 flex-wrap">
                                                     {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
-                                                        <button
+                                                        <Button
                                                             key={type}
-                                                            onClick={() => {
+                                                            size="sm"
+                                                            variant={(type === 'none' ? !recurrence : recurrence?.type === type) ? 'primary' : 'secondary'}
+                                                            className="h-7 rounded-lg px-2.5 text-[11px] font-medium"
+                                                            onPress={() => {
                                                                 if (type === 'none') { handleSaveRecurrence(null); }
                                                                 else { handleSaveRecurrence({ type, interval: 1 }); }
                                                             }}
-                                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                                                                (type === 'none' ? !recurrence : recurrence?.type === type)
-                                                                    ? 'bg-accent text-white'
-                                                                    : 'bg-surface-secondary text-muted-foreground hover:text-foreground'
-                                                            }`}
                                                         >
                                                             {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
-                                                        </button>
+                                                        </Button>
                                                     ))}
                                                 </div>
                                                 {recurrence && (
                                                     <div className="flex items-center gap-2 mt-2">
                                                         <span className="text-[11px] text-muted-foreground">Every</span>
-                                                        <input
+                                                        <Input
                                                             type="number"
                                                             min={1}
                                                             max={99}
                                                             value={recurrence.interval}
                                                             onChange={e => {
-                                                                const interval = Math.max(1, parseInt(e.target.value) || 1);
+                                                                const interval = Math.max(1, parseInt(e.target.value, 10) || 1);
                                                                 const updated = { ...recurrence, interval };
                                                                 setRecurrence(updated);
                                                                 handleSaveRecurrence(updated);
                                                             }}
-                                                            className="w-12 text-center bg-surface-secondary text-foreground border border-border rounded-lg px-1 py-0.5 text-[12px] outline-none focus:border-accent"
+                                                            variant="secondary"
+                                                            className="w-16 rounded-lg text-center text-[12px]"
                                                         />
                                                         <span className="text-[11px] text-muted-foreground">
                                                             {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
@@ -921,22 +1281,114 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         </div>
                                     </div>
+                                    </ScrollShadow>
                                 </div>
 
-                                {/* Right Side: Communication Log */}
-                                <div className="flex-1 p-6 bg-surface">
+                                {/* Right Side: properties and communication */}
+                                <div className="min-h-0 bg-surface-secondary/25">
+                                    <ScrollShadow className="h-full p-5" hideScrollBar>
                                     <div className="h-full flex flex-col gap-6">
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-xs font-medium text-warning flex items-center gap-2">
-                                                    <MessageCircle size={14} /> Notes
+                                                <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
+                                                    <MessageCircle size={14} /> Updates
                                                 </h4>
                                             </div>
 
                                             <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
                                                 <div className="space-y-4">
+                                                    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Comments</h5>
+                                                            <span className="text-[11px] text-muted-foreground">{comments.length}</span>
+                                                        </div>
+                                                        {comments.length === 0 ? (
+                                                            <div className="rounded-lg border border-dashed border-border/30 px-3 py-5 text-center text-[11px] text-muted-foreground/60">
+                                                                No team comments yet.
+                                                            </div>
+                                                        ) : (
+                                                            comments.map((comment) => (
+                                                                <div key={comment.id} className="rounded-lg border border-border/60 bg-surface-secondary/30 p-3">
+                                                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[12px] font-medium text-foreground truncate">{comment.userName}</div>
+                                                                            <div className="text-[11px] text-muted-foreground">{dayjs(comment.createdAt).fromNow()}</div>
+                                                                        </div>
+                                                                        {comment.userId === user?.id && (
+                                                                            <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleDeleteComment(comment.id)}>
+                                                                                <Trash size={11} />
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">{comment.body}</p>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                        <form onSubmit={handleCreateComment} className="space-y-2">
+                                                            <TextArea
+                                                                value={newComment}
+                                                                onChange={(e) => setNewComment(e.target.value)}
+                                                                placeholder="Add a comment for the team..."
+                                                                rows={3}
+                                                                variant="secondary"
+                                                                className="w-full resize-none rounded-xl text-xs"
+                                                            />
+                                                            {mentionableMembers.length > 0 && (
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {mentionableMembers.map((member) => (
+                                                                        <Button
+                                                                            key={member.userId}
+                                                                            type="button"
+                                                                            size="sm"
+                                                                            variant={mentionedUserIds.includes(member.userId) ? 'primary' : 'secondary'}
+                                                                            className="h-6 rounded-md px-2 text-[11px]"
+                                                                            onPress={() => toggleMention(member.userId)}
+                                                                        >
+                                                                            @{member.name.split(' ')[0]}
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            <div className="flex justify-end">
+                                                                <Button type="submit" size="sm" variant="primary" className="h-7 rounded-lg px-3 text-xs">
+                                                                    Comment
+                                                                </Button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+
+                                                    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Activity</h5>
+                                                            <span className="text-[11px] text-muted-foreground">{taskActivity.length}</span>
+                                                        </div>
+                                                        {taskActivity.length === 0 ? (
+                                                            <div className="rounded-lg border border-dashed border-border/30 px-3 py-5 text-center text-[11px] text-muted-foreground/60">
+                                                                No recent task activity yet.
+                                                            </div>
+                                                        ) : (
+                                                            taskActivity.map((item) => (
+                                                                <div key={item.id} className="rounded-lg border border-border/60 bg-surface-secondary/30 px-3 py-2">
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[12px] font-medium text-foreground truncate">
+                                                                                {item.userName || 'Teammate'} · {item.type}
+                                                                            </div>
+                                                                            <div className="text-[11px] text-muted-foreground truncate">
+                                                                                {item.entityType} {item.metadata ? `· ${item.metadata}` : ''}
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="text-[11px] text-muted-foreground shrink-0">{dayjs(item.createdAt).format('MMM D, HH:mm')}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+
+                                                    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                                        <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Internal notes</h5>
                                                     {parsedNotes.length === 0 ? (
-                                                        <div className="py-12 text-center border-2 border-dashed border-border/30 rounded-xl">
+                                                        <div className="py-12 text-center border border-dashed border-border/30 rounded-lg">
                                                             <Email size={24} className="mx-auto text-muted-foreground/20 mb-2" />
                                                             <p className="text-xs text-muted-foreground/50">No notes yet</p>
                                                         </div>
@@ -983,6 +1435,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             </div>
                                                         ))
                                                     )}
+                                                    </div>
                                                 </div>
                                             </ScrollShadow>
                                         </div>
@@ -1015,11 +1468,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 </Button>
                                             </div>
                                             <div className="relative">
-                                                <textarea
+                                                <TextArea
                                                     value={newNote}
                                                     onChange={(e) => setNewNote(e.target.value)}
                                                     placeholder={editingNoteIndex !== null ? "Edit note..." : `Add ${noteType}...`}
-                                                    className="w-full h-24 p-3 rounded-xl bg-surface-secondary border border-border focus:border-warning/50 focus:ring-1 focus:ring-warning/20 outline-none transition-all text-xs resize-none text-foreground placeholder:text-muted-foreground/50"
+                                                    rows={5}
+                                                    variant="secondary"
+                                                    className="w-full resize-none rounded-xl text-xs"
                                                 />
                                                 <Button 
                                                     type="submit" 
@@ -1032,10 +1487,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         </form>
                                     </div>
+                                    </ScrollShadow>
                                 </div>
                             </div>
                         </Modal.Body>
-                        <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border">
+                        <Modal.Footer className="px-5 py-3 bg-surface border-t border-border">
                             <Button slot="close" variant="secondary" className="rounded-xl h-8 px-4 text-xs">
                                 Close
                             </Button>
@@ -1044,5 +1500,63 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 </Modal.Container>
             </Modal.Backdrop>
         </Modal>
+    );
+}
+
+function TaskAttachmentRow({
+    file,
+    resolveFileName,
+    onDownload,
+    onDelete,
+}: {
+    file: ProjectFile;
+    resolveFileName: (file: ProjectFile) => Promise<string>;
+    onDownload: () => void;
+    onDelete: () => void;
+}) {
+    const [displayName, setDisplayName] = useState(file.encryptedName);
+
+    useEffect(() => {
+        let ignore = false;
+        const loadName = async () => {
+            const nextName = await resolveFileName(file);
+            if (!ignore) {
+                setDisplayName(nextName);
+            }
+        };
+        void loadName();
+        return () => {
+            ignore = true;
+        };
+    }, [file, resolveFileName]);
+
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-secondary/20 px-3 py-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-muted-foreground">
+                <FileText size={14} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto justify-start truncate px-0 py-0 text-left text-[12px] font-medium text-foreground hover:text-accent"
+                    onPress={onDownload}
+                >
+                    {displayName}
+                </Button>
+                <div className="text-[11px] text-muted-foreground">
+                    {Math.max(1, Math.round(file.sizeBytes / 1024))} KB
+                    {file.uploaderName ? ` · ${file.uploaderName}` : ''}
+                </div>
+            </div>
+            <Button
+                variant="ghost"
+                isIconOnly
+                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger"
+                onPress={onDelete}
+            >
+                <Trash size={12} />
+            </Button>
+        </div>
     );
 }

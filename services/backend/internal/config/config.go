@@ -16,6 +16,8 @@ type Config struct {
 	DBSSLMode  string
 	JWTSecret  string
 	CORSOrigin string
+	FileStorageRoot string
+	MaxUploadBytes  int64
 }
 
 func Load() *Config {
@@ -33,6 +35,8 @@ func Load() *Config {
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 		JWTSecret:  getEnv("JWT_SECRET", "change-me-in-production"),
 		CORSOrigin: getEnv("CORS_ORIGIN", "http://localhost:3000"),
+		FileStorageRoot: getEnv("FILE_STORAGE_ROOT", "/data/uploads"),
+		MaxUploadBytes:  getEnvInt64("MAX_UPLOAD_BYTES", 50*1024*1024),
 	}
 }
 
@@ -53,6 +57,15 @@ func getEnv(key, fallback string) string {
 func getEnvInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return fallback
+}
+
+func getEnvInt64(key string, fallback int64) int64 {
+	if v := os.Getenv(key); v != "" {
+		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return i
 		}
 	}

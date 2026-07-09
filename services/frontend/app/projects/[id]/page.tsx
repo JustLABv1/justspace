@@ -2,6 +2,7 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { ProjectCollaborationPanel } from '@/components/ProjectCollaborationPanel';
 import { ProjectModal } from '@/components/ProjectModal';
 import { TableView } from '@/components/TableView';
 import { TaskCalendar } from '@/components/TaskCalendar';
@@ -15,7 +16,7 @@ import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserP
 import { collectTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Project, Task } from '@/services/frontend/types';
-import { Button, Chip, Dropdown, Label, Spinner, toast } from "@heroui/react";
+import { Avatar, Button, Card, Chip, Dropdown, Input, Label, Spinner, Tabs, toast } from "@heroui/react";
 import {
     Calendar,
     ChevronDown,
@@ -30,6 +31,7 @@ import {
     MoreHorizontal,
     Plus,
     Search,
+    ShieldCheck,
     Sparkles,
     Table2,
     Trash2,
@@ -47,6 +49,7 @@ const VIEW_TABS = [
 ] as const;
 
 type ViewMode = typeof VIEW_TABS[number]['id'];
+type QuickFilter = 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked';
 
 export default function ProjectDetailPage() {
     const { id } = useParams() as { id: string };
@@ -69,6 +72,7 @@ export default function ProjectDetailPage() {
 		return tags ? tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
 	});
     const [hideCompleted, setHideCompleted] = useState(() => searchParams.get('hideCompleted') === '1');
+    const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
     const [showTimeReport, setShowTimeReport] = useState(false);
     const [timeReportTasks, setTimeReportTasks] = useState<Task[]>([]);
     const { user, privateKey, updateProfile } = useAuth();
@@ -187,6 +191,14 @@ export default function ProjectDetailPage() {
     }, [fetchProjectTasks, id]);
 
     const availableTags = collectTaskTags(timeReportTasks);
+    const mainTasks = timeReportTasks.filter((task) => !task.parentId);
+    const taskStats = {
+        total: mainTasks.length,
+        open: mainTasks.filter((task) => !task.completed && (task.kanbanStatus || 'todo') !== 'done').length,
+        progress: mainTasks.filter((task) => task.kanbanStatus === 'in-progress').length,
+        done: mainTasks.filter((task) => task.completed || task.kanbanStatus === 'done').length,
+        dueSoon: mainTasks.filter((task) => task.deadline && !task.completed && new Date(task.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7).length,
+    };
 
     const handleSaveCurrentView = async () => {
         if (!user) {
@@ -356,249 +368,301 @@ export default function ProjectDetailPage() {
     const status = statusConfig[project.status] || statusConfig['todo'];
 
     return (
-        <div className="w-full px-6 py-6 space-y-6 transition-all">
-            {/* Breadcrumb + Actions */}
-            <div className="flex items-center justify-between">
-                <nav className="flex items-center gap-1.5 text-sm">
-                    <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-                        Projects
-                    </Link>
-                    <span className="text-border">›</span>
-                    <span className="text-foreground font-medium">{project.name}</span>
-                </nav>
+        <div className="w-full px-5 py-5 transition-all">
+            <div className="grid min-h-[calc(100vh-6.5rem)] gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <main className="min-w-0 space-y-4">
+                    <Card variant="default" className="rounded-xl border border-border bg-surface">
+                        <Card.Header className="border-b border-border px-5 py-4">
+                            <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                                <div className="min-w-0 space-y-3">
+                                    <nav className="flex items-center gap-1.5 text-sm">
+                                    <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
+                                        Projects
+                                    </Link>
+                                    <span className="text-border">›</span>
+                                    <span className="text-foreground font-medium">{project.name}</span>
+                                    </nav>
 
-                <Dropdown>
-                    <Dropdown.Trigger>
-                        <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground">
-                            <MoreHorizontal size={16} />
-                        </Button>
-                    </Dropdown.Trigger>
-                    <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
-                        <Dropdown.Menu>
-                            <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
-                                <div className="flex items-center gap-2"><Edit size={13} /><Label className="cursor-pointer text-[13px]">Edit</Label></div>
-                            </Dropdown.Item>
-                            <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
-                                <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
-                            </Dropdown.Item>
-                            <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
-                                <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
-                            </Dropdown.Item>
-                        </Dropdown.Menu>
-                    </Dropdown.Popover>
-                </Dropdown>
-            </div>
-
-            {/* Project Header */}
-            <div className="space-y-3">
-                <div className="flex items-center gap-2.5">
-                    <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
-                    {project.isEncrypted && <Lock size={14} className="text-warning" />}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                    <Chip size="sm" variant="soft" color={status.color} className="h-5 rounded-md">
-                        <Chip.Label className="text-[10px] font-semibold px-0.5">{status.label}</Chip.Label>
-                    </Chip>
-
-                    {project.daysPerWeek && (
-                        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                            <Calendar size={13} />
-                            <span>{project.daysPerWeek} days/week</span>
-                        </div>
-                    )}
-                    {project.allocatedDays && (
-                        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                            <Clock size={13} />
-                            <span>{project.allocatedDays} days total</span>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                        <Calendar size={12} />
-                        <span>{new Date(project.createdAt).toLocaleDateString()}</span>
-                    </div>
-                </div>
-
-                {project.description && (
-                    <p className="text-[13px] text-muted-foreground max-w-2xl">{project.description}</p>
-                )}
-            </div>
-
-            {/* Tabs + Actions */}
-            <div>
-                <div className="flex items-center justify-between border-b border-border">
-                    <div className="flex items-center">
-                        {VIEW_TABS.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setViewMode(tab.id)}
-                                className={`flex items-center gap-1.5 px-4 h-10 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
-                                    viewMode === tab.id
-                                        ? 'border-accent text-foreground'
-                                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                <tab.icon size={14} />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <Button
-                        variant="primary"
-                        className="rounded-xl h-8 px-3.5 text-[12px] font-semibold mb-1"
-                        onPress={handleAddTask}
-                    >
-                        <Plus size={14} className="mr-1" />
-                        Add new task
-                    </Button>
-                </div>
-
-                {/* Toolbar */}
-                <div className="flex flex-col gap-3 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface">
-                            <Search size={12} className="text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search tasks or tags..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
-                            />
-                        </div>
-                        <Button
-                            variant={hideCompleted ? 'primary' : 'ghost'}
-                            size="sm"
-                            className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
-                            onPress={() => setHideCompleted(!hideCompleted)}
-                        >
-                            <Filter size={12} className="mr-1" />
-                            {hideCompleted ? 'Pending' : 'All'}
-                        </Button>
-                        <Dropdown>
-                            <Dropdown.Trigger>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
-                                >
-                                    <ChevronDown size={12} className="mr-1" />
-                                    Views
-                                </Button>
-                            </Dropdown.Trigger>
-                            <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
-                                <Dropdown.Menu>
-                                    <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
-                                        <div className="flex items-center gap-2 text-[13px]">
-                                            <Plus size={13} />
-                                            <Label className="cursor-pointer text-[13px]">Save current view</Label>
+                                    <div className="space-y-3">
+                                        <div className="flex flex-wrap items-center gap-2.5">
+                                            <Card.Title className="text-2xl font-semibold text-foreground">{project.name}</Card.Title>
+                                            {project.isEncrypted && <Lock size={14} className="text-warning" />}
+                                            <Chip size="sm" variant="soft" color={status.color} className="h-5 rounded-md">
+                                                <Chip.Label className="text-[10px] font-semibold px-0.5">{status.label}</Chip.Label>
+                                            </Chip>
+                                            {project.role && (
+                                                <Chip size="sm" variant="soft" color="accent" className="h-5 rounded-md">
+                                                    <Chip.Label className="text-[10px] font-semibold px-0.5">{project.role}</Chip.Label>
+                                                </Chip>
+                                            )}
                                         </div>
-                                    </Dropdown.Item>
-                                    {savedViews.map((savedView) => (
-                                        <Dropdown.Item
-                                            key={savedView.id}
-                                            id={`view-${savedView.id}`}
-                                            textValue={savedView.name}
-                                            onAction={() => router.push(buildProjectViewHref(savedView))}
-                                        >
-                                            <div className="flex items-center justify-between gap-3 text-[13px] w-full">
-                                                <div className="truncate">
-                                                    <div className="font-medium truncate">{savedView.name}</div>
-                                                    <div className="text-[11px] text-muted-foreground truncate">
-                                                        {savedView.viewMode}{savedView.searchQuery ? ` · ${savedView.searchQuery}` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Dropdown.Item>
-                                    ))}
-                                    {savedViews.map((savedView) => (
-                                        <Dropdown.Item
-                                            key={`delete-${savedView.id}`}
-                                            id={`delete-${savedView.id}`}
-                                            textValue={`Delete ${savedView.name}`}
-                                            variant="danger"
-                                            onAction={() => {
-                                                void handleDeleteSavedView(savedView.id);
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-2 text-[13px]">
-                                                <Trash2 size={13} />
-                                                <Label className="cursor-pointer text-[13px]">Delete {savedView.name}</Label>
-                                            </div>
-                                        </Dropdown.Item>
-                                    ))}
-                                </Dropdown.Menu>
-                            </Dropdown.Popover>
-                        </Dropdown>
-                        {selectedTags.length > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
-                                onPress={() => setSelectedTags([])}
-                            >
-                                Clear tags
-                            </Button>
-                        )}
-                    </div>
 
-                    {availableTags.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</span>
-                            {availableTags.map((tag) => {
-                                const isSelected = selectedTags.includes(tag);
-                                return (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedTags((currentTags) => currentTags.includes(tag)
-                                                ? currentTags.filter((currentTag) => currentTag !== tag)
-                                                : [...currentTags, tag]
-                                            );
-                                        }}
-                                        className={`h-7 px-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
-                                            isSelected
-                                                ? 'border-accent bg-accent text-accent-foreground'
-                                                : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-accent/30'
-                                        }`}
+                                        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                                            {project.description || 'No project summary yet. Add context so your team knows what this workspace is for.'}
+                                        </p>
+
+                                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                            {project.daysPerWeek && (
+                                                <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                    <Calendar size={13} />
+                                                    <span>{project.daysPerWeek} days/week</span>
+                                                </div>
+                                            )}
+                                            {project.allocatedDays && (
+                                                <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                    <Clock size={13} />
+                                                    <span>{project.allocatedDays} days allocated</span>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                <ShieldCheck size={13} />
+                                                <span>{project.isEncrypted ? 'Vault protected' : 'Standard security'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <div className="hidden items-center -space-x-2 pr-2 md:flex">
+                                        <Avatar size="sm" color="accent" variant="soft" className="border border-surface">
+                                            <Avatar.Fallback>{(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                        </Avatar>
+                                        {project.role && (
+                                            <span className="pl-3 text-xs text-muted-foreground">You are {project.role}</span>
+                                        )}
+                                    </div>
+                                    <Dropdown>
+                                        <Dropdown.Trigger>
+                                            <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
+                                                <MoreHorizontal size={16} />
+                                            </Button>
+                                        </Dropdown.Trigger>
+                                        <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
+                                            <Dropdown.Menu>
+                                                <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Edit size={13} /><Label className="cursor-pointer text-[13px]">Edit</Label></div>
+                                                </Dropdown.Item>
+                                                <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
+                                                </Dropdown.Item>
+                                                <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
+                                                </Dropdown.Item>
+                                            </Dropdown.Menu>
+                                        </Dropdown.Popover>
+                                    </Dropdown>
+                                </div>
+                            </div>
+                        </Card.Header>
+                        <Card.Content className="grid grid-cols-2 gap-px bg-border p-0 sm:grid-cols-5">
+                            {[
+                                ['Open', taskStats.open],
+                                ['In progress', taskStats.progress],
+                                ['Done', taskStats.done],
+                                ['Due soon', taskStats.dueSoon],
+                                ['Total', taskStats.total],
+                            ].map(([label, value]) => (
+                                <div key={label} className="bg-surface px-5 py-3">
+                                    <div className="text-lg font-semibold text-foreground tabular-nums">{value}</div>
+                                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+                                </div>
+                            ))}
+                        </Card.Content>
+                    </Card>
+
+                    <Card variant="default" className="rounded-xl border border-border bg-surface">
+                        <Card.Header className="border-b border-border px-5 py-3">
+                            <div className="flex w-full flex-col gap-3">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <Tabs selectedKey={viewMode} onSelectionChange={(key) => setViewMode(key as ViewMode)} variant="secondary" className="w-full">
+                                <Tabs.ListContainer className="overflow-x-auto">
+                                            <Tabs.List aria-label="Task views" className="h-9 w-max gap-1 *:rounded-lg *:px-3 *:text-[13px] *:font-medium">
+                                        {VIEW_TABS.map((tab) => (
+                                            <Tabs.Tab key={tab.id} id={tab.id} className="gap-1.5 whitespace-nowrap">
+                                                <tab.icon size={14} />
+                                                {tab.label}
+                                                <Tabs.Indicator />
+                                            </Tabs.Tab>
+                                        ))}
+                                    </Tabs.List>
+                                </Tabs.ListContainer>
+                            </Tabs>
+
+                                    <Button
+                                        variant="primary"
+                                        className="h-8 rounded-lg px-3 text-[12px] font-semibold shrink-0"
+                                        onPress={handleAddTask}
                                     >
-                                        #{tag}
-                                    </button>
-                                );
-                            })}
+                                        <Plus size={14} />
+                                        Add task
+                                    </Button>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="relative w-full sm:w-72">
+                                        <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Search tasks, tags, assignees..."
+                                            variant="secondary"
+                                            className="h-8 w-full rounded-lg pl-8 text-[12px]"
+                                        />
+                                    </div>
+                                    <Button
+                                        variant={hideCompleted ? 'primary' : 'ghost'}
+                                        size="sm"
+                                        className={`h-8 px-2.5 rounded-lg text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                                        onPress={() => setHideCompleted(!hideCompleted)}
+                                    >
+                                        <Filter size={12} />
+                                        {hideCompleted ? 'Pending' : 'All'}
+                                    </Button>
+                                    {[
+                                        { id: 'mine', label: 'My tasks' },
+                                        { id: 'unassigned', label: 'Unassigned' },
+                                        { id: 'due-soon', label: 'Due soon' },
+                                        { id: 'blocked', label: 'Blocked' },
+                                    ].map((filter) => (
+                                        <Button
+                                            key={filter.id}
+                                            variant={quickFilter === filter.id ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className={`h-8 rounded-lg px-2.5 text-[12px] ${quickFilter === filter.id ? '' : 'text-muted-foreground'}`}
+                                            onPress={() => setQuickFilter((current) => current === filter.id ? 'all' : filter.id as QuickFilter)}
+                                        >
+                                            {filter.label}
+                                        </Button>
+                                    ))}
+                                    <Dropdown>
+                                        <Dropdown.Trigger>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-muted-foreground"
+                                            >
+                                                <ChevronDown size={12} />
+                                                Views
+                                            </Button>
+                                        </Dropdown.Trigger>
+                                        <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
+                                            <Dropdown.Menu>
+                                                <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
+                                                    <div className="flex items-center gap-2 text-[13px]">
+                                                        <Plus size={13} />
+                                                        <Label className="cursor-pointer text-[13px]">Save current view</Label>
+                                                    </div>
+                                                </Dropdown.Item>
+                                                {savedViews.map((savedView) => (
+                                                    <Dropdown.Item
+                                                        key={savedView.id}
+                                                        id={`view-${savedView.id}`}
+                                                        textValue={savedView.name}
+                                                        onAction={() => router.push(buildProjectViewHref(savedView))}
+                                                    >
+                                                        <div className="flex items-center justify-between gap-3 text-[13px] w-full">
+                                                            <div className="truncate">
+                                                                <div className="font-medium truncate">{savedView.name}</div>
+                                                                <div className="text-[11px] text-muted-foreground truncate">
+                                                                    {savedView.viewMode}{savedView.searchQuery ? ` · ${savedView.searchQuery}` : ''}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </Dropdown.Item>
+                                                ))}
+                                                {savedViews.map((savedView) => (
+                                                    <Dropdown.Item
+                                                        key={`delete-${savedView.id}`}
+                                                        id={`delete-${savedView.id}`}
+                                                        textValue={`Delete ${savedView.name}`}
+                                                        variant="danger"
+                                                        onAction={() => {
+                                                            void handleDeleteSavedView(savedView.id);
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-2 text-[13px]">
+                                                            <Trash2 size={13} />
+                                                            <Label className="cursor-pointer text-[13px]">Delete {savedView.name}</Label>
+                                                        </div>
+                                                    </Dropdown.Item>
+                                                ))}
+                                            </Dropdown.Menu>
+                                        </Dropdown.Popover>
+                                    </Dropdown>
+                                    {selectedTags.length > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-muted-foreground"
+                                            onPress={() => setSelectedTags([])}
+                                        >
+                                            Clear tags
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {availableTags.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Tags</span>
+                                        {availableTags.map((tag) => {
+                                            const isSelected = selectedTags.includes(tag);
+                                            return (
+                                                <button
+                                                    key={tag}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedTags((currentTags) => currentTags.includes(tag)
+                                                            ? currentTags.filter((currentTag) => currentTag !== tag)
+                                                            : [...currentTags, tag]
+                                                        );
+                                                    }}
+                                                    className={`h-7 px-2.5 rounded-lg border text-[12px] font-medium transition-colors ${
+                                                        isSelected
+                                                            ? 'border-accent bg-accent text-accent-foreground'
+                                                            : 'border-border bg-surface text-muted-foreground hover:text-foreground hover:border-accent/30'
+                                                    }`}
+                                                >
+                                                    #{tag}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </Card.Header>
+
+                        <Card.Content className="px-4 py-4">
+                    {viewMode === 'list' && (
+                        <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
+                    )}
+                    {viewMode === 'kanban' && (
+                        <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
+                    )}
+                    {viewMode === 'table' && (
+                        <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                    )}
+                    {viewMode === 'timeline' && (
+                        <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                    )}
+                    {viewMode === 'calendar' && (
+                                <div className="mx-auto max-w-md py-4">
+                                    <div className="rounded-xl border border-border bg-surface-secondary/40 p-5">
+                                <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
+                            </div>
                         </div>
                     )}
-                </div>
-            </div>
+                        </Card.Content>
+                    </Card>
+                </main>
 
-            {/* Task Content */}
-            <div>
-                {viewMode === 'list' && (
-                    <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'kanban' && (
-                    <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'table' && (
-                    <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'timeline' && (
-                    <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
-                )}
-                {viewMode === 'calendar' && (
-                    <div className="max-w-md mx-auto py-4">
-                        <div className="bg-surface rounded-2xl border border-border p-5">
-                            <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
-                        </div>
-                    </div>
-                )}
+                <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-7rem)]">
+                    <ProjectCollaborationPanel project={project} compact />
+                </aside>
             </div>
 
             {/* Time Report */}
             {timeReportTasks.some(t => (t.timeSpent || 0) > 0) && (
-                <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+                <Card variant="default" className="mt-4 rounded-xl border border-border bg-surface overflow-hidden">
                     <button
                         onClick={() => setShowTimeReport(v => !v)}
                         className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-surface-secondary/40 transition-colors"
@@ -651,7 +715,7 @@ export default function ProjectDetailPage() {
                             </div>
                         </div>
                     )}
-                </div>
+                </Card>
             )}
 
             <ProjectModal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} onSubmit={handleUpdate} project={project} />
