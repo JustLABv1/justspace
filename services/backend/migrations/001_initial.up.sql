@@ -43,6 +43,7 @@ CREATE TABLE tasks (
     user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     project_id       UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title            VARCHAR(256) NOT NULL,
+    description      TEXT NOT NULL DEFAULT '',
     completed        BOOLEAN NOT NULL DEFAULT FALSE,
     parent_id        UUID REFERENCES tasks(id) ON DELETE SET NULL,
     time_spent       INTEGER NOT NULL DEFAULT 0,

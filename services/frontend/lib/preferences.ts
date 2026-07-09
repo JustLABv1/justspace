@@ -1,4 +1,4 @@
-export type SavedViewMode = 'list' | 'kanban' | 'table' | 'timeline' | 'calendar';
+export type SavedViewMode = 'list' | 'kanban' | 'timeline' | 'calendar';
 
 export interface ReminderPreferences {
 	enabled: boolean;
@@ -56,7 +56,7 @@ export function parseUserPreferences(preferences?: Record<string, unknown> | nul
 				id: typeof view.id === 'string' ? view.id : crypto.randomUUID(),
 				projectId: typeof view.projectId === 'string' ? view.projectId : '',
 				name: typeof view.name === 'string' ? view.name : 'Saved view',
-				viewMode: isSavedViewMode(view.viewMode) ? view.viewMode : 'kanban',
+				viewMode: view.viewMode === 'table' ? 'list' : isSavedViewMode(view.viewMode) ? view.viewMode : 'kanban',
 				searchQuery: typeof view.searchQuery === 'string' ? view.searchQuery : '',
 				selectedTags: Array.isArray(view.selectedTags)
 					? view.selectedTags.filter((tag): tag is string => typeof tag === 'string')
@@ -101,5 +101,5 @@ export function buildProjectViewHref(view: SavedProjectView) {
 }
 
 export function isSavedViewMode(value: unknown): value is SavedViewMode {
-	return value === 'list' || value === 'kanban' || value === 'table' || value === 'timeline' || value === 'calendar';
+	return value === 'list' || value === 'kanban' || value === 'timeline' || value === 'calendar';
 }

@@ -216,7 +216,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		h.repo.LogActivity(r.Context(), userID, "complete", "Task", task.Title, &task.ProjectID, &task.ID, nil)
 	} else if req.IsTimerRunning != nil && !*req.IsTimerRunning && req.WorkDuration != nil {
 		h.repo.LogActivity(r.Context(), userID, "work", "Task", task.Title, &task.ProjectID, &task.ID, req.WorkDuration)
-	} else if req.Title != nil {
+	} else if req.Title != nil || req.Description != nil {
 		h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, nil)
 	}
 	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), task.ProjectID)

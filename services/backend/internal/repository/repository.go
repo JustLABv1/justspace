@@ -751,7 +751,7 @@ func scanTasks(rows pgx.Rows) ([]models.Task, error) {
 	var out []models.Task
 	for rows.Next() {
 		var t models.Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -765,13 +765,13 @@ func scanTasks(rows pgx.Rows) ([]models.Task, error) {
 func (r *Repo) GetTask(ctx context.Context, id, userID string) (*models.Task, error) {
 	t := &models.Task{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+		`SELECT id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
 		 FROM tasks
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2
 		 )`, id, userID,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -803,7 +803,7 @@ func (r *Repo) HasIncompleteDependencies(ctx context.Context, userID string, dep
 
 func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+		`SELECT id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
 		 FROM tasks
 		 WHERE project_id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
@@ -819,7 +819,7 @@ func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]model
 
 func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+		`SELECT id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
 		 FROM tasks
 		 WHERE EXISTS (
 		 	SELECT 1 FROM project_members pm
@@ -840,15 +840,15 @@ func (r *Repo) CreateTask(ctx context.Context, userID string, req models.CreateT
 		kanban = "todo"
 	}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags, dependencies, recurrence)
-		 SELECT $1, $2, $3, false, $4, 'medium', $5, $6, $7, COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), NULLIF($10::text, '')
-		 WHERE EXISTS (
-		 	SELECT 1 FROM project_members pm
-		 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
-		 )
-		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
-		userID, req.ProjectID, req.Title, req.Order, kanban, req.IsEncrypted, req.ParentID, req.Tags, req.Dependencies, req.Recurrence,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+		`INSERT INTO tasks (user_id, project_id, title, description, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags, dependencies, recurrence)
+			 SELECT $1, $2, $3, COALESCE($4, ''), false, $5, 'medium', $6, $7, $8, COALESCE($9::text[], '{}'::text[]), COALESCE($10::text[], '{}'::text[]), NULLIF($11::text, '')
+			 WHERE EXISTS (
+			 	SELECT 1 FROM project_members pm
+			 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
+			 )
+			 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		userID, req.ProjectID, req.Title, req.Description, req.Order, kanban, req.IsEncrypted, req.ParentID, req.Tags, req.Dependencies, req.Recurrence,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create task: %w", err)
 	}
@@ -862,15 +862,15 @@ func (r *Repo) CreateTasksBatch(ctx context.Context, userID string, req models.C
 	for i, title := range req.Titles {
 		t := &models.Task{}
 		err := r.pool.QueryRow(ctx,
-			`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, is_encrypted)
-			 SELECT $1, $2, $3, false, $4, 'medium', 'todo', $5
+			`INSERT INTO tasks (user_id, project_id, title, description, completed, sort_order, priority, kanban_status, is_encrypted)
+				 SELECT $1, $2, $3, '', false, $4, 'medium', 'todo', $5
 			 WHERE EXISTS (
 			 	SELECT 1 FROM project_members pm
 			 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
 			 )
-			 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at`,
+			 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at`,
 			userID, req.ProjectID, title, startOrder+i, req.IsEncrypted,
-		).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+		).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("create task batch %d: %w", i, err)
 		}
@@ -890,11 +890,11 @@ func (r *Repo) CreateRecurringTask(ctx context.Context, userID string, source mo
 	}
 
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, project_id, title, completed, sort_order, priority, kanban_status, deadline, tags, dependencies, recurrence, is_encrypted)
-		 VALUES ($1, $2, $3, false, $4, $5, 'todo', $6, COALESCE($7::text[], '{}'::text[]), COALESCE($8::text[], '{}'::text[]), $9, $10)
-		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
-		userID, source.ProjectID, source.Title, nextOrder, source.Priority, nextDeadline, source.Tags, source.Dependencies, source.Recurrence, source.IsEncrypted,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+		`INSERT INTO tasks (user_id, project_id, title, description, completed, sort_order, priority, kanban_status, deadline, tags, dependencies, recurrence, is_encrypted)
+			 VALUES ($1, $2, $3, $4, false, $5, $6, 'todo', $7, COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), $10, $11)
+			 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		userID, source.ProjectID, source.Title, source.Description, nextOrder, source.Priority, nextDeadline, source.Tags, source.Dependencies, source.Recurrence, source.IsEncrypted,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create recurring task: %w", err)
 	}
@@ -906,22 +906,22 @@ func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.Upd
 	t := &models.Task{}
 	err := r.pool.QueryRow(ctx,
 		`UPDATE tasks SET
-			title = COALESCE($3, title), completed = COALESCE($4, completed), parent_id = COALESCE($5, parent_id),
-			time_spent = COALESCE($6, time_spent), is_timer_running = COALESCE($7, is_timer_running),
-			timer_started_at = CASE WHEN $8::text IS NOT NULL THEN $8::timestamptz ELSE timer_started_at END,
-			time_entries = COALESCE($9, time_entries), sort_order = COALESCE($10, sort_order),
-			priority = COALESCE($11, priority), kanban_status = COALESCE($12, kanban_status),
-			deadline = CASE WHEN $13::text IS NOT NULL THEN $13::timestamptz ELSE deadline END,
-			notes = COALESCE($14, notes), tags = COALESCE($15, tags), dependencies = COALESCE($16, dependencies),
-			recurrence = CASE WHEN $17::text IS NOT NULL THEN NULLIF($17::text, '') ELSE recurrence END,
-			is_encrypted = COALESCE($18, is_encrypted)
+				title = COALESCE($3, title), description = COALESCE($4, description), completed = COALESCE($5, completed), parent_id = COALESCE($6, parent_id),
+				time_spent = COALESCE($7, time_spent), is_timer_running = COALESCE($8, is_timer_running),
+				timer_started_at = CASE WHEN $9::text IS NOT NULL THEN $9::timestamptz ELSE timer_started_at END,
+				time_entries = COALESCE($10, time_entries), sort_order = COALESCE($11, sort_order),
+				priority = COALESCE($12, priority), kanban_status = COALESCE($13, kanban_status),
+				deadline = CASE WHEN $14::text IS NOT NULL THEN $14::timestamptz ELSE deadline END,
+				notes = COALESCE($15, notes), tags = COALESCE($16, tags), dependencies = COALESCE($17, dependencies),
+				recurrence = CASE WHEN $18::text IS NOT NULL THEN NULLIF($18::text, '') ELSE recurrence END,
+				is_encrypted = COALESCE($19, is_encrypted)
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
 		 )
-		 RETURNING id, user_id, project_id, title, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
-		id, userID, req.Title, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+		 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		id, userID, req.Title, req.Description, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
+	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
 	}

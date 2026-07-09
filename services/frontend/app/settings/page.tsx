@@ -263,8 +263,10 @@ function SettingsContent() {
                 const tasks = await db.listTasks(p.id);
                 for (const t of tasks.documents) {
                     const encTaskTitle = await encryptData(t.title, docKey);
+                    const encTaskDescription = await encryptData(t.description || '', docKey);
                     await db.updateTask(t.id, {
                         title: JSON.stringify(encTaskTitle),
+                        description: JSON.stringify(encTaskDescription),
                         isEncrypted: true
                     });
                 }
@@ -719,4 +721,3 @@ function SettingsContent() {
         </div>
     );
 }
-

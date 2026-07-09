@@ -33,7 +33,7 @@ import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { saveAs } from 'file-saver';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, UserPlus, Users, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, History, Link2, MessageCircle, Phone, Plus, Trash2 as Trash, UserPlus, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
@@ -59,6 +59,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState(task.title);
+    const [editedDescription, setEditedDescription] = useState(task.description || '');
     const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
     const [projectTasks, setProjectTasks] = useState<Task[]>([]);
@@ -85,6 +86,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         setPrevTaskTitle(task.title);
         setEditedTitle(task.title);
         setIsEditingTitle(false);
+    }
+
+    const currentTaskDescription = task.description || '';
+    const [prevTaskDescription, setPrevTaskDescription] = useState(currentTaskDescription);
+    if (currentTaskDescription !== prevTaskDescription) {
+        setPrevTaskDescription(currentTaskDescription);
+        setEditedDescription(currentTaskDescription);
     }
 
     const currentTaskRecurrence = task.recurrence || '';
@@ -341,6 +349,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             id: optimisticId,
             createdAt: new Date().toISOString(),
             title: originalTitle,
+            description: '',
             projectId,
             completed: false,
             parentId: task.id,
@@ -414,6 +423,31 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
+    const handleUpdateDescription = async () => {
+        if (editedDescription === (task.description || '')) {
+            return;
+        }
+
+        try {
+            let finalDescription = editedDescription;
+            if (task.isEncrypted) {
+                if (!documentKey) {
+                    toast.danger('Unlock vault before editing secure task details');
+                    setEditedDescription(task.description || '');
+                    return;
+                }
+                const encrypted = await encryptData(editedDescription, documentKey);
+                finalDescription = JSON.stringify(encrypted);
+            }
+            await db.updateTask(task.id, { description: finalDescription });
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to update description:', error);
+            setEditedDescription(task.description || '');
+            toast.danger('Failed to update description');
+        }
+    };
+
     const handleUpdateSubtaskTitle = async (subtask: Task) => {
         if (!editedSubtaskTitle.trim() || editedSubtaskTitle === subtask.title) {
             setEditingSubtaskId(null);
@@ -445,6 +479,17 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch (error) {
             console.error('Failed to update priority:', error);
             toast.danger('Failed to update priority');
+        }
+    };
+
+    const handleUpdateStatus = async (status: NonNullable<Task['kanbanStatus']>) => {
+        try {
+            await db.updateTask(task.id, { kanbanStatus: status, completed: status === 'done' });
+            onUpdate();
+            toast.success('Status updated');
+        } catch (error) {
+            console.error('Failed to update status:', error);
+            toast.danger('Failed to update status');
         }
     };
 
@@ -555,6 +600,22 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const canEditTask = projectRole === 'owner' || projectRole === 'admin' || projectRole === 'editor';
     const availableAssignees = projectMembers.filter((member) => !assignees.some((assignee) => assignee.userId === member.userId));
     const mentionableMembers = projectMembers.filter((member) => member.userId !== user?.id);
+    const currentStatus = task.completed ? 'done' : (task.kanbanStatus || 'todo');
+    const statusOptions: { id: NonNullable<Task['kanbanStatus']>; label: string; color: string }[] = [
+        { id: 'todo', label: 'Todo', color: 'bg-muted-foreground/40' },
+        { id: 'in-progress', label: 'In progress', color: 'bg-accent' },
+        { id: 'review', label: 'Review', color: 'bg-warning' },
+        { id: 'waiting', label: 'Blocked', color: 'bg-danger' },
+        { id: 'done', label: 'Done', color: 'bg-success' },
+    ];
+    const priorityOptions: { id: NonNullable<Task['priority']>; label: string; className: string }[] = [
+        { id: 'low', label: 'Low', className: 'text-success' },
+        { id: 'medium', label: 'Medium', className: 'text-accent' },
+        { id: 'high', label: 'High', className: 'text-warning' },
+        { id: 'urgent', label: 'Urgent', className: 'text-danger' },
+    ];
+    const currentStatusOption = statusOptions.find((status) => status.id === currentStatus) || statusOptions[0];
+    const currentPriorityOption = task.priority ? priorityOptions.find((priority) => priority.id === task.priority) : undefined;
 
     const toggleMention = (memberId: string) => {
         setMentionedUserIds((current) => current.includes(memberId)
@@ -572,6 +633,17 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             console.error('Failed to assign member:', error);
             toast.danger('Failed to assign teammate');
         }
+    };
+
+    const handleAssignToMe = async () => {
+        if (!user) {
+            return;
+        }
+        if (assignees.some((assignee) => assignee.userId === user.id)) {
+            toast.success('Already assigned to you');
+            return;
+        }
+        await handleAssignMember(user.id);
     };
 
     const handleRemoveAssignee = async (memberId: string) => {
@@ -720,11 +792,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                         <Modal.Header className="px-5 pt-4 pb-3 border-b border-border flex flex-col items-start gap-3">
                             <Modal.CloseTrigger className="text-muted-foreground hover:text-foreground hover:bg-surface-secondary transition-colors" />
                             
-                            <div className="w-full space-y-4 pr-8">
+                            <div className="flex w-full items-start justify-between gap-4 pr-8">
                                 {isEditingTitle ? (
                                     <form 
                                         onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}
-                                        className="w-full flex items-center gap-2"
+                                        className="min-w-0 flex-1 flex items-center gap-2"
                                     >
                                         <Input 
                                             autoFocus
@@ -735,7 +807,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         />
                                     </form>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="min-w-0 flex-1">
                                         <Modal.Heading 
                                             className="text-lg font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
                                             onClick={() => setIsEditingTitle(true)}
@@ -743,226 +815,21 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             {task.title}
                                             <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
                                         </Modal.Heading>
-                                        {presence.length > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex -space-x-2">
-                                                    {presence.slice(0, 4).map((session) => (
-                                                        <Avatar key={session.userId} size="sm" color="accent" variant="soft" className="border border-surface">
-                                                            <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                                                        </Avatar>
-                                                    ))}
-                                                </div>
-                                                <span className="text-[11px] text-muted-foreground">{presence.length} viewing now</span>
-                                            </div>
-                                        )}
+                                    </div>
+                                )}
+                                {presence.length > 0 && (
+                                    <div className="mt-1 flex shrink-0 items-center gap-2 rounded-full bg-surface-secondary/55 px-2 py-1">
+                                        <div className="flex -space-x-2">
+                                            {presence.slice(0, 4).map((session) => (
+                                                <Avatar key={session.userId} size="sm" color="accent" variant="soft" className="border border-surface">
+                                                    <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                </Avatar>
+                                            ))}
+                                        </div>
+                                        <span className="whitespace-nowrap text-[11px] text-muted-foreground">{presence.length} viewing now</span>
                                     </div>
                                 )}
 
-                                <div className="flex flex-wrap items-center gap-2">
-                                    {/* Status Pill */}
-                                    <div className="flex items-center gap-2 bg-surface-secondary/50 p-1 px-2 rounded-md border border-border">
-                                        <div className={`w-1.5 h-1.5 rounded-full ml-1 ${
-                                            task.kanbanStatus === 'done' ? 'bg-success' :
-                                            task.kanbanStatus === 'review' ? 'bg-warning' :
-                                            task.kanbanStatus === 'in-progress' ? 'bg-accent' :
-                                            'bg-muted-foreground/40'
-                                        }`} />
-                                        <span className="text-xs text-foreground/60 pr-1">
-                                            {task.kanbanStatus?.replace('-', ' ')}
-                                        </span>
-                                    </div>
-
-                                    <div className="w-px h-4 bg-border/40" />
-
-                                    {/* Priority Selector */}
-                                    <Dropdown>
-                                        <Button 
-                                            size="sm" 
-                                            variant="secondary" 
-                                            className={`h-7 px-2 text-xs transition-all rounded-md border border-border ${
-                                                task.priority === 'urgent' ? 'text-danger bg-danger/10' :
-                                                task.priority === 'high' ? 'text-warning bg-warning/10' :
-                                                task.priority === 'medium' ? 'text-accent bg-accent/10' :
-                                                'text-muted-foreground/60 bg-surface-secondary/50'
-                                            }`}
-                                        >
-                                            {task.priority || 'Priority'}
-                                            <ChevronDown size={12} className="ml-1.5 opacity-40" />
-                                        </Button>
-                                        <Dropdown.Popover className="rounded-xl border border-border p-1 shadow-lg bg-surface min-w-[120px]">
-                                            <Dropdown.Menu 
-                                                className="bg-transparent"
-                                                onAction={(key) => handleUpdatePriority(key as 'low' | 'medium' | 'high' | 'urgent')}
-                                            >
-                                                <Dropdown.Item id="low" className="text-xs rounded-md">Low</Dropdown.Item>
-                                                <Dropdown.Item id="medium" className="text-xs text-accent rounded-md">Medium</Dropdown.Item>
-                                                <Dropdown.Item id="high" className="text-xs text-warning rounded-md">High</Dropdown.Item>
-                                                <Dropdown.Item id="urgent" className="text-xs text-danger rounded-md">Urgent</Dropdown.Item>
-                                            </Dropdown.Menu>
-                                        </Dropdown.Popover>
-                                    </Dropdown>
-
-                                    <div className="w-px h-4 bg-border/40" />
-
-                                    {/* Deadline Selector - Redesigned as a prominent pill */}
-                                    <div className="flex items-center gap-2 h-8">
-                                        <DatePicker 
-                                            granularity="minute"
-                                            value={task.deadline ? parseAbsoluteToLocal(task.deadline) : undefined}
-                                            onChange={handleUpdateDeadline}
-                                            className="w-auto"
-                                            aria-label="Set deadline"
-                                        >
-                                            {({ state }) => (
-                                                <>
-                                                    <DateField.Group className="flex items-center gap-2 px-3 rounded-md h-8 bg-surface-secondary/50 hover:bg-foreground/[0.05] transition-all border border-border group cursor-pointer">
-                                                        <CalendarIcon size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors shrink-0" />
-                                                        <DateField.Input className="flex-grow">
-                                                            {(segment) => (
-                                                                <DateField.Segment 
-                                                                    segment={segment} 
-                                                                    className="text-xs text-foreground/60 focus:text-accent data-[placeholder=true]:text-muted-foreground/20 selection:bg-accent/20" 
-                                                                />
-                                                            )}
-                                                        </DateField.Input>
-                                                        <DateField.Suffix className="ml-2">
-                                                            <DatePicker.Trigger className="p-0.5 rounded-xl hover:bg-accent/10 transition-colors">
-                                                                <DatePicker.TriggerIndicator className="text-muted-foreground/40 group-hover:text-accent" />
-                                                            </DatePicker.Trigger>
-                                                        </DateField.Suffix>
-                                                    </DateField.Group>
-                                                    <DatePicker.Popover className="rounded-xl border border-border p-4 shadow-lg bg-surface min-w-[320px]">
-                                                        <Calendar aria-label="Task deadline calendar" className="w-full">
-                                                            <Calendar.Header className="flex items-center justify-between mb-4">
-                                                                <Calendar.YearPickerTrigger>
-                                                                    <div className="flex items-center gap-1 group/trigger px-2 py-1 rounded-xl hover:bg-accent/5 transition-colors cursor-pointer">
-                                                                        <Calendar.YearPickerTriggerHeading className="text-xs font-medium text-accent" />
-                                                                        <Calendar.YearPickerTriggerIndicator className="opacity-40" />
-                                                                    </div>
-                                                                </Calendar.YearPickerTrigger>
-                                                                <div className="flex gap-2">
-                                                                    <Calendar.NavButton slot="previous" className="h-8 w-8 rounded-md bg-surface-secondary hover:bg-accent hover:text-white transition-all flex items-center justify-center">
-                                                                        <ChevronLeft size={14} />
-                                                                    </Calendar.NavButton>
-                                                                    <Calendar.NavButton slot="next" className="h-8 w-8 rounded-md bg-surface-secondary hover:bg-accent hover:text-white transition-all flex items-center justify-center">
-                                                                        <ChevronRight size={14} />
-                                                                    </Calendar.NavButton>
-                                                                </div>
-                                                            </Calendar.Header>
-                                                            <Calendar.Grid className="w-full">
-                                                                <Calendar.GridHeader>
-                                                                    {(day) => (
-                                                                        <Calendar.HeaderCell className="text-xs text-muted-foreground/50 pb-2">
-                                                                            {day.slice(0, 2)}
-                                                                        </Calendar.HeaderCell>
-                                                                    )}
-                                                                </Calendar.GridHeader>
-                                                                <Calendar.GridBody>
-                                                                    {(date) => (
-                                                                        <Calendar.Cell 
-                                                                            date={date} 
-                                                                            className="text-xs h-8 w-8 rounded-md flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:border border-accent/30" 
-                                                                            aria-label={date.toString()}
-                                                                        />
-                                                                    )}
-                                                                </Calendar.GridBody>
-                                                            </Calendar.Grid>
-                                                            <div className="mt-4">
-                                                                <Calendar.YearPickerGrid>
-                                                                    <Calendar.YearPickerGridBody>
-                                                                        {({year}) => (
-                                                                            <Calendar.YearPickerCell 
-                                                                                year={year} 
-                                                                                className="text-xs h-9 rounded-md flex items-center justify-center cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white"
-                                                                            />
-                                                                        )}
-                                                                    </Calendar.YearPickerGridBody>
-                                                                </Calendar.YearPickerGrid>
-                                                            </div>
-                                                        </Calendar>
-                                                        <div className="mt-4 pt-4 border-t border-border/10 flex flex-col gap-3">
-                                                            <div className="flex items-center justify-between">
-                                                                <Label className="text-sm font-medium text-muted-foreground">Set Time</Label>
-                                                                <div className="px-2 py-0.5 rounded-md bg-accent/10 text-accent text-xs">24h</div>
-                                                            </div>
-                                                            <TimeField 
-                                                                aria-label="Task deadline time" 
-                                                                className="w-full"
-                                                                value={state.timeValue}
-                                                                onChange={(v) => v && state.setTimeValue(v)}
-                                                            >
-                                                                <TimeField.Group className="bg-surface-secondary/50 border border-border px-3 py-2 rounded-xl h-9 flex items-center">
-                                                                    <TimeField.Input>
-                                                                        {(segment) => <TimeField.Segment segment={segment} className="text-xs text-foreground focus:text-accent" />}
-                                                                    </TimeField.Input>
-                                                                </TimeField.Group>
-                                                            </TimeField>
-                                                        </div>
-                                                    </DatePicker.Popover>
-                                                </>
-                                            )}
-                                        </DatePicker>
-                                    </div>
-
-                                    <div className="w-full sm:ml-auto sm:max-w-[320px]">
-                                        <div className="flex flex-col gap-2">
-                                            <ComboBox
-                                                allowsCustomValue
-                                                className="w-full"
-                                                inputValue={tagSearchValue}
-                                                menuTrigger="focus"
-                                                onInputChange={setTagSearchValue}
-                                            >
-                                                <Label className="sr-only">Tags</Label>
-                                                <ComboBox.InputGroup className="h-8 rounded-md border border-border bg-surface-secondary/50">
-                                                    <Input
-                                                        placeholder={currentTags.length > 0 ? 'Add tag' : 'Add or reuse tags'}
-                                                        className="text-xs"
-                                                        onKeyDown={(event) => {
-                                                            if (event.key === 'Enter' || event.key === ',') {
-                                                                event.preventDefault();
-                                                                void commitTagDraft(tagSearchValue);
-                                                            }
-                                                        }}
-                                                    />
-                                                    <ComboBox.Trigger className="mr-1 text-muted-foreground/60" />
-                                                </ComboBox.InputGroup>
-                                                <ComboBox.Popover className="rounded-xl border border-border bg-surface p-2 shadow-lg">
-                                                    <ListBox
-                                                        className="max-h-48"
-                                                        renderEmptyState={() => <EmptyState>No matching tags. Press comma or Enter to create one.</EmptyState>}
-                                                    >
-                                                        {filteredAutocompleteTags.map((tag) => (
-                                                            <ListBox.Item
-                                                                key={tag}
-                                                                id={tag}
-                                                                textValue={tag}
-                                                                onAction={() => {
-                                                                    void commitTagDraft(tag);
-                                                                }}
-                                                            >
-                                                                #{tag}
-                                                                <ListBox.ItemIndicator />
-                                                            </ListBox.Item>
-                                                        ))}
-                                                    </ListBox>
-                                                </ComboBox.Popover>
-                                            </ComboBox>
-
-                                            {currentTags.length > 0 && (
-                                                <TagGroup size="sm" onRemove={handleRemoveTags}>
-                                                    <TagGroup.List>
-                                                        {currentTags.map((tag) => (
-                                                            <Tag key={tag} id={tag}>
-                                                                {tag}
-                                                            </Tag>
-                                                        ))}
-                                                    </TagGroup.List>
-                                                </TagGroup>
-                                            )}
-                                        </div>
-                                    </div>
-                                            </div>
                             </div>
                         </Modal.Header>
                         <Modal.Body className="min-h-0 flex-1 overflow-hidden p-0">
@@ -971,6 +838,26 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                 <div className="min-h-0 border-r border-border bg-surface">
                                     <ScrollShadow className="h-full p-5" hideScrollBar>
                                     <div className="h-full flex flex-col gap-6">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
+                                                    <FileText size={14} /> Description
+                                                </h4>
+                                            </div>
+                                            <TextArea
+                                                value={editedDescription}
+                                                onChange={(event) => setEditedDescription(event.target.value)}
+                                                onBlur={handleUpdateDescription}
+                                                placeholder="Add context, acceptance criteria, links, or implementation notes..."
+                                                variant="secondary"
+                                                rows={6}
+                                                fullWidth
+                                                disabled={!canEditTask}
+                                                className="w-full min-h-40 rounded-lg text-sm"
+                                                style={{ resize: 'vertical' }}
+                                            />
+                                        </div>
+
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
@@ -1109,177 +996,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         </div>
 
-                                        <div className="pt-6 border-t border-border">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                                                    <Users size={13} className="text-muted-foreground" /> Assignees
-                                                </h4>
-                                                {canEditTask && availableAssignees.length > 0 && (
-                                                    <Dropdown>
-                                                        <Dropdown.Trigger>
-                                                            <Button size="sm" variant="ghost" className="h-6 px-2 rounded-lg text-[11px] text-accent">
-                                                                <UserPlus size={11} className="mr-1" />
-                                                                Assign
-                                                            </Button>
-                                                        </Dropdown.Trigger>
-                                                        <Dropdown.Popover placement="bottom end">
-                                                            <Dropdown.Menu>
-                                                                {availableAssignees.map((member) => (
-                                                                    <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => handleAssignMember(member.userId)}>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Avatar size="sm" color="accent" variant="soft">
-                                                                                <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                                                                            </Avatar>
-                                                                            <div className="min-w-0">
-                                                                                <div className="text-sm text-foreground truncate">{member.name}</div>
-                                                                                <div className="text-xs text-muted-foreground truncate">{member.email}</div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </Dropdown.Item>
-                                                                ))}
-                                                            </Dropdown.Menu>
-                                                        </Dropdown.Popover>
-                                                    </Dropdown>
-                                                )}
-                                            </div>
-                                            <div className="space-y-2">
-                                                {assignees.length === 0 ? (
-                                                    <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
-                                                        No teammates assigned yet.
-                                                    </div>
-                                                ) : (
-                                                    assignees.map((assignee) => (
-                                                        <div key={assignee.userId} className="flex items-center gap-3 rounded-lg border border-border/60 bg-surface-secondary/20 px-3 py-2">
-                                                            <Avatar size="sm" color="accent" variant="soft">
-                                                                <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                                                            </Avatar>
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="text-[12px] font-medium text-foreground truncate">{assignee.name}</div>
-                                                                <div className="text-[11px] text-muted-foreground truncate">{assignee.email}</div>
-                                                            </div>
-                                                            {canEditTask && (
-                                                                <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleRemoveAssignee(assignee.userId)}>
-                                                                    <Trash size={12} />
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Dependencies */}
-                                        <div className="pt-6 border-t border-border">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                                                    <GitBranch size={13} className="text-muted-foreground" /> Dependencies
-                                                </h4>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-6 px-2 rounded-lg text-[11px] text-accent"
-                                                    onPress={() => setShowDepPicker(v => !v)}
-                                                >
-                                                    <Plus size={11} className="mr-1" />
-                                                    Add
-                                                </Button>
-                                            </div>
-                                            {showDepPicker && (
-                                                <div className="mb-2 rounded-xl border border-border bg-surface-secondary overflow-hidden max-h-32 overflow-y-auto">
-                                                    {projectTasks.filter(t => !(task.dependencies || []).includes(t.id)).length === 0 ? (
-                                                        <p className="text-[11px] text-muted-foreground p-3">No other tasks available</p>
-                                                    ) : (
-                                                        projectTasks
-                                                            .filter(t => !(task.dependencies || []).includes(t.id))
-                                                            .map(t => (
-                                                                <Button
-                                                                    key={t.id}
-                                                                    variant="ghost"
-                                                                    className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[12px]"
-                                                                    onPress={() => handleAddDependency(t.id)}
-                                                                >
-                                                                    <Link2 size={10} className="text-muted-foreground shrink-0" />
-                                                                    {t.title}
-                                                                </Button>
-                                                            ))
-                                                    )}
-                                                </div>
-                                            )}
-                                            <div className="space-y-1">
-                                                {(task.dependencies || []).length === 0 ? (
-                                                    <p className="text-[11px] text-muted-foreground/50">No dependencies</p>
-                                                ) : (
-                                                    (task.dependencies || []).map(depId => {
-                                                        const depTask = projectTasks.find(t => t.id === depId);
-                                                        return (
-                                                            <div key={depId} className="flex items-center gap-2 py-1 px-2 rounded-lg bg-surface-secondary/50 border border-border/60 group">
-                                                                <Link2 size={10} className="text-muted-foreground shrink-0" />
-                                                                <span className="text-[12px] text-foreground truncate flex-1">{depTask?.title || 'Unknown task'}</span>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    isIconOnly
-                                                                    className="h-5 w-5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-danger"
-                                                                    onPress={() => handleRemoveDependency(depId)}
-                                                                >
-                                                                    <X size={10} />
-                                                                </Button>
-                                                            </div>
-                                                        );
-                                                    })
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Recurrence */}
-                                        <div className="pt-6 border-t border-border">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                                                    <RefreshCw size={13} className="text-muted-foreground" /> Recurrence
-                                                </h4>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="flex gap-1 flex-wrap">
-                                                    {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
-                                                        <Button
-                                                            key={type}
-                                                            size="sm"
-                                                            variant={(type === 'none' ? !recurrence : recurrence?.type === type) ? 'primary' : 'secondary'}
-                                                            className="h-7 rounded-lg px-2.5 text-[11px] font-medium"
-                                                            onPress={() => {
-                                                                if (type === 'none') { handleSaveRecurrence(null); }
-                                                                else { handleSaveRecurrence({ type, interval: 1 }); }
-                                                            }}
-                                                        >
-                                                            {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                                {recurrence && (
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className="text-[11px] text-muted-foreground">Every</span>
-                                                        <Input
-                                                            type="number"
-                                                            min={1}
-                                                            max={99}
-                                                            value={recurrence.interval}
-                                                            onChange={e => {
-                                                                const interval = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                                                const updated = { ...recurrence, interval };
-                                                                setRecurrence(updated);
-                                                                handleSaveRecurrence(updated);
-                                                            }}
-                                                            variant="secondary"
-                                                            className="w-16 rounded-lg text-center text-[12px]"
-                                                        />
-                                                        <span className="text-[11px] text-muted-foreground">
-                                                            {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
-                                                             recurrence.type === 'weekly' ? (recurrence.interval === 1 ? 'week' : 'weeks') :
-                                                             recurrence.interval === 1 ? 'month' : 'months'}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
                                     </div>
                                     </ScrollShadow>
                                 </div>
@@ -1288,6 +1004,331 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                 <div className="min-h-0 bg-surface-secondary/25">
                                     <ScrollShadow className="h-full p-5" hideScrollBar>
                                     <div className="h-full flex flex-col gap-6">
+                                        <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</h4>
+                                                <span className="text-[11px] text-muted-foreground">{taskFiles.length} files</span>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <Label className="text-[11px] font-medium text-muted-foreground">Assignee</Label>
+                                                        {canEditTask && user && !assignees.some((assignee) => assignee.userId === user.id) && (
+                                                            <Button size="sm" variant={assignees.length === 0 ? 'primary' : 'secondary'} className="h-7 rounded-lg px-2 text-[11px]" onPress={handleAssignToMe}>
+                                                                Assign to me
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        {assignees.length === 0 ? (
+                                                            <div className="flex h-8 items-center rounded-md border border-dashed border-border/50 bg-surface-secondary/30 px-2.5 text-[12px] text-muted-foreground">
+                                                                Unassigned
+                                                            </div>
+                                                        ) : (
+                                                            assignees.map((assignee) => (
+                                                                <div key={assignee.userId} className="flex items-center gap-2 rounded-md border border-border bg-surface-secondary/30 px-2 py-1.5">
+                                                                    <Avatar size="sm" color="accent" variant="soft">
+                                                                        <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                    </Avatar>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="truncate text-[12px] font-medium text-foreground">{assignee.name}</div>
+                                                                        <div className="truncate text-[11px] text-muted-foreground">{assignee.email}</div>
+                                                                    </div>
+                                                                    {canEditTask && (
+                                                                        <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleRemoveAssignee(assignee.userId)}>
+                                                                            <X size={12} />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                    {canEditTask && availableAssignees.length > 0 && (
+                                                        <Dropdown>
+                                                            <Dropdown.Trigger>
+                                                                <Button variant="secondary" className="h-8 w-full justify-between rounded-md px-2.5 text-[11px]">
+                                                                    <span className="flex items-center gap-2"><UserPlus size={13} /> Add assignee</span>
+                                                                    <ChevronDown size={13} />
+                                                                </Button>
+                                                            </Dropdown.Trigger>
+                                                            <Dropdown.Popover placement="bottom end">
+                                                                <Dropdown.Menu>
+                                                                    {availableAssignees.map((member) => (
+                                                                        <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => handleAssignMember(member.userId)}>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Avatar size="sm" color="accent" variant="soft">
+                                                                                    <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                                </Avatar>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="truncate text-sm text-foreground">{member.name}</div>
+                                                                                    <div className="truncate text-xs text-muted-foreground">{member.email}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </Dropdown.Item>
+                                                                    ))}
+                                                                </Dropdown.Menu>
+                                                            </Dropdown.Popover>
+                                                        </Dropdown>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <Label className="text-[11px] font-medium text-muted-foreground">Status</Label>
+                                                        <Dropdown>
+                                                            <Dropdown.Trigger>
+                                                                <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
+                                                                    <span className="flex items-center gap-2 truncate">
+                                                                        <span className={`h-1.5 w-1.5 rounded-full ${currentStatusOption.color}`} />
+                                                                        {currentStatusOption.label}
+                                                                    </span>
+                                                                    <ChevronDown size={12} />
+                                                                </Button>
+                                                            </Dropdown.Trigger>
+                                                            <Dropdown.Popover placement="bottom end">
+                                                                <Dropdown.Menu>
+                                                                    {statusOptions.map((status) => (
+                                                                        <Dropdown.Item key={status.id} id={status.id} textValue={status.label} onAction={() => handleUpdateStatus(status.id)}>
+                                                                            <span className="flex items-center gap-2">
+                                                                                <span className={`h-2 w-2 rounded-full ${status.color}`} />
+                                                                                {status.label}
+                                                                            </span>
+                                                                        </Dropdown.Item>
+                                                                    ))}
+                                                                </Dropdown.Menu>
+                                                            </Dropdown.Popover>
+                                                        </Dropdown>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <Label className="text-[11px] font-medium text-muted-foreground">Priority</Label>
+                                                        <Dropdown>
+                                                            <Dropdown.Trigger>
+                                                                <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
+                                                                    <span className={`truncate ${currentPriorityOption?.className || 'text-muted-foreground'}`}>
+                                                                        {currentPriorityOption?.label || 'None'}
+                                                                    </span>
+                                                                    <ChevronDown size={12} />
+                                                                </Button>
+                                                            </Dropdown.Trigger>
+                                                            <Dropdown.Popover placement="bottom end">
+                                                                <Dropdown.Menu>
+                                                                    {priorityOptions.map((priority) => (
+                                                                        <Dropdown.Item key={priority.id} id={priority.id} textValue={priority.label} onAction={() => handleUpdatePriority(priority.id)}>
+                                                                            <span className={priority.className}>{priority.label}</span>
+                                                                        </Dropdown.Item>
+                                                                    ))}
+                                                                </Dropdown.Menu>
+                                                            </Dropdown.Popover>
+                                                        </Dropdown>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <Label className="text-[11px] font-medium text-muted-foreground">Due date</Label>
+                                                    <DatePicker
+                                                        value={task.deadline ? parseAbsoluteToLocal(task.deadline) : null}
+                                                        onChange={handleUpdateDeadline}
+                                                        granularity="minute"
+                                                        isDisabled={!canEditTask}
+                                                    >
+                                                        <DateField.Group className="h-7 w-[190px] rounded-md border border-border/70 bg-surface-secondary/55 px-2 text-[11px]">
+                                                            <DateField.Prefix>
+                                                                <CalendarIcon size={12} className="text-muted-foreground" />
+                                                            </DateField.Prefix>
+                                                            <DateField.Input>
+                                                                {(segment) => <DateField.Segment segment={segment} />}
+                                                            </DateField.Input>
+                                                            <DateField.Suffix>
+                                                                <DatePicker.Trigger className="text-muted-foreground" />
+                                                            </DateField.Suffix>
+                                                        </DateField.Group>
+                                                        <DatePicker.Popover>
+                                                            <Calendar>
+                                                                <Calendar.Header>
+                                                                    <Button slot="previous" variant="ghost" isIconOnly size="sm"><ChevronLeft size={16} /></Button>
+                                                                    <Calendar.Heading />
+                                                                    <Button slot="next" variant="ghost" isIconOnly size="sm"><ChevronRight size={16} /></Button>
+                                                                </Calendar.Header>
+                                                                <Calendar.Grid />
+                                                            </Calendar>
+                                                            <div className="border-t border-border p-3">
+                                                                <TimeField className="gap-2">
+                                                                    <Label className="text-xs text-muted-foreground">Time</Label>
+                                                                    <TimeField.Group variant="secondary">
+                                                                        <TimeField.Input>
+                                                                            {(segment) => <TimeField.Segment segment={segment} />}
+                                                                        </TimeField.Input>
+                                                                    </TimeField.Group>
+                                                                </TimeField>
+                                                            </div>
+                                                        </DatePicker.Popover>
+                                                    </DatePicker>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-medium text-muted-foreground">Tags</Label>
+                                                    {currentTags.length > 0 && (
+                                                        <TagGroup size="sm" onRemove={handleRemoveTags}>
+                                                            <TagGroup.List className="flex flex-wrap gap-1.5">
+                                                                {currentTags.map((tag) => (
+                                                                    <Tag key={tag} id={tag}>
+                                                                        {tag}
+                                                                    </Tag>
+                                                                ))}
+                                                            </TagGroup.List>
+                                                        </TagGroup>
+                                                    )}
+                                                    <ComboBox
+                                                        allowsCustomValue
+                                                        className="w-full"
+                                                        inputValue={tagSearchValue}
+                                                        menuTrigger="focus"
+                                                        onInputChange={setTagSearchValue}
+                                                    >
+                                                        <Label className="sr-only">Tags</Label>
+                                                        <ComboBox.InputGroup className="h-8 rounded-md border border-border/70 bg-surface-secondary/55">
+                                                            <Input
+                                                                placeholder={currentTags.length > 0 ? 'Add another tag' : 'Add tag'}
+                                                                className="text-[12px]"
+                                                                onKeyDown={(event) => {
+                                                                    if (event.key === 'Enter' || event.key === ',') {
+                                                                        event.preventDefault();
+                                                                        void commitTagDraft(tagSearchValue);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <ComboBox.Trigger className="mr-1 text-muted-foreground/60" />
+                                                        </ComboBox.InputGroup>
+                                                        <ComboBox.Popover className="rounded-xl border border-border bg-surface p-2 shadow-lg">
+                                                            <ListBox
+                                                                className="max-h-48"
+                                                                renderEmptyState={() => <EmptyState>No matching tags. Press comma or Enter to create one.</EmptyState>}
+                                                            >
+                                                                {filteredAutocompleteTags.map((tag) => (
+                                                                    <ListBox.Item
+                                                                        key={tag}
+                                                                        id={tag}
+                                                                        textValue={tag}
+                                                                        onAction={() => {
+                                                                            void commitTagDraft(tag);
+                                                                        }}
+                                                                    >
+                                                                        #{tag}
+                                                                        <ListBox.ItemIndicator />
+                                                                    </ListBox.Item>
+                                                                ))}
+                                                            </ListBox>
+                                                        </ComboBox.Popover>
+                                                    </ComboBox>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <Label className="text-[11px] font-medium text-muted-foreground">Dependencies</Label>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-6 px-2 rounded-lg text-[11px] text-accent"
+                                                            onPress={() => setShowDepPicker(v => !v)}
+                                                        >
+                                                            <Plus size={11} className="mr-1" />
+                                                            Add
+                                                        </Button>
+                                                    </div>
+                                                    {showDepPicker && (
+                                                        <div className="rounded-lg border border-border bg-surface-secondary overflow-hidden max-h-32 overflow-y-auto">
+                                                            {projectTasks.filter(t => !(task.dependencies || []).includes(t.id)).length === 0 ? (
+                                                                <p className="p-3 text-[11px] text-muted-foreground">No other tasks available</p>
+                                                            ) : (
+                                                                projectTasks
+                                                                    .filter(t => !(task.dependencies || []).includes(t.id))
+                                                                    .map(t => (
+                                                                        <Button
+                                                                            key={t.id}
+                                                                            variant="ghost"
+                                                                            className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[12px]"
+                                                                            onPress={() => handleAddDependency(t.id)}
+                                                                        >
+                                                                            <Link2 size={10} className="text-muted-foreground shrink-0" />
+                                                                            <span className="truncate">{t.title}</span>
+                                                                        </Button>
+                                                                    ))
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    <div className="space-y-1">
+                                                        {(task.dependencies || []).length === 0 ? (
+                                                            <p className="text-[11px] text-muted-foreground/60">No dependencies</p>
+                                                        ) : (
+                                                            (task.dependencies || []).map(depId => {
+                                                                const depTask = projectTasks.find(t => t.id === depId);
+                                                                return (
+                                                                    <div key={depId} className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary/30 px-2 py-1.5">
+                                                                        <Link2 size={10} className="text-muted-foreground shrink-0" />
+                                                                        <span className="flex-1 truncate text-[12px] text-foreground">{depTask?.title || 'Unknown task'}</span>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            isIconOnly
+                                                                            className="h-6 w-6 rounded-md text-muted-foreground hover:text-danger"
+                                                                            onPress={() => handleRemoveDependency(depId)}
+                                                                        >
+                                                                            <X size={10} />
+                                                                        </Button>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label className="text-[11px] font-medium text-muted-foreground">Recurrence</Label>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
+                                                            <Button
+                                                                key={type}
+                                                                size="sm"
+                                                                variant={(type === 'none' ? !recurrence : recurrence?.type === type) ? 'primary' : 'secondary'}
+                                                                className="h-7 rounded-lg px-2.5 text-[11px] font-medium"
+                                                                onPress={() => {
+                                                                    if (type === 'none') { handleSaveRecurrence(null); }
+                                                                    else { handleSaveRecurrence({ type, interval: 1 }); }
+                                                                }}
+                                                            >
+                                                                {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
+                                                    {recurrence && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] text-muted-foreground">Every</span>
+                                                            <Input
+                                                                type="number"
+                                                                min={1}
+                                                                max={99}
+                                                                value={recurrence.interval}
+                                                                onChange={e => {
+                                                                    const interval = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                                                    const updated = { ...recurrence, interval };
+                                                                    setRecurrence(updated);
+                                                                    handleSaveRecurrence(updated);
+                                                                }}
+                                                                variant="secondary"
+                                                                className="w-16 rounded-lg text-center text-[12px]"
+                                                            />
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
+                                                                 recurrence.type === 'weekly' ? (recurrence.interval === 1 ? 'week' : 'weeks') :
+                                                                 recurrence.interval === 1 ? 'month' : 'months'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
