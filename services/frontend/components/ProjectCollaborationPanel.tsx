@@ -4,7 +4,7 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData, encryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ActivityLog, Project, ProjectFile, ProjectMember, TeamInvitation, UserLookup } from '@/services/frontend/types';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, TeamInvitation, UserLookup } from '@/services/frontend/types';
 import { Avatar, Button, Chip, Dropdown, Input, Label, Modal, Tabs, toast } from '@heroui/react';
 import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
@@ -20,7 +20,7 @@ const inviteRoleLabels: Record<InviteRole, string> = {
     viewer: 'Viewer',
 };
 
-export function ProjectCollaborationPanel({ project }: { project: Project }) {
+export function ProjectCollaborationPanel({ project, compact = false }: { project: Project; compact?: boolean }) {
     const { privateKey } = useAuth();
     const [selectedTab, setSelectedTab] = useState<CollaborationTab>('team');
     const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -28,6 +28,7 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
     const [files, setFiles] = useState<ProjectFile[]>([]);
     const [activity, setActivity] = useState<ActivityLog[]>([]);
     const [decryptedActivity, setDecryptedActivity] = useState<ActivityLog[]>([]);
+    const [presence, setPresence] = useState<PresenceSession[]>([]);
     const [docKey, setDocKey] = useState<CryptoKey | null>(null);
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -64,16 +65,18 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
     useEffect(() => {
         const load = async () => {
             try {
-                const [memberRes, inviteRes, fileRes, activityRes] = await Promise.all([
+                const [memberRes, inviteRes, fileRes, activityRes, presenceRes] = await Promise.all([
                     db.listProjectMembers(project.id),
                     db.listProjectInvitations(project.id),
                     db.listProjectFiles(project.id),
                     db.listProjectActivity(project.id),
+                    db.heartbeatProjectPresence(project.id),
                 ]);
                 setMembers(memberRes.documents);
                 setInvites(inviteRes.documents);
                 setFiles(fileRes.documents);
                 setActivity(activityRes.documents);
+                setPresence(presenceRes.documents);
             } catch (error) {
                 console.error('Failed to load collaboration panel:', error);
             }
@@ -103,9 +106,23 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
                     void db.listProjectActivity(project.id).then((response) => setActivity(response.documents)).catch(console.error);
                 }
             }
+            if (event.collection === 'project_presence' && Array.isArray(event.document)) {
+                setPresence(event.document as PresenceSession[]);
+            }
         });
 
         return () => unsubscribe();
+    }, [project.id]);
+
+    useEffect(() => {
+        const tick = () => {
+            void db.heartbeatProjectPresence(project.id)
+                .then((response) => setPresence(response.documents))
+                .catch(console.error);
+        };
+        tick();
+        const timer = window.setInterval(tick, 20000);
+        return () => window.clearInterval(timer);
     }, [project.id]);
 
     useEffect(() => {
@@ -251,25 +268,39 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
     };
 
     return (
-        <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className={`rounded-xl border border-border bg-surface overflow-hidden ${compact ? 'flex h-full min-h-[520px] flex-col' : ''}`}>
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
                         <Users size={14} className="text-muted-foreground" />
                         <h2 className="text-sm font-semibold text-foreground">Collaboration</h2>
                     </div>
                     <p className="text-xs text-muted-foreground">{memberCountLabel}</p>
+                    {presence.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <div className="flex -space-x-2">
+                                {presence.slice(0, 3).map((session) => (
+                                    <Avatar key={session.userId} size="sm" color="accent" variant="soft" className="border border-surface">
+                                        <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                    </Avatar>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                                {presence.length} active now
+                            </p>
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     <input ref={fileInputRef} type="file" className="hidden" onChange={handleUploadChange} />
                     {canEdit && (
-                        <Button variant="secondary" className="h-8 rounded-xl px-3 text-xs font-medium" onPress={() => fileInputRef.current?.click()} isPending={isUploading}>
+                        <Button variant="secondary" className="h-8 rounded-lg px-2.5 text-xs font-medium" onPress={() => fileInputRef.current?.click()} isPending={isUploading}>
                             <FolderUp size={13} />
-                            Upload file
+                            {!compact && 'Upload file'}
                         </Button>
                     )}
                     {canManageMembers && (
-                        <Button variant="primary" className="h-8 rounded-xl px-3 text-xs font-medium" onPress={() => setIsInviteOpen(true)}>
+                        <Button variant="primary" className="h-8 rounded-lg px-2.5 text-xs font-medium" onPress={() => setIsInviteOpen(true)}>
                             <UserPlus size={13} />
                             Invite
                         </Button>
@@ -277,19 +308,19 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
                 </div>
             </div>
 
-            <Tabs selectedKey={selectedTab} onSelectionChange={(key) => setSelectedTab(key as CollaborationTab)} variant="secondary" className="w-full">
+            <Tabs selectedKey={selectedTab} onSelectionChange={(key) => setSelectedTab(key as CollaborationTab)} variant="secondary" className={`w-full ${compact ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
                 <Tabs.ListContainer className="border-b border-border px-4">
-                    <Tabs.List aria-label="Collaboration tabs" className="h-11">
-                        <Tabs.Tab id="team" className="px-4 text-sm">Team<Tabs.Indicator /></Tabs.Tab>
-                        <Tabs.Tab id="files" className="px-4 text-sm">Files<Tabs.Indicator /></Tabs.Tab>
-                        <Tabs.Tab id="activity" className="px-4 text-sm">Activity<Tabs.Indicator /></Tabs.Tab>
+                    <Tabs.List aria-label="Collaboration tabs" className="h-10 w-full *:flex-1 *:text-sm">
+                        <Tabs.Tab id="team" className="px-3">Team<Tabs.Indicator /></Tabs.Tab>
+                        <Tabs.Tab id="files" className="px-3">Files<Tabs.Indicator /></Tabs.Tab>
+                        <Tabs.Tab id="activity" className="px-3">Activity<Tabs.Indicator /></Tabs.Tab>
                     </Tabs.List>
                 </Tabs.ListContainer>
 
-                <Tabs.Panel id="team" className="p-4">
+                <Tabs.Panel id="team" className={`p-4 ${compact ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
                     <div className="space-y-3">
                         {members.map((member) => (
-                            <div key={member.userId} className="flex items-center justify-between rounded-xl border border-border px-3 py-3">
+                            <div key={member.userId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <Avatar size="md" color="accent" variant="soft">
                                         <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
@@ -372,7 +403,7 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
                     </div>
                 </Tabs.Panel>
 
-                <Tabs.Panel id="files" className="p-4">
+                <Tabs.Panel id="files" className={`p-4 ${compact ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
                     <div className="space-y-3">
                         {files.length === 0 && (
                             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -385,7 +416,7 @@ export function ProjectCollaborationPanel({ project }: { project: Project }) {
                     </div>
                 </Tabs.Panel>
 
-                <Tabs.Panel id="activity" className="p-4">
+                <Tabs.Panel id="activity" className={`p-4 ${compact ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
                     <div className="space-y-2">
                         {decryptedActivity.length === 0 && (
                             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">

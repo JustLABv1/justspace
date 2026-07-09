@@ -80,6 +80,35 @@ export interface Task {
     recurrence?: string | null; // JSON: { type: 'daily'|'weekly'|'monthly', interval: number, endDate?: string }
 }
 
+export interface TaskAssignee {
+    taskId: string;
+    userId: string;
+    name: string;
+    email: string;
+    assignedBy: string;
+    createdAt: string;
+}
+
+export interface TaskComment {
+    id: string;
+    taskId: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    body: string;
+    mentionedUserIds: string[];
+    isEncrypted: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface PresenceSession {
+    userId: string;
+    name: string;
+    email: string;
+    lastSeen: string;
+}
+
 export interface WikiGuide {
     id: string;
     title: string;
@@ -130,7 +159,10 @@ export interface ActivityLog {
     type: 'create' | 'update' | 'delete' | 'complete' | 'work';
     entityType: 'Project' | 'Task' | 'Wiki' | 'Installation' | 'Snippet' | 'File';
     entityName: string;
+    userId: string;
+    userName?: string;
     projectId?: string;
+    taskId?: string;
     metadata?: string; // For things like "Worked 2h 30m"
     createdAt: string;
 }

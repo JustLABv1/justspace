@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/justlabv1/justspace/backend/internal/models"
 	"github.com/justlabv1/justspace/backend/internal/repository"
 )
 
@@ -43,4 +44,17 @@ func ensureProjectRole(w http.ResponseWriter, r *http.Request, repo *repository.
 		return false
 	}
 	return true
+}
+
+func ensureTaskAccess(w http.ResponseWriter, r *http.Request, repo *repository.Repo, taskID, userID string) (*models.Task, bool) {
+	task, err := repo.GetTask(r.Context(), taskID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate task access")
+		return nil, false
+	}
+	if task == nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return nil, false
+	}
+	return task, true
 }

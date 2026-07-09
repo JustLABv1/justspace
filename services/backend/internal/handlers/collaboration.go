@@ -368,7 +368,7 @@ func (h *CollaborationHandler) UploadProjectFile(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if _, err := h.repo.LogActivity(r.Context(), userID, "create", "File", req.EncryptedName, &projectID, nil); err == nil {
+	if _, err := h.repo.LogActivity(r.Context(), userID, "create", "File", req.EncryptedName, &projectID, nil, nil); err == nil {
 		h.broadcastProjectActivity(projectID, userID)
 	}
 	h.broadcastProject(projectID, models.WSEvent{Type: "create", Collection: "project_files", Document: projectFile, UserID: userID})
@@ -457,11 +457,219 @@ func (h *CollaborationHandler) UploadTaskFile(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if _, err := h.repo.LogActivity(r.Context(), userID, "create", "File", req.EncryptedName, &task.ProjectID, nil); err == nil {
+	if _, err := h.repo.LogActivity(r.Context(), userID, "create", "File", req.EncryptedName, &task.ProjectID, &task.ID, nil); err == nil {
 		h.broadcastProjectActivity(task.ProjectID, userID)
 	}
 	h.broadcastProject(task.ProjectID, models.WSEvent{Type: "create", Collection: "project_files", Document: taskFile, UserID: userID})
 	writeJSON(w, http.StatusCreated, taskFile)
+}
+
+func (h *CollaborationHandler) ListTaskAssignees(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	if _, ok := ensureTaskAccess(w, r, h.repo, taskID, userID); !ok {
+		return
+	}
+	assignees, err := h.repo.ListTaskAssignees(r.Context(), taskID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list task assignees")
+		return
+	}
+	writeJSON(w, http.StatusOK, models.ListResponse[models.TaskAssignee]{Total: len(assignees), Documents: assignees})
+}
+
+func (h *CollaborationHandler) AddTaskAssignee(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	task, ok := ensureTaskAccess(w, r, h.repo, taskID, userID)
+	if !ok {
+		return
+	}
+	if !ensureProjectRole(w, r, h.repo, task.ProjectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.AssignTaskUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.UserID == "" {
+		writeError(w, http.StatusBadRequest, "userId is required")
+		return
+	}
+	assignee, err := h.repo.AddTaskAssignee(r.Context(), taskID, req.UserID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to assign task")
+		return
+	}
+	meta := fmt.Sprintf("Assigned %s", assignee.Name)
+	if _, err := h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, &meta); err == nil {
+		h.broadcastProjectActivity(task.ProjectID, userID)
+		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
+	}
+	h.broadcastProject(task.ProjectID, models.WSEvent{Type: "create", Collection: "task_assignees", Document: assignee, UserID: userID})
+	writeJSON(w, http.StatusCreated, assignee)
+}
+
+func (h *CollaborationHandler) RemoveTaskAssignee(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	targetUserID := chi.URLParam(r, "userId")
+	task, ok := ensureTaskAccess(w, r, h.repo, taskID, userID)
+	if !ok {
+		return
+	}
+	if !ensureProjectRole(w, r, h.repo, task.ProjectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	if err := h.repo.RemoveTaskAssignee(r.Context(), taskID, targetUserID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to remove assignee")
+		return
+	}
+	meta := fmt.Sprintf("Unassigned user %s", targetUserID)
+	if _, err := h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, &meta); err == nil {
+		h.broadcastProjectActivity(task.ProjectID, userID)
+		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
+	}
+	h.broadcastProject(task.ProjectID, models.WSEvent{
+		Type:       "delete",
+		Collection: "task_assignees",
+		Document:   map[string]string{"taskId": taskID, "userId": targetUserID},
+		UserID:     userID,
+	})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "assignee removed"})
+}
+
+func (h *CollaborationHandler) ListTaskComments(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	if _, ok := ensureTaskAccess(w, r, h.repo, taskID, userID); !ok {
+		return
+	}
+	comments, err := h.repo.ListTaskComments(r.Context(), taskID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list task comments")
+		return
+	}
+	writeJSON(w, http.StatusOK, models.ListResponse[models.TaskComment]{Total: len(comments), Documents: comments})
+}
+
+func (h *CollaborationHandler) CreateTaskComment(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	task, ok := ensureTaskAccess(w, r, h.repo, taskID, userID)
+	if !ok {
+		return
+	}
+	var req models.CreateTaskCommentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if strings.TrimSpace(req.Body) == "" {
+		writeError(w, http.StatusBadRequest, "comment body is required")
+		return
+	}
+	comment, err := h.repo.CreateTaskComment(r.Context(), taskID, userID, req)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create task comment")
+		return
+	}
+	var meta *string
+	if len(req.MentionedUserIDs) > 0 {
+		text := fmt.Sprintf("%d mention%s", len(req.MentionedUserIDs), map[bool]string{true: "", false: "s"}[len(req.MentionedUserIDs) == 1])
+		meta = &text
+	}
+	if _, err := h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, meta); err == nil {
+		h.broadcastProjectActivity(task.ProjectID, userID)
+		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
+	}
+	h.broadcastProject(task.ProjectID, models.WSEvent{Type: "create", Collection: "task_comments", Document: comment, UserID: userID})
+	writeJSON(w, http.StatusCreated, comment)
+}
+
+func (h *CollaborationHandler) DeleteTaskComment(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	commentID := chi.URLParam(r, "commentId")
+	task, ok := ensureTaskAccess(w, r, h.repo, taskID, userID)
+	if !ok {
+		return
+	}
+	if err := h.repo.DeleteTaskComment(r.Context(), commentID, userID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete task comment")
+		return
+	}
+	meta := "Comment removed"
+	if _, err := h.repo.LogActivity(r.Context(), userID, "delete", "Task", task.Title, &task.ProjectID, &task.ID, &meta); err == nil {
+		h.broadcastProjectActivity(task.ProjectID, userID)
+		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
+	}
+	h.broadcastProject(task.ProjectID, models.WSEvent{
+		Type:       "delete",
+		Collection: "task_comments",
+		Document:   map[string]string{"taskId": taskID, "id": commentID},
+		UserID:     userID,
+	})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "comment deleted"})
+}
+
+func (h *CollaborationHandler) ListTaskActivity(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	if _, ok := ensureTaskAccess(w, r, h.repo, taskID, userID); !ok {
+		return
+	}
+	activity, err := h.repo.ListTaskActivity(r.Context(), taskID, 50)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list task activity")
+		return
+	}
+	writeJSON(w, http.StatusOK, models.ListResponse[models.ActivityLog]{Total: len(activity), Documents: activity})
+}
+
+func (h *CollaborationHandler) HeartbeatProjectPresence(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	if !ensureProjectAccess(w, r, h.repo, projectID, userID) {
+		return
+	}
+	if err := h.repo.UpsertProjectPresence(r.Context(), projectID, userID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update project presence")
+		return
+	}
+	presence, err := h.repo.ListProjectPresence(r.Context(), projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list project presence")
+		return
+	}
+	h.broadcastProject(projectID, models.WSEvent{Type: "update", Collection: "project_presence", Document: presence, UserID: userID})
+	writeJSON(w, http.StatusOK, models.ListResponse[models.PresenceSession]{Total: len(presence), Documents: presence})
+}
+
+func (h *CollaborationHandler) HeartbeatTaskPresence(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	taskID := chi.URLParam(r, "taskId")
+	task, ok := ensureTaskAccess(w, r, h.repo, taskID, userID)
+	if !ok {
+		return
+	}
+	if err := h.repo.UpsertTaskPresence(r.Context(), taskID, userID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update task presence")
+		return
+	}
+	presence, err := h.repo.ListTaskPresence(r.Context(), taskID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list task presence")
+		return
+	}
+	h.broadcastProject(task.ProjectID, models.WSEvent{
+		Type:       "update",
+		Collection: "task_presence",
+		Document:   map[string]interface{}{"taskId": taskID, "sessions": presence},
+		UserID:     userID,
+	})
+	writeJSON(w, http.StatusOK, models.ListResponse[models.PresenceSession]{Total: len(presence), Documents: presence})
 }
 
 func (h *CollaborationHandler) DownloadProjectFile(w http.ResponseWriter, r *http.Request) {
@@ -512,7 +720,7 @@ func (h *CollaborationHandler) DeleteProjectFile(w http.ResponseWriter, r *http.
 		log.Printf("DeleteProjectFile storage cleanup error: %v", err)
 	}
 
-	if _, err := h.repo.LogActivity(r.Context(), userID, "delete", "File", projectFile.EncryptedName, &projectFile.ProjectID, nil); err == nil {
+	if _, err := h.repo.LogActivity(r.Context(), userID, "delete", "File", projectFile.EncryptedName, &projectFile.ProjectID, projectFile.TaskID, nil); err == nil {
 		h.broadcastProjectActivity(projectFile.ProjectID, userID)
 	}
 	h.broadcastProject(projectFile.ProjectID, models.WSEvent{
@@ -558,6 +766,20 @@ func (h *CollaborationHandler) broadcastProjectActivity(projectID, actorUserID s
 		return
 	}
 	h.broadcastProject(projectID, models.WSEvent{Type: "update", Collection: "project_activity", Document: activity, UserID: actorUserID})
+}
+
+func (h *CollaborationHandler) broadcastTaskActivity(projectID, taskID, actorUserID string) {
+	activity, err := h.repo.ListTaskActivity(context.Background(), taskID, 50)
+	if err != nil {
+		log.Printf("broadcast task activity error: %v", err)
+		return
+	}
+	h.broadcastProject(projectID, models.WSEvent{
+		Type:       "update",
+		Collection: "task_activity",
+		Document:   map[string]interface{}{"taskId": taskID, "activity": activity},
+		UserID:     actorUserID,
+	})
 }
 
 func hashInvitationToken(token string) string {

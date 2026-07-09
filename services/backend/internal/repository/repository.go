@@ -558,6 +558,193 @@ func (r *Repo) DeleteProjectFile(ctx context.Context, fileID string) error {
 	return nil
 }
 
+func (r *Repo) ListTaskAssignees(ctx context.Context, taskID string) ([]models.TaskAssignee, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT ta.task_id, ta.user_id, u.name, u.email, ta.assigned_by_id, ta.created_at
+		 FROM task_assignees ta
+		 JOIN users u ON u.id = ta.user_id
+		 WHERE ta.task_id = $1
+		 ORDER BY ta.created_at ASC`,
+		taskID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task assignees: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.TaskAssignee
+	for rows.Next() {
+		var assignee models.TaskAssignee
+		if err := rows.Scan(&assignee.TaskID, &assignee.UserID, &assignee.Name, &assignee.Email, &assignee.AssignedBy, &assignee.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, assignee)
+	}
+	if out == nil {
+		out = []models.TaskAssignee{}
+	}
+	return out, nil
+}
+
+func (r *Repo) AddTaskAssignee(ctx context.Context, taskID, userID, assignedByID string) (*models.TaskAssignee, error) {
+	assignee := &models.TaskAssignee{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO task_assignees (task_id, user_id, assigned_by_id)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (task_id, user_id) DO UPDATE SET assigned_by_id = EXCLUDED.assigned_by_id
+		 RETURNING task_id, user_id, assigned_by_id, created_at`,
+		taskID, userID, assignedByID,
+	).Scan(&assignee.TaskID, &assignee.UserID, &assignee.AssignedBy, &assignee.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("add task assignee: %w", err)
+	}
+	user, err := r.GetUserByID(ctx, userID)
+	if err == nil && user != nil {
+		assignee.Name = user.Name
+		assignee.Email = user.Email
+	}
+	return assignee, nil
+}
+
+func (r *Repo) RemoveTaskAssignee(ctx context.Context, taskID, userID string) error {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM task_assignees WHERE task_id = $1 AND user_id = $2`, taskID, userID); err != nil {
+		return fmt.Errorf("remove task assignee: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) ListTaskComments(ctx context.Context, taskID string) ([]models.TaskComment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT tc.id, tc.task_id, tc.user_id, u.name, u.email, tc.body, tc.mentioned_user_ids, tc.is_encrypted, tc.created_at, tc.updated_at
+		 FROM task_comments tc
+		 JOIN users u ON u.id = tc.user_id
+		 WHERE tc.task_id = $1
+		 ORDER BY tc.created_at ASC`,
+		taskID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task comments: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.TaskComment
+	for rows.Next() {
+		var comment models.TaskComment
+		if err := rows.Scan(&comment.ID, &comment.TaskID, &comment.UserID, &comment.UserName, &comment.UserEmail, &comment.Body, &comment.MentionedUserIDs, &comment.IsEncrypted, &comment.CreatedAt, &comment.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, comment)
+	}
+	if out == nil {
+		out = []models.TaskComment{}
+	}
+	return out, nil
+}
+
+func (r *Repo) CreateTaskComment(ctx context.Context, taskID, userID string, req models.CreateTaskCommentRequest) (*models.TaskComment, error) {
+	comment := &models.TaskComment{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO task_comments (task_id, user_id, body, mentioned_user_ids, is_encrypted)
+		 VALUES ($1, $2, $3, COALESCE($4::text[], '{}'::text[]), $5)
+		 RETURNING id, task_id, user_id, body, mentioned_user_ids, is_encrypted, created_at, updated_at`,
+		taskID, userID, req.Body, req.MentionedUserIDs, req.IsEncrypted,
+	).Scan(&comment.ID, &comment.TaskID, &comment.UserID, &comment.Body, &comment.MentionedUserIDs, &comment.IsEncrypted, &comment.CreatedAt, &comment.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create task comment: %w", err)
+	}
+	user, err := r.GetUserByID(ctx, userID)
+	if err == nil && user != nil {
+		comment.UserName = user.Name
+		comment.UserEmail = user.Email
+	}
+	return comment, nil
+}
+
+func (r *Repo) DeleteTaskComment(ctx context.Context, commentID, userID string) error {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM task_comments WHERE id = $1 AND user_id = $2`, commentID, userID); err != nil {
+		return fmt.Errorf("delete task comment: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) UpsertProjectPresence(ctx context.Context, projectID, userID string) error {
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO project_presence (project_id, user_id, last_seen)
+		 VALUES ($1, $2, NOW())
+		 ON CONFLICT (project_id, user_id) DO UPDATE SET last_seen = NOW()`,
+		projectID, userID,
+	); err != nil {
+		return fmt.Errorf("upsert project presence: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) UpsertTaskPresence(ctx context.Context, taskID, userID string) error {
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO task_presence (task_id, user_id, last_seen)
+		 VALUES ($1, $2, NOW())
+		 ON CONFLICT (task_id, user_id) DO UPDATE SET last_seen = NOW()`,
+		taskID, userID,
+	); err != nil {
+		return fmt.Errorf("upsert task presence: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) ListProjectPresence(ctx context.Context, projectID string) ([]models.PresenceSession, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT pp.user_id, u.name, u.email, pp.last_seen
+		 FROM project_presence pp
+		 JOIN users u ON u.id = pp.user_id
+		 WHERE pp.project_id = $1 AND pp.last_seen >= NOW() - INTERVAL '45 seconds'
+		 ORDER BY pp.last_seen DESC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project presence: %w", err)
+	}
+	defer rows.Close()
+	var out []models.PresenceSession
+	for rows.Next() {
+		var item models.PresenceSession
+		if err := rows.Scan(&item.UserID, &item.Name, &item.Email, &item.LastSeen); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if out == nil {
+		out = []models.PresenceSession{}
+	}
+	return out, nil
+}
+
+func (r *Repo) ListTaskPresence(ctx context.Context, taskID string) ([]models.PresenceSession, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT tp.user_id, u.name, u.email, tp.last_seen
+		 FROM task_presence tp
+		 JOIN users u ON u.id = tp.user_id
+		 WHERE tp.task_id = $1 AND tp.last_seen >= NOW() - INTERVAL '45 seconds'
+		 ORDER BY tp.last_seen DESC`,
+		taskID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task presence: %w", err)
+	}
+	defer rows.Close()
+	var out []models.PresenceSession
+	for rows.Next() {
+		var item models.PresenceSession
+		if err := rows.Scan(&item.UserID, &item.Name, &item.Email, &item.LastSeen); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if out == nil {
+		out = []models.PresenceSession{}
+	}
+	return out, nil
+}
+
 // ---- Tasks ----
 
 func scanTasks(rows pgx.Rows) ([]models.Task, error) {
@@ -896,17 +1083,11 @@ func (r *Repo) DeleteInstallation(ctx context.Context, id, userID string) error 
 
 // ---- Activity ----
 
-func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.ActivityLog, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, type, entity_type, entity_name, project_id, metadata, created_at FROM activity WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list activity: %w", err)
-	}
-	defer rows.Close()
+func scanActivityRows(rows pgx.Rows) ([]models.ActivityLog, error) {
 	var out []models.ActivityLog
 	for rows.Next() {
 		var a models.ActivityLog
-		if err := rows.Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.Metadata, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.UserID, &a.UserName, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.TaskID, &a.Metadata, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -917,12 +1098,27 @@ func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.Activi
 	return out, nil
 }
 
+func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.ActivityLog, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
+		 FROM activity a
+		 JOIN users u ON u.id = a.user_id
+		 WHERE a.user_id = $1
+		 ORDER BY a.created_at DESC LIMIT 10`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list activity: %w", err)
+	}
+	defer rows.Close()
+	return scanActivityRows(rows)
+}
+
 func (r *Repo) ListProjectActivity(ctx context.Context, projectID string, limit int) ([]models.ActivityLog, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, type, entity_type, entity_name, project_id, metadata, created_at
-		 FROM activity
-		 WHERE project_id = $1
-		 ORDER BY created_at DESC
+		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
+		 FROM activity a
+		 JOIN users u ON u.id = a.user_id
+		 WHERE a.project_id = $1
+		 ORDER BY a.created_at DESC
 		 LIMIT $2`,
 		projectID, limit,
 	)
@@ -930,28 +1126,34 @@ func (r *Repo) ListProjectActivity(ctx context.Context, projectID string, limit 
 		return nil, fmt.Errorf("list project activity: %w", err)
 	}
 	defer rows.Close()
-
-	var out []models.ActivityLog
-	for rows.Next() {
-		var a models.ActivityLog
-		if err := rows.Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.Metadata, &a.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	if out == nil {
-		out = []models.ActivityLog{}
-	}
-	return out, nil
+	return scanActivityRows(rows)
 }
 
-func (r *Repo) LogActivity(ctx context.Context, userID, actType, entityType, entityName string, projectID *string, metadata *string) (*models.ActivityLog, error) {
+func (r *Repo) ListTaskActivity(ctx context.Context, taskID string, limit int) ([]models.ActivityLog, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
+		 FROM activity a
+		 JOIN users u ON u.id = a.user_id
+		 WHERE a.task_id = $1
+		 ORDER BY a.created_at DESC
+		 LIMIT $2`,
+		taskID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list task activity: %w", err)
+	}
+	defer rows.Close()
+	return scanActivityRows(rows)
+}
+
+func (r *Repo) LogActivity(ctx context.Context, userID, actType, entityType, entityName string, projectID, taskID, metadata *string) (*models.ActivityLog, error) {
 	a := &models.ActivityLog{}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO activity (user_id, type, entity_type, entity_name, project_id, metadata) VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING id, user_id, type, entity_type, entity_name, project_id, metadata, created_at`,
-		userID, actType, entityType, entityName, projectID, metadata,
-	).Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.Metadata, &a.CreatedAt)
+		`INSERT INTO activity (user_id, type, entity_type, entity_name, project_id, task_id, metadata)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, user_id, type, entity_type, entity_name, project_id, task_id, metadata, created_at`,
+		userID, actType, entityType, entityName, projectID, taskID, metadata,
+	).Scan(&a.ID, &a.UserID, &a.Type, &a.EntityType, &a.EntityName, &a.ProjectID, &a.TaskID, &a.Metadata, &a.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("log activity: %w", err)
 	}

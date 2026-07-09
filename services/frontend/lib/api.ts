@@ -374,6 +374,48 @@ export const api = {
         return res.json();
     },
 
+    async listTaskAssignees<T>(taskId: string): Promise<ListResponse<T>> {
+        return request(`/api/tasks/${taskId}/assignees`);
+    },
+
+    async addTaskAssignee<T>(taskId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/tasks/${taskId}/assignees`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async removeTaskAssignee(taskId: string, userId: string): Promise<void> {
+        return request(`/api/tasks/${taskId}/assignees/${userId}`, { method: 'DELETE' });
+    },
+
+    async listTaskComments<T>(taskId: string): Promise<ListResponse<T>> {
+        return request(`/api/tasks/${taskId}/comments`);
+    },
+
+    async createTaskComment<T>(taskId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/tasks/${taskId}/comments`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteTaskComment(taskId: string, commentId: string): Promise<void> {
+        return request(`/api/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' });
+    },
+
+    async listTaskActivity<T>(taskId: string): Promise<ListResponse<T>> {
+        return request(`/api/tasks/${taskId}/activity`);
+    },
+
+    async heartbeatProjectPresence<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/presence`, { method: 'POST' });
+    },
+
+    async heartbeatTaskPresence<T>(taskId: string): Promise<ListResponse<T>> {
+        return request(`/api/tasks/${taskId}/presence`, { method: 'POST' });
+    },
+
     async listProjectActivity<T>(projectId: string): Promise<ListResponse<T>> {
         return request(`/api/projects/${projectId}/activity`);
     },

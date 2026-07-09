@@ -93,6 +93,35 @@ type Task struct {
 	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
+type TaskAssignee struct {
+	TaskID     string    `json:"taskId"`
+	UserID     string    `json:"userId"`
+	Name       string    `json:"name"`
+	Email      string    `json:"email"`
+	AssignedBy string    `json:"assignedBy"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type TaskComment struct {
+	ID               string    `json:"id"`
+	TaskID           string    `json:"taskId"`
+	UserID           string    `json:"userId"`
+	UserName         string    `json:"userName"`
+	UserEmail        string    `json:"userEmail"`
+	Body             string    `json:"body"`
+	MentionedUserIDs []string  `json:"mentionedUserIds"`
+	IsEncrypted      bool      `json:"isEncrypted"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+type PresenceSession struct {
+	UserID   string    `json:"userId"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	LastSeen time.Time `json:"lastSeen"`
+}
+
 type RecurrenceRule struct {
 	Type     string `json:"type"`
 	Interval int    `json:"interval"`
@@ -127,10 +156,12 @@ type InstallationTarget struct {
 type ActivityLog struct {
 	ID         string    `json:"id"`
 	UserID     string    `json:"userId"`
+	UserName   *string   `json:"userName,omitempty"`
 	Type       string    `json:"type"`
 	EntityType string    `json:"entityType"`
 	EntityName string    `json:"entityName"`
 	ProjectID  *string   `json:"projectId"`
+	TaskID     *string   `json:"taskId,omitempty"`
 	Metadata   *string   `json:"metadata"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
@@ -300,6 +331,16 @@ type UpdateTaskRequest struct {
 	Recurrence     *string          `json:"recurrence,omitempty"`
 	IsEncrypted    *bool            `json:"isEncrypted,omitempty"`
 	WorkDuration   *string          `json:"workDuration,omitempty"`
+}
+
+type CreateTaskCommentRequest struct {
+	Body             string   `json:"body"`
+	MentionedUserIDs []string `json:"mentionedUserIds,omitempty"`
+	IsEncrypted      bool     `json:"isEncrypted"`
+}
+
+type AssignTaskUserRequest struct {
+	UserID string `json:"userId"`
 }
 
 type CreateGuideRequest struct {

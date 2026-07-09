@@ -9,12 +9,15 @@ import {
     AccessControl,
     ActivityLog,
     InstallationTarget,
+    PresenceSession,
     Project,
     ProjectFile,
     ProjectMember,
     ResourceVersion,
     Snippet,
     Task,
+    TaskAssignee,
+    TaskComment,
     TeamInvitation,
     UserLookup,
     UserKeys,
@@ -188,6 +191,33 @@ export const db = {
     },
     async uploadTaskFile(taskId: string, formData: FormData) {
         return await api.uploadTaskFile<ProjectFile>(taskId, formData);
+    },
+    async listTaskAssignees(taskId: string) {
+        return await api.listTaskAssignees<TaskAssignee>(taskId);
+    },
+    async addTaskAssignee(taskId: string, userId: string) {
+        return await api.addTaskAssignee<TaskAssignee>(taskId, { userId });
+    },
+    async removeTaskAssignee(taskId: string, userId: string) {
+        return await api.removeTaskAssignee(taskId, userId);
+    },
+    async listTaskComments(taskId: string) {
+        return await api.listTaskComments<TaskComment>(taskId);
+    },
+    async createTaskComment(taskId: string, data: { body: string; mentionedUserIds?: string[]; isEncrypted?: boolean }) {
+        return await api.createTaskComment<TaskComment>(taskId, data as Record<string, unknown>);
+    },
+    async deleteTaskComment(taskId: string, commentId: string) {
+        return await api.deleteTaskComment(taskId, commentId);
+    },
+    async listTaskActivity(taskId: string) {
+        return await api.listTaskActivity<ActivityLog>(taskId);
+    },
+    async heartbeatProjectPresence(projectId: string) {
+        return await api.heartbeatProjectPresence<PresenceSession>(projectId);
+    },
+    async heartbeatTaskPresence(taskId: string) {
+        return await api.heartbeatTaskPresence<PresenceSession>(taskId);
     },
     async listProjectActivity(projectId: string) {
         return await api.listProjectActivity<ActivityLog>(projectId);

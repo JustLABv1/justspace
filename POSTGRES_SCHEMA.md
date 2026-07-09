@@ -9,6 +9,7 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/003_task_dependencies_recurrence.up.sql`: adds task dependencies and recurrence persistence
 - `backend/migrations/004_collaboration.up.sql`: adds project members, invitations, and encrypted project files
 - `backend/migrations/005_task_file_attachments.up.sql`: scopes project files to optional task attachments
+- `backend/migrations/006_task_collaboration_presence.up.sql`: adds task assignees, task comments, task presence, project presence, and task-scoped activity
 
 ## Core Tables
 
@@ -122,8 +123,13 @@ Notes:
 | `entity_type` | `varchar(32)` | `Project`, `Task`, `Wiki`, `Installation`, `Snippet` |
 | `entity_name` | `varchar(128)` | Human-readable entity name |
 | `project_id` | `uuid` | Optional related project |
+| `task_id` | `uuid` | Optional related task |
 | `metadata` | `varchar(128)` | Optional detail text |
 | `created_at` | `timestamptz` | Event timestamp |
+
+Indexes:
+
+- `idx_activity_task_id` on `task_id`
 
 ### project_members
 
@@ -200,6 +206,62 @@ Notes:
 
 - Rows with `task_id IS NULL` are project-level collaboration files.
 - Rows with `task_id` set are task attachments stored through the same encrypted file pipeline.
+
+### task_assignees
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `task_id` | `uuid` | FK to `tasks(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `assigned_by_id` | `uuid` | FK to `users(id)` |
+| `created_at` | `timestamptz` | Assignment timestamp |
+
+Indexes:
+
+- Primary key on (`task_id`, `user_id`)
+- `idx_task_assignees_user_id` on `user_id`
+
+### task_comments
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `task_id` | `uuid` | FK to `tasks(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `body` | `text` | Comment body, encrypted client-side when the task is encrypted |
+| `mentioned_user_ids` | `text[]` | Mentioned teammate user IDs |
+| `is_encrypted` | `boolean` | Comment ciphertext flag |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+Indexes:
+
+- `idx_task_comments_task_id` on `task_id`
+- `idx_task_comments_user_id` on `user_id`
+
+### project_presence
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `last_seen` | `timestamptz` | Latest presence heartbeat |
+
+Indexes:
+
+- Primary key on (`project_id`, `user_id`)
+
+### task_presence
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `task_id` | `uuid` | FK to `tasks(id)` |
+| `user_id` | `uuid` | FK to `users(id)` |
+| `last_seen` | `timestamptz` | Latest presence heartbeat |
+
+Indexes:
+
+- Primary key on (`task_id`, `user_id`)
 
 ### snippets
 

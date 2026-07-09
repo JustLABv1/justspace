@@ -6,30 +6,50 @@ import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { DEPLOYMENT_TEMPLATES } from '@/services/frontend/lib/templates';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { Task } from '@/services/frontend/types';
-import { closestCenter, DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Checkbox, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
+import { ProjectFile, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { Button, Avatar, Checkbox, Chip, Dropdown, Header, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
-import { CheckCircle2, ChevronRight, Filter, ListChecks, Plus, Search, Square, SquareCheck, Trash2 } from 'lucide-react';
+import dayjs from 'dayjs';
+import { Calendar, CheckCircle2, ChevronRight, Clock, Filter, GitBranch, GripVertical, ListChecks, MessageCircle, MoreHorizontal, Paperclip, Plus, Search, Square, SquareCheck, Trash2, UserCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pagination } from './Pagination';
 import { TaskDetailModal } from './TaskDetailModal';
-import { TaskItem } from './TaskItem';
+
+type TaskMeta = {
+    assignees: TaskAssignee[];
+    files: ProjectFile[];
+    comments: TaskComment[];
+};
+
+const statusConfig: Record<string, { label: string; color: 'default' | 'accent' | 'success' | 'warning' | 'danger' }> = {
+    todo: { label: 'Todo', color: 'default' },
+    'in-progress': { label: 'In progress', color: 'accent' },
+    review: { label: 'Review', color: 'warning' },
+    waiting: { label: 'Blocked', color: 'danger' },
+    done: { label: 'Done', color: 'success' },
+};
+
+const priorityConfig: Record<string, { label: string; color: 'default' | 'accent' | 'success' | 'warning' | 'danger' }> = {
+    low: { label: 'Low', color: 'success' },
+    medium: { label: 'Medium', color: 'accent' },
+    high: { label: 'High', color: 'warning' },
+    urgent: { label: 'Urgent', color: 'danger' },
+};
 
 export function TaskList({ 
     projectId, 
     hideHeader = false,
     searchQuery: externalSearchQuery,
     selectedTags = [],
-    hideCompleted: externalHideCompleted
+    hideCompleted: externalHideCompleted,
+    quickFilter = 'all'
 }: { 
     projectId: string, 
     hideHeader?: boolean,
     searchQuery?: string,
     selectedTags?: string[],
-    hideCompleted?: boolean
+    hideCompleted?: boolean,
+    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked'
 }) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -43,36 +63,17 @@ export function TaskList({
     const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
     const hideCompleted = externalHideCompleted !== undefined ? externalHideCompleted : internalHideCompleted;
     
-    const [expandedTaskIds, setExpandedTaskIds] = useState<string[]>([]);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [showCompleted, setShowCompleted] = useState(false);
+    const [taskMeta, setTaskMeta] = useState<Record<string, TaskMeta>>({});
     const itemsPerPage = 8;
-
-    const toggleTaskExpansion = (taskId: string) => {
-        setExpandedTaskIds(prev => 
-            prev.includes(taskId) 
-                ? prev.filter(id => id !== taskId) 
-                : [...prev, taskId]
-        );
-    };
 
     const { user, privateKey } = useAuth();
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
-
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
 
     const fetchTasks = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -111,6 +112,24 @@ export function TaskList({
             }));
 
             setTasks(rawTasks);
+            const parentTasks = rawTasks.filter((task) => !task.parentId).slice(0, 50);
+            const metaEntries = await Promise.all(parentTasks.map(async (task) => {
+                try {
+                    const [assigneesRes, filesRes, commentsRes] = await Promise.all([
+                        db.listTaskAssignees(task.id),
+                        db.listTaskFiles(task.id),
+                        db.listTaskComments(task.id),
+                    ]);
+                    return [task.id, {
+                        assignees: assigneesRes.documents,
+                        files: filesRes.documents,
+                        comments: commentsRes.documents,
+                    }] as const;
+                } catch {
+                    return [task.id, { assignees: [], files: [], comments: [] }] as const;
+                }
+            }));
+            setTaskMeta(Object.fromEntries(metaEntries));
         } catch (error) {
             console.error(error instanceof Error ? error.message : error);
         } finally {
@@ -151,26 +170,6 @@ export function TaskList({
         window.addEventListener('list-add-task', handler);
         return () => window.removeEventListener('list-add-task', handler);
     }, []);
-
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
-
-        if (over && active.id !== over.id) {
-            const oldIndex = tasks.findIndex((t) => t.id === active.id);
-            const newIndex = tasks.findIndex((t) => t.id === over.id);
-            
-            const newTasks = arrayMove(tasks, oldIndex, newIndex);
-            setTasks(newTasks);
-
-            try {
-                await Promise.all(newTasks.map((task, index) => 
-                    db.updateTask(task.id, { order: index })
-                ));
-            } catch (error) {
-                console.error('Failed to update task order:', error);
-            }
-        }
-    };
 
     const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -219,24 +218,6 @@ export function TaskList({
         }
     };
 
-    const handleAddSubtask = async (parentId: string, title: string) => {
-        try {
-            let finalTitle = title;
-            let isEncrypted = false;
-            if (documentKey) {
-                const encrypted = await encryptData(title, documentKey);
-                finalTitle = JSON.stringify(encrypted);
-                isEncrypted = true;
-            }
-            await db.createEmptyTask(projectId, finalTitle, 0, isEncrypted, parentId, 'todo');
-            fetchTasks();
-            toast.success('Subtask added');
-        } catch (error) {
-            console.error(error);
-            toast.danger('Failed to add subtask');
-        }
-    };
-
     const applyTemplate = async (templateIndex: number) => {
         setIsApplyingTemplate(true);
         try {
@@ -260,34 +241,6 @@ export function TaskList({
             toast.danger('Failed to apply template');
         } finally {
             setIsApplyingTemplate(false);
-        }
-    };
-
-    const updateTask = async (taskId: string, data: Partial<Task> & { workDuration?: string }) => {
-        const previousTasks = [...tasks];
-        try {
-            const taskData: Partial<Task> & { workDuration?: string } = { ...data };
-            delete taskData.workDuration;
-            const updatedTaskTitle = data.title || (tasks.find(t => t.id === taskId)?.title) || '';
-            
-            // Optimistic update
-            setTasks(tasks.map(t => t.id === taskId ? { ...t, ...taskData, title: updatedTaskTitle } : t));
-
-            const updateData = { ...data };
-            if (documentKey && data.title) {
-                updateData.title = JSON.stringify(await encryptData(data.title, documentKey));
-                updateData.isEncrypted = true;
-            }
-            await db.updateTask(taskId, updateData);
-            // We usually don't want a toast for every field update (especially if it's auto-save)
-            // But if it's specifically "completed" or something significant, we could.
-            if ('completed' in data) {
-                toast.success(data.completed ? 'Task completed' : 'Task reopened');
-            }
-        } catch (error) {
-            console.error('Task update failed, rolling back:', error);
-            setTasks(previousTasks);
-            toast.danger(error instanceof Error ? error.message : 'Sync failed, changes reverted');
         }
     };
 
@@ -345,16 +298,143 @@ export function TaskList({
         const subtasks = tasks.filter(st => st.parentId === t.id);
         const matchesTask = taskMatchesFilters(t, searchQuery, selectedTags);
         const anySubtaskMatches = subtasks.some(st => taskMatchesFilters(st, searchQuery, selectedTags));
-        
+        const meta = taskMeta[t.id] || { assignees: [], files: [], comments: [] };
         const matchesFilter = hideCompleted ? !t.completed : true;
+        const matchesQuickFilter =
+            quickFilter === 'all' ||
+            (quickFilter === 'mine' && !!user && meta.assignees.some((assignee) => assignee.userId === user.id)) ||
+            (quickFilter === 'unassigned' && meta.assignees.length === 0) ||
+            (quickFilter === 'due-soon' && !!t.deadline && !t.completed && dayjs(t.deadline).diff(dayjs(), 'day') <= 7) ||
+            (quickFilter === 'blocked' && ((t.dependencies || []).length > 0 || t.kanbanStatus === 'waiting'));
         
-        return (matchesTask || anySubtaskMatches) && matchesFilter;
+        return (matchesTask || anySubtaskMatches) && matchesFilter && matchesQuickFilter;
     });
 
     const activeTasks = filteredMainTasks.filter(t => !t.completed);
     const completedTasks = filteredMainTasks.filter(t => t.completed);
     const totalPages = Math.ceil(activeTasks.length / itemsPerPage);
     const paginatedTasks = activeTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const allVisibleSelected = paginatedTasks.length > 0 && paginatedTasks.every((task) => selectedIds.has(task.id));
+    const togglePageSelection = () => {
+        setSelectedIds((current) => {
+            const next = new Set(current);
+            if (allVisibleSelected) {
+                paginatedTasks.forEach((task) => next.delete(task.id));
+            } else {
+                paginatedTasks.forEach((task) => next.add(task.id));
+            }
+            return next;
+        });
+        setSelectionMode(true);
+    };
+
+    const renderAssignees = (task: Task) => {
+        const assignees = taskMeta[task.id]?.assignees || [];
+        if (assignees.length === 0) {
+            return (
+                <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                    <UserCircle size={15} />
+                    <span className="hidden lg:inline">Unassigned</span>
+                </div>
+            );
+        }
+        return (
+            <div className="flex -space-x-2">
+                {assignees.slice(0, 3).map((assignee) => (
+                    <Avatar key={assignee.userId} size="sm" color="accent" variant="soft" className="border border-surface">
+                        <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                    </Avatar>
+                ))}
+            </div>
+        );
+    };
+
+    const renderIssueRow = (task: Task, isCompleted = false) => {
+        const subtasks = tasks.filter(st => st.parentId === task.id);
+        const completedSubtasks = subtasks.filter(st => st.completed).length;
+        const status = statusConfig[task.completed ? 'done' : (task.kanbanStatus || 'todo')];
+        const priority = task.priority ? priorityConfig[task.priority] : undefined;
+        const meta = taskMeta[task.id] || { assignees: [], files: [], comments: [] };
+
+        return (
+            <div
+                key={task.id}
+                className={`grid min-w-[880px] grid-cols-[40px_minmax(260px,1fr)_120px_112px_120px_120px_120px_36px] items-center gap-3 border-b border-border px-3 py-2.5 text-sm transition-colors hover:bg-surface-secondary/40 ${isCompleted ? 'opacity-60' : ''}`}
+                onClick={() => { if (selectionMode) { toggleSelect(task.id); return; } setSelectedTask(task); setIsDetailModalOpen(true); }}
+            >
+                <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                    <Checkbox
+                        aria-label={`Select ${task.title}`}
+                        isSelected={selectedIds.has(task.id)}
+                        onChange={() => { setSelectionMode(true); toggleSelect(task.id); }}
+                    >
+                        <Checkbox.Control className="size-4 rounded-md">
+                            <Checkbox.Indicator />
+                        </Checkbox.Control>
+                    </Checkbox>
+                    <GripVertical size={13} className="hidden text-muted-foreground/40 lg:block" />
+                </div>
+
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <span className={`truncate font-medium ${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
+                        {task.isEncrypted && <span className="text-[10px] text-warning">secure</span>}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>JS-{task.id.slice(0, 4).toUpperCase()}</span>
+                        {task.tags?.slice(0, 2).map((tag) => <span key={tag}>#{tag}</span>)}
+                        {(task.dependencies || []).length > 0 && <span className="inline-flex items-center gap-1"><GitBranch size={10} />{task.dependencies?.length}</span>}
+                    </div>
+                </div>
+
+                <Chip size="sm" variant="soft" color={status.color} className="w-fit rounded-md">
+                    <Chip.Label className="text-[11px]">{status.label}</Chip.Label>
+                </Chip>
+
+                {priority ? (
+                    <Chip size="sm" variant="soft" color={priority.color} className="w-fit rounded-md">
+                        <Chip.Label className="text-[11px]">{priority.label}</Chip.Label>
+                    </Chip>
+                ) : (
+                    <span className="text-[12px] text-muted-foreground">No priority</span>
+                )}
+
+                {renderAssignees(task)}
+
+                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <div className="h-1.5 w-14 overflow-hidden rounded-full bg-surface-secondary">
+                        <div className="h-full rounded-full bg-accent" style={{ width: subtasks.length ? `${(completedSubtasks / subtasks.length) * 100}%` : '0%' }} />
+                    </div>
+                    <span>{completedSubtasks}/{subtasks.length}</span>
+                </div>
+
+                <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
+                    {task.deadline && <span className={`inline-flex items-center gap-1 ${dayjs(task.deadline).isBefore(dayjs(), 'minute') && !task.completed ? 'text-danger' : ''}`}><Calendar size={12} />{dayjs(task.deadline).format('MMM D')}</span>}
+                    {task.timeSpent ? <span className="inline-flex items-center gap-1"><Clock size={12} />{Math.floor(task.timeSpent / 3600)}h</span> : null}
+                    {meta.comments.length > 0 && <span className="inline-flex items-center gap-1"><MessageCircle size={12} />{meta.comments.length}</span>}
+                    {meta.files.length > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={12} />{meta.files.length}</span>}
+                </div>
+
+                <Dropdown>
+                    <Dropdown.Trigger>
+                        <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground" onClick={(event) => event.stopPropagation()}>
+                            <MoreHorizontal size={14} />
+                        </Button>
+                    </Dropdown.Trigger>
+                    <Dropdown.Popover placement="bottom end">
+                        <Dropdown.Menu>
+                            <Dropdown.Item id={`open-${task.id}`} textValue="Open" onAction={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}>
+                                <Label className="cursor-pointer text-sm">Open</Label>
+                            </Dropdown.Item>
+                            <Dropdown.Item id={`delete-${task.id}`} textValue="Delete" variant="danger" onAction={() => deleteTask(task.id)}>
+                                <div className="flex items-center gap-2 text-sm"><Trash2 size={13} />Delete</div>
+                            </Dropdown.Item>
+                        </Dropdown.Menu>
+                    </Dropdown.Popover>
+                </Dropdown>
+            </div>
+        );
+    };
 
     return (
         <div className="flex flex-col h-full gap-4">
@@ -463,9 +543,9 @@ export function TaskList({
             )}
 
             <div className="flex-grow flex flex-col p-0 overflow-hidden">
-                <div className="flex-grow overflow-y-auto custom-scrollbar pt-2 pb-5 space-y-4 min-h-[450px]">
+                <ScrollShadow className="flex-grow min-h-[520px]" orientation="horizontal">
                     {activeTasks.length === 0 && completedTasks.length === 0 ? (
-                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-2xl">
+                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
                             <ListChecks size={20} className="text-muted-foreground/40" />
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">No tasks yet</p>
@@ -473,17 +553,25 @@ export function TaskList({
                             </div>
                         </div>
                     ) : (
-                        <>
-                        <DndContext 
-                            sensors={sensors} 
-                            collisionDetection={closestCenter} 
-                            onDragEnd={handleDragEnd}
-                            modifiers={[restrictToVerticalAxis]}
-                        >
-                            <SortableContext items={paginatedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-3">
+                        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+                            <div className="grid min-w-[880px] grid-cols-[40px_minmax(260px,1fr)_120px_112px_120px_120px_120px_36px] items-center gap-3 border-b border-border bg-surface-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <div onClick={(event) => event.stopPropagation()}>
+                                    <Checkbox aria-label="Select visible tasks" isSelected={allVisibleSelected} onChange={togglePageSelection}>
+                                        <Checkbox.Control className="size-4 rounded-md">
+                                            <Checkbox.Indicator />
+                                        </Checkbox.Control>
+                                    </Checkbox>
+                                </div>
+                                <span>Issue</span>
+                                <span>Status</span>
+                                <span>Priority</span>
+                                <span>Assignee</span>
+                                <span>Subtasks</span>
+                                <span>Activity</span>
+                                <span />
+                            </div>
                                     {paginatedTasks.length === 0 && completedTasks.length === 0 ? (
-                                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-2xl">
+                                        <div className="h-48 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-border rounded-xl">
                                             <ListChecks size={20} className="text-muted-foreground/40" />
                                             <div>
                                                 <p className="text-sm font-medium text-muted-foreground">No tasks yet</p>
@@ -495,51 +583,15 @@ export function TaskList({
                                             <p className="text-[13px] text-muted-foreground">All tasks completed — great work!</p>
                                         </div>
                                     ) : (
-                                        paginatedTasks.map((task) => (
-                                            <div key={task.id} className={`relative ${selectionMode ? 'flex items-start gap-2' : ''}`}>
-                                                {selectionMode && (
-                                                    <div className="mt-2.5 shrink-0">
-                                                        <Checkbox
-                                                            aria-label={`Select ${task.title}`}
-                                                            isSelected={selectedIds.has(task.id)}
-                                                            onChange={() => toggleSelect(task.id)}
-                                                        >
-                                                            <Checkbox.Control className="size-5 rounded-lg border-2">
-                                                                <Checkbox.Indicator />
-                                                            </Checkbox.Control>
-                                                        </Checkbox>
-                                                    </div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <TaskItem
-                                                        task={task}
-                                                        onToggle={(id, completed) => updateTask(id, { completed })}
-                                                        onDelete={deleteTask}
-                                                        onUpdate={updateTask}
-                                                        onAddSubtask={handleAddSubtask}
-                                                        allTasks={tasks}
-                                                        expandedTaskIds={expandedTaskIds}
-                                                        onToggleExpanded={toggleTaskExpansion}
-                                                        onClick={(t) => {
-                                                            if (selectionMode) { toggleSelect(t.id); return; }
-                                                            setSelectedTask(t);
-                                                            setIsDetailModalOpen(true);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))
+                                        paginatedTasks.map((task) => renderIssueRow(task))
                                     )}
-                                </div>
-                            </SortableContext>
-                        </DndContext>
 
                         {/* Completed tasks — collapsible, outside DnD */}
                         {completedTasks.length > 0 && !hideCompleted && (
-                            <div className="mt-1">
+                            <div className="border-t border-border">
                                 <Button
                                     variant="ghost"
-                                    className="h-auto justify-start gap-1.5 px-1 py-1.5 text-[12px] text-muted-foreground"
+                                    className="h-9 justify-start gap-1.5 px-3 text-[12px] text-muted-foreground"
                                     onPress={() => setShowCompleted(v => !v)}
                                 >
                                     <ChevronRight size={13} className={`transition-transform duration-150 ${showCompleted ? 'rotate-90' : ''}`} />
@@ -547,31 +599,13 @@ export function TaskList({
                                     {completedTasks.length} completed
                                 </Button>
                                 {showCompleted && (
-                                    <div className="mt-1 space-y-1">
-                                        {completedTasks.map(task => (
-                                            <div
-                                                key={task.id}
-                                                className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border/50 bg-surface/50 opacity-50 hover:opacity-70 transition-opacity cursor-pointer"
-                                                onClick={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
-                                            >
-                                                <CheckCircle2 size={14} className="text-success shrink-0" />
-                                                <span className="text-[13px] text-muted-foreground line-through truncate flex-1">{task.title}</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    isIconOnly
-                                                    className="h-6 w-6 rounded-md text-muted-foreground/40 hover:text-danger shrink-0"
-                                                    onPress={() => deleteTask(task.id)}
-                                                    aria-label="Delete task"
-                                                >
-                                                    <Trash2 size={12} />
-                                                </Button>
-                                            </div>
-                                        ))}
+                                    <div>
+                                        {completedTasks.map(task => renderIssueRow(task, true))}
                                     </div>
                                 )}
                             </div>
                         )}
-                        </>
+                        </div>
                     )}
 
                     {totalPages > 1 && (
@@ -587,7 +621,7 @@ export function TaskList({
                             />
                         </div>
                     )}
-                </div>
+                </ScrollShadow>
 
                 <div className="pt-3 border-t border-border">
                     <form ref={addTaskFormRef} onSubmit={handleAddTask} className="flex items-center gap-2">

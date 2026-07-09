@@ -5,10 +5,10 @@ import { decryptData, decryptDocumentKey, encryptData } from '@/services/fronten
 import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { Task } from '@/services/frontend/types';
-import { Button, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
+import { ProjectFile, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { Avatar, Button, Chip, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
 import dayjs from 'dayjs';
-import { Calendar, Check, Clock, Lock, MessageCircle, MoreHorizontal, Plus, Trash2, X } from 'lucide-react';
+import { Calendar, Check, Clock, GitBranch, Lock, MessageCircle, MoreHorizontal, Paperclip, Plus, Trash2, UserCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
@@ -18,6 +18,12 @@ const COLUMNS: { id: Task['kanbanStatus']; label: string; dotColor: string; incl
     { id: 'review', label: 'Need Review', dotColor: 'bg-danger', includes: ['waiting'] },
     { id: 'done', label: 'Done', dotColor: 'bg-success' },
 ];
+
+type TaskMeta = {
+    assignees: TaskAssignee[];
+    files: ProjectFile[];
+    comments: TaskComment[];
+};
 
 function getPriorityConfig(priority?: string) {
     switch (priority) {
@@ -33,12 +39,14 @@ export function KanbanBoard({
     projectId,
     searchQuery = '',
     selectedTags = [],
-    hideCompleted = false
+    hideCompleted = false,
+    quickFilter = 'all'
 }: {
     projectId: string,
     searchQuery?: string,
     selectedTags?: string[],
-    hideCompleted?: boolean
+    hideCompleted?: boolean,
+    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked'
 }) {
     const { user, privateKey } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -50,6 +58,7 @@ export function KanbanBoard({
     const [addingToColumn, setAddingToColumn] = useState<Task['kanbanStatus'] | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    const [taskMeta, setTaskMeta] = useState<Record<string, TaskMeta>>({});
     const newTaskInputRef = useRef<HTMLInputElement>(null);
 
     const fetchTasks = useCallback(async (isInitial = false) => {
@@ -107,6 +116,24 @@ export function KanbanBoard({
             });
 
             setTasks(filteredTasks);
+            const parentTasks = filteredTasks.filter((task) => !task.parentId).slice(0, 50);
+            const metaEntries = await Promise.all(parentTasks.map(async (task) => {
+                try {
+                    const [assigneesRes, filesRes, commentsRes] = await Promise.all([
+                        db.listTaskAssignees(task.id),
+                        db.listTaskFiles(task.id),
+                        db.listTaskComments(task.id),
+                    ]);
+                    return [task.id, {
+                        assignees: assigneesRes.documents,
+                        files: filesRes.documents,
+                        comments: commentsRes.documents,
+                    }] as const;
+                } catch {
+                    return [task.id, { assignees: [], files: [], comments: [] }] as const;
+                }
+            }));
+            setTaskMeta(Object.fromEntries(metaEntries));
         } catch (error) {
             console.error(error);
         } finally {
@@ -220,13 +247,20 @@ export function KanbanBoard({
         const statuses = [column.id, ...(column.includes || [])];
         return mainTasks.filter(t => {
             const effectiveStatus = t.completed ? 'done' : (t.kanbanStatus || 'todo');
-            return statuses.includes(effectiveStatus);
+            const meta = taskMeta[t.id] || { assignees: [], files: [], comments: [] };
+            const matchesQuickFilter =
+                quickFilter === 'all' ||
+                (quickFilter === 'mine' && !!user && meta.assignees.some((assignee) => assignee.userId === user.id)) ||
+                (quickFilter === 'unassigned' && meta.assignees.length === 0) ||
+                (quickFilter === 'due-soon' && !!t.deadline && !t.completed && dayjs(t.deadline).diff(dayjs(), 'day') <= 7) ||
+                (quickFilter === 'blocked' && ((t.dependencies || []).length > 0 || t.kanbanStatus === 'waiting'));
+            return statuses.includes(effectiveStatus) && matchesQuickFilter;
         });
     };
 
     return (
         <ScrollShadow className="pb-6 -mx-6 px-6" orientation="horizontal" hideScrollBar>
-            <div className="flex gap-5 min-w-max md:min-w-[1100px]">
+            <div className="flex gap-4 min-w-max md:min-w-[1100px]">
                 {COLUMNS.map(column => {
                     const columnTasks = getColumnTasks(column);
                     return (
@@ -237,11 +271,14 @@ export function KanbanBoard({
                                     <div className={`w-2.5 h-2.5 rounded-full ${column.dotColor}`} />
                                     <h3 className="text-sm font-semibold text-foreground">{column.label}</h3>
                                 </div>
+                                <Chip size="sm" variant="soft" color="default" className="h-5 rounded-md">
+                                    <Chip.Label className="text-[11px] tabular-nums">{columnTasks.length}</Chip.Label>
+                                </Chip>
                             </div>
 
                             {/* Column Body */}
                             <div
-                                className="flex-1 space-y-3 p-2 rounded-2xl bg-surface-secondary/30 min-h-[500px] transition-colors"
+                                className="flex-1 space-y-2 p-2 rounded-xl bg-surface-secondary/35 min-h-[520px] transition-colors"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
                                     const taskId = e.dataTransfer.getData('taskId');
@@ -252,6 +289,7 @@ export function KanbanBoard({
                                     const subtasks = tasks.filter(st => st.parentId === task.id);
                                     const completedSubtasks = subtasks.filter(st => st.completed).length;
                                     const priorityConfig = getPriorityConfig(task.priority);
+                                    const meta = taskMeta[task.id] || { assignees: [], files: [], comments: [] };
 
                                     return (
                                         <div
@@ -264,13 +302,13 @@ export function KanbanBoard({
                                                 setSelectedTask(task);
                                                 setIsDetailModalOpen(true);
                                             }}
-                                            className="px-3 py-2.5 rounded-xl border border-border/60 bg-surface cursor-grab active:cursor-grabbing hover:border-border transition-all group"
+                                            className="rounded-lg border border-border/70 bg-surface px-3 py-2.5 cursor-grab active:cursor-grabbing hover:border-accent/40 hover:bg-surface-secondary/20 transition-all group"
                                         >
                                             {/* Title row with menu */}
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="flex items-center gap-1.5 min-w-0">
                                                     {task.isEncrypted && <Lock size={9} className="text-muted-foreground/50 shrink-0 mt-0.5" />}
-                                                    <p className="text-[13px] font-medium text-foreground leading-snug">{task.title}</p>
+                                                    <p className="text-[13px] font-medium text-foreground leading-snug line-clamp-2">{task.title}</p>
                                                 </div>
                                                 <Dropdown>
                                                     <Dropdown.Trigger>
@@ -328,13 +366,9 @@ export function KanbanBoard({
                                             {(priorityConfig || (task.tags && task.tags.length > 0) || task.deadline || (task.timeSpent && task.timeSpent > 0) || (task.notes && task.notes.length > 0)) && (
                                                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                                                     {priorityConfig && (
-                                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                                                            priorityConfig.color === 'danger' ? 'bg-danger/10 text-danger' :
-                                                            priorityConfig.color === 'warning' ? 'bg-warning/10 text-warning' :
-                                                            'bg-accent/10 text-accent'
-                                                        }`}>
-                                                            {priorityConfig.label}
-                                                        </span>
+                                                        <Chip size="sm" variant="soft" color={priorityConfig.color} className="h-5 rounded-md">
+                                                            <Chip.Label className="text-[10px]">{priorityConfig.label}</Chip.Label>
+                                                        </Chip>
                                                     )}
                                                     {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map(tag => (
                                                         <span key={tag} className="text-[10px] text-muted-foreground/70">
@@ -368,13 +402,34 @@ export function KanbanBoard({
                                                     )}
                                                 </div>
                                             )}
+
+                                            <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-2">
+                                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                    {meta.assignees.length > 0 ? (
+                                                        <div className="flex -space-x-2">
+                                                            {meta.assignees.slice(0, 3).map((assignee) => (
+                                                                <Avatar key={assignee.userId} size="sm" color="accent" variant="soft" className="border border-surface">
+                                                                    <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                </Avatar>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1"><UserCircle size={13} />Unassigned</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                    {(task.dependencies || []).length > 0 && <span className="inline-flex items-center gap-1"><GitBranch size={11} />{task.dependencies?.length}</span>}
+                                                    {meta.comments.length > 0 && <span className="inline-flex items-center gap-1"><MessageCircle size={11} />{meta.comments.length}</span>}
+                                                    {meta.files.length > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={11} />{meta.files.length}</span>}
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })}
 
                                 {/* Add task inline */}
                                 {addingToColumn === column.id ? (
-                                    <div className="p-3 rounded-xl border border-accent/40 bg-surface space-y-2">
+                                    <div className="p-3 rounded-lg border border-accent/40 bg-surface space-y-2">
                                         <Input
                                             ref={newTaskInputRef}
                                             value={newTaskTitle}
@@ -410,7 +465,7 @@ export function KanbanBoard({
                                 ) : (
                                     <Button
                                         variant="ghost"
-                                        className="w-full h-8 border border-dashed border-border/60 hover:border-accent/40 text-[12px] text-muted-foreground hover:text-accent rounded-xl transition-all bg-transparent"
+                                        className="w-full h-8 border border-dashed border-border/60 hover:border-accent/40 text-[12px] text-muted-foreground hover:text-accent rounded-lg transition-all bg-transparent"
                                         onPress={() => startAdding(column.id)}
                                     >
                                         <Plus size={14} className="mr-1.5" />

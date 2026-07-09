@@ -5,8 +5,9 @@ import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptDat
 import { db } from '@/services/frontend/lib/db';
 import { collectTaskTags, normalizeTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ProjectFile, Task } from '@/services/frontend/types';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
 import {
+    Avatar,
     Button,
     Calendar,
     Checkbox,
@@ -32,7 +33,7 @@ import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { saveAs } from 'file-saver';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, GitBranch, History, Link2, MessageCircle, Phone, Plus, RefreshCw, Trash2 as Trash, UserPlus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
@@ -62,6 +63,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
     const [projectTasks, setProjectTasks] = useState<Task[]>([]);
     const [projectTags, setProjectTags] = useState<string[]>([]);
+    const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+    const [projectRole, setProjectRole] = useState<Project['role'] | null>(null);
+    const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
+    const [comments, setComments] = useState<TaskComment[]>([]);
+    const [taskActivity, setTaskActivity] = useState<ActivityLog[]>([]);
+    const [presence, setPresence] = useState<PresenceSession[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
     const [taskFiles, setTaskFiles] = useState<ProjectFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [showDepPicker, setShowDepPicker] = useState(false);
@@ -149,6 +158,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const fetchDetails = useCallback(async () => {
         if (!isOpen) return;
         try {
+            const project = await db.getProject(projectId);
+            setProjectRole(project.role);
+
             // Get decryption key if project is encrypted
             let docKey = documentKey;
             if (task.isEncrypted && privateKey && user && !docKey) {
@@ -199,8 +211,32 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             }));
             setProjectTasks(decryptedDepCandidates);
             setProjectTags(collectTaskTags(allTasks));
-            const fileRes = await db.listTaskFiles(task.id);
+            const [fileRes, memberRes, assigneeRes, commentRes, activityRes, presenceRes] = await Promise.all([
+                db.listTaskFiles(task.id),
+                db.listProjectMembers(projectId),
+                db.listTaskAssignees(task.id),
+                db.listTaskComments(task.id),
+                db.listTaskActivity(task.id),
+                db.heartbeatTaskPresence(task.id),
+            ]);
             setTaskFiles(fileRes.documents);
+            setProjectMembers(memberRes.documents);
+            setAssignees(assigneeRes.documents);
+            setTaskActivity(activityRes.documents);
+            setPresence(presenceRes.documents);
+
+            const decryptedComments = await Promise.all(commentRes.documents.map(async (comment) => {
+                if (!comment.isEncrypted || !docKey) {
+                    return comment;
+                }
+                try {
+                    const decryptedBody = await decryptData(JSON.parse(comment.body), docKey);
+                    return { ...comment, body: decryptedBody };
+                } catch {
+                    return { ...comment, body: 'Secure comment' };
+                }
+            }));
+            setComments(decryptedComments);
         } catch (error) {
             console.error('Failed to fetch task details:', error);
         }
@@ -212,6 +248,18 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         };
         load();
     }, [fetchDetails]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const tick = () => {
+            void db.heartbeatTaskPresence(task.id)
+                .then((response) => setPresence(response.documents))
+                .catch(console.error);
+        };
+        tick();
+        const timer = window.setInterval(tick, 15000);
+        return () => window.clearInterval(timer);
+    }, [isOpen, task.id]);
 
     useEffect(() => {
         const unsub = wsClient.subscribe(async (event: WSEvent) => {
@@ -234,6 +282,25 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const payload = event.document as Partial<ProjectFile> & { taskId?: string };
                 if (payload.taskId !== task.id) return;
                 await fetchDetails();
+            }
+            if (event.collection === 'task_assignees' || event.collection === 'task_comments') {
+                const payload = event.document as { taskId?: string };
+                if (payload.taskId !== task.id) return;
+                await fetchDetails();
+            }
+            if (event.collection === 'task_activity') {
+                const payload = event.document as { taskId?: string; activity?: ActivityLog[] };
+                if (payload.taskId !== task.id) return;
+                if (Array.isArray(payload.activity)) {
+                    setTaskActivity(payload.activity);
+                }
+            }
+            if (event.collection === 'task_presence') {
+                const payload = event.document as { taskId?: string; sessions?: PresenceSession[] };
+                if (payload.taskId !== task.id) return;
+                if (Array.isArray(payload.sessions)) {
+                    setPresence(payload.sessions);
+                }
             }
         });
 
@@ -485,6 +552,77 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         void persistTags(nextTags);
     };
 
+    const canEditTask = projectRole === 'owner' || projectRole === 'admin' || projectRole === 'editor';
+    const availableAssignees = projectMembers.filter((member) => !assignees.some((assignee) => assignee.userId === member.userId));
+    const mentionableMembers = projectMembers.filter((member) => member.userId !== user?.id);
+
+    const toggleMention = (memberId: string) => {
+        setMentionedUserIds((current) => current.includes(memberId)
+            ? current.filter((id) => id !== memberId)
+            : [...current, memberId],
+        );
+    };
+
+    const handleAssignMember = async (memberId: string) => {
+        try {
+            const assignee = await db.addTaskAssignee(task.id, memberId);
+            setAssignees((current) => [...current.filter((item) => item.userId !== assignee.userId), assignee]);
+            toast.success('Assignee added');
+        } catch (error) {
+            console.error('Failed to assign member:', error);
+            toast.danger('Failed to assign teammate');
+        }
+    };
+
+    const handleRemoveAssignee = async (memberId: string) => {
+        try {
+            await db.removeTaskAssignee(task.id, memberId);
+            setAssignees((current) => current.filter((item) => item.userId !== memberId));
+            toast.success('Assignee removed');
+        } catch (error) {
+            console.error('Failed to remove assignee:', error);
+            toast.danger('Failed to remove assignee');
+        }
+    };
+
+    const handleCreateComment = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!newComment.trim()) return;
+
+        try {
+            let body = newComment.trim();
+            let isEncrypted = false;
+            if (task.isEncrypted && documentKey) {
+                const encrypted = await encryptData(body, documentKey);
+                body = JSON.stringify(encrypted);
+                isEncrypted = true;
+            }
+            const comment = await db.createTaskComment(task.id, {
+                body,
+                mentionedUserIds,
+                isEncrypted,
+            });
+            setComments((current) => [...current, { ...comment, body: newComment.trim() }]);
+            setNewComment('');
+            setMentionedUserIds([]);
+            toast.success('Comment added');
+        } catch (error) {
+            console.error('Failed to create comment:', error);
+            toast.danger('Failed to save comment');
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        try {
+            await db.deleteTaskComment(task.id, commentId);
+            setComments((current) => current.filter((comment) => comment.id !== commentId));
+            toast.success('Comment removed');
+        } catch (error) {
+            console.error('Failed to remove comment:', error);
+            toast.danger('Failed to remove comment');
+        }
+    };
+
     const handleDownloadFile = async (file: ProjectFile) => {
         try {
             const blob = await db.downloadProjectFile(file.id);
@@ -576,13 +714,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
     return (
         <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-            <Modal.Backdrop>
-                <Modal.Container size="cover">
-                    <Modal.Dialog className="bg-surface border border-border overflow-hidden">
-                        <Modal.Header className="px-6 pt-5 pb-4 border-b border-border flex flex-col items-start gap-4">
+            <Modal.Backdrop className="bg-background/60 backdrop-blur-sm">
+                <Modal.Container size="cover" className="items-stretch justify-end p-0">
+                    <Modal.Dialog className="ml-auto flex h-screen w-full max-w-[1120px] flex-col overflow-hidden rounded-none border-l border-border bg-surface shadow-2xl">
+                        <Modal.Header className="px-5 pt-4 pb-3 border-b border-border flex flex-col items-start gap-3">
                             <Modal.CloseTrigger className="text-muted-foreground hover:text-foreground hover:bg-surface-secondary transition-colors" />
                             
-                            <div className="w-full space-y-6">
+                            <div className="w-full space-y-4 pr-8">
                                 {isEditingTitle ? (
                                     <form 
                                         onSubmit={(e) => { e.preventDefault(); handleUpdateTitle(); }}
@@ -597,16 +735,30 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         />
                                     </form>
                                 ) : (
-                                    <Modal.Heading 
-                                        className="text-base font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
-                                        onClick={() => setIsEditingTitle(true)}
-                                    >
-                                        {task.title}
-                                        <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
-                                    </Modal.Heading>
+                                    <div className="space-y-3">
+                                        <Modal.Heading 
+                                            className="text-lg font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
+                                            onClick={() => setIsEditingTitle(true)}
+                                        >
+                                            {task.title}
+                                            <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                                        </Modal.Heading>
+                                        {presence.length > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex -space-x-2">
+                                                    {presence.slice(0, 4).map((session) => (
+                                                        <Avatar key={session.userId} size="sm" color="accent" variant="soft" className="border border-surface">
+                                                            <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                        </Avatar>
+                                                    ))}
+                                                </div>
+                                                <span className="text-[11px] text-muted-foreground">{presence.length} viewing now</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
-                                <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {/* Status Pill */}
                                     <div className="flex items-center gap-2 bg-surface-secondary/50 p-1 px-2 rounded-md border border-border">
                                         <div className={`w-1.5 h-1.5 rounded-full ml-1 ${
@@ -813,14 +965,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                             </div>
                         </Modal.Header>
-                        <Modal.Body className="p-0">
-                            <div className="flex flex-col md:flex-row h-full max-h-[70vh]">
-                                {/* Left Side: Subtasks */}
-                                <div className="flex-1 p-6 border-r border-border bg-surface-secondary/20 h-full">
+                        <Modal.Body className="min-h-0 flex-1 overflow-hidden p-0">
+                            <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+                                {/* Main task work area */}
+                                <div className="min-h-0 border-r border-border bg-surface">
+                                    <ScrollShadow className="h-full p-5" hideScrollBar>
                                     <div className="h-full flex flex-col gap-6">
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-xs font-medium text-accent flex items-center gap-2">
+                                                <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
                                                     <Plus size={14} /> Subtasks
                                                 </h4>
                                                 <span className="text-xs text-muted-foreground/60">{subtasks.filter(s => s.completed).length}/{subtasks.length} completed</span>
@@ -831,7 +984,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     placeholder="Add technical milestone..."
                                                     value={newSubtaskTitle}
                                                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                                    className="w-full bg-surface-secondary"
+                                                    variant="secondary"
+                                                    className="w-full rounded-lg"
                                                 />
                                                 <Button 
                                                     type="submit" 
@@ -852,7 +1006,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         </div>
                                                     ) : (
                                                         [...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((st) => (
-                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
+                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
                                                                 <Checkbox 
                                                                     isSelected={st.completed} 
                                                                     onChange={(val) => handleUpdateTask(st.id, { completed: val })}
@@ -938,7 +1092,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                             <div className="space-y-2">
                                                 {taskFiles.length === 0 ? (
-                                                    <div className="rounded-xl border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
+                                                    <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
                                                         No files attached to this task yet.
                                                     </div>
                                                 ) : (
@@ -950,6 +1104,65 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             onDownload={() => handleDownloadFile(file)}
                                                             onDelete={() => handleDeleteFile(file.id)}
                                                         />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 border-t border-border">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                                    <Users size={13} className="text-muted-foreground" /> Assignees
+                                                </h4>
+                                                {canEditTask && availableAssignees.length > 0 && (
+                                                    <Dropdown>
+                                                        <Dropdown.Trigger>
+                                                            <Button size="sm" variant="ghost" className="h-6 px-2 rounded-lg text-[11px] text-accent">
+                                                                <UserPlus size={11} className="mr-1" />
+                                                                Assign
+                                                            </Button>
+                                                        </Dropdown.Trigger>
+                                                        <Dropdown.Popover placement="bottom end">
+                                                            <Dropdown.Menu>
+                                                                {availableAssignees.map((member) => (
+                                                                    <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => handleAssignMember(member.userId)}>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Avatar size="sm" color="accent" variant="soft">
+                                                                                <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                            </Avatar>
+                                                                            <div className="min-w-0">
+                                                                                <div className="text-sm text-foreground truncate">{member.name}</div>
+                                                                                <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </Dropdown.Item>
+                                                                ))}
+                                                            </Dropdown.Menu>
+                                                        </Dropdown.Popover>
+                                                    </Dropdown>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                {assignees.length === 0 ? (
+                                                    <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
+                                                        No teammates assigned yet.
+                                                    </div>
+                                                ) : (
+                                                    assignees.map((assignee) => (
+                                                        <div key={assignee.userId} className="flex items-center gap-3 rounded-lg border border-border/60 bg-surface-secondary/20 px-3 py-2">
+                                                            <Avatar size="sm" color="accent" variant="soft">
+                                                                <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                            </Avatar>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="text-[12px] font-medium text-foreground truncate">{assignee.name}</div>
+                                                                <div className="text-[11px] text-muted-foreground truncate">{assignee.email}</div>
+                                                            </div>
+                                                            {canEditTask && (
+                                                                <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleRemoveAssignee(assignee.userId)}>
+                                                                    <Trash size={12} />
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     ))
                                                 )}
                                             </div>
@@ -1068,22 +1281,114 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         </div>
                                     </div>
+                                    </ScrollShadow>
                                 </div>
 
-                                {/* Right Side: Communication Log */}
-                                <div className="flex-1 p-6 bg-surface">
+                                {/* Right Side: properties and communication */}
+                                <div className="min-h-0 bg-surface-secondary/25">
+                                    <ScrollShadow className="h-full p-5" hideScrollBar>
                                     <div className="h-full flex flex-col gap-6">
                                         <div className="flex-grow flex flex-col gap-4 min-h-0">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-xs font-medium text-warning flex items-center gap-2">
-                                                    <MessageCircle size={14} /> Notes
+                                                <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
+                                                    <MessageCircle size={14} /> Updates
                                                 </h4>
                                             </div>
 
                                             <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
                                                 <div className="space-y-4">
+                                                    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Comments</h5>
+                                                            <span className="text-[11px] text-muted-foreground">{comments.length}</span>
+                                                        </div>
+                                                        {comments.length === 0 ? (
+                                                            <div className="rounded-lg border border-dashed border-border/30 px-3 py-5 text-center text-[11px] text-muted-foreground/60">
+                                                                No team comments yet.
+                                                            </div>
+                                                        ) : (
+                                                            comments.map((comment) => (
+                                                                <div key={comment.id} className="rounded-lg border border-border/60 bg-surface-secondary/30 p-3">
+                                                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[12px] font-medium text-foreground truncate">{comment.userName}</div>
+                                                                            <div className="text-[11px] text-muted-foreground">{dayjs(comment.createdAt).fromNow()}</div>
+                                                                        </div>
+                                                                        {comment.userId === user?.id && (
+                                                                            <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleDeleteComment(comment.id)}>
+                                                                                <Trash size={11} />
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">{comment.body}</p>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                        <form onSubmit={handleCreateComment} className="space-y-2">
+                                                            <TextArea
+                                                                value={newComment}
+                                                                onChange={(e) => setNewComment(e.target.value)}
+                                                                placeholder="Add a comment for the team..."
+                                                                rows={3}
+                                                                variant="secondary"
+                                                                className="w-full resize-none rounded-xl text-xs"
+                                                            />
+                                                            {mentionableMembers.length > 0 && (
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {mentionableMembers.map((member) => (
+                                                                        <Button
+                                                                            key={member.userId}
+                                                                            type="button"
+                                                                            size="sm"
+                                                                            variant={mentionedUserIds.includes(member.userId) ? 'primary' : 'secondary'}
+                                                                            className="h-6 rounded-md px-2 text-[11px]"
+                                                                            onPress={() => toggleMention(member.userId)}
+                                                                        >
+                                                                            @{member.name.split(' ')[0]}
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            <div className="flex justify-end">
+                                                                <Button type="submit" size="sm" variant="primary" className="h-7 rounded-lg px-3 text-xs">
+                                                                    Comment
+                                                                </Button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+
+                                                    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Activity</h5>
+                                                            <span className="text-[11px] text-muted-foreground">{taskActivity.length}</span>
+                                                        </div>
+                                                        {taskActivity.length === 0 ? (
+                                                            <div className="rounded-lg border border-dashed border-border/30 px-3 py-5 text-center text-[11px] text-muted-foreground/60">
+                                                                No recent task activity yet.
+                                                            </div>
+                                                        ) : (
+                                                            taskActivity.map((item) => (
+                                                                <div key={item.id} className="rounded-lg border border-border/60 bg-surface-secondary/30 px-3 py-2">
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <div className="text-[12px] font-medium text-foreground truncate">
+                                                                                {item.userName || 'Teammate'} · {item.type}
+                                                                            </div>
+                                                                            <div className="text-[11px] text-muted-foreground truncate">
+                                                                                {item.entityType} {item.metadata ? `· ${item.metadata}` : ''}
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="text-[11px] text-muted-foreground shrink-0">{dayjs(item.createdAt).format('MMM D, HH:mm')}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+
+                                                    <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                                        <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Internal notes</h5>
                                                     {parsedNotes.length === 0 ? (
-                                                        <div className="py-12 text-center border-2 border-dashed border-border/30 rounded-xl">
+                                                        <div className="py-12 text-center border border-dashed border-border/30 rounded-lg">
                                                             <Email size={24} className="mx-auto text-muted-foreground/20 mb-2" />
                                                             <p className="text-xs text-muted-foreground/50">No notes yet</p>
                                                         </div>
@@ -1130,6 +1435,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             </div>
                                                         ))
                                                     )}
+                                                    </div>
                                                 </div>
                                             </ScrollShadow>
                                         </div>
@@ -1181,10 +1487,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         </form>
                                     </div>
+                                    </ScrollShadow>
                                 </div>
                             </div>
                         </Modal.Body>
-                        <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border">
+                        <Modal.Footer className="px-5 py-3 bg-surface border-t border-border">
                             <Button slot="close" variant="secondary" className="rounded-xl h-8 px-4 text-xs">
                                 Close
                             </Button>

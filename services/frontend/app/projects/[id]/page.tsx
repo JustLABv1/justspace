@@ -16,7 +16,7 @@ import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserP
 import { collectTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Project, Task } from '@/services/frontend/types';
-import { Button, Card, Chip, Dropdown, Label, Spinner, Tabs, toast } from "@heroui/react";
+import { Avatar, Button, Card, Chip, Dropdown, Input, Label, Spinner, Tabs, toast } from "@heroui/react";
 import {
     Calendar,
     ChevronDown,
@@ -31,6 +31,7 @@ import {
     MoreHorizontal,
     Plus,
     Search,
+    ShieldCheck,
     Sparkles,
     Table2,
     Trash2,
@@ -48,6 +49,7 @@ const VIEW_TABS = [
 ] as const;
 
 type ViewMode = typeof VIEW_TABS[number]['id'];
+type QuickFilter = 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked';
 
 export default function ProjectDetailPage() {
     const { id } = useParams() as { id: string };
@@ -70,6 +72,7 @@ export default function ProjectDetailPage() {
 		return tags ? tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
 	});
     const [hideCompleted, setHideCompleted] = useState(() => searchParams.get('hideCompleted') === '1');
+    const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
     const [showTimeReport, setShowTimeReport] = useState(false);
     const [timeReportTasks, setTimeReportTasks] = useState<Task[]>([]);
     const { user, privateKey, updateProfile } = useAuth();
@@ -188,6 +191,14 @@ export default function ProjectDetailPage() {
     }, [fetchProjectTasks, id]);
 
     const availableTags = collectTaskTags(timeReportTasks);
+    const mainTasks = timeReportTasks.filter((task) => !task.parentId);
+    const taskStats = {
+        total: mainTasks.length,
+        open: mainTasks.filter((task) => !task.completed && (task.kanbanStatus || 'todo') !== 'done').length,
+        progress: mainTasks.filter((task) => task.kanbanStatus === 'in-progress').length,
+        done: mainTasks.filter((task) => task.completed || task.kanbanStatus === 'done').length,
+        dueSoon: mainTasks.filter((task) => task.deadline && !task.completed && new Date(task.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7).length,
+    };
 
     const handleSaveCurrentView = async () => {
         if (!user) {
@@ -357,126 +368,115 @@ export default function ProjectDetailPage() {
     const status = statusConfig[project.status] || statusConfig['todo'];
 
     return (
-        <div className="w-full px-6 py-6 space-y-6 transition-all">
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
-                <Card variant="default" className="rounded-2xl border border-border bg-surface">
-                    <Card.Header className="border-b border-border px-5 py-4">
-                        <div className="flex w-full items-start justify-between gap-4">
-                            <div className="space-y-3 min-w-0">
-                                <nav className="flex items-center gap-1.5 text-sm">
+        <div className="w-full px-5 py-5 transition-all">
+            <div className="grid min-h-[calc(100vh-6.5rem)] gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <main className="min-w-0 space-y-4">
+                    <Card variant="default" className="rounded-xl border border-border bg-surface">
+                        <Card.Header className="border-b border-border px-5 py-4">
+                            <div className="flex w-full flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                                <div className="min-w-0 space-y-3">
+                                    <nav className="flex items-center gap-1.5 text-sm">
                                     <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                                         Projects
                                     </Link>
                                     <span className="text-border">›</span>
                                     <span className="text-foreground font-medium">{project.name}</span>
-                                </nav>
+                                    </nav>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-2.5">
-                                        <Card.Title className="text-2xl font-semibold text-foreground">{project.name}</Card.Title>
-                                        {project.isEncrypted && <Lock size={14} className="text-warning" />}
-                                        {project.role && (
-                                            <Chip size="sm" variant="soft" color="accent" className="h-5 rounded-md">
-                                                <Chip.Label className="text-[10px] font-semibold px-0.5">{project.role}</Chip.Label>
+                                    <div className="space-y-3">
+                                        <div className="flex flex-wrap items-center gap-2.5">
+                                            <Card.Title className="text-2xl font-semibold text-foreground">{project.name}</Card.Title>
+                                            {project.isEncrypted && <Lock size={14} className="text-warning" />}
+                                            <Chip size="sm" variant="soft" color={status.color} className="h-5 rounded-md">
+                                                <Chip.Label className="text-[10px] font-semibold px-0.5">{status.label}</Chip.Label>
                                             </Chip>
-                                        )}
-                                    </div>
+                                            {project.role && (
+                                                <Chip size="sm" variant="soft" color="accent" className="h-5 rounded-md">
+                                                    <Chip.Label className="text-[10px] font-semibold px-0.5">{project.role}</Chip.Label>
+                                                </Chip>
+                                            )}
+                                        </div>
 
-                                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                                        <Chip size="sm" variant="soft" color={status.color} className="h-5 rounded-md">
-                                            <Chip.Label className="text-[10px] font-semibold px-0.5">{status.label}</Chip.Label>
-                                        </Chip>
+                                        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                                            {project.description || 'No project summary yet. Add context so your team knows what this workspace is for.'}
+                                        </p>
 
-                                        {project.daysPerWeek && (
+                                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                            {project.daysPerWeek && (
+                                                <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                    <Calendar size={13} />
+                                                    <span>{project.daysPerWeek} days/week</span>
+                                                </div>
+                                            )}
+                                            {project.allocatedDays && (
+                                                <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                                                    <Clock size={13} />
+                                                    <span>{project.allocatedDays} days allocated</span>
+                                                </div>
+                                            )}
                                             <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                                                <Calendar size={13} />
-                                                <span>{project.daysPerWeek} days/week</span>
+                                                <ShieldCheck size={13} />
+                                                <span>{project.isEncrypted ? 'Vault protected' : 'Standard security'}</span>
                                             </div>
-                                        )}
-                                        {project.allocatedDays && (
-                                            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                                                <Clock size={13} />
-                                                <span>{project.allocatedDays} days total</span>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                                            <Calendar size={12} />
-                                            <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <Dropdown>
-                                <Dropdown.Trigger>
-                                    <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
-                                        <MoreHorizontal size={16} />
-                                    </Button>
-                                </Dropdown.Trigger>
-                                <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
-                                    <Dropdown.Menu>
-                                        <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
-                                            <div className="flex items-center gap-2"><Edit size={13} /><Label className="cursor-pointer text-[13px]">Edit</Label></div>
-                                        </Dropdown.Item>
-                                        <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
-                                            <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
-                                        </Dropdown.Item>
-                                        <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
-                                            <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
-                                        </Dropdown.Item>
-                                    </Dropdown.Menu>
-                                </Dropdown.Popover>
-                            </Dropdown>
-                        </div>
-                    </Card.Header>
-                    <Card.Content className="px-5 py-4">
-                        <div className="grid gap-5 sm:grid-cols-3">
-                            <div className="rounded-xl border border-border bg-surface-secondary/40 px-4 py-3">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Summary</p>
-                                <p className="mt-2 text-sm text-foreground">
-                                    {project.description || 'No project summary yet. Add context so your team knows what this workspace is for.'}
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-border bg-surface-secondary/40 px-4 py-3">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Schedule</p>
-                                <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span>Days per week</span>
-                                        <span className="text-foreground">{project.daysPerWeek ?? '—'}</span>
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <div className="hidden items-center -space-x-2 pr-2 md:flex">
+                                        <Avatar size="sm" color="accent" variant="soft" className="border border-surface">
+                                            <Avatar.Fallback>{(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                        </Avatar>
+                                        {project.role && (
+                                            <span className="pl-3 text-xs text-muted-foreground">You are {project.role}</span>
+                                        )}
                                     </div>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span>Allocated days</span>
-                                        <span className="text-foreground">{project.allocatedDays ?? '—'}</span>
-                                    </div>
+                                    <Dropdown>
+                                        <Dropdown.Trigger>
+                                            <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
+                                                <MoreHorizontal size={16} />
+                                            </Button>
+                                        </Dropdown.Trigger>
+                                        <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
+                                            <Dropdown.Menu>
+                                                <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Edit size={13} /><Label className="cursor-pointer text-[13px]">Edit</Label></div>
+                                                </Dropdown.Item>
+                                                <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
+                                                </Dropdown.Item>
+                                                <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
+                                                </Dropdown.Item>
+                                            </Dropdown.Menu>
+                                        </Dropdown.Popover>
+                                    </Dropdown>
                                 </div>
                             </div>
-                            <div className="rounded-xl border border-border bg-surface-secondary/40 px-4 py-3">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">Access</p>
-                                <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span>Encryption</span>
-                                        <span className="text-foreground">{project.isEncrypted ? 'Vault protected' : 'Standard'}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span>Your role</span>
-                                        <span className="text-foreground capitalize">{project.role || 'member'}</span>
-                                    </div>
+                        </Card.Header>
+                        <Card.Content className="grid grid-cols-2 gap-px bg-border p-0 sm:grid-cols-5">
+                            {[
+                                ['Open', taskStats.open],
+                                ['In progress', taskStats.progress],
+                                ['Done', taskStats.done],
+                                ['Due soon', taskStats.dueSoon],
+                                ['Total', taskStats.total],
+                            ].map(([label, value]) => (
+                                <div key={label} className="bg-surface px-5 py-3">
+                                    <div className="text-lg font-semibold text-foreground tabular-nums">{value}</div>
+                                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
                                 </div>
-                            </div>
-                        </div>
-                    </Card.Content>
-                </Card>
+                            ))}
+                        </Card.Content>
+                    </Card>
 
-                <ProjectCollaborationPanel project={project} />
-            </div>
-
-            <Card variant="default" className="rounded-2xl border border-border bg-surface">
-                <Card.Header className="border-b border-border px-5 py-4">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="space-y-3 min-w-0">
+                    <Card variant="default" className="rounded-xl border border-border bg-surface">
+                        <Card.Header className="border-b border-border px-5 py-3">
+                            <div className="flex w-full flex-col gap-3">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <Tabs selectedKey={viewMode} onSelectionChange={(key) => setViewMode(key as ViewMode)} variant="secondary" className="w-full">
                                 <Tabs.ListContainer className="overflow-x-auto">
-                                    <Tabs.List aria-label="Task views" className="h-10 w-max min-w-full gap-1 *:rounded-lg *:px-3 *:text-[13px] *:font-medium">
+                                            <Tabs.List aria-label="Task views" className="h-9 w-max gap-1 *:rounded-lg *:px-3 *:text-[13px] *:font-medium">
                                         {VIEW_TABS.map((tab) => (
                                             <Tabs.Tab key={tab.id} id={tab.id} className="gap-1.5 whitespace-nowrap">
                                                 <tab.icon size={14} />
@@ -488,35 +488,60 @@ export default function ProjectDetailPage() {
                                 </Tabs.ListContainer>
                             </Tabs>
 
-                            <div className="flex flex-col gap-3">
+                                    <Button
+                                        variant="primary"
+                                        className="h-8 rounded-lg px-3 text-[12px] font-semibold shrink-0"
+                                        onPress={handleAddTask}
+                                    >
+                                        <Plus size={14} />
+                                        Add task
+                                    </Button>
+                                </div>
+
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex items-center gap-1.5 rounded-xl border border-border px-2.5 h-8 bg-surface-secondary/50">
-                                        <Search size={12} className="text-muted-foreground" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search tasks or tags..."
+                                    <div className="relative w-full sm:w-72">
+                                        <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="bg-transparent border-none focus:ring-0 text-[12px] placeholder:text-muted-foreground w-36 outline-none"
+                                            placeholder="Search tasks, tags, assignees..."
+                                            variant="secondary"
+                                            className="h-8 w-full rounded-lg pl-8 text-[12px]"
                                         />
                                     </div>
                                     <Button
                                         variant={hideCompleted ? 'primary' : 'ghost'}
                                         size="sm"
-                                        className={`h-8 px-2.5 rounded-xl text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
+                                        className={`h-8 px-2.5 rounded-lg text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
                                         onPress={() => setHideCompleted(!hideCompleted)}
                                     >
-                                        <Filter size={12} className="mr-1" />
+                                        <Filter size={12} />
                                         {hideCompleted ? 'Pending' : 'All'}
                                     </Button>
+                                    {[
+                                        { id: 'mine', label: 'My tasks' },
+                                        { id: 'unassigned', label: 'Unassigned' },
+                                        { id: 'due-soon', label: 'Due soon' },
+                                        { id: 'blocked', label: 'Blocked' },
+                                    ].map((filter) => (
+                                        <Button
+                                            key={filter.id}
+                                            variant={quickFilter === filter.id ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className={`h-8 rounded-lg px-2.5 text-[12px] ${quickFilter === filter.id ? '' : 'text-muted-foreground'}`}
+                                            onPress={() => setQuickFilter((current) => current === filter.id ? 'all' : filter.id as QuickFilter)}
+                                        >
+                                            {filter.label}
+                                        </Button>
+                                    ))}
                                     <Dropdown>
                                         <Dropdown.Trigger>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                                className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-muted-foreground"
                                             >
-                                                <ChevronDown size={12} className="mr-1" />
+                                                <ChevronDown size={12} />
                                                 Views
                                             </Button>
                                         </Dropdown.Trigger>
@@ -568,7 +593,7 @@ export default function ProjectDetailPage() {
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-8 px-2.5 rounded-xl text-[12px] font-medium text-muted-foreground"
+                                            className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-muted-foreground"
                                             onPress={() => setSelectedTags([])}
                                         >
                                             Clear tags
@@ -604,25 +629,14 @@ export default function ProjectDetailPage() {
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </Card.Header>
 
-                        <Button
-                            variant="primary"
-                            className="rounded-xl h-9 px-3.5 text-[12px] font-semibold shrink-0"
-                            onPress={handleAddTask}
-                        >
-                            <Plus size={14} className="mr-1" />
-                            Add new task
-                        </Button>
-                    </div>
-                </Card.Header>
-
-                <Card.Content className="px-5 py-5">
+                        <Card.Content className="px-4 py-4">
                     {viewMode === 'list' && (
-                        <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                        <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
                     )}
                     {viewMode === 'kanban' && (
-                        <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                        <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
                     )}
                     {viewMode === 'table' && (
                         <TableView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
@@ -631,18 +645,24 @@ export default function ProjectDetailPage() {
                         <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
                     )}
                     {viewMode === 'calendar' && (
-                        <div className="max-w-md mx-auto py-4">
-                            <div className="rounded-2xl border border-border bg-surface-secondary/40 p-5">
+                                <div className="mx-auto max-w-md py-4">
+                                    <div className="rounded-xl border border-border bg-surface-secondary/40 p-5">
                                 <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
                             </div>
                         </div>
                     )}
-                </Card.Content>
-            </Card>
+                        </Card.Content>
+                    </Card>
+                </main>
+
+                <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-7rem)]">
+                    <ProjectCollaborationPanel project={project} compact />
+                </aside>
+            </div>
 
             {/* Time Report */}
             {timeReportTasks.some(t => (t.timeSpent || 0) > 0) && (
-                <Card variant="default" className="rounded-2xl border border-border bg-surface overflow-hidden">
+                <Card variant="default" className="mt-4 rounded-xl border border-border bg-surface overflow-hidden">
                     <button
                         onClick={() => setShowTimeReport(v => !v)}
                         className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-surface-secondary/40 transition-colors"

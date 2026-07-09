@@ -59,7 +59,7 @@ func (h *WikiHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create guide")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "create", "Wiki", guide.Title, &guide.ID, nil)
+	h.repo.LogActivity(r.Context(), userID, "create", "Wiki", guide.Title, &guide.ID, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "create", Collection: "wiki_guides", Document: guide, UserID: userID})
 	writeJSON(w, http.StatusCreated, guide)
 }
@@ -78,7 +78,7 @@ func (h *WikiHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update guide")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "update", "Wiki", guide.Title, &guide.ID, nil)
+	h.repo.LogActivity(r.Context(), userID, "update", "Wiki", guide.Title, &guide.ID, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "update", Collection: "wiki_guides", Document: guide, UserID: userID})
 	writeJSON(w, http.StatusOK, guide)
 }
@@ -90,7 +90,7 @@ func (h *WikiHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete guide")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "delete", "Wiki", "Guide", nil, nil)
+	h.repo.LogActivity(r.Context(), userID, "delete", "Wiki", "Guide", nil, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "delete", Collection: "wiki_guides", Document: map[string]string{"id": id}, UserID: userID})
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
 }
@@ -117,7 +117,7 @@ func (h *InstallationHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create installation")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "create", "Installation", inst.Target, nil, nil)
+	h.repo.LogActivity(r.Context(), userID, "create", "Installation", inst.Target, nil, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "create", Collection: "installations", Document: inst, UserID: userID})
 	writeJSON(w, http.StatusCreated, inst)
 }
@@ -137,7 +137,7 @@ func (h *InstallationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Target != nil {
-		h.repo.LogActivity(r.Context(), userID, "update", "Installation", *req.Target, nil, nil)
+		h.repo.LogActivity(r.Context(), userID, "update", "Installation", *req.Target, nil, nil, nil)
 	}
 	h.hub.Broadcast(userID, models.WSEvent{Type: "update", Collection: "installations", Document: inst, UserID: userID})
 	writeJSON(w, http.StatusOK, inst)
@@ -150,7 +150,7 @@ func (h *InstallationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete installation")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "delete", "Installation", "Installation", nil, nil)
+	h.repo.LogActivity(r.Context(), userID, "delete", "Installation", "Installation", nil, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "delete", Collection: "installations", Document: map[string]string{"id": id}, UserID: userID})
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
 }

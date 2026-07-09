@@ -63,7 +63,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create project")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "create", "Project", project.Name, &project.ID, nil)
+	h.repo.LogActivity(r.Context(), userID, "create", "Project", project.Name, &project.ID, nil, nil)
 	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), project.ID)
 	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "create", Collection: "projects", Document: project, UserID: userID})
 	if activity, err := h.repo.ListProjectActivity(r.Context(), project.ID, 25); err == nil {
@@ -89,7 +89,7 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update project")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "update", "Project", project.Name, &project.ID, nil)
+	h.repo.LogActivity(r.Context(), userID, "update", "Project", project.Name, &project.ID, nil, nil)
 	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), project.ID)
 	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "projects", Document: project, UserID: userID})
 	if activity, err := h.repo.ListProjectActivity(r.Context(), project.ID, 25); err == nil {
@@ -108,7 +108,7 @@ func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete project")
 		return
 	}
-	h.repo.LogActivity(r.Context(), userID, "delete", "Project", "Project", nil, nil)
+	h.repo.LogActivity(r.Context(), userID, "delete", "Project", "Project", nil, nil, nil)
 	h.hub.Broadcast(userID, models.WSEvent{Type: "delete", Collection: "projects", Document: map[string]string{"id": id}, UserID: userID})
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
 }
