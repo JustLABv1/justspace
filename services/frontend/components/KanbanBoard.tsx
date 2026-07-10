@@ -5,8 +5,9 @@ import { decryptData, decryptDocumentKey, encryptData } from '@/services/fronten
 import { db } from '@/services/frontend/lib/db';
 import { getCompletedStatus, getStatusTokenDotClass } from '@/services/frontend/lib/task-statuses';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
+import { getDeadlineWarning } from '@/services/frontend/lib/deadline';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskMessage } from '@/services/frontend/types';
 import { Avatar, Button, Chip, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
 import dayjs from 'dayjs';
 import { Calendar, Check, Clock, CornerDownRight, GitBranch, Lock, MessageCircle, MoreHorizontal, Paperclip, Plus, Trash2, UserCircle, X } from 'lucide-react';
@@ -15,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 type TaskMeta = {
     assignees: TaskAssignee[];
     files: ProjectFile[];
-    comments: TaskComment[];
+    comments: TaskMessage[];
 };
 
 function getPriorityConfig(priority?: string) {
@@ -106,7 +107,7 @@ export function KanbanBoard({
                     const [assigneesRes, filesRes, commentsRes] = await Promise.all([
                         db.listTaskAssignees(task.id),
                         db.listTaskFiles(task.id),
-                        db.listTaskComments(task.id),
+                        db.listTaskMessages(task.id),
                     ]);
                     return [task.id, {
                         assignees: assigneesRes.documents,
@@ -418,7 +419,7 @@ export function KanbanBoard({
                                             ) : null}
 
                                             {/* Footer: priority + metadata chips */}
-                                            {(priorityConfig || (task.tags && task.tags.length > 0) || task.deadline || (task.timeSpent && task.timeSpent > 0) || (task.notes && task.notes.length > 0)) && (
+                                            {(priorityConfig || (task.tags && task.tags.length > 0) || task.deadline || (task.timeSpent && task.timeSpent > 0)) && (
                                                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                                                     {priorityConfig && (
                                                         <Chip size="sm" variant="soft" color={priorityConfig.color} className="h-5 rounded-md">
@@ -435,24 +436,17 @@ export function KanbanBoard({
                                                     )}
                                                     {task.deadline && (
                                                         <span className={`flex items-center gap-1 text-[10px] ${
-                                                            dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'text-danger' :
-                                                            dayjs(task.deadline).isSame(dayjs(), 'day') ? 'text-warning' :
-                                                            'text-muted-foreground/60'
+                                                            getDeadlineWarning(task.deadline, task.completed) === 'overdue' || getDeadlineWarning(task.deadline, task.completed) === 'urgent' ? 'text-danger font-medium' :
+                                                            getDeadlineWarning(task.deadline, task.completed) === 'soon' ? 'text-warning font-medium' : 'text-muted-foreground/60'
                                                         }`}>
                                                             <Calendar size={10} />
-                                                            {dayjs(task.deadline).format('MMM D')}
+                                                            {getDeadlineWarning(task.deadline, task.completed) === 'overdue' ? 'Overdue' : getDeadlineWarning(task.deadline, task.completed) === 'urgent' ? 'Due soon' : dayjs(task.deadline).format('MMM D')}
                                                         </span>
                                                     )}
                                                     {task.timeSpent !== undefined && task.timeSpent > 0 && (
                                                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
                                                             <Clock size={10} />
                                                             {Math.floor(task.timeSpent / 3600)}h
-                                                        </span>
-                                                    )}
-                                                    {task.notes && task.notes.length > 0 && (
-                                                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                                                            <MessageCircle size={10} />
-                                                            {task.notes.length}
                                                         </span>
                                                     )}
                                                 </div>

@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN notes JSONB NOT NULL DEFAULT '[]'::jsonb;

@@ -88,6 +88,7 @@ export default function ProjectDetailPage() {
     const { user, privateKey, updateProfile } = useAuth();
 	const savedViews = parseUserPreferences(user?.preferences).savedViews.filter((view) => view.projectId === id);
     const openTaskKey = searchParams.get('task');
+    const openTaskID = searchParams.get('taskId');
     const rememberedViewKey = `justspace.project-view.${id}`;
 
     const fetchProject = useCallback(async () => {
@@ -237,6 +238,26 @@ export default function ProjectDetailPage() {
         }
     }, [project, privateKey, user]);
 
+    const resolveTaskByID = useCallback(async (taskID: string) => {
+        if (!project || !taskID) return;
+        try {
+            const task = await db.getTask(taskID);
+            if (task.projectId !== project.id) { setSelectedTask(null); return; }
+            if (task.isEncrypted && privateKey && user) {
+                const access = await db.getAccessKey(project.id);
+                if (access) {
+                    const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    try { task.title = await decryptData(JSON.parse(task.title), docKey); } catch { /* keep unavailable title */ }
+                    if (task.description) { try { task.description = await decryptData(JSON.parse(task.description), docKey); } catch { /* keep unavailable description */ } }
+                }
+            }
+            setSelectedTask(task);
+        } catch (error) {
+            console.error('Failed to resolve selected task:', error);
+            setSelectedTask(null);
+        }
+    }, [project, privateKey, user]);
+
     useEffect(() => {
         if (!id) return;
 
@@ -280,12 +301,16 @@ export default function ProjectDetailPage() {
 
     useEffect(() => {
         if (!project) return;
+        if (openTaskID) {
+            void resolveTaskByID(openTaskID);
+            return;
+        }
         if (!openTaskKey) {
             setSelectedTask(null);
             return;
         }
         void resolveTaskByKey(openTaskKey);
-    }, [openTaskKey, project, resolveTaskByKey]);
+    }, [openTaskID, openTaskKey, project, resolveTaskByID, resolveTaskByKey]);
 
     const availableTags = collectTaskTags(timeReportTasks);
     const completedStatus = getCompletedStatus(taskStatuses);
@@ -454,6 +479,7 @@ export default function ProjectDetailPage() {
         setSelectedTask(null);
         const params = new URLSearchParams(searchParamsKey);
         params.delete('task');
+        params.delete('taskId');
         const nextHref = params.toString() ? `${pathname}?${params.toString()}` : pathname;
         router.replace(nextHref, { scroll: false });
     }, [pathname, router, searchParamsKey]);

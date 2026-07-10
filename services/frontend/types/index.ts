@@ -90,7 +90,6 @@ export interface Task {
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
     kanbanStatus?: string;
-    notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }
     tags?: string[];
     deadline?: string | null; // ISO date string
     isEncrypted?: boolean;
@@ -107,7 +106,7 @@ export interface TaskAssignee {
     createdAt: string;
 }
 
-export interface TaskComment {
+export interface TaskMessage {
     id: string;
     taskId: string;
     userId: string;
@@ -182,6 +181,23 @@ export interface ActivityLog {
     projectId?: string;
     taskId?: string;
     metadata?: string; // For things like "Worked 2h 30m"
+    createdAt: string;
+}
+
+export interface Notification {
+    id: string;
+    recipientUserId: string;
+    actorUserId: string;
+    actorName: string;
+    type: 'mention' | 'task_assigned' | 'deadline_24h' | 'deadline_4h' | 'deadline_due';
+    projectId: string;
+    projectName: string;
+    taskId: string;
+    taskKey: string;
+    taskTitle: string;
+    commentId?: string;
+    deadlineAt?: string;
+    readAt?: string;
     createdAt: string;
 }
 

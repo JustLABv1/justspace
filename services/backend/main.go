@@ -14,6 +14,7 @@ import (
 	"github.com/justlabv1/justspace/backend/internal/database"
 	"github.com/justlabv1/justspace/backend/internal/handlers"
 	"github.com/justlabv1/justspace/backend/internal/middleware"
+	"github.com/justlabv1/justspace/backend/internal/reminders"
 	"github.com/justlabv1/justspace/backend/internal/repository"
 	"github.com/justlabv1/justspace/backend/internal/storage"
 	"github.com/justlabv1/justspace/backend/internal/websocket"
@@ -49,6 +50,7 @@ func main() {
 	}
 	hub := websocket.NewHub(cfg.JWTSecret)
 	go hub.Run()
+	go reminders.NewDeadlineService(repo, hub).Run()
 
 	authH := handlers.NewAuthHandler(repo, cfg.JWTSecret)
 	projectH := handlers.NewProjectHandler(repo, hub)
@@ -57,6 +59,7 @@ func main() {
 	installH := handlers.NewInstallationHandler(repo, hub)
 	snippetH := handlers.NewSnippetHandler(repo, hub)
 	activityH := handlers.NewActivityHandler(repo)
+	notificationH := handlers.NewNotificationHandler(repo, hub)
 	vaultH := handlers.NewVaultHandler(repo)
 	accessH := handlers.NewAccessHandler(repo, hub)
 	versionH := handlers.NewVersionHandler(repo)
@@ -96,6 +99,7 @@ func main() {
 		r.Delete("/api/projects/{projectId}/task-statuses/{statusId}", projectH.DeleteTaskStatus)
 
 		r.Get("/api/tasks", taskH.ListAll)
+		r.Get("/api/tasks/{id}", taskH.Get)
 		r.Post("/api/tasks", taskH.Create)
 		r.Post("/api/tasks/batch", taskH.CreateBatch)
 		r.Get("/api/projects/{projectId}/tasks", taskH.ListByProject)
@@ -129,6 +133,10 @@ func main() {
 		r.Delete("/api/snippets/{id}", snippetH.Delete)
 
 		r.Get("/api/activity", activityH.List)
+		r.Get("/api/notifications", notificationH.List)
+		r.Get("/api/notifications/unread-count", notificationH.UnreadCount)
+		r.Post("/api/notifications/{id}/read", notificationH.MarkRead)
+		r.Delete("/api/notifications/{id}", notificationH.Delete)
 
 		r.Get("/api/vault/keys", vaultH.GetKeys)
 		r.Post("/api/vault/keys", vaultH.CreateKeys)

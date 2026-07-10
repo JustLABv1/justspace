@@ -122,6 +122,10 @@ export const api = {
         return request(`/api/tasks${q}`);
     },
 
+    async getTask<T>(id: string): Promise<T> {
+        return request(`/api/tasks/${id}`);
+    },
+
     async listTasks<T>(projectId: string): Promise<ListResponse<T>> {
         return request(`/api/projects/${projectId}/tasks`);
     },
@@ -266,6 +270,23 @@ export const api = {
     // Activity
     async listActivity<T>(): Promise<ListResponse<T>> {
         return request('/api/activity');
+    },
+
+    // Notifications
+    async listNotifications<T>(): Promise<ListResponse<T>> {
+        return request('/api/notifications');
+    },
+
+    async getUnreadNotificationCount(): Promise<{ count: number }> {
+        return request('/api/notifications/unread-count');
+    },
+
+    async markNotificationRead<T>(id: string): Promise<T> {
+        return request(`/api/notifications/${id}/read`, { method: 'POST' });
+    },
+
+    async deleteNotification(id: string): Promise<void> {
+        return request(`/api/notifications/${id}`, { method: 'DELETE' });
     },
 
     // Vault
@@ -432,19 +453,19 @@ export const api = {
         return request(`/api/tasks/${taskId}/assignees/${userId}`, { method: 'DELETE' });
     },
 
-    async listTaskComments<T>(taskId: string): Promise<ListResponse<T>> {
+    async listTaskMessages<T>(taskId: string): Promise<ListResponse<T>> {
         return request(`/api/tasks/${taskId}/comments`);
     },
 
-    async createTaskComment<T>(taskId: string, data: Record<string, unknown>): Promise<T> {
+    async createTaskMessage<T>(taskId: string, data: Record<string, unknown>): Promise<T> {
         return request(`/api/tasks/${taskId}/comments`, {
             method: 'POST',
             body: JSON.stringify(data),
         });
     },
 
-    async deleteTaskComment(taskId: string, commentId: string): Promise<void> {
-        return request(`/api/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' });
+    async deleteTaskMessage(taskId: string, messageId: string): Promise<void> {
+        return request(`/api/tasks/${taskId}/comments/${messageId}`, { method: 'DELETE' });
     },
 
     async listTaskActivity<T>(taskId: string): Promise<ListResponse<T>> {

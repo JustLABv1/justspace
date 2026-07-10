@@ -28,7 +28,7 @@ const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, 
 	JOIN project_members pm ON pm.project_id = p.id
 	WHERE pm.user_id = $1`
 
-const taskSelectColumns = `id, user_id, project_id, task_number, task_key, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`
+const taskSelectColumns = `id, user_id, project_id, task_number, task_key, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`
 
 const taskStatusSelectColumns = `id, project_id, key, label, color_token, position, is_completed_state, is_builtin, created_at, updated_at`
 
@@ -71,7 +71,6 @@ func scanTaskRow(row pgx.Row, task *models.Task) error {
 		&task.Priority,
 		&task.KanbanStatus,
 		&task.Deadline,
-		&task.Notes,
 		&task.Tags,
 		&task.Dependencies,
 		&task.Recurrence,
@@ -1184,6 +1183,14 @@ func (r *Repo) AddTaskAssignee(ctx context.Context, taskID, userID, assignedByID
 	return assignee, nil
 }
 
+func (r *Repo) HasTaskAssignee(ctx context.Context, taskID, userID string) (bool, error) {
+	var exists bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM task_assignees WHERE task_id = $1 AND user_id = $2)`, taskID, userID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check task assignee: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *Repo) RemoveTaskAssignee(ctx context.Context, taskID, userID string) error {
 	if _, err := r.pool.Exec(ctx, `DELETE FROM task_assignees WHERE task_id = $1 AND user_id = $2`, taskID, userID); err != nil {
 		return fmt.Errorf("remove task assignee: %w", err)
@@ -1608,15 +1615,15 @@ func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.Upd
 				time_entries = COALESCE($10, time_entries), sort_order = COALESCE($11, sort_order),
 				priority = COALESCE($12, priority), kanban_status = COALESCE($13, kanban_status),
 				deadline = CASE WHEN $14::text IS NOT NULL THEN $14::timestamptz ELSE deadline END,
-				notes = COALESCE($15, notes), tags = COALESCE($16, tags), dependencies = COALESCE($17, dependencies),
-				recurrence = CASE WHEN $18::text IS NOT NULL THEN NULLIF($18::text, '') ELSE recurrence END,
-				is_encrypted = COALESCE($19, is_encrypted)
+				tags = COALESCE($15, tags), dependencies = COALESCE($16, dependencies),
+				recurrence = CASE WHEN $17::text IS NOT NULL THEN NULLIF($17::text, '') ELSE recurrence END,
+				is_encrypted = COALESCE($18, is_encrypted)
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
 		 )
 		 RETURNING `+taskSelectColumns,
-		id, userID, req.Title, req.Description, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
+		id, userID, req.Title, req.Description, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
 	)
 	if err := scanTaskRow(row, t); err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
@@ -1799,13 +1806,170 @@ func (r *Repo) ListActivity(ctx context.Context, userID string) ([]models.Activi
 		`SELECT a.id, a.user_id, u.name, a.type, a.entity_type, a.entity_name, a.project_id, a.task_id, a.metadata, a.created_at
 		 FROM activity a
 		 JOIN users u ON u.id = a.user_id
-		 WHERE a.user_id = $1
-		 ORDER BY a.created_at DESC LIMIT 10`, userID)
+		 WHERE a.project_id IS NOT NULL
+		   AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = a.project_id AND pm.user_id = $1)
+		 ORDER BY a.created_at DESC LIMIT 50`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list activity: %w", err)
 	}
 	defer rows.Close()
 	return scanActivityRows(rows)
+}
+
+func (r *Repo) IsProjectMember(ctx context.Context, projectID, userID string) (bool, error) {
+	var exists bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2)`, projectID, userID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check project member: %w", err)
+	}
+	return exists, nil
+}
+
+func scanNotifications(rows pgx.Rows) ([]models.Notification, error) {
+	out := []models.Notification{}
+	for rows.Next() {
+		var n models.Notification
+		if err := rows.Scan(&n.ID, &n.RecipientUserID, &n.ActorUserID, &n.ActorName, &n.Type, &n.ProjectID, &n.ProjectName, &n.TaskID, &n.TaskKey, &n.TaskTitle, &n.CommentID, &n.DeadlineAt, &n.ReadAt, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+const notificationSelect = `SELECT n.id, n.recipient_user_id, n.actor_user_id, actor.name, n.type,
+ n.project_id, p.name, n.task_id, t.task_key, t.title, n.comment_id, n.deadline_at, n.read_at, n.created_at
+ FROM notifications n
+ JOIN users actor ON actor.id = n.actor_user_id
+ JOIN projects p ON p.id = n.project_id
+ JOIN tasks t ON t.id = n.task_id`
+
+func (r *Repo) CreateNotification(ctx context.Context, recipientUserID, actorUserID, notificationType, projectID, taskID string, commentID *string) (*models.Notification, error) {
+	if recipientUserID == actorUserID {
+		return nil, nil
+	}
+	var id string
+	err := r.pool.QueryRow(ctx, `INSERT INTO notifications (recipient_user_id, actor_user_id, type, project_id, task_id, comment_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, recipientUserID, actorUserID, notificationType, projectID, taskID, commentID).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("create notification: %w", err)
+	}
+	rows, err := r.pool.Query(ctx, notificationSelect+` WHERE n.id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("load notification: %w", err)
+	}
+	defer rows.Close()
+	notifications, err := scanNotifications(rows)
+	if err != nil || len(notifications) != 1 {
+		return nil, err
+	}
+	return &notifications[0], nil
+}
+
+func (r *Repo) ListNotifications(ctx context.Context, userID string) ([]models.Notification, error) {
+	rows, err := r.pool.Query(ctx, notificationSelect+` WHERE n.recipient_user_id = $1
+		AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = n.project_id AND pm.user_id = $1)
+		ORDER BY n.created_at DESC LIMIT 50`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list notifications: %w", err)
+	}
+	defer rows.Close()
+	return scanNotifications(rows)
+}
+
+func (r *Repo) UnreadNotificationCount(ctx context.Context, userID string) (int, error) {
+	var count int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM notifications n WHERE n.recipient_user_id = $1 AND n.read_at IS NULL
+		AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = n.project_id AND pm.user_id = $1)`, userID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count notifications: %w", err)
+	}
+	return count, nil
+}
+
+func (r *Repo) MarkNotificationRead(ctx context.Context, notificationID, userID string) (*models.Notification, error) {
+	var id string
+	err := r.pool.QueryRow(ctx, `UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 AND recipient_user_id = $2
+		AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = notifications.project_id AND pm.user_id = $2)
+		RETURNING id`, notificationID, userID).Scan(&id)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("mark notification read: %w", err)
+	}
+	rows, err := r.pool.Query(ctx, notificationSelect+` WHERE n.id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("load notification: %w", err)
+	}
+	defer rows.Close()
+	notifications, err := scanNotifications(rows)
+	if err != nil || len(notifications) != 1 {
+		return nil, err
+	}
+	return &notifications[0], nil
+}
+
+func (r *Repo) DeleteNotification(ctx context.Context, notificationID, userID string) (bool, error) {
+	result, err := r.pool.Exec(ctx, `DELETE FROM notifications n
+		WHERE n.id = $1 AND n.recipient_user_id = $2
+		AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = n.project_id AND pm.user_id = $2)`, notificationID, userID)
+	if err != nil {
+		return false, fmt.Errorf("delete notification: %w", err)
+	}
+	return result.RowsAffected() == 1, nil
+}
+
+func (r *Repo) ListDeadlineReminderTasks(ctx context.Context, until time.Time) ([]models.Task, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+taskSelectColumns+`
+		FROM tasks
+		WHERE deadline IS NOT NULL AND deadline <= $1 AND completed = FALSE`, until)
+	if err != nil {
+		return nil, fmt.Errorf("list deadline reminder tasks: %w", err)
+	}
+	defer rows.Close()
+	return scanTasks(rows)
+}
+
+func (r *Repo) ListDeadlineRecipients(ctx context.Context, taskID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT user_id FROM task_assignees WHERE task_id = $1
+		UNION
+		SELECT user_id FROM tasks WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM task_assignees WHERE task_id = $1)`, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("list deadline recipients: %w", err)
+	}
+	defer rows.Close()
+	recipients := []string{}
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			return nil, fmt.Errorf("scan deadline recipient: %w", err)
+		}
+		recipients = append(recipients, userID)
+	}
+	return recipients, rows.Err()
+}
+
+func (r *Repo) CreateDeadlineNotification(ctx context.Context, recipientUserID, actorUserID, notificationType, projectID, taskID string, deadline time.Time) (*models.Notification, error) {
+	var id string
+	err := r.pool.QueryRow(ctx, `INSERT INTO notifications (recipient_user_id, actor_user_id, type, project_id, task_id, deadline_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (recipient_user_id, task_id, type, deadline_at) WHERE deadline_at IS NOT NULL DO NOTHING
+		RETURNING id`, recipientUserID, actorUserID, notificationType, projectID, taskID, deadline).Scan(&id)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("create deadline notification: %w", err)
+	}
+	rows, err := r.pool.Query(ctx, notificationSelect+` WHERE n.id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("load deadline notification: %w", err)
+	}
+	defer rows.Close()
+	notifications, err := scanNotifications(rows)
+	if err != nil || len(notifications) != 1 {
+		return nil, err
+	}
+	return &notifications[0], nil
 }
 
 func (r *Repo) ListProjectActivity(ctx context.Context, projectID string, limit int) ([]models.ActivityLog, error) {

@@ -4,7 +4,7 @@ import { useAuth } from "@/services/frontend/context/AuthContext";
 import { decryptData, decryptDocumentKey } from "@/services/frontend/lib/crypto";
 import { db } from "@/services/frontend/lib/db";
 import { wsClient, WSEvent } from "@/services/frontend/lib/ws";
-import { ActivityLog } from "@/services/frontend/types";
+import { ActivityLog, Project } from "@/services/frontend/types";
 import { Button, Chip, Dropdown, Label, ScrollShadow, Spinner } from "@heroui/react";
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
@@ -33,6 +33,7 @@ export function ActivityFeed() {
     const { user, privateKey } = useAuth();
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [decryptedActivities, setDecryptedActivities] = useState<ActivityLog[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [entityFilter, setEntityFilter] = useState<EntityFilter>('all');
@@ -42,10 +43,9 @@ export function ActivityFeed() {
         if (!isSilent) setLoading(true);
         else setRefreshing(true);
         try {
-            const res = await db.listActivity();
-            if (res) {
-                setActivities(res.documents);
-            }
+            const [activityRes, projectRes] = await Promise.all([db.listActivity(), db.listProjects()]);
+            setActivities(activityRes.documents);
+            setProjects(projectRes.documents);
         } catch (e) {
             console.error('Activity Feed Error:', e);
         } finally {
@@ -84,11 +84,19 @@ export function ActivityFeed() {
         decryptAll();
     }, [activities, privateKey, user]);
 
+    const projectName = (projectId?: string) => {
+        if (!projectId) return null;
+        const project = projects.find((item) => item.id === projectId);
+        if (!project) return 'Personal workspace';
+        if (!project.isEncrypted) return project.name;
+        return 'Encrypted Project';
+    };
+
     useEffect(() => {
         fetchActivity();
         
         const unsub = wsClient.subscribe((event: WSEvent) => {
-            if (event.collection === 'activity') {
+            if (event.collection === 'activity' || event.collection === 'project_activity') {
                 fetchActivity(true); // Silent refresh on any activity change
             }
         });
@@ -281,6 +289,9 @@ export function ActivityFeed() {
                                                 <span className="text-xs text-muted-foreground">
                                                     {dayjs(activity.createdAt).format('HH:mm')}
                                                 </span>
+                                            </div>
+                                            <div className="mt-1 text-[11px] text-muted-foreground truncate">
+                                                {activity.userName || 'A teammate'}{projectName(activity.projectId) ? ` · ${projectName(activity.projectId)}` : ''}
                                             </div>
                                             {activity.metadata && (
                                                 <div className="mt-1 text-xs text-muted-foreground">

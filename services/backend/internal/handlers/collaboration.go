@@ -497,6 +497,16 @@ func (h *CollaborationHandler) AddTaskAssignee(w http.ResponseWriter, r *http.Re
 		writeError(w, http.StatusBadRequest, "userId is required")
 		return
 	}
+	member, err := h.repo.IsProjectMember(r.Context(), task.ProjectID, req.UserID)
+	if err != nil || !member {
+		writeError(w, http.StatusBadRequest, "assignee must be a project member")
+		return
+	}
+	alreadyAssigned, err := h.repo.HasTaskAssignee(r.Context(), taskID, req.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check task assignee")
+		return
+	}
 	assignee, err := h.repo.AddTaskAssignee(r.Context(), taskID, req.UserID, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to assign task")
@@ -508,6 +518,13 @@ func (h *CollaborationHandler) AddTaskAssignee(w http.ResponseWriter, r *http.Re
 		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
 	}
 	h.broadcastProject(task.ProjectID, models.WSEvent{Type: "create", Collection: "task_assignees", Document: assignee, UserID: userID})
+	if !alreadyAssigned {
+		if notification, err := h.repo.CreateNotification(r.Context(), req.UserID, userID, "task_assigned", task.ProjectID, task.ID, nil); err != nil {
+			log.Printf("create assignment notification error: %v", err)
+		} else if notification != nil {
+			h.hub.Broadcast(req.UserID, models.WSEvent{Type: "create", Collection: "notifications", Document: notification, UserID: userID})
+		}
+	}
 	writeJSON(w, http.StatusCreated, assignee)
 }
 
@@ -570,6 +587,22 @@ func (h *CollaborationHandler) CreateTaskComment(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusBadRequest, "comment body is required")
 		return
 	}
+	seenMentions := make(map[string]struct{}, len(req.MentionedUserIDs))
+	for _, mentionedUserID := range req.MentionedUserIDs {
+		if mentionedUserID == "" {
+			writeError(w, http.StatusBadRequest, "mentioned user is required")
+			return
+		}
+		if _, seen := seenMentions[mentionedUserID]; seen {
+			continue
+		}
+		seenMentions[mentionedUserID] = struct{}{}
+		member, err := h.repo.IsProjectMember(r.Context(), task.ProjectID, mentionedUserID)
+		if err != nil || !member {
+			writeError(w, http.StatusBadRequest, "mentioned users must be project members")
+			return
+		}
+	}
 	comment, err := h.repo.CreateTaskComment(r.Context(), taskID, userID, req)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create task comment")
@@ -585,6 +618,16 @@ func (h *CollaborationHandler) CreateTaskComment(w http.ResponseWriter, r *http.
 		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
 	}
 	h.broadcastProject(task.ProjectID, models.WSEvent{Type: "create", Collection: "task_comments", Document: comment, UserID: userID})
+	for mentionedUserID := range seenMentions {
+		notification, err := h.repo.CreateNotification(r.Context(), mentionedUserID, userID, "mention", task.ProjectID, task.ID, &comment.ID)
+		if err != nil {
+			log.Printf("create mention notification error: %v", err)
+			continue
+		}
+		if notification != nil {
+			h.hub.Broadcast(mentionedUserID, models.WSEvent{Type: "create", Collection: "notifications", Document: notification, UserID: userID})
+		}
+	}
 	writeJSON(w, http.StatusCreated, comment)
 }
 

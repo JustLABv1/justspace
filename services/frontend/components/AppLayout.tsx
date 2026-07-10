@@ -1,6 +1,7 @@
 'use client';
 
 import { CommandPalette } from "@/components/CommandPalette";
+import { NotificationInbox } from "@/components/NotificationInbox";
 import Sidebar from "@/components/Sidebar";
 import { TaskReminderBootstrap } from "@/components/TaskReminderBootstrap";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -151,13 +152,16 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                         </div>
                         <span className="font-semibold text-sm">justspace</span>
                     </div>
-                    <button
-                        onClick={() => setIsSearchOpen(true)}
-                        className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label="Open search"
-                    >
-                        <Search size={18} />
-                    </button>
+                    <div className="flex items-center gap-1 -mr-2">
+                        <NotificationInbox />
+                        <button
+                            onClick={() => setIsSearchOpen(true)}
+                            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label="Open search"
+                        >
+                            <Search size={18} />
+                        </button>
+                    </div>
                 </header>
 
                 {/* Desktop Header */}
@@ -194,7 +198,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                             </Button>
                         )}
 
-                        <ThemeSwitcher />
+                        <NotificationInbox />
 
                         <Dropdown>
                             <Dropdown.Trigger>
@@ -213,6 +217,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                             <Dropdown.Popover placement="bottom end" className="min-w-[180px]">
                                 <Dropdown.Menu>
                                     <Dropdown.Section>
+                                        <ThemeSwitcher menuItem />
                                         <Dropdown.Item id="settings" textValue="Settings">
                                             <Link href="/settings" className="flex items-center gap-2 w-full">
                                                 <Settings size={14} />

@@ -8,7 +8,7 @@ import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Task } from '@/services/frontend/types';
 import { Avatar, Chip, ScrollShadow } from '@heroui/react';
 import dayjs from 'dayjs';
-import { Calendar, Clock, Lock, MessageCircle, Minus } from 'lucide-react';
+import { Calendar, Clock, Lock, Minus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { TaskDetailModal } from './TaskDetailModal';
 
@@ -126,14 +126,13 @@ export function TableView({
                             <th className="pb-2.5 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-24 hidden md:table-cell">Priority</th>
                             <th className="pb-2.5 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-28 hidden lg:table-cell">Deadline</th>
                             <th className="pb-2.5 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-20 hidden lg:table-cell">Time</th>
-                            <th className="pb-2.5 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-16 hidden xl:table-cell">Notes</th>
                             <th className="pb-2.5 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-10"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
                         {tasks.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
+                                <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
                                     No tasks found
                                 </td>
                             </tr>
@@ -210,18 +209,6 @@ export function TableView({
                                             <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
                                                 <Clock size={11} />
                                                 {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`}
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground/30"><Minus size={12} /></span>
-                                        )}
-                                    </td>
-
-                                    {/* Notes */}
-                                    <td className="py-3 px-3 hidden xl:table-cell">
-                                        {task.notes && task.notes.length > 0 ? (
-                                            <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
-                                                <MessageCircle size={11} />
-                                                {task.notes.length}
                                             </span>
                                         ) : (
                                             <span className="text-muted-foreground/30"><Minus size={12} /></span>

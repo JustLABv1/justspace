@@ -89,7 +89,6 @@ type Task struct {
 	Priority       string          `json:"priority"`
 	KanbanStatus   string          `json:"kanbanStatus"`
 	Deadline       *time.Time      `json:"deadline"`
-	Notes          json.RawMessage `json:"notes"`
 	Tags           []string        `json:"tags"`
 	Dependencies   []string        `json:"dependencies"`
 	Recurrence     *string         `json:"recurrence"`
@@ -182,6 +181,23 @@ type ActivityLog struct {
 	TaskID     *string   `json:"taskId,omitempty"`
 	Metadata   *string   `json:"metadata"`
 	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type Notification struct {
+	ID              string     `json:"id"`
+	RecipientUserID string     `json:"recipientUserId"`
+	ActorUserID     string     `json:"actorUserId"`
+	ActorName       string     `json:"actorName"`
+	Type            string     `json:"type"`
+	ProjectID       string     `json:"projectId"`
+	ProjectName     string     `json:"projectName"`
+	TaskID          string     `json:"taskId"`
+	TaskKey         string     `json:"taskKey"`
+	TaskTitle       string     `json:"taskTitle"`
+	CommentID       *string    `json:"commentId,omitempty"`
+	DeadlineAt      *time.Time `json:"deadlineAt,omitempty"`
+	ReadAt          *time.Time `json:"readAt,omitempty"`
+	CreatedAt       time.Time  `json:"createdAt"`
 }
 
 type Snippet struct {
@@ -347,7 +363,6 @@ type UpdateTaskRequest struct {
 	Priority       *string          `json:"priority,omitempty"`
 	KanbanStatus   *string          `json:"kanbanStatus,omitempty"`
 	Deadline       *string          `json:"deadline,omitempty"`
-	Notes          *json.RawMessage `json:"notes,omitempty"`
 	Tags           []string         `json:"tags,omitempty"`
 	Dependencies   []string         `json:"dependencies,omitempty"`
 	Recurrence     *string          `json:"recurrence,omitempty"`
