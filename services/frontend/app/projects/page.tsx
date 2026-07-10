@@ -25,6 +25,15 @@ import { useCallback, useEffect, useState } from 'react';
 
 type ViewMode = 'grid' | 'kanban';
 
+function deriveTaskKeyPrefix(projectName: string): string {
+    const prefix = projectName
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '')
+        .slice(0, 8);
+
+    return prefix || 'PRJ';
+}
+
 export default function ProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -106,6 +115,13 @@ export default function ProjectsPage() {
     const handleCreateOrUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         const { isEncrypted: targetEncrypted, ...projectData } = data;
         const finalData = { ...projectData, isEncrypted: targetEncrypted };
+
+        // Project names are encrypted before this request. Resolve the default key
+        // from the readable name first so the server never receives ciphertext as
+        // the only available source for a prefix.
+        if (!selectedProject?.id && !finalData.taskKeyPrefix?.trim()) {
+            finalData.taskKeyPrefix = deriveTaskKeyPrefix(projectData.name || '');
+        }
 
         try {
             if (targetEncrypted && user && privateKey) {

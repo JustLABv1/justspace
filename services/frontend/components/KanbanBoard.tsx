@@ -3,13 +3,13 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
-import { getCompletedStatus, getStatusTokenChipColor, getStatusTokenDotClass } from '@/services/frontend/lib/task-statuses';
+import { getCompletedStatus, getStatusTokenDotClass } from '@/services/frontend/lib/task-statuses';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
 import { Avatar, Button, Chip, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
 import dayjs from 'dayjs';
-import { Calendar, Check, Clock, GitBranch, Lock, MessageCircle, MoreHorizontal, Paperclip, Plus, Trash2, UserCircle, X } from 'lucide-react';
+import { Calendar, Check, Clock, CornerDownRight, GitBranch, Lock, MessageCircle, MoreHorizontal, Paperclip, Plus, Trash2, UserCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type TaskMeta = {
@@ -162,12 +162,11 @@ export function KanbanBoard({
         return () => window.removeEventListener('kanban-add-task', handler);
     }, [resolvedStatuses]);
 
-    const mainTasks = tasks
-        .filter((task) => !task.parentId)
+    const boardTasks = [...tasks]
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     const getVisibleColumnTasks = useCallback((statusKey: string) => {
-        return mainTasks.filter((t) => {
+        return boardTasks.filter((t) => {
             const effectiveStatus = t.completed ? completedStatus.key : (t.kanbanStatus || resolvedStatuses[0]?.key || 'todo');
             const meta = taskMeta[t.id] || { assignees: [], files: [], comments: [] };
             const matchesQuickFilter =
@@ -180,12 +179,12 @@ export function KanbanBoard({
             const matchesCompleted = hideCompleted ? !t.completed : true;
             return effectiveStatus === statusKey && matchesQuickFilter && matchesSearch && matchesCompleted;
         });
-    }, [completedStatus.key, hideCompleted, mainTasks, quickFilter, resolvedStatuses, searchQuery, selectedTags, taskMeta, user]);
+    }, [boardTasks, completedStatus.key, hideCompleted, quickFilter, resolvedStatuses, searchQuery, selectedTags, taskMeta, user]);
 
-    const persistTaskOrder = useCallback(async (nextMainTasks: Task[]) => {
+    const persistTaskOrder = useCallback(async (nextTasks: Task[]) => {
         await db.reorderTasks(
             projectId,
-            nextMainTasks.map((task, index) => ({
+            nextTasks.map((task, index) => ({
                 id: task.id,
                 kanbanStatus: task.kanbanStatus,
                 completed: task.completed,
@@ -196,19 +195,19 @@ export function KanbanBoard({
 
     const moveTask = async (taskId: string, newStatus: string, beforeTaskId?: string) => {
         const previousTasks = [...tasks];
-        const movedTask = mainTasks.find((task) => task.id === taskId);
+        const movedTask = boardTasks.find((task) => task.id === taskId);
         if (!movedTask) return;
 
         const nextStatus = resolvedStatuses.find((status) => status.key === newStatus);
         const columnMap = new Map<string, Task[]>();
         resolvedStatuses.forEach((status) => columnMap.set(status.key, []));
 
-        const normalizedMainTasks = mainTasks.map((task) => task.id === taskId
+        const normalizedTasks = boardTasks.map((task) => task.id === taskId
             ? { ...task, kanbanStatus: newStatus, completed: nextStatus?.isCompletedState ?? false }
             : task,
         );
 
-        for (const task of normalizedMainTasks) {
+        for (const task of normalizedTasks) {
             const statusKey = task.completed ? completedStatus.key : (task.kanbanStatus || resolvedStatuses[0]?.key || 'todo');
             const bucket = columnMap.get(statusKey) || [];
             if (task.id !== taskId) {
@@ -230,16 +229,16 @@ export function KanbanBoard({
         }
         columnMap.set(newStatus, targetColumn);
 
-        const reorderedMainTasks = resolvedStatuses.flatMap((status) => columnMap.get(status.key) || []).map((task, index) => ({
+        const reorderedTasks = resolvedStatuses.flatMap((status) => columnMap.get(status.key) || []).map((task, index) => ({
             ...task,
             order: index,
         }));
 
-        const reorderedMap = new Map(reorderedMainTasks.map((task) => [task.id, task]));
+        const reorderedMap = new Map(reorderedTasks.map((task) => [task.id, task]));
         setTasks((current) => current.map((task) => reorderedMap.get(task.id) || task));
 
         try {
-            await persistTaskOrder(reorderedMainTasks);
+            await persistTaskOrder(reorderedTasks);
             toast.success(`Task moved to ${nextStatus?.label || newStatus}`);
         } catch (error) {
             console.error('Failed to move task, rolling back:', error);
@@ -281,7 +280,7 @@ export function KanbanBoard({
                 const encrypted = await encryptData(finalTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.createEmptyTask(projectId, finalTitle, mainTasks.length, isEncrypted, undefined, columnId);
+            await db.createEmptyTask(projectId, finalTitle, boardTasks.length, isEncrypted, undefined, columnId);
             fetchTasks();
             setNewTaskTitle('');
             setAddingToColumn(null);
@@ -327,8 +326,9 @@ export function KanbanBoard({
                                 }}
                             >
                                 {columnTasks.map(task => {
-                                    const subtasks = tasks.filter(st => st.parentId === task.id);
-                                    const completedSubtasks = subtasks.filter(st => st.completed).length;
+                                    const subtasks = tasks.filter((candidate) => candidate.parentId === task.id);
+                                    const completedSubtasks = subtasks.filter((subtask) => subtask.completed).length;
+                                    const parentTask = task.parentId ? tasks.find((candidate) => candidate.id === task.parentId) : undefined;
                                     const priorityConfig = getPriorityConfig(task.priority);
                                     const meta = taskMeta[task.id] || { assignees: [], files: [], comments: [] };
 
@@ -349,7 +349,7 @@ export function KanbanBoard({
                                             onClick={() => {
                                                 onOpenTask?.(task);
                                             }}
-                                            className="rounded-lg border border-border/70 bg-surface px-3 py-2.5 cursor-grab active:cursor-grabbing hover:border-accent/40 hover:bg-surface-secondary/20 transition-all group"
+                                            className={`rounded-lg border border-border/70 bg-surface px-3 py-2.5 cursor-grab active:cursor-grabbing hover:border-accent/40 hover:bg-surface-secondary/20 transition-all group ${task.parentId ? 'border-l-2 border-l-accent/50' : ''}`}
                                         >
                                             {/* Title row with menu */}
                                             <div className="flex items-start justify-between gap-2">
@@ -400,44 +400,22 @@ export function KanbanBoard({
                                                 {task.taskKey}
                                             </div>
 
-                                            {/* Subtask progress */}
-                                            {subtasks.length > 0 && (
-                                                <div className="mt-2 space-y-2 rounded-md border border-border/60 bg-surface-secondary/25 p-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex-1 h-0.5 bg-surface-secondary rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-accent/40 rounded-full transition-all"
-                                                                style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-[10px] text-muted-foreground/60 tabular-nums">{completedSubtasks}/{subtasks.length}</span>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        {[...subtasks]
-                                                            .sort((a, b) => Number(a.completed) - Number(b.completed))
-                                                            .slice(0, 3)
-                                                            .map((subtask) => (
-                                                                <button
-                                                                    key={subtask.id}
-                                                                    type="button"
-                                                                    className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-surface-secondary hover:text-foreground"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onOpenTask?.(subtask);
-                                                                    }}
-                                                                >
-                                                                    <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${subtask.completed ? 'border-success bg-success/15 text-success' : 'border-border text-transparent'}`}>
-                                                                        <Check size={9} />
-                                                                    </span>
-                                                                    <span className={`truncate ${subtask.completed ? 'line-through text-muted-foreground/60' : ''}`}>{subtask.title}</span>
-                                                                </button>
-                                                            ))}
-                                                        {subtasks.length > 3 && (
-                                                            <div className="px-1.5 text-[10px] text-muted-foreground/60">+{subtasks.length - 3} more subtasks</div>
-                                                        )}
-                                                    </div>
+                                            {task.parentId ? (
+                                                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                                    <CornerDownRight size={12} className="text-accent" />
+                                                    <span>Subtask of {parentTask?.taskKey || 'parent task'}</span>
                                                 </div>
-                                            )}
+                                            ) : subtasks.length > 0 ? (
+                                                <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-secondary">
+                                                        <div
+                                                            className="h-full rounded-full bg-accent/60 transition-all"
+                                                            style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="shrink-0 tabular-nums">{completedSubtasks}/{subtasks.length} subtasks</span>
+                                                </div>
+                                            ) : null}
 
                                             {/* Footer: priority + metadata chips */}
                                             {(priorityConfig || (task.tags && task.tags.length > 0) || task.deadline || (task.timeSpent && task.timeSpent > 0) || (task.notes && task.notes.length > 0)) && (
@@ -447,9 +425,6 @@ export function KanbanBoard({
                                                             <Chip.Label className="text-[10px]">{priorityConfig.label}</Chip.Label>
                                                         </Chip>
                                                     )}
-                                                    <Chip size="sm" variant="soft" color={getStatusTokenChipColor(column.colorToken)} className="h-5 rounded-md">
-                                                        <Chip.Label className="text-[10px]">{column.label}</Chip.Label>
-                                                    </Chip>
                                                     {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map(tag => (
                                                         <span key={tag} className="text-[10px] text-muted-foreground/70">
                                                             #{tag}

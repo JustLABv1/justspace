@@ -288,15 +288,14 @@ export default function ProjectDetailPage() {
     }, [openTaskKey, project, resolveTaskByKey]);
 
     const availableTags = collectTaskTags(timeReportTasks);
-    const mainTasks = timeReportTasks.filter((task) => !task.parentId);
     const completedStatus = getCompletedStatus(taskStatuses);
     const openStatus = getOpenStatus(taskStatuses);
     const taskStats = {
-        total: mainTasks.length,
-        open: mainTasks.filter((task) => !task.completed && (task.kanbanStatus || openStatus.key) !== completedStatus.key).length,
-        progress: mainTasks.filter((task) => task.kanbanStatus === 'in-progress').length,
-        done: mainTasks.filter((task) => task.completed || task.kanbanStatus === completedStatus.key).length,
-        dueSoon: mainTasks.filter((task) => task.deadline && !task.completed && new Date(task.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7).length,
+        total: timeReportTasks.length,
+        open: timeReportTasks.filter((task) => !task.completed && (task.kanbanStatus || openStatus.key) !== completedStatus.key).length,
+        progress: timeReportTasks.filter((task) => task.kanbanStatus === 'in-progress').length,
+        done: timeReportTasks.filter((task) => task.completed || task.kanbanStatus === completedStatus.key).length,
+        dueSoon: timeReportTasks.filter((task) => task.deadline && !task.completed && new Date(task.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7).length,
     };
 
     const handleSaveCurrentView = async () => {

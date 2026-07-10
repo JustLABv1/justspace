@@ -120,6 +120,17 @@ func normalizeProjectTaskKeyPrefix(value string) string {
 	return prefix
 }
 
+func projectTaskKeyPrefixFallback(value string) string {
+	var encryptedPayload struct {
+		Ciphertext string `json:"ciphertext"`
+		IV         string `json:"iv"`
+	}
+	if json.Unmarshal([]byte(value), &encryptedPayload) == nil && encryptedPayload.Ciphertext != "" && encryptedPayload.IV != "" {
+		return "PRJ"
+	}
+	return value
+}
+
 func normalizeStatusColorToken(value string) string {
 	switch strings.TrimSpace(value) {
 	case "default", "accent", "warning", "danger", "success":
@@ -140,7 +151,7 @@ func normalizedProjectKeyPrefixOrNil(value *string) *string {
 func uniqueProjectTaskKeyPrefix(ctx context.Context, tx pgx.Tx, requested, fallbackName string, excludeProjectID *string) (string, error) {
 	base := strings.TrimSpace(requested)
 	if base == "" {
-		base = fallbackName
+		base = projectTaskKeyPrefixFallback(fallbackName)
 	}
 	base = normalizeProjectTaskKeyPrefix(base)
 	candidate := base
