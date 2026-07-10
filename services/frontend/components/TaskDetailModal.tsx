@@ -3,9 +3,14 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import {
+    getDefaultProjectTaskStatuses,
+    getStatusTokenDotClass,
+    getTaskStatusForTask,
+} from '@/services/frontend/lib/task-statuses';
 import { collectTaskTags, normalizeTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
 import {
     Avatar,
     Button,
@@ -25,6 +30,7 @@ import {
     TagGroup,
     TextArea,
     TimeField,
+    Tooltip,
     toast,
     useFilter
 } from '@heroui/react';
@@ -33,7 +39,7 @@ import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { saveAs } from 'file-saver';
-import { Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, History, Link2, MessageCircle, Phone, Plus, Trash2 as Trash, UserPlus, X } from 'lucide-react';
+import { AtSign, Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, History, Link2, MessageCircle, Phone, Plus, Trash2 as Trash, UserPlus, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
@@ -45,9 +51,10 @@ interface TaskDetailModalProps {
     task: Task;
     projectId: string;
     onUpdate: () => void;
+    statusOptions?: ProjectTaskStatus[];
 }
 
-export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdate }: TaskDetailModalProps) {
+export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdate, statusOptions = [] }: TaskDetailModalProps) {
     const { user, privateKey } = useAuth();
     const { contains } = useFilter({ sensitivity: 'base' });
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
@@ -62,11 +69,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [editedDescription, setEditedDescription] = useState(task.description || '');
     const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
     const [editedSubtaskTitle, setEditedSubtaskTitle] = useState('');
+    const [editedSubtaskDescriptions, setEditedSubtaskDescriptions] = useState<Record<string, string>>({});
     const [projectTasks, setProjectTasks] = useState<Task[]>([]);
     const [projectTags, setProjectTags] = useState<string[]>([]);
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
     const [projectRole, setProjectRole] = useState<Project['role'] | null>(null);
+    const [parentTask, setParentTask] = useState<Task | null>(null);
     const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
+    const [subtaskAssignees, setSubtaskAssignees] = useState<Record<string, TaskAssignee[]>>({});
     const [comments, setComments] = useState<TaskComment[]>([]);
     const [taskActivity, setTaskActivity] = useState<ActivityLog[]>([]);
     const [presence, setPresence] = useState<PresenceSession[]>([]);
@@ -193,15 +203,43 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                     try {
                         const titleData = JSON.parse(st.title);
                         const decryptedTitle = await decryptData(titleData, docKey);
-                        return { ...st, title: decryptedTitle };
+                        let decryptedDescription = st.description || '';
+                        if (st.description) {
+                            const descriptionData = JSON.parse(st.description);
+                            decryptedDescription = await decryptData(descriptionData, docKey);
+                        }
+                        return { ...st, title: decryptedTitle, description: decryptedDescription };
                     } catch {
-                        return { ...st, title: 'Decryption Error' };
+                        return { ...st, title: 'Decryption Error', description: '' };
                     }
                 }
                 return st;
             }));
 
             setSubtasks(filteredSubtasks);
+            setEditedSubtaskDescriptions(
+                Object.fromEntries(filteredSubtasks.map((subtask) => [subtask.id, subtask.description || ''])),
+            );
+            if (task.parentId) {
+                const parentCandidate = allTasks.find((item) => item.id === task.parentId);
+                if (parentCandidate) {
+                    let resolvedParent = parentCandidate;
+                    if (parentCandidate.isEncrypted && docKey) {
+                        try {
+                            const titleData = JSON.parse(parentCandidate.title);
+                            const decryptedTitle = await decryptData(titleData, docKey);
+                            resolvedParent = { ...parentCandidate, title: decryptedTitle };
+                        } catch {
+                            resolvedParent = { ...parentCandidate, title: 'Encrypted parent task' };
+                        }
+                    }
+                    setParentTask(resolvedParent);
+                } else {
+                    setParentTask(null);
+                }
+            } else {
+                setParentTask(null);
+            }
 
             // Decrypt project tasks for dependency picker
             const depCandidates = allTasks.filter(t => !t.parentId && t.id !== task.id);
@@ -232,6 +270,17 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             setAssignees(assigneeRes.documents);
             setTaskActivity(activityRes.documents);
             setPresence(presenceRes.documents);
+            const subtaskAssigneeEntries = await Promise.all(
+                filteredSubtasks.map(async (subtask) => {
+                    try {
+                        const response = await db.listTaskAssignees(subtask.id);
+                        return [subtask.id, response.documents] as const;
+                    } catch {
+                        return [subtask.id, []] as const;
+                    }
+                }),
+            );
+            setSubtaskAssignees(Object.fromEntries(subtaskAssigneeEntries));
 
             const decryptedComments = await Promise.all(commentRes.documents.map(async (comment) => {
                 if (!comment.isEncrypted || !docKey) {
@@ -248,7 +297,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch (error) {
             console.error('Failed to fetch task details:', error);
         }
-    }, [isOpen, projectId, task.id, task.isEncrypted, privateKey, user, documentKey]);
+    }, [isOpen, projectId, task.id, task.parentId, task.isEncrypted, privateKey, user, documentKey]);
 
     useEffect(() => {
         const load = async () => {
@@ -339,6 +388,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
     const handleAddSubtask = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (task.parentId) {
+            toast.warning('Subtasks can only be created on parent tasks');
+            return;
+        }
         if (!newSubtaskTitle.trim()) return;
 
         const originalTitle = newSubtaskTitle;
@@ -471,6 +524,34 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
+    const handleUpdateSubtaskDescription = async (subtask: Task) => {
+        const nextDescription = editedSubtaskDescriptions[subtask.id] ?? '';
+        if (nextDescription === (subtask.description || '')) {
+            return;
+        }
+
+        try {
+            let finalDescription = nextDescription;
+            if (subtask.isEncrypted) {
+                if (!documentKey) {
+                    toast.danger('Unlock vault before editing secure task details');
+                    setEditedSubtaskDescriptions((current) => ({ ...current, [subtask.id]: subtask.description || '' }));
+                    return;
+                }
+                const encrypted = await encryptData(nextDescription, documentKey);
+                finalDescription = JSON.stringify(encrypted);
+            }
+            await db.updateTask(subtask.id, { description: finalDescription });
+            setSubtasks((current) => current.map((item) => item.id === subtask.id ? { ...item, description: nextDescription } : item));
+            onUpdate();
+            toast.success('Subtask description updated');
+        } catch (error) {
+            console.error('Failed to update subtask description:', error);
+            setEditedSubtaskDescriptions((current) => ({ ...current, [subtask.id]: subtask.description || '' }));
+            toast.danger('Failed to update subtask description');
+        }
+    };
+
     const handleUpdatePriority = async (priority: 'low' | 'medium' | 'high' | 'urgent') => {
         try {
             await db.updateTask(task.id, { priority });
@@ -482,15 +563,27 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
-    const handleUpdateStatus = async (status: NonNullable<Task['kanbanStatus']>) => {
+    const handleUpdateStatus = async (statusKey: string) => {
         try {
-            await db.updateTask(task.id, { kanbanStatus: status, completed: status === 'done' });
+            const nextStatus = resolvedStatusOptions.find((status) => status.key === statusKey);
+            await db.updateTask(task.id, {
+                kanbanStatus: statusKey,
+                completed: nextStatus?.isCompletedState ?? false,
+            });
             onUpdate();
             toast.success('Status updated');
         } catch (error) {
             console.error('Failed to update status:', error);
             toast.danger('Failed to update status');
         }
+    };
+
+    const handleUpdateSubtaskStatus = (subtaskId: string, statusKey: string) => {
+        const nextStatus = resolvedStatusOptions.find((status) => status.key === statusKey);
+        void handleUpdateTask(subtaskId, {
+            kanbanStatus: statusKey,
+            completed: nextStatus?.isCompletedState ?? false,
+        });
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -591,6 +684,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const currentTags = normalizeTaskTags(task.tags);
     const autocompleteTags = [...new Set([...projectTags, ...currentTags])].sort((left, right) => left.localeCompare(right));
     const filteredAutocompleteTags = autocompleteTags.filter((tag) => !currentTags.includes(tag) && (tagSearchValue.trim() === '' || contains(tag, tagSearchValue.trim())));
+    const isSubtask = !!task.parentId;
 
     const handleRemoveTags = (keys: Set<React.Key>) => {
         const nextTags = currentTags.filter((tag) => !keys.has(tag));
@@ -600,21 +694,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const canEditTask = projectRole === 'owner' || projectRole === 'admin' || projectRole === 'editor';
     const availableAssignees = projectMembers.filter((member) => !assignees.some((assignee) => assignee.userId === member.userId));
     const mentionableMembers = projectMembers.filter((member) => member.userId !== user?.id);
-    const currentStatus = task.completed ? 'done' : (task.kanbanStatus || 'todo');
-    const statusOptions: { id: NonNullable<Task['kanbanStatus']>; label: string; color: string }[] = [
-        { id: 'todo', label: 'Todo', color: 'bg-muted-foreground/40' },
-        { id: 'in-progress', label: 'In progress', color: 'bg-accent' },
-        { id: 'review', label: 'Review', color: 'bg-warning' },
-        { id: 'waiting', label: 'Blocked', color: 'bg-danger' },
-        { id: 'done', label: 'Done', color: 'bg-success' },
-    ];
+    const resolvedStatusOptions = statusOptions.length > 0 ? statusOptions : getDefaultProjectTaskStatuses();
     const priorityOptions: { id: NonNullable<Task['priority']>; label: string; className: string }[] = [
         { id: 'low', label: 'Low', className: 'text-success' },
         { id: 'medium', label: 'Medium', className: 'text-accent' },
         { id: 'high', label: 'High', className: 'text-warning' },
         { id: 'urgent', label: 'Urgent', className: 'text-danger' },
     ];
-    const currentStatusOption = statusOptions.find((status) => status.id === currentStatus) || statusOptions[0];
+    const currentStatusOption = getTaskStatusForTask(task, resolvedStatusOptions);
     const currentPriorityOption = task.priority ? priorityOptions.find((priority) => priority.id === task.priority) : undefined;
 
     const toggleMention = (memberId: string) => {
@@ -624,10 +711,17 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         );
     };
 
-    const handleAssignMember = async (memberId: string) => {
+    const handleAssignMemberToTask = async (targetTaskId: string, memberId: string) => {
         try {
-            const assignee = await db.addTaskAssignee(task.id, memberId);
-            setAssignees((current) => [...current.filter((item) => item.userId !== assignee.userId), assignee]);
+            const assignee = await db.addTaskAssignee(targetTaskId, memberId);
+            if (targetTaskId === task.id) {
+                setAssignees((current) => [...current.filter((item) => item.userId !== assignee.userId), assignee]);
+            } else {
+                setSubtaskAssignees((current) => ({
+                    ...current,
+                    [targetTaskId]: [...(current[targetTaskId] || []).filter((item) => item.userId !== assignee.userId), assignee],
+                }));
+            }
             toast.success('Assignee added');
         } catch (error) {
             console.error('Failed to assign member:', error);
@@ -635,21 +729,21 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
-    const handleAssignToMe = async () => {
-        if (!user) {
-            return;
-        }
-        if (assignees.some((assignee) => assignee.userId === user.id)) {
-            toast.success('Already assigned to you');
-            return;
-        }
-        await handleAssignMember(user.id);
+    const handleAssignMember = async (memberId: string) => {
+        await handleAssignMemberToTask(task.id, memberId);
     };
 
-    const handleRemoveAssignee = async (memberId: string) => {
+    const handleRemoveAssignee = async (memberId: string, targetTaskId: string = task.id) => {
         try {
-            await db.removeTaskAssignee(task.id, memberId);
-            setAssignees((current) => current.filter((item) => item.userId !== memberId));
+            await db.removeTaskAssignee(targetTaskId, memberId);
+            if (targetTaskId === task.id) {
+                setAssignees((current) => current.filter((item) => item.userId !== memberId));
+            } else {
+                setSubtaskAssignees((current) => ({
+                    ...current,
+                    [targetTaskId]: (current[targetTaskId] || []).filter((item) => item.userId !== memberId),
+                }));
+            }
             toast.success('Assignee removed');
         } catch (error) {
             console.error('Failed to remove assignee:', error);
@@ -808,22 +902,41 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                     </form>
                                 ) : (
                                     <div className="min-w-0 flex-1">
-                                        <Modal.Heading 
-                                            className="text-lg font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
-                                            onClick={() => setIsEditingTitle(true)}
-                                        >
-                                            {task.title}
-                                            <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
-                                        </Modal.Heading>
+                                        <div className="space-y-1.5">
+                                            <Modal.Heading 
+                                                className="text-lg font-semibold text-foreground cursor-pointer hover:text-accent transition-colors flex items-center gap-2 group"
+                                                onClick={() => setIsEditingTitle(true)}
+                                            >
+                                                {task.title}
+                                                <Edit size={13} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                                            </Modal.Heading>
+                                            {isSubtask && (
+                                                <p className="text-[12px] text-muted-foreground">
+                                                    Subtask of <span className="text-foreground">{parentTask?.title || 'parent task'}</span>
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {presence.length > 0 && (
                                     <div className="mt-1 flex shrink-0 items-center gap-2 rounded-full bg-surface-secondary/55 px-2 py-1">
                                         <div className="flex -space-x-2">
                                             {presence.slice(0, 4).map((session) => (
-                                                <Avatar key={session.userId} size="sm" color="accent" variant="soft" className="border border-surface">
-                                                    <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                                                </Avatar>
+                                                <Tooltip key={session.userId}>
+                                                    <Tooltip.Trigger>
+                                                        <span>
+                                                            <Avatar size="sm" color="accent" variant="soft" className="border border-surface">
+                                                                <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                            </Avatar>
+                                                        </span>
+                                                    </Tooltip.Trigger>
+                                                    <Tooltip.Content showArrow className="rounded-lg bg-surface text-foreground shadow-lg">
+                                                        <div className="px-1 py-0.5">
+                                                            <div className="text-[12px] font-medium">{session.name}</div>
+                                                            {session.email && <div className="text-[11px] text-muted-foreground">{session.email}</div>}
+                                                        </div>
+                                                    </Tooltip.Content>
+                                                </Tooltip>
                                             ))}
                                         </div>
                                         <span className="whitespace-nowrap text-[11px] text-muted-foreground">{presence.length} viewing now</span>
@@ -858,88 +971,204 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             />
                                         </div>
 
-                                        <div className="flex min-h-[260px] flex-col gap-4 lg:min-h-0 lg:flex-grow">
-                                            <div className="flex items-center justify-between">
-                                                <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
-                                                    <Plus size={14} /> Subtasks
-                                                </h4>
-                                                <span className="text-xs text-muted-foreground/60">{subtasks.filter(s => s.completed).length}/{subtasks.length} completed</span>
-                                            </div>
-                                            
-                                            <form onSubmit={handleAddSubtask} className="relative group">
-                                                <Input 
-                                                    placeholder="Add technical milestone..."
-                                                    value={newSubtaskTitle}
-                                                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                                    variant="secondary"
-                                                    className="w-full rounded-lg"
-                                                />
-                                                <Button 
-                                                    type="submit" 
-                                                    isIconOnly 
-                                                    size="sm" 
-                                                    variant="ghost" 
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity"
-                                                >
-                                                    <Plus size={16} />
-                                                </Button>
-                                            </form>
-
-                                            <ScrollShadow className="-mx-2 max-h-[360px] px-2 lg:flex-1 lg:max-h-none" hideScrollBar>
-                                                <div className="space-y-2">
-                                                    {subtasks.length === 0 ? (
-                                                        <div className="py-8 text-center border-2 border-dashed border-border/30 rounded-xl">
-                                                            <p className="text-xs text-muted-foreground/50">No subtasks yet</p>
-                                                        </div>
-                                                    ) : (
-                                                        [...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((st) => (
-                                                            <div key={st.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-secondary/40 border border-border group hover:border-accent/30 transition-all">
-                                                                <Checkbox 
-                                                                    isSelected={st.completed} 
-                                                                    onChange={(val) => handleUpdateTask(st.id, { completed: val })}
-                                                                >
-                                                                    <Checkbox.Control className="size-5 rounded-xl border-2">
-                                                                        <Checkbox.Indicator />
-                                                                    </Checkbox.Control>
-                                                                </Checkbox>
-                                                                {editingSubtaskId === st.id ? (
-                                                                    <Input 
-                                                                        autoFocus
-                                                                        value={editedSubtaskTitle}
-                                                                        onChange={(e) => setEditedSubtaskTitle(e.target.value)}
-                                                                        onBlur={() => handleUpdateSubtaskTitle(st)}
-                                                                        className="flex-1 bg-surface font-bold text-xs h-8"
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter') handleUpdateSubtaskTitle(st);
-                                                                            if (e.key === 'Escape') setEditingSubtaskId(null);
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <span 
-                                                                        className={`text-xs transition-all flex-1 cursor-pointer hover:text-accent ${st.completed ? 'line-through text-muted-foreground/40' : 'text-foreground'}`}
-                                                                        onClick={() => {
-                                                                            setEditingSubtaskId(st.id);
-                                                                            setEditedSubtaskTitle(st.title);
-                                                                        }}
-                                                                    >
-                                                                        {st.title}
-                                                                    </span>
-                                                                )}
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    isIconOnly 
-                                                                    size="sm" 
-                                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground/30 hover:text-danger hover:bg-danger/10"
-                                                                    onPress={() => handleDeleteTask(st.id)}
-                                                                >
-                                                                    <Trash size={12} />
-                                                                </Button>
-                                                            </div>
-                                                        ))
-                                                    )}
+                                        {!isSubtask && (
+                                            <div className="flex min-h-[260px] flex-col gap-4 lg:min-h-0 lg:flex-grow">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
+                                                        <Plus size={14} /> Subtasks
+                                                    </h4>
+                                                    <span className="text-xs text-muted-foreground/60">{subtasks.filter(s => s.completed).length}/{subtasks.length} completed</span>
                                                 </div>
-                                            </ScrollShadow>
-                                        </div>
+                                                
+                                                <form onSubmit={handleAddSubtask} className="relative group">
+                                                    <Input 
+                                                        placeholder="Add technical milestone..."
+                                                        value={newSubtaskTitle}
+                                                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                                        variant="secondary"
+                                                        className="w-full rounded-lg"
+                                                    />
+                                                    <Button 
+                                                        type="submit" 
+                                                        isIconOnly 
+                                                        size="sm" 
+                                                        variant="ghost" 
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity"
+                                                    >
+                                                        <Plus size={16} />
+                                                    </Button>
+                                                </form>
+
+                                                <ScrollShadow className="-mx-2 max-h-[360px] px-2 lg:flex-1 lg:max-h-none" hideScrollBar>
+                                                    <div className="space-y-2">
+                                                        {subtasks.length === 0 ? (
+                                                            <div className="py-8 text-center border-2 border-dashed border-border/30 rounded-xl">
+                                                                <p className="text-xs text-muted-foreground/50">No subtasks yet</p>
+                                                            </div>
+                                                        ) : (
+                                                            [...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((st) => (
+                                                                <div key={st.id} className="rounded-lg border border-border bg-surface-secondary/40 p-3 transition-colors hover:border-accent/30">
+                                                                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3">
+                                                                        <Checkbox
+                                                                            isSelected={st.completed}
+                                                                            onChange={(val) => handleUpdateTask(st.id, { completed: val })}
+                                                                            isDisabled={!canEditTask}
+                                                                            className="mt-0.5"
+                                                                        >
+                                                                            <Checkbox.Content>
+                                                                                <Checkbox.Control className="size-5 rounded-xl border-2">
+                                                                                    <Checkbox.Indicator />
+                                                                                </Checkbox.Control>
+                                                                            </Checkbox.Content>
+                                                                        </Checkbox>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                                                                <div className="min-w-0 space-y-1">
+                                                                                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{st.taskKey}</div>
+                                                                                    {editingSubtaskId === st.id ? (
+                                                                                        <Input
+                                                                                            autoFocus
+                                                                                            value={editedSubtaskTitle}
+                                                                                            onChange={(e) => setEditedSubtaskTitle(e.target.value)}
+                                                                                            onBlur={() => handleUpdateSubtaskTitle(st)}
+                                                                                            variant="secondary"
+                                                                                            className="h-8 rounded-lg text-xs font-semibold"
+                                                                                            onKeyDown={(e) => {
+                                                                                                if (e.key === 'Enter') handleUpdateSubtaskTitle(st);
+                                                                                                if (e.key === 'Escape') setEditingSubtaskId(null);
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className={`text-left text-xs font-medium transition-all hover:text-accent ${st.completed ? 'line-through text-muted-foreground/40' : 'text-foreground'}`}
+                                                                                            onClick={() => {
+                                                                                                setEditingSubtaskId(st.id);
+                                                                                                setEditedSubtaskTitle(st.title);
+                                                                                            }}
+                                                                                        >
+                                                                                            {st.title}
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                                                                    {(() => {
+                                                                                        const subtaskStatus = getTaskStatusForTask(st, resolvedStatusOptions);
+                                                                                        return (
+                                                                                            <Dropdown>
+                                                                                                <Dropdown.Trigger>
+                                                                                                    <Button
+                                                                                                        variant="ghost"
+                                                                                                        className="h-7 min-w-[92px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]"
+                                                                                                        isDisabled={!canEditTask}
+                                                                                                    >
+                                                                                                        <span className="flex items-center gap-1.5 truncate">
+                                                                                                            <span className={`h-1.5 w-1.5 rounded-full ${getStatusTokenDotClass(subtaskStatus.colorToken)}`} />
+                                                                                                            {subtaskStatus.label}
+                                                                                                        </span>
+                                                                                                        <ChevronDown size={12} />
+                                                                                                    </Button>
+                                                                                                </Dropdown.Trigger>
+                                                                                                <Dropdown.Popover placement="bottom end">
+                                                                                                    <Dropdown.Menu>
+                                                                                                        {resolvedStatusOptions.map((status) => (
+                                                                                                            <Dropdown.Item key={status.id} id={status.id} textValue={status.label} onAction={() => handleUpdateSubtaskStatus(st.id, status.key)}>
+                                                                                                                <span className="flex items-center gap-2">
+                                                                                                                    <span className={`h-2 w-2 rounded-full ${getStatusTokenDotClass(status.colorToken)}`} />
+                                                                                                                    {status.label}
+                                                                                                                </span>
+                                                                                                            </Dropdown.Item>
+                                                                                                        ))}
+                                                                                                    </Dropdown.Menu>
+                                                                                                </Dropdown.Popover>
+                                                                                            </Dropdown>
+                                                                                        );
+                                                                                    })()}
+                                                                                    {(() => {
+                                                                                        const subtaskMembers = subtaskAssignees[st.id] || [];
+                                                                                        const availableMembers = projectMembers.filter((member) => !subtaskMembers.some((assignee) => assignee.userId === member.userId));
+                                                                                        const primaryAssignee = subtaskMembers[0];
+                                                                                        return (
+                                                                                            <Dropdown>
+                                                                                                <Dropdown.Trigger>
+                                                                                                    <Button
+                                                                                                        variant="secondary"
+                                                                                                        className="h-7 max-w-[170px] justify-start rounded-md px-2 text-[11px]"
+                                                                                                        isDisabled={!canEditTask}
+                                                                                                    >
+                                                                                                        {primaryAssignee ? (
+                                                                                                            <>
+                                                                                                                <Avatar size="sm" color="accent" variant="soft" className="size-5 shrink-0">
+                                                                                                                    <Avatar.Fallback>{primaryAssignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                                                                </Avatar>
+                                                                                                                <span className="truncate">{primaryAssignee.name}</span>
+                                                                                                                {subtaskMembers.length > 1 && <span className="text-muted-foreground">+{subtaskMembers.length - 1}</span>}
+                                                                                                            </>
+                                                                                                        ) : (
+                                                                                                            <><UserPlus size={12} /><span>Assign</span></>
+                                                                                                        )}
+                                                                                                        <ChevronDown size={12} className="ml-auto shrink-0" />
+                                                                                                    </Button>
+                                                                                                </Dropdown.Trigger>
+                                                                                                <Dropdown.Popover placement="bottom end" className="min-w-[220px]">
+                                                                                                    <Dropdown.Menu>
+                                                                                                        {subtaskMembers.map((assignee) => (
+                                                                                                            <Dropdown.Item key={`remove-${assignee.userId}`} id={`remove-${assignee.userId}`} textValue={`Unassign ${assignee.name}`} variant="danger" onAction={() => void handleRemoveAssignee(assignee.userId, st.id)}>
+                                                                                                                <div className="flex items-center gap-2">
+                                                                                                                    <Avatar size="sm" color="accent" variant="soft">
+                                                                                                                        <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                                                                    </Avatar>
+                                                                                                                    <div className="min-w-0"><div className="truncate text-sm">{assignee.name}</div><div className="truncate text-xs text-muted-foreground">Unassign</div></div>
+                                                                                                                </div>
+                                                                                                            </Dropdown.Item>
+                                                                                                        ))}
+                                                                                                        {availableMembers.map((member) => (
+                                                                                                            <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => void handleAssignMemberToTask(st.id, member.userId)}>
+                                                                                                                <div className="flex items-center gap-2">
+                                                                                                                    <Avatar size="sm" color="accent" variant="soft">
+                                                                                                                        <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                                                                    </Avatar>
+                                                                                                                    <div className="min-w-0"><div className="truncate text-sm text-foreground">{member.userId === user?.id ? 'Assign to me' : member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div>
+                                                                                                                </div>
+                                                                                                            </Dropdown.Item>
+                                                                                                        ))}
+                                                                                                    </Dropdown.Menu>
+                                                                                                </Dropdown.Popover>
+                                                                                            </Dropdown>
+                                                                                        );
+                                                                                    })()}
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        isIconOnly
+                                                                                        size="sm"
+                                                                                        className="h-7 w-7 text-muted-foreground/50 hover:text-danger hover:bg-danger/10"
+                                                                                        onPress={() => handleDeleteTask(st.id)}
+                                                                                    >
+                                                                                        <Trash size={12} />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+
+                                                                        </div>
+                                                                        <TextArea
+                                                                            value={editedSubtaskDescriptions[st.id] ?? ''}
+                                                                            onChange={(event) => setEditedSubtaskDescriptions((current) => ({ ...current, [st.id]: event.target.value }))}
+                                                                            onBlur={() => { void handleUpdateSubtaskDescription(st); }}
+                                                                            placeholder="Add subtask context or acceptance criteria..."
+                                                                            variant="secondary"
+                                                                            rows={2}
+                                                                            fullWidth
+                                                                            className="col-span-full min-h-[76px] w-full rounded-lg text-xs"
+                                                                            disabled={!canEditTask}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </ScrollShadow>
+                                            </div>
+                                        )}
 
                                         {task.timeSpent !== undefined && task.timeSpent > 0 && (
                                                 <div className="pt-6 border-t border-border">
@@ -1002,8 +1231,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
                                 {/* Right Side: properties and communication */}
                                 <div className="min-h-0 border-t border-border bg-surface-secondary/25 lg:border-t-0">
-                                    <ScrollShadow className="h-auto p-5 lg:h-full" hideScrollBar>
-                                    <div className="flex flex-col gap-6 lg:h-full">
+                                    <ScrollShadow className="h-full overflow-y-auto p-5" hideScrollBar>
+                                    <div className="space-y-6">
                                         <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
                                             <div className="flex items-center justify-between gap-3">
                                                 <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</h4>
@@ -1014,63 +1243,50 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between gap-2">
                                                         <Label className="text-[11px] font-medium text-muted-foreground">Assignee</Label>
-                                                        {canEditTask && user && !assignees.some((assignee) => assignee.userId === user.id) && (
-                                                            <Button size="sm" variant={assignees.length === 0 ? 'primary' : 'secondary'} className="h-7 rounded-lg px-2 text-[11px]" onPress={handleAssignToMe}>
-                                                                Assign to me
-                                                            </Button>
-                                                        )}
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        {assignees.length === 0 ? (
-                                                            <div className="flex h-8 items-center rounded-md border border-dashed border-border/50 bg-surface-secondary/30 px-2.5 text-[12px] text-muted-foreground">
-                                                                Unassigned
-                                                            </div>
-                                                        ) : (
-                                                            assignees.map((assignee) => (
-                                                                <div key={assignee.userId} className="flex items-center gap-2 rounded-md border border-border bg-surface-secondary/30 px-2 py-1.5">
-                                                                    <Avatar size="sm" color="accent" variant="soft">
-                                                                        <Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                                                                    </Avatar>
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <div className="truncate text-[12px] font-medium text-foreground">{assignee.name}</div>
-                                                                        <div className="truncate text-[11px] text-muted-foreground">{assignee.email}</div>
-                                                                    </div>
-                                                                    {canEditTask && (
-                                                                        <Button variant="ghost" isIconOnly className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleRemoveAssignee(assignee.userId)}>
-                                                                            <X size={12} />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            ))
-                                                        )}
-                                                    </div>
-                                                    {canEditTask && availableAssignees.length > 0 && (
-                                                        <Dropdown>
-                                                            <Dropdown.Trigger>
-                                                                <Button variant="secondary" className="h-8 w-full justify-between rounded-md px-2.5 text-[11px]">
-                                                                    <span className="flex items-center gap-2"><UserPlus size={13} /> Add assignee</span>
-                                                                    <ChevronDown size={13} />
-                                                                </Button>
-                                                            </Dropdown.Trigger>
-                                                            <Dropdown.Popover placement="bottom end">
-                                                                <Dropdown.Menu>
-                                                                    {availableAssignees.map((member) => (
-                                                                        <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => handleAssignMember(member.userId)}>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <Avatar size="sm" color="accent" variant="soft">
-                                                                                    <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                    {(() => {
+                                                        const primaryAssignee = assignees[0];
+                                                        return (
+                                                            <Dropdown>
+                                                                <Dropdown.Trigger>
+                                                                    <Button variant="secondary" className="h-8 w-full justify-start rounded-md px-2.5 text-[11px]" isDisabled={!canEditTask}>
+                                                                        {primaryAssignee ? (
+                                                                            <>
+                                                                                <Avatar size="sm" color="accent" variant="soft" className="size-5 shrink-0">
+                                                                                    <Avatar.Fallback>{primaryAssignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
                                                                                 </Avatar>
-                                                                                <div className="min-w-0">
-                                                                                    <div className="truncate text-sm text-foreground">{member.name}</div>
-                                                                                    <div className="truncate text-xs text-muted-foreground">{member.email}</div>
+                                                                                <span className="truncate">{primaryAssignee.name}</span>
+                                                                                {assignees.length > 1 && <span className="text-muted-foreground">+{assignees.length - 1}</span>}
+                                                                            </>
+                                                                        ) : (
+                                                                            <><UserPlus size={13} /><span>Assign</span></>
+                                                                        )}
+                                                                        <ChevronDown size={13} className="ml-auto shrink-0" />
+                                                                    </Button>
+                                                                </Dropdown.Trigger>
+                                                                <Dropdown.Popover placement="bottom end" className="min-w-[230px]">
+                                                                    <Dropdown.Menu>
+                                                                        {assignees.map((assignee) => (
+                                                                            <Dropdown.Item key={`remove-${assignee.userId}`} id={`remove-${assignee.userId}`} textValue={`Unassign ${assignee.name}`} variant="danger" onAction={() => void handleRemoveAssignee(assignee.userId)}>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{assignee.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar>
+                                                                                    <div className="min-w-0"><div className="truncate text-sm">{assignee.name}</div><div className="truncate text-xs text-muted-foreground">Unassign</div></div>
                                                                                 </div>
-                                                                            </div>
-                                                                        </Dropdown.Item>
-                                                                    ))}
-                                                                </Dropdown.Menu>
-                                                            </Dropdown.Popover>
-                                                        </Dropdown>
-                                                    )}
+                                                                            </Dropdown.Item>
+                                                                        ))}
+                                                                        {availableAssignees.map((member) => (
+                                                                            <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => void handleAssignMember(member.userId)}>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar>
+                                                                                    <div className="min-w-0"><div className="truncate text-sm text-foreground">{member.userId === user?.id ? 'Assign to me' : member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div>
+                                                                                </div>
+                                                                            </Dropdown.Item>
+                                                                        ))}
+                                                                    </Dropdown.Menu>
+                                                                </Dropdown.Popover>
+                                                            </Dropdown>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 <div className="space-y-2">
@@ -1080,7 +1296,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             <Dropdown.Trigger>
                                                                 <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
                                                                     <span className="flex items-center gap-2 truncate">
-                                                                        <span className={`h-1.5 w-1.5 rounded-full ${currentStatusOption.color}`} />
+                                                                        <span className={`h-1.5 w-1.5 rounded-full ${getStatusTokenDotClass(currentStatusOption.colorToken)}`} />
                                                                         {currentStatusOption.label}
                                                                     </span>
                                                                     <ChevronDown size={12} />
@@ -1088,10 +1304,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             </Dropdown.Trigger>
                                                             <Dropdown.Popover placement="bottom end">
                                                                 <Dropdown.Menu>
-                                                                    {statusOptions.map((status) => (
-                                                                        <Dropdown.Item key={status.id} id={status.id} textValue={status.label} onAction={() => handleUpdateStatus(status.id)}>
+                                                                    {resolvedStatusOptions.map((status) => (
+                                                                        <Dropdown.Item key={status.id} id={status.id} textValue={status.label} onAction={() => handleUpdateStatus(status.key)}>
                                                                             <span className="flex items-center gap-2">
-                                                                                <span className={`h-2 w-2 rounded-full ${status.color}`} />
+                                                                                <span className={`h-2 w-2 rounded-full ${getStatusTokenDotClass(status.colorToken)}`} />
                                                                                 {status.label}
                                                                             </span>
                                                                         </Dropdown.Item>
@@ -1169,59 +1385,53 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
                                                 <div className="space-y-1.5">
                                                     <Label className="text-[11px] font-medium text-muted-foreground">Tags</Label>
-                                                    {currentTags.length > 0 && (
-                                                        <TagGroup size="sm" onRemove={handleRemoveTags}>
-                                                            <TagGroup.List className="flex flex-wrap gap-1.5">
-                                                                {currentTags.map((tag) => (
-                                                                    <Tag key={tag} id={tag}>
-                                                                        {tag}
-                                                                    </Tag>
-                                                                ))}
-                                                            </TagGroup.List>
-                                                        </TagGroup>
-                                                    )}
-                                                    <ComboBox
-                                                        allowsCustomValue
-                                                        className="w-full"
-                                                        inputValue={tagSearchValue}
-                                                        menuTrigger="focus"
-                                                        onInputChange={setTagSearchValue}
-                                                    >
-                                                        <Label className="sr-only">Tags</Label>
-                                                        <ComboBox.InputGroup className="h-8 rounded-md border border-border/70 bg-surface-secondary/55">
-                                                            <Input
-                                                                placeholder={currentTags.length > 0 ? 'Add another tag' : 'Add tag'}
-                                                                className="text-[12px]"
-                                                                onKeyDown={(event) => {
-                                                                    if (event.key === 'Enter' || event.key === ',') {
-                                                                        event.preventDefault();
-                                                                        void commitTagDraft(tagSearchValue);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <ComboBox.Trigger className="mr-1 text-muted-foreground/60" />
-                                                        </ComboBox.InputGroup>
-                                                        <ComboBox.Popover className="rounded-xl border border-border bg-surface p-2 shadow-lg">
-                                                            <ListBox
-                                                                className="max-h-48"
-                                                                renderEmptyState={() => <EmptyState>No matching tags. Press comma or Enter to create one.</EmptyState>}
-                                                            >
-                                                                {filteredAutocompleteTags.map((tag) => (
-                                                                    <ListBox.Item
-                                                                        key={tag}
-                                                                        id={tag}
-                                                                        textValue={tag}
-                                                                        onAction={() => {
-                                                                            void commitTagDraft(tag);
-                                                                        }}
-                                                                    >
-                                                                        #{tag}
-                                                                        <ListBox.ItemIndicator />
-                                                                    </ListBox.Item>
-                                                                ))}
-                                                            </ListBox>
-                                                        </ComboBox.Popover>
-                                                    </ComboBox>
+                                                    <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/70 bg-surface-secondary/40 p-1.5">
+                                                        {currentTags.length > 0 && (
+                                                            <TagGroup size="sm" onRemove={handleRemoveTags}>
+                                                                <TagGroup.List className="flex flex-wrap gap-1">
+                                                                    {currentTags.map((tag) => (
+                                                                        <Tag key={tag} id={tag} className="rounded-md text-[11px]">
+                                                                            {tag}
+                                                                        </Tag>
+                                                                    ))}
+                                                                </TagGroup.List>
+                                                            </TagGroup>
+                                                        )}
+                                                        <ComboBox
+                                                            allowsCustomValue
+                                                            className="min-w-[88px] flex-1"
+                                                            inputValue={tagSearchValue}
+                                                            menuTrigger="focus"
+                                                            onInputChange={setTagSearchValue}
+                                                        >
+                                                            <Label className="sr-only">Tags</Label>
+                                                            <ComboBox.InputGroup className="h-6 border-0 bg-transparent shadow-none">
+                                                                <Input
+                                                                    placeholder={currentTags.length > 0 ? 'Add tag' : 'Add a tag'}
+                                                                    className="h-6 border-0 bg-transparent px-1 text-[11px] shadow-none"
+                                                                    onKeyDown={(event) => {
+                                                                        if (event.key === 'Enter' || event.key === ',') {
+                                                                            event.preventDefault();
+                                                                            void commitTagDraft(tagSearchValue);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <ComboBox.Trigger className="mr-1 text-muted-foreground/60" />
+                                                            </ComboBox.InputGroup>
+                                                            <ComboBox.Popover className="rounded-xl border border-border bg-surface p-2 shadow-lg">
+                                                                <ListBox
+                                                                    className="max-h-48"
+                                                                    renderEmptyState={() => <EmptyState>No matching tags. Press comma or Enter to create one.</EmptyState>}
+                                                                >
+                                                                    {filteredAutocompleteTags.map((tag) => (
+                                                                        <ListBox.Item key={tag} id={tag} textValue={tag} onAction={() => { void commitTagDraft(tag); }}>
+                                                                            #{tag}<ListBox.ItemIndicator />
+                                                                        </ListBox.Item>
+                                                                    ))}
+                                                                </ListBox>
+                                                            </ComboBox.Popover>
+                                                        </ComboBox>
+                                                    </div>
                                                 </div>
 
                                                 <div className="space-y-2">
@@ -1285,59 +1495,60 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
                                                 <div className="space-y-2">
                                                     <Label className="text-[11px] font-medium text-muted-foreground">Recurrence</Label>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
-                                                            <Button
-                                                                key={type}
-                                                                size="sm"
-                                                                variant={(type === 'none' ? !recurrence : recurrence?.type === type) ? 'primary' : 'secondary'}
-                                                                className="h-7 rounded-lg px-2.5 text-[11px] font-medium"
-                                                                onPress={() => {
-                                                                    if (type === 'none') { handleSaveRecurrence(null); }
-                                                                    else { handleSaveRecurrence({ type, interval: 1 }); }
-                                                                }}
-                                                            >
-                                                                {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
-                                                            </Button>
-                                                        ))}
-                                                    </div>
-                                                    {recurrence && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[11px] text-muted-foreground">Every</span>
-                                                            <Input
-                                                                type="number"
-                                                                min={1}
-                                                                max={99}
-                                                                value={recurrence.interval}
-                                                                onChange={e => {
-                                                                    const interval = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                                                    const updated = { ...recurrence, interval };
-                                                                    setRecurrence(updated);
-                                                                    handleSaveRecurrence(updated);
-                                                                }}
-                                                                variant="secondary"
-                                                                className="w-16 rounded-lg text-center text-[12px]"
-                                                            />
-                                                            <span className="text-[11px] text-muted-foreground">
-                                                                {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
-                                                                 recurrence.type === 'weekly' ? (recurrence.interval === 1 ? 'week' : 'weeks') :
-                                                                 recurrence.interval === 1 ? 'month' : 'months'}
-                                                            </span>
+                                                    <div className="space-y-2 rounded-md border border-border/60 bg-surface-secondary/30 p-2.5">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(['none', 'daily', 'weekly', 'monthly'] as const).map(type => (
+                                                                <Button
+                                                                    key={type}
+                                                                    size="sm"
+                                                                    variant={(type === 'none' ? !recurrence : recurrence?.type === type) ? 'primary' : 'secondary'}
+                                                                    className="h-7 rounded-lg px-2.5 text-[11px] font-medium"
+                                                                    onPress={() => {
+                                                                        if (type === 'none') { handleSaveRecurrence(null); }
+                                                                        else { handleSaveRecurrence({ type, interval: 1 }); }
+                                                                    }}
+                                                                >
+                                                                    {type === 'none' ? 'None' : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                                </Button>
+                                                            ))}
                                                         </div>
-                                                    )}
+                                                        {recurrence && (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[11px] text-muted-foreground">Every</span>
+                                                                <Input
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={99}
+                                                                    value={recurrence.interval}
+                                                                    onChange={e => {
+                                                                        const interval = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                                                        const updated = { ...recurrence, interval };
+                                                                        setRecurrence(updated);
+                                                                        handleSaveRecurrence(updated);
+                                                                    }}
+                                                                    variant="secondary"
+                                                                    className="w-16 rounded-lg text-center text-[12px]"
+                                                                />
+                                                                <span className="text-[11px] text-muted-foreground">
+                                                                    {recurrence.type === 'daily' ? (recurrence.interval === 1 ? 'day' : 'days') :
+                                                                     recurrence.type === 'weekly' ? (recurrence.interval === 1 ? 'week' : 'weeks') :
+                                                                     recurrence.interval === 1 ? 'month' : 'months'}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex-grow flex flex-col gap-4 min-h-0">
+                                        <div className="space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
                                                     <MessageCircle size={14} /> Updates
                                                 </h4>
                                             </div>
 
-                                            <ScrollShadow className="flex-1 -mx-2 px-2" hideScrollBar>
-                                                <div className="space-y-4">
+                                            <div className="space-y-4">
                                                     <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
                                                         <div className="flex items-center justify-between">
                                                             <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Comments</h5>
@@ -1348,52 +1559,81 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                 No team comments yet.
                                                             </div>
                                                         ) : (
-                                                            comments.map((comment) => (
-                                                                <div key={comment.id} className="rounded-lg border border-border/60 bg-surface-secondary/30 p-3">
-                                                                    <div className="mb-2 flex items-center justify-between gap-3">
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-[12px] font-medium text-foreground truncate">{comment.userName}</div>
-                                                                            <div className="text-[11px] text-muted-foreground">{dayjs(comment.createdAt).fromNow()}</div>
+                                                            <div className="space-y-3">
+                                                                {comments.map((comment) => {
+                                                                    const mentionedMembers = projectMembers.filter((member) => comment.mentionedUserIds?.includes(member.userId));
+                                                                    return (
+                                                                        <div key={comment.id} className="flex items-start gap-2.5">
+                                                                            <Avatar size="sm" color="accent" variant="soft" className="mt-0.5 shrink-0">
+                                                                                <Avatar.Fallback>{comment.userName.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                            </Avatar>
+                                                                            <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-surface-secondary/30 px-3 py-2.5">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="min-w-0 truncate text-[12px] font-medium text-foreground">{comment.userName}</span>
+                                                                                    <span className="shrink-0 text-[11px] text-muted-foreground">{dayjs(comment.createdAt).fromNow()}</span>
+                                                                                    {comment.userId === user?.id && (
+                                                                                        <Button variant="ghost" isIconOnly className="ml-auto h-6 w-6 rounded-md text-muted-foreground hover:text-danger" onPress={() => handleDeleteComment(comment.id)}>
+                                                                                            <Trash size={11} />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                </div>
+                                                                                <p className="mt-1.5 text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">{comment.body}</p>
+                                                                                {mentionedMembers.length > 0 && (
+                                                                                    <TagGroup className="mt-2">
+                                                                                        <TagGroup.List className="flex flex-wrap gap-1">
+                                                                                            {mentionedMembers.map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}
+                                                                                        </TagGroup.List>
+                                                                                    </TagGroup>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                        {comment.userId === user?.id && (
-                                                                            <Button variant="ghost" isIconOnly className="h-6 w-6 rounded-lg text-muted-foreground hover:text-danger" onPress={() => handleDeleteComment(comment.id)}>
-                                                                                <Trash size={11} />
-                                                                            </Button>
-                                                                        )}
-                                                                    </div>
-                                                                    <p className="text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">{comment.body}</p>
-                                                                </div>
-                                                            ))
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         )}
                                                         <form onSubmit={handleCreateComment} className="space-y-2">
-                                                            <TextArea
-                                                                value={newComment}
-                                                                onChange={(e) => setNewComment(e.target.value)}
-                                                                placeholder="Add a comment for the team..."
-                                                                rows={3}
-                                                                variant="secondary"
-                                                                className="w-full resize-none rounded-xl text-xs"
-                                                            />
-                                                            {mentionableMembers.length > 0 && (
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {mentionableMembers.map((member) => (
-                                                                        <Button
-                                                                            key={member.userId}
-                                                                            type="button"
-                                                                            size="sm"
-                                                                            variant={mentionedUserIds.includes(member.userId) ? 'primary' : 'secondary'}
-                                                                            className="h-6 rounded-md px-2 text-[11px]"
-                                                                            onPress={() => toggleMention(member.userId)}
-                                                                        >
-                                                                            @{member.name.split(' ')[0]}
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex justify-end">
-                                                                <Button type="submit" size="sm" variant="primary" className="h-7 rounded-lg px-3 text-xs">
+                                                            <div className="relative">
+                                                                <TextArea
+                                                                    value={newComment}
+                                                                    onChange={(e) => setNewComment(e.target.value)}
+                                                                    placeholder="Add a comment for the team..."
+                                                                    rows={3}
+                                                                    variant="secondary"
+                                                                    className="w-full resize-none rounded-xl pb-10 text-xs"
+                                                                />
+                                                                <Button type="submit" size="sm" variant="primary" className="absolute bottom-2 right-2 h-7 rounded-md px-3 text-xs">
                                                                     Comment
                                                                 </Button>
+                                                            </div>
+                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                {mentionableMembers.length > 0 && (
+                                                                    <Dropdown>
+                                                                        <Dropdown.Trigger>
+                                                                            <Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground">
+                                                                                <AtSign size={11} /> Mention <ChevronDown size={11} />
+                                                                            </Button>
+                                                                        </Dropdown.Trigger>
+                                                                        <Dropdown.Popover placement="top start" className="min-w-[220px]">
+                                                                            <Dropdown.Menu>
+                                                                                {mentionableMembers.map((member) => (
+                                                                                    <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => toggleMention(member.userId)}>
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar>
+                                                                                            <div className="min-w-0"><div className="truncate text-sm">{member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div>
+                                                                                        </div>
+                                                                                    </Dropdown.Item>
+                                                                                ))}
+                                                                            </Dropdown.Menu>
+                                                                        </Dropdown.Popover>
+                                                                    </Dropdown>
+                                                                )}
+                                                                {mentionedUserIds.length > 0 && (
+                                                                    <TagGroup onRemove={(keys) => setMentionedUserIds((current) => current.filter((userId) => !keys.has(userId)))}>
+                                                                        <TagGroup.List className="flex flex-wrap gap-1">
+                                                                            {mentionableMembers.filter((member) => mentionedUserIds.includes(member.userId)).map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}
+                                                                        </TagGroup.List>
+                                                                    </TagGroup>
+                                                                )}
                                                             </div>
                                                         </form>
                                                     </div>
@@ -1428,105 +1668,103 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
                                                     <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
                                                         <h5 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Internal notes</h5>
-                                                    {parsedNotes.length === 0 ? (
-                                                        <div className="py-12 text-center border border-dashed border-border/30 rounded-lg">
-                                                            <Email size={24} className="mx-auto text-muted-foreground/20 mb-2" />
-                                                            <p className="text-xs text-muted-foreground/50">No notes yet</p>
-                                                        </div>
-                                                    ) : (
-                                                        parsedNotes.map((note) => (
-                                                            <div key={note.originalIndex} className="relative pl-6 pb-4 border-l border-border/20 last:pb-0 group">
-                                                                <div className={`absolute left-[-5px] top-1.5 size-2 rounded-full border-2 border-surface ${
-                                                                    note.type === 'email' ? 'bg-accent' : note.type === 'call' ? 'bg-success' : 'bg-warning'
-                                                                }`} />
-                                                                
-                                                                <div className="p-3 rounded-xl bg-surface-secondary/40 border border-border group-hover:border-warning/30 transition-all">
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <div className="flex items-center gap-2">
-                                                                            {note.type === 'email' && <Email size={10} className="text-accent" />}
-                                                                            {note.type === 'call' && <Phone size={10} className="text-success" />}
-                                                                            {note.type === 'note' && <MessageCircle size={10} className="text-warning" />}
-                                                                            <span className="text-xs text-muted-foreground/60">
-                                                                                {dayjs(note.date).fromNow()}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            <Button 
-                                                                                variant="ghost" 
-                                                                                isIconOnly 
-                                                                                size="sm" 
-                                                                                className="h-6 w-6 rounded-xl text-muted-foreground hover:text-foreground"
-                                                                                onPress={() => handleEditNote(note.originalIndex)}
-                                                                            >
-                                                                                <Edit size={10} />
-                                                                            </Button>
-                                                                            <Button 
-                                                                                variant="ghost" 
-                                                                                isIconOnly 
-                                                                                size="sm" 
-                                                                                className="h-6 w-6 rounded-xl text-muted-foreground hover:text-danger"
-                                                                                onPress={() => handleDeleteNote(note.originalIndex)}
-                                                                            >
-                                                                                <Trash size={10} />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                    <p className="text-xs font-medium text-foreground leading-relaxed whitespace-pre-wrap">{note.text}</p>
-                                                                </div>
+                                                        {parsedNotes.length === 0 ? (
+                                                            <div className="py-12 text-center border border-dashed border-border/30 rounded-lg">
+                                                                <Email size={24} className="mx-auto text-muted-foreground/20 mb-2" />
+                                                                <p className="text-xs text-muted-foreground/50">No notes yet</p>
                                                             </div>
-                                                        ))
-                                                    )}
+                                                        ) : (
+                                                            parsedNotes.map((note) => (
+                                                                <div key={note.originalIndex} className="relative pl-6 pb-4 border-l border-border/20 last:pb-0 group">
+                                                                    <div className={`absolute left-[-5px] top-1.5 size-2 rounded-full border-2 border-surface ${
+                                                                        note.type === 'email' ? 'bg-accent' : note.type === 'call' ? 'bg-success' : 'bg-warning'
+                                                                    }`} />
+                                                                    
+                                                                    <div className="p-3 rounded-xl bg-surface-secondary/40 border border-border group-hover:border-warning/30 transition-all">
+                                                                        <div className="flex items-center justify-between mb-2">
+                                                                            <div className="flex items-center gap-2">
+                                                                                {note.type === 'email' && <Email size={10} className="text-accent" />}
+                                                                                {note.type === 'call' && <Phone size={10} className="text-success" />}
+                                                                                {note.type === 'note' && <MessageCircle size={10} className="text-warning" />}
+                                                                                <span className="text-xs text-muted-foreground/60">
+                                                                                    {dayjs(note.date).fromNow()}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                <Button 
+                                                                                    variant="ghost" 
+                                                                                    isIconOnly 
+                                                                                    size="sm" 
+                                                                                    className="h-6 w-6 rounded-xl text-muted-foreground hover:text-foreground"
+                                                                                    onPress={() => handleEditNote(note.originalIndex)}
+                                                                                >
+                                                                                    <Edit size={10} />
+                                                                                </Button>
+                                                                                <Button 
+                                                                                    variant="ghost" 
+                                                                                    isIconOnly 
+                                                                                    size="sm" 
+                                                                                    className="h-6 w-6 rounded-xl text-muted-foreground hover:text-danger"
+                                                                                    onPress={() => handleDeleteNote(note.originalIndex)}
+                                                                                >
+                                                                                    <Trash size={10} />
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <p className="text-xs font-medium text-foreground leading-relaxed whitespace-pre-wrap">{note.text}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                        <form onSubmit={handleAddNote} className="space-y-3 border-t border-border pt-4">
+                                                            <div className="flex gap-2">
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant={noteType === 'note' ? 'secondary' : 'ghost'} 
+                                                                    className="flex-1 text-xs h-7"
+                                                                    onPress={() => setNoteType('note')}
+                                                                >
+                                                                    Note
+                                                                </Button>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant={noteType === 'email' ? 'secondary' : 'ghost'} 
+                                                                    className="flex-1 text-xs h-7"
+                                                                    onPress={() => setNoteType('email')}
+                                                                >
+                                                                    Email
+                                                                </Button>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant={noteType === 'call' ? 'secondary' : 'ghost'} 
+                                                                    className="flex-1 text-xs h-7"
+                                                                    onPress={() => setNoteType('call')}
+                                                                >
+                                                                    Call
+                                                                </Button>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <TextArea
+                                                                    value={newNote}
+                                                                    onChange={(e) => setNewNote(e.target.value)}
+                                                                    placeholder={editingNoteIndex !== null ? "Edit note..." : `Add ${noteType}...`}
+                                                                    rows={5}
+                                                                    variant="secondary"
+                                                                    className="w-full resize-none rounded-xl text-xs"
+                                                                />
+                                                                <Button 
+                                                                    type="submit" 
+                                                                    variant="primary" 
+                                                                    size="sm" 
+                                                                    className="absolute bottom-3 right-3 rounded-md text-xs h-7"
+                                                                >
+                                                                    {editingNoteIndex !== null ? 'Update' : 'Save'}
+                                                                </Button>
+                                                            </div>
+                                                        </form>
                                                     </div>
                                                 </div>
-                                            </ScrollShadow>
                                         </div>
-
-                                        <form onSubmit={handleAddNote} className="space-y-3 pt-4 border-t border-border">
-                                            <div className="flex gap-2">
-                                                <Button 
-                                                    size="sm" 
-                                                    variant={noteType === 'note' ? 'secondary' : 'ghost'} 
-                                                    className="flex-1 text-xs h-7"
-                                                    onPress={() => setNoteType('note')}
-                                                >
-                                                    Note
-                                                </Button>
-                                                <Button 
-                                                    size="sm" 
-                                                    variant={noteType === 'email' ? 'secondary' : 'ghost'} 
-                                                    className="flex-1 text-xs h-7"
-                                                    onPress={() => setNoteType('email')}
-                                                >
-                                                    Email
-                                                </Button>
-                                                <Button 
-                                                    size="sm" 
-                                                    variant={noteType === 'call' ? 'secondary' : 'ghost'} 
-                                                    className="flex-1 text-xs h-7"
-                                                    onPress={() => setNoteType('call')}
-                                                >
-                                                    Call
-                                                </Button>
-                                            </div>
-                                            <div className="relative">
-                                                <TextArea
-                                                    value={newNote}
-                                                    onChange={(e) => setNewNote(e.target.value)}
-                                                    placeholder={editingNoteIndex !== null ? "Edit note..." : `Add ${noteType}...`}
-                                                    rows={5}
-                                                    variant="secondary"
-                                                    className="w-full resize-none rounded-xl text-xs"
-                                                />
-                                                <Button 
-                                                    type="submit" 
-                                                    variant="primary" 
-                                                    size="sm" 
-                                                    className="absolute bottom-3 right-3 rounded-md text-xs h-7"
-                                                >
-                                                    {editingNoteIndex !== null ? 'Update' : 'Save'}
-                                                </Button>
-                                            </div>
-                                        </form>
                                     </div>
                                     </ScrollShadow>
                                 </div>

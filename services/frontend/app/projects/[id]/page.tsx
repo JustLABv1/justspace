@@ -5,7 +5,9 @@ import { KanbanBoard } from '@/components/KanbanBoard';
 import { ProjectCollaborationPanel } from '@/components/ProjectCollaborationPanel';
 import { ProjectModal } from '@/components/ProjectModal';
 import { TaskCalendar } from '@/components/TaskCalendar';
+import { TaskDetailModal } from '@/components/TaskDetailModal';
 import { TaskList } from '@/components/TaskList';
+import { TaskWorkflowModal } from '@/components/TaskWorkflowModal';
 import { TemplateModal } from '@/components/TemplateModal';
 import { TimelineView } from '@/components/TimelineView';
 import { useAuth } from '@/services/frontend/context/AuthContext';
@@ -13,8 +15,9 @@ import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, gener
 import { db } from '@/services/frontend/lib/db';
 import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserPreferences, SavedProjectView } from '@/services/frontend/lib/preferences';
 import { collectTaskTags } from '@/services/frontend/lib/task-filters';
+import { getCompletedStatus, getDefaultProjectTaskStatuses, getOpenStatus } from '@/services/frontend/lib/task-statuses';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { Project, Task } from '@/services/frontend/types';
+import { Project, ProjectTaskStatus, Task } from '@/services/frontend/types';
 import { Avatar, Button, Card, Chip, Dropdown, Input, Label, Spinner, Tabs, toast } from "@heroui/react";
 import {
     Calendar,
@@ -59,10 +62,16 @@ export default function ProjectDetailPage() {
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
 		const requestedView = searchParams.get('view');
         if (requestedView === 'table') return 'list';
-		return isSavedViewMode(requestedView) ? requestedView : 'kanban';
+		if (isSavedViewMode(requestedView)) return requestedView;
+        if (typeof window !== 'undefined') {
+            const rememberedView = window.localStorage.getItem(`justspace.project-view.${id}`);
+            if (isSavedViewMode(rememberedView)) return rememberedView;
+        }
+        return 'kanban';
 	});
     const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
     const [selectedTags, setSelectedTags] = useState<string[]>(() => {
@@ -73,8 +82,13 @@ export default function ProjectDetailPage() {
     const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
     const [showTimeReport, setShowTimeReport] = useState(false);
     const [timeReportTasks, setTimeReportTasks] = useState<Task[]>([]);
+    const [taskStatuses, setTaskStatuses] = useState<ProjectTaskStatus[]>([]);
+    const [taskRefreshToken, setTaskRefreshToken] = useState(0);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const { user, privateKey, updateProfile } = useAuth();
 	const savedViews = parseUserPreferences(user?.preferences).savedViews.filter((view) => view.projectId === id);
+    const openTaskKey = searchParams.get('task');
+    const rememberedViewKey = `justspace.project-view.${id}`;
 
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
@@ -107,6 +121,25 @@ export default function ProjectDetailPage() {
 
     useEffect(() => { if (id) fetchProject(); }, [id, fetchProject]);
 
+    const fetchTaskStatuses = useCallback(async () => {
+        if (!id) return;
+        try {
+            const res = await db.listProjectTaskStatuses(id);
+            setTaskStatuses(
+                res.documents.length > 0
+                    ? [...res.documents].sort((a, b) => a.position - b.position)
+                    : getDefaultProjectTaskStatuses(),
+            );
+        } catch (error) {
+            console.error(error);
+            setTaskStatuses(getDefaultProjectTaskStatuses());
+        }
+    }, [id]);
+
+    useEffect(() => {
+        void fetchTaskStatuses();
+    }, [fetchTaskStatuses]);
+
     const fetchProjectTasks = useCallback(async () => {
         if (!id) return;
         try {
@@ -117,22 +150,32 @@ export default function ProjectDetailPage() {
         }
     }, [id]);
 
+    const refreshProjectWorkspace = useCallback(() => {
+        void fetchProjectTasks();
+        setTaskRefreshToken((current) => current + 1);
+    }, [fetchProjectTasks]);
+
     useEffect(() => {
         void fetchProjectTasks();
     }, [fetchProjectTasks]);
 
     useEffect(() => {
                 const params = new URLSearchParams(searchParamsKey);
-		const nextView = params.get('view');
+			const nextView = params.get('view');
+			const rememberedView = typeof window !== 'undefined' ? window.localStorage.getItem(rememberedViewKey) : null;
 		const nextSearchQuery = params.get('q') || '';
 		const nextSelectedTags = (params.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
 		const nextHideCompleted = params.get('hideCompleted') === '1';
 
-        setViewMode(nextView === 'table' ? 'list' : isSavedViewMode(nextView) ? nextView : 'kanban');
+        setViewMode(nextView === 'table' ? 'list' : isSavedViewMode(nextView) ? nextView : isSavedViewMode(rememberedView) ? rememberedView : 'kanban');
         setSearchQuery(nextSearchQuery);
         setSelectedTags(nextSelectedTags);
         setHideCompleted(nextHideCompleted);
-        }, [searchParamsKey]);
+        }, [rememberedViewKey, searchParamsKey]);
+
+    useEffect(() => {
+        window.localStorage.setItem(rememberedViewKey, viewMode);
+    }, [rememberedViewKey, viewMode]);
 
     useEffect(() => {
 		const params = new URLSearchParams(searchParamsKey);
@@ -160,41 +203,99 @@ export default function ProjectDetailPage() {
         }
     }, [hideCompleted, pathname, router, searchParamsKey, searchQuery, selectedTags, viewMode]);
 
+    const resolveTaskByKey = useCallback(async (taskKey: string) => {
+        if (!project || !taskKey) return;
+        try {
+            const response = await db.getTaskByKey(project.id, taskKey);
+            const task = response.task;
+            if (!task) {
+                setSelectedTask(null);
+                return;
+            }
+
+            if (task.isEncrypted && privateKey && user) {
+                try {
+                    const access = await db.getAccessKey(project.id);
+                    if (access) {
+                        const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                        const titleData = JSON.parse(task.title);
+                        task.title = await decryptData(titleData, docKey);
+                        if (task.description) {
+                            const descData = JSON.parse(task.description);
+                            task.description = await decryptData(descData, docKey);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to decrypt selected task:', error);
+                }
+            }
+
+            setSelectedTask(task);
+        } catch (error) {
+            console.error(error);
+            setSelectedTask(null);
+        }
+    }, [project, privateKey, user]);
+
     useEffect(() => {
         if (!id) return;
 
-        const handleRefresh = () => {
-            void fetchProjectTasks();
-        };
+        const handleRefresh = () => refreshProjectWorkspace();
 
         window.addEventListener('refresh-tasks', handleRefresh);
 
         const unsubscribe = wsClient.subscribe((event: WSEvent) => {
-            if (event.collection !== 'tasks') {
-                return;
+            if (event.collection === 'tasks') {
+                const payloads = (Array.isArray(event.document) ? event.document : [event.document]) as Task[];
+                if (!payloads.some((payload) => payload.projectId === id)) {
+                    return;
+                }
+
+                refreshProjectWorkspace();
+                if (openTaskKey && payloads.some((payload) => payload.taskKey === openTaskKey)) {
+                    void resolveTaskByKey(openTaskKey);
+                }
             }
 
-            const payload = event.document as unknown as Task;
-            if (payload.projectId !== id) {
-                return;
+            if (event.collection === 'project_task_statuses') {
+                void fetchTaskStatuses();
             }
 
-            void fetchProjectTasks();
+            if (['task_assignees', 'task_comments', 'task_activity', 'project_files'].includes(event.collection)) {
+                const payload = event.document as { taskId?: string };
+                if (payload.taskId && timeReportTasks.some((task) => task.id === payload.taskId)) {
+                    refreshProjectWorkspace();
+                    if (openTaskKey) {
+                        void resolveTaskByKey(openTaskKey);
+                    }
+                }
+            }
         });
 
         return () => {
             window.removeEventListener('refresh-tasks', handleRefresh);
             unsubscribe();
         };
-    }, [fetchProjectTasks, id]);
+    }, [fetchTaskStatuses, id, openTaskKey, refreshProjectWorkspace, resolveTaskByKey, timeReportTasks]);
+
+    useEffect(() => {
+        if (!project) return;
+        if (!openTaskKey) {
+            setSelectedTask(null);
+            return;
+        }
+        void resolveTaskByKey(openTaskKey);
+    }, [openTaskKey, project, resolveTaskByKey]);
 
     const availableTags = collectTaskTags(timeReportTasks);
     const mainTasks = timeReportTasks.filter((task) => !task.parentId);
+    const completedStatus = getCompletedStatus(taskStatuses);
+    const openStatus = getOpenStatus(taskStatuses);
     const taskStats = {
         total: mainTasks.length,
-        open: mainTasks.filter((task) => !task.completed && (task.kanbanStatus || 'todo') !== 'done').length,
+        open: mainTasks.filter((task) => !task.completed && (task.kanbanStatus || openStatus.key) !== completedStatus.key).length,
         progress: mainTasks.filter((task) => task.kanbanStatus === 'in-progress').length,
-        done: mainTasks.filter((task) => task.completed || task.kanbanStatus === 'done').length,
+        done: mainTasks.filter((task) => task.completed || task.kanbanStatus === completedStatus.key).length,
         dueSoon: mainTasks.filter((task) => task.deadline && !task.completed && new Date(task.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7).length,
     };
 
@@ -334,11 +435,29 @@ export default function ProjectDetailPage() {
 
     const handleAddTask = () => {
         if (viewMode === 'kanban') {
-            window.dispatchEvent(new CustomEvent('kanban-add-task', { detail: { column: 'todo' } }));
+            window.dispatchEvent(new CustomEvent('kanban-add-task', { detail: { column: openStatus.key } }));
         } else {
             window.dispatchEvent(new CustomEvent('list-add-task'));
         }
     };
+
+    const handleOpenTask = useCallback((task: Task) => {
+        setSelectedTask(task);
+        const params = new URLSearchParams(searchParamsKey);
+        params.set('task', task.taskKey);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, [pathname, router, searchParamsKey]);
+
+    const handleTaskPanelChange = useCallback((open: boolean) => {
+        if (open) {
+            return;
+        }
+        setSelectedTask(null);
+        const params = new URLSearchParams(searchParamsKey);
+        params.delete('task');
+        const nextHref = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        router.replace(nextHref, { scroll: false });
+    }, [pathname, router, searchParamsKey]);
 
     if (isLoading) {
         return <div className="p-8 flex items-center justify-center min-h-[50vh]"><Spinner size="lg" /></div>;
@@ -425,9 +544,6 @@ export default function ProjectDetailPage() {
                                         <Avatar size="sm" color="accent" variant="soft" className="border border-surface">
                                             <Avatar.Fallback>{(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}</Avatar.Fallback>
                                         </Avatar>
-                                        {project.role && (
-                                            <span className="pl-3 text-xs text-muted-foreground">You are {project.role}</span>
-                                        )}
                                     </div>
                                     <Dropdown>
                                         <Dropdown.Trigger>
@@ -442,6 +558,9 @@ export default function ProjectDetailPage() {
                                                 </Dropdown.Item>
                                                 <Dropdown.Item id="templates" textValue="Templates" onAction={() => setIsTemplateModalOpen(true)}>
                                                     <div className="flex items-center gap-2"><Sparkles size={13} /><Label className="cursor-pointer text-[13px]">Templates</Label></div>
+                                                </Dropdown.Item>
+                                                <Dropdown.Item id="workflow" textValue="Workflow" onAction={() => setIsWorkflowModalOpen(true)}>
+                                                    <div className="flex items-center gap-2"><Kanban size={13} /><Label className="cursor-pointer text-[13px]">Workflow</Label></div>
                                                 </Dropdown.Item>
                                                 <Dropdown.Item id="delete" textValue="Delete" variant="danger" onAction={() => setIsDeleteModalOpen(true)}>
                                                     <div className="flex items-center gap-2"><Trash2 size={13} /><Label className="cursor-pointer text-[13px]">Delete</Label></div>
@@ -507,31 +626,48 @@ export default function ProjectDetailPage() {
                                             className="h-8 w-full rounded-lg pl-8 text-[12px]"
                                         />
                                     </div>
-                                    <Button
-                                        variant={hideCompleted ? 'primary' : 'ghost'}
-                                        size="sm"
-                                        className={`h-8 px-2.5 rounded-lg text-[12px] font-medium ${hideCompleted ? '' : 'text-muted-foreground'}`}
-                                        onPress={() => setHideCompleted(!hideCompleted)}
-                                    >
-                                        <Filter size={12} />
-                                        {hideCompleted ? 'Pending' : 'All'}
-                                    </Button>
-                                    {[
-                                        { id: 'mine', label: 'My tasks' },
-                                        { id: 'unassigned', label: 'Unassigned' },
-                                        { id: 'due-soon', label: 'Due soon' },
-                                        { id: 'blocked', label: 'Blocked' },
-                                    ].map((filter) => (
-                                        <Button
-                                            key={filter.id}
-                                            variant={quickFilter === filter.id ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className={`h-8 rounded-lg px-2.5 text-[12px] ${quickFilter === filter.id ? '' : 'text-muted-foreground'}`}
-                                            onPress={() => setQuickFilter((current) => current === filter.id ? 'all' : filter.id as QuickFilter)}
-                                        >
-                                            {filter.label}
-                                        </Button>
-                                    ))}
+                                    <Dropdown>
+                                        <Dropdown.Trigger>
+                                            <Button
+                                                variant={quickFilter !== 'all' || hideCompleted ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="h-8 rounded-lg px-2.5 text-[12px] font-medium"
+                                            >
+                                                <Filter size={12} />
+                                                {hideCompleted ? 'Pending' : quickFilter === 'all' ? 'All tasks' : ({ mine: 'My tasks', unassigned: 'Unassigned', 'due-soon': 'Due soon', blocked: 'Blocked' }[quickFilter])}
+                                                <ChevronDown size={12} />
+                                            </Button>
+                                        </Dropdown.Trigger>
+                                        <Dropdown.Popover placement="bottom start">
+                                            <Dropdown.Menu>
+                                                {[
+                                                    { id: 'all', label: 'All tasks' },
+                                                    { id: 'mine', label: 'My tasks' },
+                                                    { id: 'unassigned', label: 'Unassigned' },
+                                                    { id: 'due-soon', label: 'Due soon' },
+                                                    { id: 'blocked', label: 'Blocked' },
+                                                    { id: 'pending', label: 'Pending only' },
+                                                ].map((filter) => (
+                                                    <Dropdown.Item
+                                                        key={filter.id}
+                                                        id={filter.id}
+                                                        textValue={filter.label}
+                                                        onAction={() => {
+                                                            if (filter.id === 'pending') {
+                                                                setQuickFilter('all');
+                                                                setHideCompleted(true);
+                                                            } else {
+                                                                setQuickFilter(filter.id as QuickFilter);
+                                                                setHideCompleted(false);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Label className="text-[13px]">{filter.label}</Label>
+                                                    </Dropdown.Item>
+                                                ))}
+                                            </Dropdown.Menu>
+                                        </Dropdown.Popover>
+                                    </Dropdown>
                                     <Dropdown>
                                         <Dropdown.Trigger>
                                             <Button
@@ -631,18 +767,54 @@ export default function ProjectDetailPage() {
 
                         <Card.Content className="px-4 py-4">
                     {viewMode === 'list' && (
-                        <TaskList projectId={project.id} hideHeader searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
+                        <TaskList
+                            projectId={project.id}
+                            hideHeader
+                            searchQuery={searchQuery}
+                            selectedTags={selectedTags}
+                            hideCompleted={hideCompleted}
+                            quickFilter={quickFilter}
+                            statusOptions={taskStatuses}
+                            refreshToken={taskRefreshToken}
+                            onOpenTask={handleOpenTask}
+                        />
                     )}
                     {viewMode === 'kanban' && (
-                        <KanbanBoard projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} quickFilter={quickFilter} />
+                        <KanbanBoard
+                            projectId={project.id}
+                            searchQuery={searchQuery}
+                            selectedTags={selectedTags}
+                            hideCompleted={hideCompleted}
+                            quickFilter={quickFilter}
+                            statusOptions={taskStatuses}
+                            refreshToken={taskRefreshToken}
+                            onOpenTask={handleOpenTask}
+                        />
                     )}
                     {viewMode === 'timeline' && (
-                        <TimelineView projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} />
+                        <TimelineView
+                            projectId={project.id}
+                            searchQuery={searchQuery}
+                            selectedTags={selectedTags}
+                            hideCompleted={hideCompleted}
+                            statusOptions={taskStatuses}
+                            refreshToken={taskRefreshToken}
+                            onOpenTask={handleOpenTask}
+                        />
                     )}
                     {viewMode === 'calendar' && (
-                                <div className="mx-auto max-w-md py-4">
+                                <div className="py-4">
                                     <div className="rounded-xl border border-border bg-surface-secondary/40 p-5">
-                                <TaskCalendar projectId={project.id} searchQuery={searchQuery} selectedTags={selectedTags} hideCompleted={hideCompleted} onUpdate={() => { fetchProject(); void fetchProjectTasks(); }} />
+                                <TaskCalendar
+                                    projectId={project.id}
+                                    searchQuery={searchQuery}
+                                    selectedTags={selectedTags}
+                                    hideCompleted={hideCompleted}
+                                    statusOptions={taskStatuses}
+                                    refreshToken={taskRefreshToken}
+                                    onOpenTask={handleOpenTask}
+                                    onUpdate={refreshProjectWorkspace}
+                                />
                             </div>
                         </div>
                     )}
@@ -715,6 +887,16 @@ export default function ProjectDetailPage() {
 
             <ProjectModal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} onSubmit={handleUpdate} project={project} />
             <TemplateModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onApply={handleApplyTemplate} />
+            <TaskWorkflowModal
+                isOpen={isWorkflowModalOpen}
+                onClose={() => setIsWorkflowModalOpen(false)}
+                projectId={project.id}
+                statuses={taskStatuses}
+                onChange={() => {
+                    void fetchTaskStatuses();
+                    void fetchProjectTasks();
+                }}
+            />
             <DeleteModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
@@ -722,6 +904,22 @@ export default function ProjectDetailPage() {
                 title="Archive Project"
                 message={`Are you sure you want to archive "${project.name}"? This will move it from the active pipeline.`}
             />
+            {selectedTask && (
+                <TaskDetailModal
+                    isOpen={!!selectedTask}
+                    onOpenChange={handleTaskPanelChange}
+                    task={selectedTask}
+                    projectId={project.id}
+                    statusOptions={taskStatuses}
+                    onUpdate={() => {
+                        refreshProjectWorkspace();
+                        void fetchTaskStatuses();
+                        if (openTaskKey) {
+                            void resolveTaskByKey(openTaskKey);
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 }

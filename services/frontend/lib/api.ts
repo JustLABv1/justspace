@@ -126,6 +126,10 @@ export const api = {
         return request(`/api/projects/${projectId}/tasks`);
     },
 
+    async getTaskByKey<T>(projectId: string, taskKey: string): Promise<{ task: T | null }> {
+        return request(`/api/projects/${projectId}/tasks/by-key/${encodeURIComponent(taskKey)}`);
+    },
+
     async createTask<T>(data: Record<string, unknown>): Promise<T> {
         return request('/api/tasks', {
             method: 'POST',
@@ -147,8 +151,47 @@ export const api = {
         });
     },
 
+    async reorderTasks<T>(projectId: string, updates: Record<string, unknown>[]): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/tasks/reorder`, {
+            method: 'PUT',
+            body: JSON.stringify({ updates }),
+        });
+    },
+
     async deleteTask(id: string): Promise<void> {
         return request(`/api/tasks/${id}`, { method: 'DELETE' });
+    },
+
+    async listProjectTaskStatuses<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/task-statuses`);
+    },
+
+    async createProjectTaskStatus<T>(projectId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${projectId}/task-statuses`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateProjectTaskStatus<T>(projectId: string, statusId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${projectId}/task-statuses/${statusId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteProjectTaskStatus(projectId: string, statusId: string, replacementStatusId: string): Promise<void> {
+        return request(`/api/projects/${projectId}/task-statuses/${statusId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ replacementStatusId }),
+        });
+    },
+
+    async reorderProjectTaskStatuses<T>(projectId: string, statusIds: string[]): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/task-statuses/reorder`, {
+            method: 'PUT',
+            body: JSON.stringify({ statusIds }),
+        });
     },
 
     // Wiki

@@ -3,9 +3,9 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
-import { mergeUserPreferences, parseUserPreferences } from '@/services/frontend/lib/preferences';
+import { DEFAULT_TASK_STATUS_TEMPLATES, mergeUserPreferences, parseUserPreferences, WorkspaceTaskStatusTemplate } from '@/services/frontend/lib/preferences';
 import { promptForPwaInstall, usePwaInstallState } from '@/services/frontend/lib/pwa';
-import { Button, Form, toast } from '@heroui/react';
+import { Button, Checkbox, Form, Input, Label, ListBox, Select, Surface, toast } from '@heroui/react';
 import {
     Bell,
     CheckCircle,
@@ -15,6 +15,7 @@ import {
     Loader2,
     Moon,
     Palette,
+    Plus,
     RefreshCw,
     Save,
     Settings,
@@ -67,6 +68,7 @@ function SettingsContent() {
     // Core states
     const [userName, setUserName] = useState('');
     const [workspaceName, setWorkspaceName] = useState('');
+    const [taskStatusTemplates, setTaskStatusTemplates] = useState<WorkspaceTaskStatusTemplate[]>(DEFAULT_TASK_STATUS_TEMPLATES);
     const [remindersEnabled, setRemindersEnabled] = useState(false);
     const [reminderLeadTime, setReminderLeadTime] = useState(15);
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
@@ -76,6 +78,7 @@ function SettingsContent() {
             setUserName(user.name || '');
             const prefs = parseUserPreferences(user.preferences);
             setWorkspaceName(prefs.workspaceName);
+            setTaskStatusTemplates(prefs.taskStatusTemplates);
             setRemindersEnabled(prefs.reminders.enabled);
             setReminderLeadTime(prefs.reminders.minutesBefore);
         }
@@ -144,8 +147,9 @@ function SettingsContent() {
     const handleSaveChanges = async () => {
         setIsSubmitting(true);
         try {
-            const preferences = mergeUserPreferences(user?.preferences, {
+			const preferences = mergeUserPreferences(user?.preferences, {
 				workspaceName,
+                taskStatusTemplates,
 				reminders: {
 					enabled: remindersEnabled,
 					minutesBefore: reminderLeadTime,
@@ -284,6 +288,38 @@ function SettingsContent() {
         } finally {
             setIsMigrating(false);
         }
+    };
+
+    const updateTemplate = (index: number, patch: Partial<WorkspaceTaskStatusTemplate>) => {
+        setTaskStatusTemplates((current) => current.map((template, currentIndex) => currentIndex === index ? { ...template, ...patch } : template));
+    };
+
+    const addStatusTemplate = () => {
+        setTaskStatusTemplates((current) => [
+            ...current,
+            {
+                key: `status-${current.length + 1}`,
+                label: `Status ${current.length + 1}`,
+                colorToken: 'accent',
+                isCompletedState: false,
+                isBuiltin: false,
+            },
+        ]);
+    };
+
+    const moveStatusTemplate = (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= taskStatusTemplates.length) {
+            return;
+        }
+        const next = [...taskStatusTemplates];
+        const [moved] = next.splice(index, 1);
+        next.splice(targetIndex, 0, moved);
+        setTaskStatusTemplates(next);
+    };
+
+    const removeStatusTemplate = (index: number) => {
+        setTaskStatusTemplates((current) => current.filter((_, currentIndex) => currentIndex !== index));
     };
 
     const menuItems = [
@@ -432,6 +468,89 @@ function SettingsContent() {
                                         )}
                                     </div>
                                 </div>
+
+                                <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                            <h4 className="text-sm font-medium text-foreground">Workspace task status template</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">New projects copy these statuses as their initial workflow.</p>
+                                        </div>
+                                        <Button variant="secondary" className="h-8 rounded-xl px-3 text-[12px] font-medium" onPress={addStatusTemplate}>
+                                            <Plus size={12} className="mr-1.5" />
+                                            Add status
+                                        </Button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {taskStatusTemplates.map((template, index) => (
+                                            <Surface key={`${template.key}-${index}`} variant="default" className="rounded-xl border border-border p-3">
+                                                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,0.55fr)] lg:grid-cols-[minmax(0,1fr)_minmax(180px,0.6fr)_auto_auto] lg:items-end">
+                                                    <div className="flex min-w-0 flex-col gap-1.5">
+                                                        <Label className="text-xs font-medium text-muted-foreground">Label</Label>
+                                                        <Input
+                                                            variant="secondary"
+                                                            className="h-9 rounded-xl text-sm"
+                                                            fullWidth
+                                                            value={template.label}
+                                                            onChange={(event) => updateTemplate(index, { label: event.target.value })}
+                                                        />
+                                                    </div>
+                                                    <Select
+                                                        selectedKey={template.colorToken}
+                                                        onSelectionChange={(key) => updateTemplate(index, { colorToken: String(key) as WorkspaceTaskStatusTemplate['colorToken'] })}
+                                                        variant="secondary"
+                                                        className="flex min-w-0 flex-col gap-1.5"
+                                                    >
+                                                        <Label className="text-xs font-medium text-muted-foreground">Color</Label>
+                                                        <Select.Trigger className="h-9 w-full rounded-xl">
+                                                            <Select.Value />
+                                                            <Select.Indicator />
+                                                        </Select.Trigger>
+                                                        <Select.Popover>
+                                                            <ListBox>
+                                                                <ListBox.Item id="default" textValue="Neutral">Neutral</ListBox.Item>
+                                                                <ListBox.Item id="accent" textValue="Accent">Accent</ListBox.Item>
+                                                                <ListBox.Item id="warning" textValue="Warning">Warning</ListBox.Item>
+                                                                <ListBox.Item id="danger" textValue="Risk">Risk</ListBox.Item>
+                                                                <ListBox.Item id="success" textValue="Done">Done</ListBox.Item>
+                                                            </ListBox>
+                                                        </Select.Popover>
+                                                    </Select>
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <span className="text-xs font-medium text-muted-foreground">Completion</span>
+                                                        <Checkbox
+                                                            isSelected={template.isCompletedState}
+                                                            onChange={(isSelected) => updateTemplate(index, { isCompletedState: isSelected })}
+                                                            variant="secondary"
+                                                            className="h-9 text-xs"
+                                                        >
+                                                            <Checkbox.Content>
+                                                                <Checkbox.Control className="rounded-md">
+                                                                    <Checkbox.Indicator />
+                                                                </Checkbox.Control>
+                                                                <Label className="text-xs text-muted-foreground">Completed</Label>
+                                                            </Checkbox.Content>
+                                                        </Checkbox>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <span className="text-xs font-medium text-muted-foreground">Order</span>
+                                                        <div className="flex h-9 items-center gap-1">
+                                                            <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg" onPress={() => moveStatusTemplate(index, 'up')} isDisabled={index === 0} aria-label="Move status up">
+                                                                ↑
+                                                            </Button>
+                                                            <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg" onPress={() => moveStatusTemplate(index, 'down')} isDisabled={index === taskStatusTemplates.length - 1} aria-label="Move status down">
+                                                                ↓
+                                                            </Button>
+                                                            <Button variant="ghost" className="h-8 rounded-lg px-2 text-[12px] text-danger" onPress={() => removeStatusTemplate(index)} isDisabled={template.isBuiltin}>
+                                                                Remove
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Surface>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -478,15 +597,14 @@ function SettingsContent() {
                                             <h4 className="text-sm font-medium text-foreground">Task reminders</h4>
                                             <p className="text-xs text-muted-foreground mt-0.5">Check upcoming deadlines every minute and raise a reminder before they are due.</p>
                                         </div>
-                                        <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                                            <input
-                                                type="checkbox"
-                                                className="h-4 w-4 rounded border-border"
-                                                checked={remindersEnabled}
-                                                onChange={(event) => setRemindersEnabled(event.target.checked)}
-                                            />
-                                            Enabled
-                                        </label>
+                                        <Checkbox isSelected={remindersEnabled} onChange={setRemindersEnabled} variant="secondary">
+                                            <Checkbox.Content>
+                                                <Checkbox.Control className="rounded-md">
+                                                    <Checkbox.Indicator />
+                                                </Checkbox.Control>
+                                                <Label className="text-sm text-foreground">Enabled</Label>
+                                            </Checkbox.Content>
+                                        </Checkbox>
                                     </div>
 
                                     <div className="space-y-1.5">

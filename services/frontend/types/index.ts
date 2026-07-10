@@ -4,11 +4,26 @@ export interface Project {
     name: string;
     description: string;
     status: 'todo' | 'in-progress' | 'completed' | 'archived';
+    taskKeyPrefix: string;
+    taskKeyPrefixLocked?: boolean;
     daysPerWeek?: number;
     allocatedDays?: number;
     isEncrypted?: boolean;
     role?: 'owner' | 'admin' | 'editor' | 'viewer';
     createdAt: string;
+}
+
+export interface ProjectTaskStatus {
+    id: string;
+    projectId: string;
+    key: string;
+    label: string;
+    colorToken: 'default' | 'accent' | 'warning' | 'danger' | 'success';
+    position: number;
+    isCompletedState: boolean;
+    isBuiltin: boolean;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface ProjectMember {
@@ -61,6 +76,8 @@ export interface ProjectFile {
 export interface Task {
     id: string;
     projectId: string;
+    taskNumber?: number;
+    taskKey: string;
     title: string;
     description: string;
     completed: boolean;
@@ -72,7 +89,7 @@ export interface Task {
     order?: number;
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     timeEntries?: string[]; // Array of JSON stringified entries { date: string, seconds: number }
-    kanbanStatus?: 'todo' | 'in-progress' | 'review' | 'waiting' | 'done';
+    kanbanStatus?: string;
     notes?: string[]; // Array of JSON stringified entries { date: string, text: string, type: 'note' | 'email' | 'call' }
     tags?: string[];
     deadline?: string | null; // ISO date string

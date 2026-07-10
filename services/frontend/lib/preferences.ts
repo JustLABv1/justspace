@@ -1,5 +1,13 @@
 export type SavedViewMode = 'list' | 'kanban' | 'timeline' | 'calendar';
 
+export interface WorkspaceTaskStatusTemplate {
+	key: string;
+	label: string;
+	colorToken: 'default' | 'accent' | 'warning' | 'danger' | 'success';
+	isCompletedState: boolean;
+	isBuiltin: boolean;
+}
+
 export interface ReminderPreferences {
 	enabled: boolean;
 	minutesBefore: number;
@@ -20,7 +28,16 @@ export interface WorkspacePreferences {
 	workspaceName: string;
 	reminders: ReminderPreferences;
 	savedViews: SavedProjectView[];
+	taskStatusTemplates: WorkspaceTaskStatusTemplate[];
 }
+
+export const DEFAULT_TASK_STATUS_TEMPLATES: WorkspaceTaskStatusTemplate[] = [
+	{ key: 'todo', label: 'Todo', colorToken: 'default', isCompletedState: false, isBuiltin: true },
+	{ key: 'in-progress', label: 'In progress', colorToken: 'accent', isCompletedState: false, isBuiltin: true },
+	{ key: 'review', label: 'Review', colorToken: 'warning', isCompletedState: false, isBuiltin: true },
+	{ key: 'waiting', label: 'Blocked', colorToken: 'danger', isCompletedState: false, isBuiltin: true },
+	{ key: 'done', label: 'Done', colorToken: 'success', isCompletedState: true, isBuiltin: true },
+];
 
 const DEFAULT_PREFERENCES: WorkspacePreferences = {
 	workspaceName: 'justspace',
@@ -29,6 +46,7 @@ const DEFAULT_PREFERENCES: WorkspacePreferences = {
 		minutesBefore: 15,
 	},
 	savedViews: [],
+	taskStatusTemplates: DEFAULT_TASK_STATUS_TEMPLATES,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -39,6 +57,7 @@ export function parseUserPreferences(preferences?: Record<string, unknown> | nul
 	const source = isRecord(preferences) ? preferences : {};
 	const remindersSource = isRecord(source.reminders) ? source.reminders : {};
 	const savedViewsSource = Array.isArray(source.savedViews) ? source.savedViews : [];
+	const taskStatusTemplatesSource = Array.isArray(source.taskStatusTemplates) ? source.taskStatusTemplates : [];
 
 	return {
 		workspaceName: typeof source.workspaceName === 'string' && source.workspaceName.trim()
@@ -65,6 +84,26 @@ export function parseUserPreferences(preferences?: Record<string, unknown> | nul
 				createdAt: typeof view.createdAt === 'string' ? view.createdAt : new Date().toISOString(),
 			}))
 			.filter((view) => view.projectId),
+		taskStatusTemplates: taskStatusTemplatesSource
+			.filter(isRecord)
+			.map((template, index): WorkspaceTaskStatusTemplate => ({
+				key: typeof template.key === 'string' && template.key.trim() ? template.key : `status-${index + 1}`,
+				label: typeof template.label === 'string' && template.label.trim() ? template.label : `Status ${index + 1}`,
+				colorToken: (
+					template.colorToken === 'accent' ||
+					template.colorToken === 'warning' ||
+					template.colorToken === 'danger' ||
+					template.colorToken === 'success'
+				) ? template.colorToken : 'default' as WorkspaceTaskStatusTemplate['colorToken'],
+				isCompletedState: template.isCompletedState === true,
+				isBuiltin: template.isBuiltin === true,
+			}))
+			.filter((template) => template.label.trim())
+			.concat(
+				taskStatusTemplatesSource.length > 0
+					? []
+					: DEFAULT_TASK_STATUS_TEMPLATES
+			),
 	};
 }
 
@@ -81,6 +120,7 @@ export function mergeUserPreferences(
 			...(patch.reminders || {}),
 		},
 		savedViews: patch.savedViews ?? parsed.savedViews,
+		taskStatusTemplates: patch.taskStatusTemplates ?? parsed.taskStatusTemplates,
 	};
 }
 

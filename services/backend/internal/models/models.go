@@ -16,17 +16,19 @@ type User struct {
 }
 
 type Project struct {
-	ID            string    `json:"id"`
-	UserID        string    `json:"userId"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	Status        string    `json:"status"`
-	DaysPerWeek   *float64  `json:"daysPerWeek"`
-	AllocatedDays *int      `json:"allocatedDays"`
-	IsEncrypted   bool      `json:"isEncrypted"`
-	Role          *string   `json:"role,omitempty"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID                  string    `json:"id"`
+	UserID              string    `json:"userId"`
+	Name                string    `json:"name"`
+	Description         string    `json:"description"`
+	Status              string    `json:"status"`
+	TaskKeyPrefix       string    `json:"taskKeyPrefix"`
+	TaskKeyPrefixLocked bool      `json:"taskKeyPrefixLocked"`
+	DaysPerWeek         *float64  `json:"daysPerWeek"`
+	AllocatedDays       *int      `json:"allocatedDays"`
+	IsEncrypted         bool      `json:"isEncrypted"`
+	Role                *string   `json:"role,omitempty"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
 type ProjectMember struct {
@@ -73,6 +75,8 @@ type Task struct {
 	ID             string          `json:"id"`
 	UserID         string          `json:"userId"`
 	ProjectID      string          `json:"projectId"`
+	TaskNumber     *int            `json:"taskNumber,omitempty"`
+	TaskKey        string          `json:"taskKey"`
 	Title          string          `json:"title"`
 	Description    string          `json:"description"`
 	Completed      bool            `json:"completed"`
@@ -92,6 +96,19 @@ type Task struct {
 	IsEncrypted    bool            `json:"isEncrypted"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
+}
+
+type ProjectTaskStatus struct {
+	ID               string    `json:"id"`
+	ProjectID        string    `json:"projectId"`
+	Key              string    `json:"key"`
+	Label            string    `json:"label"`
+	ColorToken       string    `json:"colorToken"`
+	Position         int       `json:"position"`
+	IsCompletedState bool      `json:"isCompletedState"`
+	IsBuiltin        bool      `json:"isBuiltin"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 type TaskAssignee struct {
@@ -250,6 +267,7 @@ type CreateProjectRequest struct {
 	Name          string   `json:"name"`
 	Description   string   `json:"description"`
 	Status        string   `json:"status"`
+	TaskKeyPrefix string   `json:"taskKeyPrefix"`
 	DaysPerWeek   *float64 `json:"daysPerWeek"`
 	AllocatedDays *int     `json:"allocatedDays"`
 	IsEncrypted   bool     `json:"isEncrypted"`
@@ -259,6 +277,7 @@ type UpdateProjectRequest struct {
 	Name          *string  `json:"name,omitempty"`
 	Description   *string  `json:"description,omitempty"`
 	Status        *string  `json:"status,omitempty"`
+	TaskKeyPrefix *string  `json:"taskKeyPrefix,omitempty"`
 	DaysPerWeek   *float64 `json:"daysPerWeek,omitempty"`
 	AllocatedDays *int     `json:"allocatedDays,omitempty"`
 	IsEncrypted   *bool    `json:"isEncrypted,omitempty"`
@@ -334,6 +353,41 @@ type UpdateTaskRequest struct {
 	Recurrence     *string          `json:"recurrence,omitempty"`
 	IsEncrypted    *bool            `json:"isEncrypted,omitempty"`
 	WorkDuration   *string          `json:"workDuration,omitempty"`
+}
+
+type CreateProjectTaskStatusRequest struct {
+	Label            string `json:"label"`
+	ColorToken       string `json:"colorToken"`
+	IsCompletedState bool   `json:"isCompletedState"`
+}
+
+type UpdateProjectTaskStatusRequest struct {
+	Label            *string `json:"label,omitempty"`
+	ColorToken       *string `json:"colorToken,omitempty"`
+	IsCompletedState *bool   `json:"isCompletedState,omitempty"`
+}
+
+type ReorderProjectTaskStatusesRequest struct {
+	StatusIDs []string `json:"statusIds"`
+}
+
+type DeleteProjectTaskStatusRequest struct {
+	ReplacementStatusID string `json:"replacementStatusId"`
+}
+
+type GetTaskByKeyResponse struct {
+	Task *Task `json:"task"`
+}
+
+type UpdateTaskRequestWithID struct {
+	ID           string  `json:"id"`
+	KanbanStatus *string `json:"kanbanStatus,omitempty"`
+	Completed    *bool   `json:"completed,omitempty"`
+	Order        *int    `json:"order,omitempty"`
+}
+
+type ReorderProjectTasksRequest struct {
+	Updates []UpdateTaskRequestWithID `json:"updates"`
 }
 
 type CreateTaskCommentRequest struct {

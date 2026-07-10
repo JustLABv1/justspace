@@ -120,7 +120,13 @@ export const SnippetDetailModal = ({ isOpen, onClose, snippet }: SnippetDetailMo
                                             <div key={block.id} className="relative group/block animate-in fade-in slide-in-from-bottom-4 duration-500">
                                                 {/* Multi-select checkbox */}
                                                 <div className="absolute -left-12 top-4 opacity-0 group-hover/block:opacity-100 transition-opacity duration-300 z-10">
-                                                    <Checkbox value={block.id} aria-label={`Select block ${block.id}`} />
+                                                    <Checkbox value={block.id} aria-label={`Select block ${block.id}`}>
+                                                        <Checkbox.Content>
+                                                            <Checkbox.Control>
+                                                                <Checkbox.Indicator />
+                                                            </Checkbox.Control>
+                                                        </Checkbox.Content>
+                                                    </Checkbox>
                                                 </div>
 
                                                 {/* Selection ring wrapper */}

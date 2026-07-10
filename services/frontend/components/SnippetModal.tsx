@@ -176,9 +176,11 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                         isDisabled={!hasVault || (snippet?.isEncrypted)}
                                         aria-label="Toggle encryption"
                                     >
-                                        <Switch.Control>
-                                            <Switch.Thumb />
-                                        </Switch.Control>
+                                        <Switch.Content>
+                                            <Switch.Control>
+                                                <Switch.Thumb />
+                                            </Switch.Control>
+                                        </Switch.Content>
                                     </Switch>
                                 </div>
 

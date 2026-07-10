@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -87,6 +88,25 @@ func (h *TaskHandler) ListByProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, models.ListResponse[models.Task]{Total: len(tasks), Documents: tasks})
 }
 
+func (h *TaskHandler) GetByKey(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	taskKey := chi.URLParam(r, "taskKey")
+	if !ensureProjectAccess(w, r, h.repo, projectID, userID) {
+		return
+	}
+	task, err := h.repo.GetTaskByKey(r.Context(), projectID, taskKey, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get task")
+		return
+	}
+	if task == nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, models.GetTaskByKeyResponse{Task: task})
+}
+
 func (h *TaskHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
 	limit := 100
@@ -116,6 +136,10 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	task, err := h.repo.CreateTask(r.Context(), userID, req)
 	if err != nil {
 		log.Printf("CreateTask error: %v", err)
+		if strings.Contains(err.Error(), "unknown task status") {
+			writeError(w, http.StatusBadRequest, "unknown task status")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create task")
 		return
 	}
@@ -190,6 +214,19 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.KanbanStatus != nil {
+		status, err := h.repo.GetProjectTaskStatusByKey(r.Context(), existingTask.ProjectID, *req.KanbanStatus)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to validate task status")
+			return
+		}
+		if status == nil {
+			writeError(w, http.StatusBadRequest, "unknown task status")
+			return
+		}
+		completed := status.IsCompletedState
+		req.Completed = &completed
+	}
 
 	task, err := h.repo.UpdateTask(r.Context(), id, userID, req)
 	if err != nil {
@@ -226,6 +263,48 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
 	writeJSON(w, http.StatusOK, task)
+}
+
+func (h *TaskHandler) Reorder(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.ReorderProjectTasksRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	for index := range req.Updates {
+		update := &req.Updates[index]
+		if update.KanbanStatus != nil {
+			status, err := h.repo.GetProjectTaskStatusByKey(r.Context(), projectID, *update.KanbanStatus)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to validate task status")
+				return
+			}
+			if status == nil {
+				writeError(w, http.StatusBadRequest, "unknown task status")
+				return
+			}
+			completed := status.IsCompletedState
+			update.Completed = &completed
+		}
+	}
+	if err := h.repo.ReorderProjectTasks(r.Context(), projectID, req.Updates); err != nil {
+		log.Printf("ReorderTasks error: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to reorder tasks")
+		return
+	}
+	tasks, err := h.repo.ListTasks(r.Context(), projectID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list tasks")
+		return
+	}
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "tasks", Document: tasks, UserID: userID})
+	writeJSON(w, http.StatusOK, models.ListResponse[models.Task]{Total: len(tasks), Documents: tasks})
 }
 
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {

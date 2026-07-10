@@ -4,14 +4,13 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
-import { Project, Task } from '@/services/frontend/types';
+import { Project, ProjectTaskStatus, Task } from '@/services/frontend/types';
 import { Button, Calendar } from '@heroui/react';
 import type { CalendarDate } from '@internationalized/date';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { CheckCircle2, Clock } from 'lucide-react';
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
-import { TaskDetailModal } from './TaskDetailModal';
 
 interface TaskCalendarProps {
     tasks?: Task[];
@@ -20,17 +19,19 @@ interface TaskCalendarProps {
     searchQuery?: string;
     selectedTags?: string[];
     hideCompleted?: boolean;
+    statusOptions?: ProjectTaskStatus[];
+    refreshToken?: number;
+    onOpenTask?: (task: Task) => void;
     onUpdate?: () => void;
 }
 
 const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
-export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searchQuery = '', selectedTags = [], hideCompleted = false, onUpdate }: TaskCalendarProps) {
+export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searchQuery = '', selectedTags = [], hideCompleted = false, refreshToken, onOpenTask, onUpdate: _onUpdate }: TaskCalendarProps) {
     const [fetchedTasks, setFetchedTasks] = useState<Task[]>([]);
     const [selectedDate, setSelectedDate] = useState<CalendarDate | null>(() => {
         try { return parseDate(dayjs().format('YYYY-MM-DD')); } catch { return null; }
     });
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const { privateKey, user } = useAuth();
 
     const tasks = propTasks ?? fetchedTasks;
@@ -79,7 +80,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
     useEffect(() => {
         if (propTasks || !projectId) return;
         loadFetchedTasks();
-    }, [projectId, propTasks]);
+    }, [projectId, propTasks, refreshToken]);
 
     const visibleTasks = useMemo(() => {
         return tasks.filter(task => {
@@ -138,14 +139,6 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
         setSelectedDate(date);
     };
 
-    const handleTaskUpdated = () => {
-        setSelectedTask(null);
-        onUpdate?.();
-        if (projectId && !propTasks) {
-            fetchAndDecryptTasks();
-        }
-    };
-
     const getTaskPriorityColor = (task: Task) => {
         const now = dayjs();
         if (task.deadline && dayjs(task.deadline).isBefore(now, 'day')) return 'bg-danger';
@@ -174,142 +167,135 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
     }, [visibleTasks]);
 
     return (
-        <div className="space-y-3">
-            {/* Legend */}
-            <div className="flex items-center gap-3 px-0.5">
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="w-1.5 h-1.5 rounded-full bg-danger inline-block" /> Overdue
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block" /> Due soon
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" /> Scheduled
-                </span>
-                {upcomingCount > 0 && (
-                    <span className="ml-auto text-[11px] text-muted-foreground">
-                        {upcomingCount} in 7d
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+            <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
+                <div className="flex items-center gap-3 px-0.5">
+                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-danger inline-block" /> Overdue
                     </span>
-                )}
+                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block" /> Due soon
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" /> Scheduled
+                    </span>
+                    {upcomingCount > 0 && (
+                        <span className="ml-auto text-[11px] text-muted-foreground">
+                            {upcomingCount} in 7d
+                        </span>
+                    )}
+                </div>
+
+                <Calendar
+                    aria-label="Task schedule"
+                    value={selectedDate}
+                    onChange={handleDateChange}
+                    className="w-full max-w-none"
+                >
+                    <Calendar.Header className="mb-3 flex items-center justify-between">
+                        <Calendar.Heading className="text-[13px] font-semibold text-foreground" />
+                        <div className="flex gap-1">
+                            <Calendar.NavButton
+                                slot="previous"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-secondary text-muted-foreground transition-all hover:bg-accent hover:text-white"
+                            />
+                            <Calendar.NavButton
+                                slot="next"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-secondary text-muted-foreground transition-all hover:bg-accent hover:text-white"
+                            />
+                        </div>
+                    </Calendar.Header>
+                    <Calendar.Grid className="w-full">
+                        <Calendar.GridHeader>
+                            {(day) => (
+                                <Calendar.HeaderCell className="pb-2 text-center text-[11px] font-medium text-muted-foreground/60">
+                                    {day.slice(0, 2)}
+                                </Calendar.HeaderCell>
+                            )}
+                        </Calendar.GridHeader>
+                        <Calendar.GridBody>
+                            {(date) => {
+                                const dateStr = date.toString();
+                                const variant = getDateVariant(dateStr);
+                                return (
+                                    <Calendar.Cell
+                                        date={date}
+                                        className="mx-auto aspect-square w-full max-w-[3.2rem] rounded-xl text-[13px] transition-all hover:bg-accent/10 data-[outside-month=true]:opacity-30 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:ring-1 data-[today=true]:ring-accent/40"
+                                        aria-label={dateStr}
+                                    >
+                                        {({ formattedDate }) => (
+                                            <>
+                                                {formattedDate}
+                                                {variant && (
+                                                    <Calendar.CellIndicator
+                                                        className={indicatorClass(variant)}
+                                                    />
+                                                )}
+                                            </>
+                                        )}
+                                    </Calendar.Cell>
+                                );
+                            }}
+                        </Calendar.GridBody>
+                    </Calendar.Grid>
+                </Calendar>
             </div>
 
-            {/* Calendar */}
-            <Calendar
-                aria-label="Task schedule"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="w-full"
-            >
-                <Calendar.Header className="flex items-center justify-between mb-3">
-                    <Calendar.Heading className="text-[13px] font-semibold text-foreground" />
-                    <div className="flex gap-1">
-                        <Calendar.NavButton
-                            slot="previous"
-                            className="h-7 w-7 rounded-lg bg-surface-secondary hover:bg-accent hover:text-white transition-all flex items-center justify-center text-muted-foreground"
-                        />
-                        <Calendar.NavButton
-                            slot="next"
-                            className="h-7 w-7 rounded-lg bg-surface-secondary hover:bg-accent hover:text-white transition-all flex items-center justify-center text-muted-foreground"
-                        />
-                    </div>
-                </Calendar.Header>
-                <Calendar.Grid>
-                    <Calendar.GridHeader>
-                        {(day) => (
-                            <Calendar.HeaderCell className="text-[11px] text-muted-foreground/60 pb-2 font-medium text-center">
-                                {day.slice(0, 2)}
-                            </Calendar.HeaderCell>
-                        )}
-                    </Calendar.GridHeader>
-                    <Calendar.GridBody>
-                        {(date) => {
-                            const dateStr = date.toString();
-                            const variant = getDateVariant(dateStr);
-                            return (
-                                <Calendar.Cell
-                                    date={date}
-                                    className="max-w-[2.75rem] w-full mx-auto aspect-square rounded-xl cursor-pointer transition-all hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-white data-[today=true]:ring-1 data-[today=true]:ring-accent/40 data-[outside-month=true]:opacity-30 text-[13px]"
-                                    aria-label={dateStr}
-                                >
-                                    {({ formattedDate }) => (
-                                        <>
-                                            {formattedDate}
-                                            {variant && (
-                                                <Calendar.CellIndicator
-                                                    className={indicatorClass(variant)}
-                                                />
+            <div className="space-y-3">
+                {selectedDate && (
+                    selectedTasks.length > 0 ? (
+                        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+                            <div className="flex items-center gap-2 border-b border-border bg-surface-secondary/50 px-3 py-2">
+                                <Clock size={11} className="shrink-0 text-muted-foreground" />
+                                <p className="text-[12px] font-semibold text-foreground">
+                                    {dayjs(selectedDateStr).format('ddd, MMM D')}
+                                </p>
+                                <span className="ml-auto text-[11px] text-muted-foreground">
+                                    {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            <div className="divide-y divide-border">
+                                {selectedTasks.map(task => {
+                                    const deadline = task.deadline ? formatDeadline(task.deadline) : null;
+                                    const project = projects.find(p => p.id === task.projectId);
+                                    return (
+                                        <Button
+                                            key={task.id}
+                                            variant="ghost"
+                                            className="group h-auto w-full justify-start gap-2.5 rounded-none px-3 py-2.5 text-left"
+                                            onPress={() => onOpenTask?.(task)}
+                                        >
+                                            <div className={`mt-px h-1.5 w-1.5 shrink-0 rounded-full ${getTaskPriorityColor(task)}`} />
+                                            <span className="flex-1 truncate text-[12px] text-foreground transition-colors group-hover:text-accent">
+                                                {task.title}
+                                            </span>
+                                            {project && (
+                                                <span className="max-w-[80px] shrink-0 truncate text-[11px] text-muted-foreground">
+                                                    {project.name}
+                                                </span>
                                             )}
-                                        </>
-                                    )}
-                                </Calendar.Cell>
-                            );
-                        }}
-                    </Calendar.GridBody>
-                </Calendar.Grid>
-            </Calendar>
-
-            {/* Tasks for selected date */}
-            {selectedDate && (
-                selectedTasks.length > 0 ? (
-                    <div className="rounded-xl border border-border bg-surface overflow-hidden">
-                        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary/50">
-                            <Clock size={11} className="text-muted-foreground shrink-0" />
-                            <p className="text-[12px] font-semibold text-foreground">
-                                {dayjs(selectedDateStr).format('ddd, MMM D')}
-                            </p>
-                            <span className="ml-auto text-[11px] text-muted-foreground">
-                                {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''}
-                            </span>
+                                            {deadline && (
+                                                <span className={`shrink-0 text-[11px] ${deadline.cls}`}>
+                                                    {deadline.label}
+                                                </span>
+                                            )}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
                         </div>
-                        <div className="divide-y divide-border">
-                            {selectedTasks.map(task => {
-                                const deadline = task.deadline ? formatDeadline(task.deadline) : null;
-                                const project = projects.find(p => p.id === task.projectId);
-                                return (
-                                    <Button
-                                        key={task.id}
-                                        variant="ghost"
-                                        className="h-auto w-full justify-start gap-2.5 rounded-none px-3 py-2.5 text-left group"
-                                        onPress={() => setSelectedTask(task)}
-                                    >
-                                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-px ${getTaskPriorityColor(task)}`} />
-                                        <span className="text-[12px] text-foreground truncate flex-1 group-hover:text-accent transition-colors">
-                                            {task.title}
-                                        </span>
-                                        {project && (
-                                            <span className="text-[11px] text-muted-foreground shrink-0 max-w-[80px] truncate">
-                                                {project.name}
-                                            </span>
-                                        )}
-                                        {deadline && (
-                                            <span className={`text-[11px] shrink-0 ${deadline.cls}`}>
-                                                {deadline.label}
-                                            </span>
-                                        )}
-                                    </Button>
-                                );
-                            })}
+                    ) : (
+                        <div className="rounded-xl border border-border bg-surface px-3 py-3">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 size={11} className="shrink-0 text-success/60" />
+                                <p className="text-[11px] text-muted-foreground">
+                                    No tasks on {dayjs(selectedDateStr).format('MMM D')}
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2 px-1 py-1.5">
-                        <CheckCircle2 size={11} className="text-success/60 shrink-0" />
-                        <p className="text-[11px] text-muted-foreground">
-                            No tasks on {dayjs(selectedDateStr).format('MMM D')}
-                        </p>
-                    </div>
-                )
-            )}
-
-            {selectedTask && (
-                <TaskDetailModal
-                    isOpen={true}
-                    onOpenChange={(open) => { if (!open) setSelectedTask(null); }}
-                    task={selectedTask}
-                    projectId={selectedTask.projectId}
-                    onUpdate={handleTaskUpdated}
-                />
-            )}
+                    )
+                )}
+            </div>
         </div>
     );
 }
