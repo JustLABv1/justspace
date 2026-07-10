@@ -419,8 +419,19 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(originalTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.id, 'todo');
-            // Realtime will handle the state sync
+            const createdSubtask = await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.id, 'todo');
+            // Replace the local placeholder immediately. Realtime still reconciles the
+            // collection, but follow-up edits must never target the temporary ID.
+            setSubtasks((current) => current.map((item) => (
+                item.id === optimisticId
+                    ? { ...createdSubtask, title: originalTitle, description: '' }
+                    : item
+            )));
+            setEditedSubtaskDescriptions((current) => ({
+                ...current,
+                [createdSubtask.id]: '',
+            }));
+            onUpdate();
             toast.success('Subtask added');
         } catch (error) {
             console.error('Failed to add subtask:', error);

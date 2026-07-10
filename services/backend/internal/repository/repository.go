@@ -739,15 +739,55 @@ func (r *Repo) ReorderProjectTaskStatuses(ctx context.Context, projectID string,
 	}
 	defer tx.Rollback(ctx)
 
+	var statusCount int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM project_task_statuses WHERE project_id = $1`,
+		projectID,
+	).Scan(&statusCount); err != nil {
+		return fmt.Errorf("count project task statuses: %w", err)
+	}
+	if len(statusIDs) != statusCount {
+		return fmt.Errorf("reorder must include every project task status")
+	}
+
+	seenIDs := make(map[string]struct{}, len(statusIDs))
+	for _, statusID := range statusIDs {
+		if _, exists := seenIDs[statusID]; exists {
+			return fmt.Errorf("reorder contains duplicate task status")
+		}
+		seenIDs[statusID] = struct{}{}
+	}
+
+	// Positions are unique per project. Move every row out of the target range
+	// before assigning its final position so swapping two neighbours never
+	// violates the unique constraint midway through the transaction.
+	result, err := tx.Exec(ctx,
+		`UPDATE project_task_statuses
+		 SET position = position + $2,
+		     updated_at = NOW()
+		 WHERE project_id = $1`,
+		projectID, statusCount,
+	)
+	if err != nil {
+		return fmt.Errorf("stage project task status reorder: %w", err)
+	}
+	if result.RowsAffected() != int64(statusCount) {
+		return fmt.Errorf("project task statuses changed while reordering")
+	}
+
 	for idx, statusID := range statusIDs {
-		if _, err := tx.Exec(ctx,
+		result, err := tx.Exec(ctx,
 			`UPDATE project_task_statuses
 			 SET position = $3,
 			     updated_at = NOW()
 			 WHERE project_id = $1 AND id = $2`,
 			projectID, statusID, idx,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("reorder project task statuses: %w", err)
+		}
+		if result.RowsAffected() != 1 {
+			return fmt.Errorf("task status not found in project")
 		}
 	}
 
