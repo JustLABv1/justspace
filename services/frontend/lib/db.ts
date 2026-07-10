@@ -8,6 +8,7 @@
 import {
     AccessControl,
     ActivityLog,
+    Notification,
     InstallationTarget,
     PresenceSession,
     Project,
@@ -18,7 +19,7 @@ import {
     Snippet,
     Task,
     TaskAssignee,
-    TaskComment,
+    TaskMessage,
     TeamInvitation,
     UserLookup,
     UserKeys,
@@ -38,6 +39,18 @@ export const db = {
     // Activity
     async listActivity() {
         return await api.listActivity<ActivityLog>();
+    },
+    async listNotifications() {
+        return await api.listNotifications<Notification>();
+    },
+    async getUnreadNotificationCount() {
+        return await api.getUnreadNotificationCount();
+    },
+    async markNotificationRead(id: string) {
+        return await api.markNotificationRead<Notification>(id);
+    },
+    async deleteNotification(id: string) {
+        return await api.deleteNotification(id);
     },
 
     // Snippets
@@ -105,6 +118,9 @@ export const db = {
     },
     async listTasks(projectId: string) {
         return await api.listTasks<Task>(projectId);
+    },
+    async getTask(id: string) {
+        return await api.getTask<Task>(id);
     },
     async getTaskByKey(projectId: string, taskKey: string) {
         return await api.getTaskByKey<Task>(projectId, taskKey);
@@ -223,14 +239,14 @@ export const db = {
     async removeTaskAssignee(taskId: string, userId: string) {
         return await api.removeTaskAssignee(taskId, userId);
     },
-    async listTaskComments(taskId: string) {
-        return await api.listTaskComments<TaskComment>(taskId);
+    async listTaskMessages(taskId: string) {
+        return await api.listTaskMessages<TaskMessage>(taskId);
     },
-    async createTaskComment(taskId: string, data: { body: string; mentionedUserIds?: string[]; isEncrypted?: boolean }) {
-        return await api.createTaskComment<TaskComment>(taskId, data as Record<string, unknown>);
+    async createTaskMessage(taskId: string, data: { body: string; mentionedUserIds?: string[]; isEncrypted?: boolean }) {
+        return await api.createTaskMessage<TaskMessage>(taskId, data as Record<string, unknown>);
     },
-    async deleteTaskComment(taskId: string, commentId: string) {
-        return await api.deleteTaskComment(taskId, commentId);
+    async deleteTaskMessage(taskId: string, messageId: string) {
+        return await api.deleteTaskMessage(taskId, messageId);
     },
     async listTaskActivity(taskId: string) {
         return await api.listTaskActivity<ActivityLog>(taskId);

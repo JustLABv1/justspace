@@ -1,9 +1,10 @@
 'use client';
 
 import { Task } from '@/services/frontend/types';
+import { deadlineWarningColor, getDeadlineWarning } from '@/services/frontend/lib/deadline';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, Checkbox, Chip, Input, ScrollShadow, Tooltip } from '@heroui/react';
+import { Button, Checkbox, Chip, Input, Tooltip } from '@heroui/react';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -13,11 +14,7 @@ import {
     ChevronRight,
     Clock,
     GripVertical,
-    Mail,
-    MessageCircle,
     Pause,
-    Pen,
-    Phone,
     Play,
     Plus,
     Trash2
@@ -56,11 +53,15 @@ export function TaskItem({
     const subtasks = allTasks.filter(t => t.parentId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
     const isExpanded = expandedTaskIds.includes(task.id);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-    const [newNote, setNewNote] = useState('');
-    const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
-    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
     const [currentTime, setCurrentTime] = useState(task.timeSpent || 0);
     const [prevTaskTime, setPrevTaskTime] = useState(task.timeSpent);
+    const deadlineWarning = getDeadlineWarning(task.deadline, task.completed);
+    const subtaskDeadlineWarning = subtasks.reduce<ReturnType<typeof getDeadlineWarning>>((mostCritical, subtask) => {
+        const candidate = getDeadlineWarning(subtask.deadline, subtask.completed);
+        const priority = { overdue: 3, urgent: 2, soon: 1, null: 0 };
+        return priority[candidate ?? 'null'] > priority[mostCritical ?? 'null'] ? candidate : mostCritical;
+    }, null);
+    const effectiveDeadlineWarning = deadlineWarning || subtaskDeadlineWarning;
 
     if (task.timeSpent !== prevTaskTime) {
         setPrevTaskTime(task.timeSpent);
@@ -152,7 +153,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
         }
     });
 
-    const handleAddNote = (e: React.FormEvent) => {
+    /* const handleAddNote = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newNote.trim()) return;
 
@@ -210,7 +211,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
         } catch {
             return { date: new Date().toISOString(), text: n, type: 'note' as const, originalIndex: index };
         }
-    });
+    }); */
 
     return (
         <div
@@ -274,16 +275,16 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
 
             <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-0.5">
                 <div className="flex items-center gap-1 flex-grow overflow-hidden flex-wrap">
-                    {task.deadline && (
+                    {effectiveDeadlineWarning && (
                         <Chip
                             size="sm"
                             variant="soft"
-                            color={dayjs(task.deadline).isBefore(dayjs(), 'minute') ? 'danger' : dayjs(task.deadline).isSame(dayjs(), 'day') ? 'warning' : 'default'}
+                            color={deadlineWarningColor(effectiveDeadlineWarning)}
                             className="h-5 px-1.5"
                         >
                             <Calendar size={9} className="mr-0.5" />
                             <Chip.Label className="text-[10px] px-0">
-                                {dayjs(task.deadline).format('MMM D')}
+                                {effectiveDeadlineWarning === 'overdue' ? 'Overdue' : effectiveDeadlineWarning === 'urgent' ? 'Due soon' : effectiveDeadlineWarning === 'soon' ? 'Due today' : task.deadline ? dayjs(task.deadline).format('MMM D') : 'Subtask due'}
                             </Chip.Label>
                         </Chip>
                     )}
@@ -342,13 +343,6 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     {subtasks.length > 0 && (
                         <span className="text-[10px] text-muted-foreground">
                             {subtasks.filter(s => s.completed).length}/{subtasks.length} sub
-                        </span>
-                    )}
-                    
-                    {task.notes && task.notes.length > 0 && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                            <MessageCircle size={10} />
-                            {task.notes.length}
                         </span>
                     )}
                     
@@ -452,7 +446,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         </form>
                     </div>
 
-                    <div className="space-y-2 rounded-xl border border-border/60 bg-surface-secondary/20 p-3">
+                    {/* <div className="space-y-2 rounded-xl border border-border/60 bg-surface-secondary/20 p-3">
                         <div className="flex items-center justify-between">
                             <h5 className="text-xs font-medium text-muted-foreground">Notes</h5>
                         </div>
@@ -552,7 +546,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 </div>
                             </form>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
             )}
         </div>

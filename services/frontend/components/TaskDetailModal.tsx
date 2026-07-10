@@ -10,7 +10,7 @@ import {
 } from '@/services/frontend/lib/task-statuses';
 import { collectTaskTags, normalizeTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, ProjectTaskStatus, Task, TaskAssignee, TaskMessage } from '@/services/frontend/types';
 import {
     Avatar,
     Button,
@@ -19,6 +19,7 @@ import {
     ComboBox,
     DateField,
     DatePicker,
+    Disclosure,
     Dropdown,
     EmptyState,
     Input,
@@ -34,12 +35,13 @@ import {
     toast,
     useFilter
 } from '@heroui/react';
-import { parseAbsoluteToLocal } from "@internationalized/date";
+import { getLocalTimeZone, parseAbsoluteToLocal, Time, toZoned } from "@internationalized/date";
+import type { DateValue } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { saveAs } from 'file-saver';
-import { AtSign, Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, Mail as Email, History, Link2, MessageCircle, Phone, Plus, Trash2 as Trash, UserPlus, X } from 'lucide-react';
+import { AtSign, Calendar as CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderUp, Pencil as Edit, History, Link2, MessageCircle, Plus, Trash2 as Trash, UserPlus, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
@@ -60,10 +62,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
     const [subtasks, setSubtasks] = useState<Task[]>([]);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-    const [newNote, setNewNote] = useState('');
     const [tagSearchValue, setTagSearchValue] = useState('');
-    const [noteType, setNoteType] = useState<'note' | 'email' | 'call'>('note');
-    const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState(task.title);
     const [editedDescription, setEditedDescription] = useState(task.description || '');
@@ -77,14 +76,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [parentTask, setParentTask] = useState<Task | null>(null);
     const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
     const [subtaskAssignees, setSubtaskAssignees] = useState<Record<string, TaskAssignee[]>>({});
-    const [comments, setComments] = useState<TaskComment[]>([]);
+    const [messages, setMessages] = useState<TaskMessage[]>([]);
     const [taskActivity, setTaskActivity] = useState<ActivityLog[]>([]);
     const [presence, setPresence] = useState<PresenceSession[]>([]);
-    const [newComment, setNewComment] = useState('');
+    const [newMessage, setNewMessage] = useState('');
     const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
     const [taskFiles, setTaskFiles] = useState<ProjectFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [showDepPicker, setShowDepPicker] = useState(false);
+    const [deadlineDraft, setDeadlineDraft] = useState<DateValue | null>(() => task.deadline ? parseAbsoluteToLocal(task.deadline) : null);
     const attachmentInputRef = useRef<HTMLInputElement | null>(null);
     const [recurrence, setRecurrence] = useState<{ type: 'daily' | 'weekly' | 'monthly'; interval: number } | null>(() => {
         try { return task.recurrence ? JSON.parse(task.recurrence) : null; } catch { return null; }
@@ -114,6 +114,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch {
             setRecurrence(null);
         }
+    }
+
+    const currentTaskDeadline = task.deadline || '';
+    const [prevTaskDeadline, setPrevTaskDeadline] = useState(currentTaskDeadline);
+    if (currentTaskDeadline !== prevTaskDeadline) {
+        setPrevTaskDeadline(currentTaskDeadline);
+        setDeadlineDraft(task.deadline ? parseAbsoluteToLocal(task.deadline) : null);
     }
 
     const handleAddDependency = async (depId: string) => {
@@ -257,11 +264,11 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             }));
             setProjectTasks(decryptedDepCandidates);
             setProjectTags(collectTaskTags(allTasks));
-            const [fileRes, memberRes, assigneeRes, commentRes, activityRes, presenceRes] = await Promise.all([
+            const [fileRes, memberRes, assigneeRes, messageRes, activityRes, presenceRes] = await Promise.all([
                 db.listTaskFiles(task.id),
                 db.listProjectMembers(projectId),
                 db.listTaskAssignees(task.id),
-                db.listTaskComments(task.id),
+                db.listTaskMessages(task.id),
                 db.listTaskActivity(task.id),
                 db.heartbeatTaskPresence(task.id),
             ]);
@@ -282,18 +289,18 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             );
             setSubtaskAssignees(Object.fromEntries(subtaskAssigneeEntries));
 
-            const decryptedComments = await Promise.all(commentRes.documents.map(async (comment) => {
-                if (!comment.isEncrypted || !docKey) {
-                    return comment;
+            const decryptedMessages = await Promise.all(messageRes.documents.map(async (message) => {
+                if (!message.isEncrypted || !docKey) {
+                    return message;
                 }
                 try {
-                    const decryptedBody = await decryptData(JSON.parse(comment.body), docKey);
-                    return { ...comment, body: decryptedBody };
+                    const decryptedBody = await decryptData(JSON.parse(message.body), docKey);
+                    return { ...message, body: decryptedBody };
                 } catch {
-                    return { ...comment, body: 'Secure comment' };
+                    return { ...message, body: 'Secure message' };
                 }
             }));
-            setComments(decryptedComments);
+            setMessages(decryptedMessages);
         } catch (error) {
             console.error('Failed to fetch task details:', error);
         }
@@ -597,12 +604,16 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         });
     };
 
+    // DatePicker emits a ZonedDateTime for absolute values and a calendar value
+    // when the calendar/time segments are edited independently.
+    // Persist both forms as one absolute ISO timestamp.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleUpdateDeadline = async (val: any) => {
         try {
-            const dateStr = val && typeof val.toAbsoluteString === 'function' 
-                ? val.toAbsoluteString() 
-                : val?.toString();
+            if (!val) return;
+            const dateStr = typeof val.toAbsoluteString === 'function'
+                ? val.toAbsoluteString()
+                : toZoned(val, getLocalTimeZone()).toAbsoluteString();
             await db.updateTask(task.id, { deadline: dateStr });
             onUpdate();
             toast.success('Deadline updated');
@@ -612,68 +623,39 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
-    const handleAddNote = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newNote.trim()) return;
+    const deadlineTime = deadlineDraft
+        ? new Time('hour' in deadlineDraft ? deadlineDraft.hour : 0, 'minute' in deadlineDraft ? deadlineDraft.minute : 0)
+        : null;
 
-        const existingNotes = task.notes || [];
-
-        try {
-            if (editingNoteIndex !== null) {
-                const updatedNotes = [...existingNotes];
-                const parsedNote = JSON.parse(updatedNotes[editingNoteIndex]);
-                parsedNote.text = newNote;
-                parsedNote.type = noteType;
-                updatedNotes[editingNoteIndex] = JSON.stringify(parsedNote);
-                await db.updateTask(task.id, { notes: updatedNotes });
-                setEditingNoteIndex(null);
-                toast.success('Note updated');
-            } else {
-                const note = {
-                    date: new Date().toISOString(),
-                    text: newNote,
-                    type: noteType
-                };
-                const updatedNotes = [...existingNotes, JSON.stringify(note)];
-                const updateData: Partial<Task> = { notes: updatedNotes };
-                
-                if (noteType === 'email' || noteType === 'call') {
-                    updateData.kanbanStatus = 'waiting';
-                }
-                await db.updateTask(task.id, updateData);
-                toast.success('Note added');
-            }
-            setNewNote('');
-            onUpdate();
-        } catch (error) {
-            console.error('Failed to handle note:', error);
-            toast.danger('Failed to save note');
+    const handleDeadlineDateChange = (value: DateValue | null) => {
+        if (!value) {
+            setDeadlineDraft(null);
+            return;
         }
+        const selected = ('timeZone' in value ? value : toZoned(value, getLocalTimeZone())) as {
+            hour: number;
+            minute: number;
+            second: number;
+            millisecond: number;
+            set: (values: { hour: number; minute: number; second: number; millisecond: number }) => DateValue;
+        };
+        setDeadlineDraft(selected.set({
+            hour: deadlineTime?.hour ?? selected.hour,
+            minute: deadlineTime?.minute ?? selected.minute,
+            second: 0,
+            millisecond: 0,
+        }));
     };
 
-    const handleDeleteNote = async (index: number) => {
-        const existingNotes = task.notes || [];
-        const updatedNotes = existingNotes.filter((_, i) => i !== index);
-        try {
-            await db.updateTask(task.id, { notes: updatedNotes });
-            onUpdate();
-            toast.success('Note deleted');
-        } catch (error) {
-            console.error('Failed to delete note:', error);
-            toast.danger('Delete failed');
-        }
-    };
-
-    const handleEditNote = (index: number) => {
-        const existingNotes = task.notes || [];
-        try {
-            const note = JSON.parse(existingNotes[index]);
-            setNewNote(note.text);
-            setNoteType(note.type);
-            setEditingNoteIndex(index);
-        } catch (e) {
-            console.error('Failed to parse note for editing:', e);
-        }
+    const handleDeadlineTimeChange = (time: Time | null) => {
+        if (!time || !deadlineDraft) return;
+        const currentDeadline = deadlineDraft as { set: (values: { hour: number; minute: number; second: number; millisecond: number }) => DateValue };
+        setDeadlineDraft(currentDeadline.set({
+            hour: time.hour,
+            minute: time.minute,
+            second: time.second,
+            millisecond: time.millisecond,
+        }));
     };
 
     const formatTime = (seconds: number) => {
@@ -684,13 +666,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         return `${dur.minutes()}m ${dur.seconds()}s`;
     };
 
-    const parsedNotes = (task.notes || []).map((n, index) => {
-        try {
-            return { ...(JSON.parse(n) as { date: string, text: string, type: 'note' | 'email' | 'call' }), originalIndex: index };
-        } catch {
-            return { date: new Date().toISOString(), text: n, type: 'note' as const, originalIndex: index };
-        }
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const timelineItems = [
+        ...messages.map((message) => ({ kind: 'message' as const, occurredAt: message.createdAt, value: message })),
+        ...taskActivity.map((activity) => ({ kind: 'activity' as const, occurredAt: activity.createdAt, value: activity })),
+    ].sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime());
 
     const currentTags = normalizeTaskTags(task.tags);
     const autocompleteTags = [...new Set([...projectTags, ...currentTags])].sort((left, right) => left.localeCompare(right));
@@ -762,41 +741,41 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
-    const handleCreateComment = async (event: React.FormEvent) => {
+    const handleCreateMessage = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!newComment.trim()) return;
+        if (!newMessage.trim()) return;
 
         try {
-            let body = newComment.trim();
+            let body = newMessage.trim();
             let isEncrypted = false;
             if (task.isEncrypted && documentKey) {
                 const encrypted = await encryptData(body, documentKey);
                 body = JSON.stringify(encrypted);
                 isEncrypted = true;
             }
-            const comment = await db.createTaskComment(task.id, {
+            const message = await db.createTaskMessage(task.id, {
                 body,
                 mentionedUserIds,
                 isEncrypted,
             });
-            setComments((current) => [...current, { ...comment, body: newComment.trim() }]);
-            setNewComment('');
+            setMessages((current) => [...current, { ...message, body: newMessage.trim() }]);
+            setNewMessage('');
             setMentionedUserIds([]);
-            toast.success('Comment added');
+            toast.success('Message added');
         } catch (error) {
-            console.error('Failed to create comment:', error);
-            toast.danger('Failed to save comment');
+            console.error('Failed to create message:', error);
+            toast.danger('Failed to save message');
         }
     };
 
-    const handleDeleteComment = async (commentId: string) => {
+    const handleDeleteMessage = async (messageId: string) => {
         try {
-            await db.deleteTaskComment(task.id, commentId);
-            setComments((current) => current.filter((comment) => comment.id !== commentId));
-            toast.success('Comment removed');
+            await db.deleteTaskMessage(task.id, messageId);
+            setMessages((current) => current.filter((message) => message.id !== messageId));
+            toast.success('Message removed');
         } catch (error) {
-            console.error('Failed to remove comment:', error);
-            toast.danger('Failed to remove comment');
+            console.error('Failed to remove message:', error);
+            toast.danger('Failed to remove message');
         }
     };
 
@@ -983,7 +962,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         </div>
 
                                         {!isSubtask && (
-                                            <div className="flex min-h-[260px] flex-col gap-4 lg:min-h-0 lg:flex-grow">
+                                            <div className="flex flex-col gap-3">
                                                 <div className="flex items-center justify-between">
                                                     <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
                                                         <Plus size={14} /> Subtasks
@@ -1010,7 +989,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     </Button>
                                                 </form>
 
-                                                <ScrollShadow className="-mx-2 max-h-[360px] px-2 lg:flex-1 lg:max-h-none" hideScrollBar>
+                                                <ScrollShadow className="-mx-2 max-h-[250px] px-2" hideScrollBar>
                                                     <div className="space-y-2">
                                                         {subtasks.length === 0 ? (
                                                             <div className="py-8 text-center border-2 border-dashed border-border/30 rounded-xl">
@@ -1018,13 +997,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             </div>
                                                         ) : (
                                                             [...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((st) => (
-                                                                <div key={st.id} className="rounded-lg border border-border bg-surface-secondary/40 p-3 transition-colors hover:border-accent/30">
-                                                                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3">
+                                                                <div key={st.id} className="rounded-lg border border-border bg-surface-secondary/40 px-2.5 py-2 transition-colors hover:border-accent/30">
+                                                                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-2">
                                                                         <Checkbox
                                                                             isSelected={st.completed}
                                                                             onChange={(val) => handleUpdateTask(st.id, { completed: val })}
                                                                             isDisabled={!canEditTask}
-                                                                            className="mt-0.5"
+                                                                            className="mt-0"
                                                                         >
                                                                             <Checkbox.Content>
                                                                                 <Checkbox.Control className="size-5 rounded-xl border-2">
@@ -1033,7 +1012,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                             </Checkbox.Content>
                                                                         </Checkbox>
                                                                         <div className="min-w-0">
-                                                                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                                                            <div className="flex flex-wrap items-center justify-between gap-2">
                                                                                 <div className="min-w-0 space-y-1">
                                                                                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{st.taskKey}</div>
                                                                                     {editingSubtaskId === st.id ? (
@@ -1062,7 +1041,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                         </button>
                                                                                     )}
                                                                                 </div>
-                                                                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                                                                <div className="flex flex-wrap items-center justify-end gap-1">
                                                                                     {(() => {
                                                                                         const subtaskStatus = getTaskStatusForTask(st, resolvedStatusOptions);
                                                                                         return (
@@ -1161,17 +1140,29 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                             </div>
 
                                                                         </div>
-                                                                        <TextArea
-                                                                            value={editedSubtaskDescriptions[st.id] ?? ''}
-                                                                            onChange={(event) => setEditedSubtaskDescriptions((current) => ({ ...current, [st.id]: event.target.value }))}
-                                                                            onBlur={() => { void handleUpdateSubtaskDescription(st); }}
-                                                                            placeholder="Add subtask context or acceptance criteria..."
-                                                                            variant="secondary"
-                                                                            rows={2}
-                                                                            fullWidth
-                                                                            className="col-span-full min-h-[76px] w-full rounded-lg text-xs"
-                                                                            disabled={!canEditTask}
-                                                                        />
+                                                                        <Disclosure className="col-span-full">
+                                                                            <Disclosure.Heading>
+                                                                                <Disclosure.Trigger className="flex w-full items-center justify-between rounded-md px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground">
+                                                                                    <span>{editedSubtaskDescriptions[st.id] ? 'Details' : 'Add details'}</span>
+                                                                                    <Disclosure.Indicator className="size-3 transition-transform data-[expanded=true]:rotate-180" />
+                                                                                </Disclosure.Trigger>
+                                                                            </Disclosure.Heading>
+                                                                            <Disclosure.Content>
+                                                                                <Disclosure.Body className="pt-1.5">
+                                                                                    <TextArea
+                                                                                        value={editedSubtaskDescriptions[st.id] ?? ''}
+                                                                                        onChange={(event) => setEditedSubtaskDescriptions((current) => ({ ...current, [st.id]: event.target.value }))}
+                                                                                        onBlur={() => { void handleUpdateSubtaskDescription(st); }}
+                                                                                        placeholder="Add subtask context or acceptance criteria..."
+                                                                                        variant="secondary"
+                                                                                        rows={2}
+                                                                                        fullWidth
+                                                                                        className="min-h-[64px] w-full rounded-lg text-xs"
+                                                                                        disabled={!canEditTask}
+                                                                                    />
+                                                                                </Disclosure.Body>
+                                                                            </Disclosure.Content>
+                                                                        </Disclosure>
                                                                     </div>
                                                                 </div>
                                                             ))
@@ -1195,45 +1186,58 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         )}
 
-                                        <div className="pt-6 border-t border-border">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                                                    <FileText size={13} className="text-muted-foreground" /> Attachments
+                                        <div className="space-y-4 border-t border-border pt-6">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <h4 className="flex items-center gap-2 text-xs font-medium text-foreground">
+                                                    <MessageCircle size={14} /> Messages & activity
                                                 </h4>
-                                                <input
-                                                    ref={attachmentInputRef}
-                                                    type="file"
-                                                    className="hidden"
-                                                    onChange={handleUploadFile}
-                                                />
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-6 px-2 rounded-lg text-[11px] text-accent"
-                                                    isPending={isUploadingFile}
-                                                    onPress={() => attachmentInputRef.current?.click()}
-                                                >
-                                                    <FolderUp size={11} className="mr-1" />
-                                                    Upload
-                                                </Button>
+                                                <span className="text-[11px] text-muted-foreground">{timelineItems.length}</span>
                                             </div>
-                                            <div className="space-y-2">
-                                                {taskFiles.length === 0 ? (
-                                                    <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">
-                                                        No files attached to this task yet.
-                                                    </div>
-                                                ) : (
-                                                    taskFiles.map((file) => (
-                                                        <TaskAttachmentRow
-                                                            key={file.id}
-                                                            file={file}
-                                                            resolveFileName={resolveFileName}
-                                                            onDownload={() => handleDownloadFile(file)}
-                                                            onDelete={() => handleDeleteFile(file.id)}
-                                                        />
-                                                    ))
-                                                )}
-                                            </div>
+                                            {timelineItems.length === 0 ? (
+                                                <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-6 text-center text-[11px] text-muted-foreground/60">
+                                                    No messages or activity yet.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {timelineItems.map((entry) => entry.kind === 'message' ? (() => {
+                                                        const message = entry.value;
+                                                        const mentionedMembers = projectMembers.filter((member) => message.mentionedUserIds?.includes(member.userId));
+                                                        return (
+                                                            <div key={`message-${message.id}`} className="flex items-start gap-2.5">
+                                                                <Avatar size="sm" color="accent" variant="soft" className="mt-0.5 shrink-0">
+                                                                    <Avatar.Fallback>{message.userName.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                                </Avatar>
+                                                                <div className="min-w-0 flex-1 rounded-lg border border-border/60 bg-surface-secondary/30 px-3 py-2.5">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="min-w-0 truncate text-[12px] font-medium text-foreground">{message.userName}</span>
+                                                                        <span className="shrink-0 text-[11px] text-muted-foreground">{dayjs(message.createdAt).fromNow()}</span>
+                                                                        {message.userId === user?.id && (
+                                                                            <Button variant="ghost" isIconOnly className="ml-auto h-6 w-6 rounded-md text-muted-foreground hover:text-danger" onPress={() => handleDeleteMessage(message.id)}>
+                                                                                <Trash size={11} />
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="mt-1.5 text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">{message.body}</p>
+                                                                    {mentionedMembers.length > 0 && (
+                                                                        <TagGroup className="mt-2"><TagGroup.List className="flex flex-wrap gap-1">{mentionedMembers.map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}</TagGroup.List></TagGroup>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })() : (
+                                                        <div key={`activity-${entry.value.id}`} className="ml-9 rounded-lg border border-border/60 bg-surface-secondary/20 px-3 py-2">
+                                                            <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[12px] font-medium text-foreground">{entry.value.userName || 'Teammate'} · {entry.value.type}</div><div className="truncate text-[11px] text-muted-foreground">{entry.value.entityType} {entry.value.metadata ? `· ${entry.value.metadata}` : ''}</div></div><span className="shrink-0 text-[11px] text-muted-foreground">{dayjs(entry.value.createdAt).fromNow()}</span></div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <form onSubmit={handleCreateMessage} className="space-y-2 rounded-lg border border-border bg-surface p-3">
+                                                <div className="relative"><TextArea value={newMessage} onChange={(event) => setNewMessage(event.target.value)} placeholder="Add a message for the team..." rows={3} variant="secondary" className="w-full resize-none rounded-xl pb-10 text-xs" /><Button type="submit" size="sm" variant="primary" className="absolute bottom-2 right-2 h-7 rounded-md px-3 text-xs">Send</Button></div>
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    {mentionableMembers.length > 0 && <Dropdown><Dropdown.Trigger><Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground"><AtSign size={11} /> Mention <ChevronDown size={11} /></Button></Dropdown.Trigger><Dropdown.Popover placement="top start" className="min-w-[220px]"><Dropdown.Menu>{mentionableMembers.map((member) => <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => toggleMention(member.userId)}><div className="flex items-center gap-2"><Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar><div className="min-w-0"><div className="truncate text-sm">{member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div></div></Dropdown.Item>)}</Dropdown.Menu></Dropdown.Popover></Dropdown>}
+                                                    {mentionedUserIds.length > 0 && <TagGroup onRemove={(keys) => setMentionedUserIds((current) => current.filter((userId) => !keys.has(userId)))}><TagGroup.List className="flex flex-wrap gap-1">{mentionableMembers.filter((member) => mentionedUserIds.includes(member.userId)).map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}</TagGroup.List></TagGroup>}
+                                                </div>
+                                            </form>
                                         </div>
 
                                     </div>
@@ -1352,15 +1356,16 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center justify-between gap-3">
+                                                <div className="flex min-w-0 flex-col gap-1.5">
                                                     <Label className="text-[11px] font-medium text-muted-foreground">Due date</Label>
                                                     <DatePicker
-                                                        value={task.deadline ? parseAbsoluteToLocal(task.deadline) : null}
-                                                        onChange={handleUpdateDeadline}
+                                                        value={deadlineDraft}
+                                                        onChange={handleDeadlineDateChange}
                                                         granularity="minute"
                                                         isDisabled={!canEditTask}
+                                                        className="w-full min-w-0"
                                                     >
-                                                        <DateField.Group className="h-7 w-[190px] rounded-md border border-border/70 bg-surface-secondary/55 px-2 text-[11px]">
+                                                        <DateField.Group className="h-8 w-full min-w-0 rounded-md border border-border/70 bg-surface-secondary/55 px-2 text-[11px]">
                                                             <DateField.Prefix>
                                                                 <CalendarIcon size={12} className="text-muted-foreground" />
                                                             </DateField.Prefix>
@@ -1368,20 +1373,36 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                 {(segment) => <DateField.Segment segment={segment} />}
                                                             </DateField.Input>
                                                             <DateField.Suffix>
-                                                                <DatePicker.Trigger className="text-muted-foreground" />
+                                                                <DatePicker.Trigger aria-label="Open date and time picker" className="ml-1 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-tertiary hover:text-foreground">
+                                                                    <CalendarIcon size={13} />
+                                                                </DatePicker.Trigger>
                                                             </DateField.Suffix>
                                                         </DateField.Group>
-                                                        <DatePicker.Popover>
+                                                        <DatePicker.Popover className="max-w-[calc(100vw-2rem)]">
                                                             <Calendar>
                                                                 <Calendar.Header>
                                                                     <Button slot="previous" variant="ghost" isIconOnly size="sm"><ChevronLeft size={16} /></Button>
                                                                     <Calendar.Heading />
                                                                     <Button slot="next" variant="ghost" isIconOnly size="sm"><ChevronRight size={16} /></Button>
                                                                 </Calendar.Header>
-                                                                <Calendar.Grid />
+                                                                <Calendar.Grid className="w-full">
+                                                                    <Calendar.GridHeader>
+                                                                        {(day) => <Calendar.HeaderCell className="pb-1 text-center text-[11px] font-medium text-muted-foreground">{day.slice(0, 2)}</Calendar.HeaderCell>}
+                                                                    </Calendar.GridHeader>
+                                                                    <Calendar.GridBody>
+                                                                        {(date) => (
+                                                                            <Calendar.Cell
+                                                                                date={date}
+                                                                                className="mx-auto aspect-square w-full max-w-8 rounded-lg text-xs hover:bg-accent/10 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[today=true]:ring-1 data-[today=true]:ring-accent"
+                                                                            >
+                                                                                {({ formattedDate }) => formattedDate}
+                                                                            </Calendar.Cell>
+                                                                        )}
+                                                                    </Calendar.GridBody>
+                                                                </Calendar.Grid>
                                                             </Calendar>
                                                             <div className="border-t border-border p-3">
-                                                                <TimeField className="gap-2">
+                                                                <TimeField value={deadlineTime} onChange={handleDeadlineTimeChange} className="gap-2">
                                                                     <Label className="text-xs text-muted-foreground">Time</Label>
                                                                     <TimeField.Group variant="secondary">
                                                                         <TimeField.Input>
@@ -1389,6 +1410,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                         </TimeField.Input>
                                                                     </TimeField.Group>
                                                                 </TimeField>
+                                                                <Button
+                                                                    variant="primary"
+                                                                    size="sm"
+                                                                    className="mt-3 h-8 w-full rounded-lg text-xs"
+                                                                    isDisabled={!deadlineDraft}
+                                                                    onPress={() => void handleUpdateDeadline(deadlineDraft)}
+                                                                >
+                                                                    Save due date
+                                                                </Button>
                                                             </div>
                                                         </DatePicker.Popover>
                                                     </DatePicker>
@@ -1552,6 +1582,18 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             </div>
                                         </div>
 
+                                        <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <h4 className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"><FileText size={13} /> Attachments</h4>
+                                                <input ref={attachmentInputRef} type="file" className="hidden" onChange={handleUploadFile} />
+                                                <Button size="sm" variant="ghost" className="h-6 rounded-lg px-2 text-[11px] text-accent" isPending={isUploadingFile} onPress={() => attachmentInputRef.current?.click()}><FolderUp size={11} className="mr-1" />Upload</Button>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {taskFiles.length === 0 ? <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-4 text-center text-[11px] text-muted-foreground/60">No files attached to this task yet.</div> : taskFiles.map((file) => <TaskAttachmentRow key={file.id} file={file} resolveFileName={resolveFileName} onDownload={() => handleDownloadFile(file)} onDelete={() => handleDeleteFile(file.id)} />)}
+                                            </div>
+                                        </div>
+
+                                        {/*
                                         <div className="space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xs font-medium text-foreground flex items-center gap-2">
@@ -1776,6 +1818,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     </div>
                                                 </div>
                                         </div>
+                                        */}
                                     </div>
                                     </ScrollShadow>
                                 </div>

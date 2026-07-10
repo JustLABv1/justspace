@@ -107,6 +107,20 @@ func (h *TaskHandler) GetByKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, models.GetTaskByKeyResponse{Task: task})
 }
 
+func (h *TaskHandler) Get(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	task, err := h.repo.GetTask(r.Context(), chi.URLParam(r, "id"), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get task")
+		return
+	}
+	if task == nil {
+		writeError(w, http.StatusNotFound, "task not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
+}
+
 func (h *TaskHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
 	limit := 100

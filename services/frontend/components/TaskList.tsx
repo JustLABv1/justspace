@@ -7,7 +7,7 @@ import { getCompletedStatus, getStatusTokenChipColor, getTaskStatusForTask } fro
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { DEPLOYMENT_TEMPLATES } from '@/services/frontend/lib/templates';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskMessage } from '@/services/frontend/types';
 import { Button, Avatar, Checkbox, Chip, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
 import dayjs from 'dayjs';
@@ -18,7 +18,7 @@ import { Pagination } from './Pagination';
 type TaskMeta = {
     assignees: TaskAssignee[];
     files: ProjectFile[];
-    comments: TaskComment[];
+    comments: TaskMessage[];
 };
 
 const priorityConfig: Record<string, { label: string; color: 'default' | 'accent' | 'success' | 'warning' | 'danger' }> = {
@@ -121,7 +121,7 @@ export function TaskList({
                     const [assigneesRes, filesRes, commentsRes] = await Promise.all([
                         db.listTaskAssignees(task.id),
                         db.listTaskFiles(task.id),
-                        db.listTaskComments(task.id),
+                        db.listTaskMessages(task.id),
                     ]);
                     return [task.id, {
                         assignees: assigneesRes.documents,

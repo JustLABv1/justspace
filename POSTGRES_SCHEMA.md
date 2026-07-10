@@ -12,6 +12,8 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/006_task_collaboration_presence.up.sql`: adds task assignees, task comments, task presence, project presence, and task-scoped activity
 - `backend/migrations/007_task_description.up.sql`: adds durable task descriptions for new and existing installs
 - `backend/migrations/008_task_keys_and_statuses.up.sql`: adds persistent task keys, project-local task workflows, and backfills existing projects/tasks
+- `backend/migrations/009_notifications.up.sql`: adds persistent in-app collaboration notifications
+- `backend/migrations/010_deadline_notifications.up.sql`: adds deadline reminder delivery tracking
 
 ## Core Tables
 
@@ -70,7 +72,6 @@ Indexes:
 | `priority` | `varchar(10)` | `low`, `medium`, `high`, `urgent` |
 | `kanban_status` | `varchar(64)` | Project-local workflow key validated against `project_task_statuses` |
 | `deadline` | `timestamptz` | Optional deadline |
-| `notes` | `jsonb` | Communication/history entries |
 | `tags` | `text[]` | Freeform, searchable task tags |
 | `dependencies` | `text[]` | Referenced prerequisite task IDs |
 | `recurrence` | `text` | JSON recurrence rule (`daily`, `weekly`, `monthly`) |
@@ -257,14 +258,16 @@ Indexes:
 - Primary key on (`task_id`, `user_id`)
 - `idx_task_assignees_user_id` on `user_id`
 
-### task_comments
+### task_comments (task messages)
+
+Migration `011_task_messages.up.sql` converts every legacy `tasks.notes` entry into a task message with the task creator as author, then removes the obsolete `tasks.notes` column.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | Primary key |
 | `task_id` | `uuid` | FK to `tasks(id)` |
 | `user_id` | `uuid` | FK to `users(id)` |
-| `body` | `text` | Comment body, encrypted client-side when the task is encrypted |
+| `body` | `text` | Message body, encrypted client-side when the task is encrypted |
 | `mentioned_user_ids` | `text[]` | Mentioned teammate user IDs |
 | `is_encrypted` | `boolean` | Comment ciphertext flag |
 | `created_at` | `timestamptz` | Creation timestamp |
@@ -274,6 +277,27 @@ Indexes:
 
 - `idx_task_comments_task_id` on `task_id`
 - `idx_task_comments_user_id` on `user_id`
+
+### notifications
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `recipient_user_id` | `uuid` | Project member receiving the notification |
+| `actor_user_id` | `uuid` | User who mentioned or assigned the recipient |
+| `type` | `varchar(32)` | `mention`, `task_assigned`, `deadline_24h`, `deadline_4h`, or `deadline_due` |
+| `project_id` | `uuid` | Related accessible project |
+| `task_id` | `uuid` | Related task |
+| `comment_id` | `uuid` | Optional source comment for mentions |
+| `deadline_at` | `timestamptz` | Deadline instance associated with a scheduled reminder |
+| `read_at` | `timestamptz` | Null until the recipient opens the notification |
+| `created_at` | `timestamptz` | Creation timestamp |
+
+Indexes:
+
+- `idx_notifications_recipient_created_at` on (`recipient_user_id`, `created_at` DESC)
+- `idx_notifications_recipient_unread` partial index for unread rows
+- `idx_notifications_deadline_delivery` prevents duplicate reminder delivery per task, recipient, level, and deadline
 
 ### project_presence
 
