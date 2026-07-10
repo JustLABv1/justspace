@@ -112,3 +112,118 @@ func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	h.hub.Broadcast(userID, models.WSEvent{Type: "delete", Collection: "projects", Document: map[string]string{"id": id}, UserID: userID})
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
 }
+
+func (h *ProjectHandler) ListTaskStatuses(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	if !ensureProjectAccess(w, r, h.repo, projectID, userID) {
+		return
+	}
+	statuses, err := h.repo.ListProjectTaskStatuses(r.Context(), projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list task statuses")
+		return
+	}
+	writeJSON(w, http.StatusOK, models.ListResponse[models.ProjectTaskStatus]{Total: len(statuses), Documents: statuses})
+}
+
+func (h *ProjectHandler) CreateTaskStatus(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.CreateProjectTaskStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	status, err := h.repo.CreateProjectTaskStatus(r.Context(), projectID, req)
+	if err != nil {
+		log.Printf("CreateProjectTaskStatus error: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to create task status")
+		return
+	}
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "create", Collection: "project_task_statuses", Document: status, UserID: userID})
+	writeJSON(w, http.StatusCreated, status)
+}
+
+func (h *ProjectHandler) UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	statusID := chi.URLParam(r, "statusId")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.UpdateProjectTaskStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	status, err := h.repo.UpdateProjectTaskStatus(r.Context(), projectID, statusID, req)
+	if err != nil {
+		log.Printf("UpdateProjectTaskStatus error: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to update task status")
+		return
+	}
+	if status == nil {
+		writeError(w, http.StatusNotFound, "task status not found")
+		return
+	}
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "project_task_statuses", Document: status, UserID: userID})
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (h *ProjectHandler) DeleteTaskStatus(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	statusID := chi.URLParam(r, "statusId")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.DeleteProjectTaskStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ReplacementStatusID == "" {
+		writeError(w, http.StatusBadRequest, "replacement status required")
+		return
+	}
+	if err := h.repo.DeleteProjectTaskStatus(r.Context(), projectID, statusID, req.ReplacementStatusID); err != nil {
+		log.Printf("DeleteProjectTaskStatus error: %v", err)
+		if err.Error() == "cannot delete built-in status" || err.Error() == "replacement status not found" {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete task status")
+		return
+	}
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "delete", Collection: "project_task_statuses", Document: map[string]string{"id": statusID}, UserID: userID})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
+}
+
+func (h *ProjectHandler) ReorderTaskStatuses(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "projectId")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.ReorderProjectTaskStatusesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := h.repo.ReorderProjectTaskStatuses(r.Context(), projectID, req.StatusIDs); err != nil {
+		log.Printf("ReorderProjectTaskStatuses error: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to reorder task statuses")
+		return
+	}
+	statuses, _ := h.repo.ListProjectTaskStatuses(r.Context(), projectID)
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "project_task_statuses", Document: statuses, UserID: userID})
+	writeJSON(w, http.StatusOK, models.ListResponse[models.ProjectTaskStatus]{Total: len(statuses), Documents: statuses})
+}

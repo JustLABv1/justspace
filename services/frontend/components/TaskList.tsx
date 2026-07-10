@@ -3,30 +3,22 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getCompletedStatus, getStatusTokenChipColor, getTaskStatusForTask } from '@/services/frontend/lib/task-statuses';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { DEPLOYMENT_TEMPLATES } from '@/services/frontend/lib/templates';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ProjectFile, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
 import { Button, Avatar, Checkbox, Chip, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
 import dayjs from 'dayjs';
-import { Calendar, CheckCircle2, ChevronRight, Clock, Filter, GitBranch, GripVertical, ListChecks, MessageCircle, Paperclip, Plus, Search, Trash2, UserCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronRight, Clock, Filter, GitBranch, ListChecks, MessageCircle, Paperclip, Plus, Search, Trash2, UserCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pagination } from './Pagination';
-import { TaskDetailModal } from './TaskDetailModal';
 
 type TaskMeta = {
     assignees: TaskAssignee[];
     files: ProjectFile[];
     comments: TaskComment[];
-};
-
-const statusConfig: Record<string, { label: string; color: 'default' | 'accent' | 'success' | 'warning' | 'danger' }> = {
-    todo: { label: 'Todo', color: 'default' },
-    'in-progress': { label: 'In progress', color: 'accent' },
-    review: { label: 'Review', color: 'warning' },
-    waiting: { label: 'Blocked', color: 'danger' },
-    done: { label: 'Done', color: 'success' },
 };
 
 const priorityConfig: Record<string, { label: string; color: 'default' | 'accent' | 'success' | 'warning' | 'danger' }> = {
@@ -42,14 +34,20 @@ export function TaskList({
     searchQuery: externalSearchQuery,
     selectedTags = [],
     hideCompleted: externalHideCompleted,
-    quickFilter = 'all'
+    quickFilter = 'all',
+    statusOptions = [],
+    refreshToken,
+    onOpenTask,
 }: { 
     projectId: string, 
     hideHeader?: boolean,
     searchQuery?: string,
     selectedTags?: string[],
     hideCompleted?: boolean,
-    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked'
+    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked',
+    statusOptions?: ProjectTaskStatus[],
+    refreshToken?: number,
+    onOpenTask?: (task: Task) => void,
 }) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -63,17 +61,17 @@ export function TaskList({
     const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
     const hideCompleted = externalHideCompleted !== undefined ? externalHideCompleted : internalHideCompleted;
     
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [showCompleted, setShowCompleted] = useState(false);
     const [taskMeta, setTaskMeta] = useState<Record<string, TaskMeta>>({});
+    const [collapsedParentIds, setCollapsedParentIds] = useState<Set<string>>(new Set());
     const itemsPerPage = 8;
 
     const { user, privateKey } = useAuth();
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
+    const completedStatus = getCompletedStatus(statusOptions);
 
     const fetchTasks = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -145,6 +143,11 @@ export function TaskList({
     useEffect(() => {
         fetchTasks(true);
     }, [fetchTasks]);
+
+    useEffect(() => {
+        if (refreshToken === undefined) return;
+        void fetchTasks(false);
+    }, [fetchTasks, refreshToken]);
 
     useEffect(() => {
         const unsub = wsClient.subscribe(async (event: WSEvent) => {
@@ -249,18 +252,10 @@ export function TaskList({
         }
     };
 
-    const toggleSelect = (id: string) => {
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id); else next.add(id);
-            return next;
-        });
-    };
-
     const handleBulkComplete = async () => {
         const ids = [...selectedIds];
         try {
-            await Promise.all(ids.map(id => db.updateTask(id, { completed: true, kanbanStatus: 'done' })));
+            await Promise.all(ids.map(id => db.updateTask(id, { completed: true, kanbanStatus: completedStatus.key })));
             fetchTasks();
             setSelectedIds(new Set());
             setSelectionMode(false);
@@ -307,17 +302,13 @@ export function TaskList({
     const totalPages = Math.ceil(activeTasks.length / itemsPerPage);
     const paginatedTasks = activeTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     const allVisibleSelected = paginatedTasks.length > 0 && paginatedTasks.every((task) => selectedIds.has(task.id));
-    const togglePageSelection = () => {
-        setSelectedIds((current) => {
+    const toggleParentCollapse = (taskId: string) => {
+        setCollapsedParentIds((current) => {
             const next = new Set(current);
-            if (allVisibleSelected) {
-                paginatedTasks.forEach((task) => next.delete(task.id));
-            } else {
-                paginatedTasks.forEach((task) => next.add(task.id));
-            }
+            if (next.has(taskId)) next.delete(taskId);
+            else next.add(taskId);
             return next;
         });
-        setSelectionMode(true);
     };
 
     const renderAssignees = (task: Task) => {
@@ -351,7 +342,7 @@ export function TaskList({
     );
 
     const renderSubtaskRow = (subtask: Task, parentTask: Task, isCompleted = false) => {
-        const status = statusConfig[subtask.completed ? 'done' : (subtask.kanbanStatus || 'todo')];
+        const status = getTaskStatusForTask(subtask, statusOptions);
         const priority = subtask.priority ? priorityConfig[subtask.priority] : undefined;
         const meta = taskMeta[subtask.id] || { assignees: [], files: [], comments: [] };
 
@@ -359,17 +350,26 @@ export function TaskList({
             <div
                 key={subtask.id}
                 className={`cursor-pointer border-b border-border/60 bg-surface-secondary/20 p-3 transition-colors hover:bg-surface-secondary/45 md:grid md:grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] md:items-center md:gap-2 md:px-3 md:py-2 ${isCompleted ? 'opacity-60' : ''}`}
-                onClick={() => { if (selectionMode) { toggleSelect(subtask.id); return; } setSelectedTask(subtask); setIsDetailModalOpen(true); }}
+                onClick={() => onOpenTask?.(subtask)}
             >
                 <div className="hidden md:block" onClick={(event) => event.stopPropagation()}>
                     <Checkbox
                         aria-label={`Select ${subtask.title}`}
                         isSelected={selectedIds.has(subtask.id)}
-                        onChange={() => { setSelectionMode(true); toggleSelect(subtask.id); }}
+                        onChange={(isSelected) => {
+                            setSelectionMode(true);
+                            setSelectedIds((current) => {
+                                const next = new Set(current);
+                                if (isSelected) next.add(subtask.id); else next.delete(subtask.id);
+                                return next;
+                            });
+                        }}
                     >
-                        <Checkbox.Control className="size-4 rounded-md">
-                            <Checkbox.Indicator />
-                        </Checkbox.Control>
+                        <Checkbox.Content>
+                            <Checkbox.Control className="size-4 rounded-md">
+                                <Checkbox.Indicator />
+                            </Checkbox.Control>
+                        </Checkbox.Content>
                     </Checkbox>
                 </div>
 
@@ -380,13 +380,13 @@ export function TaskList({
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 pl-6 text-[11px] text-muted-foreground">
                         <span>Subtask of {parentTask.title}</span>
-                        <span>JS-{subtask.id.slice(0, 4).toUpperCase()}</span>
+                        <span>{subtask.taskKey}</span>
                         {subtask.tags?.slice(0, 2).map((tag) => <span key={tag}>#{tag}</span>)}
                     </div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2 pl-5 md:mt-0 md:pl-0">
-                    <Chip size="sm" variant="soft" color={status.color} className="w-fit rounded-md">
+                    <Chip size="sm" variant="soft" color={getStatusTokenChipColor(status.colorToken)} className="w-fit rounded-md">
                         <Chip.Label className="text-[11px]">{status.label}</Chip.Label>
                     </Chip>
                     {priority ? (
@@ -418,43 +418,76 @@ export function TaskList({
     const renderIssueRow = (task: Task, isCompleted = false) => {
         const subtasks = tasks.filter(st => st.parentId === task.id);
         const completedSubtasks = subtasks.filter(st => st.completed).length;
-        const status = statusConfig[task.completed ? 'done' : (task.kanbanStatus || 'todo')];
+        const status = getTaskStatusForTask(task, statusOptions);
         const priority = task.priority ? priorityConfig[task.priority] : undefined;
         const meta = taskMeta[task.id] || { assignees: [], files: [], comments: [] };
+        const isCollapsed = collapsedParentIds.has(task.id);
 
         return (
             <div key={task.id}>
                 <div
                     className={`cursor-pointer border-b border-border p-3 text-sm transition-colors hover:bg-surface-secondary/40 md:grid md:grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] md:items-center md:gap-2 md:px-3 md:py-2.5 ${isCompleted ? 'opacity-60' : ''}`}
-                    onClick={() => { if (selectionMode) { toggleSelect(task.id); return; } setSelectedTask(task); setIsDetailModalOpen(true); }}
+                    onClick={() => onOpenTask?.(task)}
                 >
                     <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
                         <Checkbox
                             aria-label={`Select ${task.title}`}
                             isSelected={selectedIds.has(task.id)}
-                            onChange={() => { setSelectionMode(true); toggleSelect(task.id); }}
+                            onChange={(isSelected) => {
+                                setSelectionMode(true);
+                                setSelectedIds((current) => {
+                                    const next = new Set(current);
+                                    if (isSelected) next.add(task.id); else next.delete(task.id);
+                                    return next;
+                                });
+                            }}
                         >
-                            <Checkbox.Control className="size-4 rounded-md">
-                                <Checkbox.Indicator />
-                            </Checkbox.Control>
+                            <Checkbox.Content>
+                                <Checkbox.Control className="size-4 rounded-md">
+                                    <Checkbox.Indicator />
+                                </Checkbox.Control>
+                            </Checkbox.Content>
                         </Checkbox>
-                        <GripVertical size={13} className="hidden text-muted-foreground/40 lg:block" />
+                        {subtasks.length > 0 ? (
+                            <Button
+                                variant="ghost"
+                                isIconOnly
+                                className="hidden h-5 w-5 rounded-md text-muted-foreground hover:text-foreground lg:inline-flex"
+                                onPress={() => toggleParentCollapse(task.id)}
+                                aria-label={isCollapsed ? `Expand ${task.title}` : `Collapse ${task.title}`}
+                            >
+                                <ChevronRight size={13} className={`transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                            </Button>
+                        ) : (
+                            <span className="hidden w-5 lg:inline-block" />
+                        )}
                     </div>
 
                     <div className="mt-2 min-w-0 md:mt-0">
                         <div className="flex items-center gap-2">
+                            {subtasks.length > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    isIconOnly
+                                    className="h-5 w-5 rounded-md text-muted-foreground hover:text-foreground lg:hidden"
+                                    onPress={() => toggleParentCollapse(task.id)}
+                                    aria-label={isCollapsed ? `Expand ${task.title}` : `Collapse ${task.title}`}
+                                >
+                                    <ChevronRight size={13} className={`transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                                </Button>
+                            )}
                             <span className={`truncate font-medium ${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
                             {task.isEncrypted && <span className="text-[10px] text-warning">secure</span>}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                            <span>JS-{task.id.slice(0, 4).toUpperCase()}</span>
+                            <span>{task.taskKey}</span>
                             {task.tags?.slice(0, 2).map((tag) => <span key={tag}>#{tag}</span>)}
                             {(task.dependencies || []).length > 0 && <span className="inline-flex items-center gap-1"><GitBranch size={10} />{task.dependencies?.length}</span>}
                         </div>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
-                        <Chip size="sm" variant="soft" color={status.color} className="w-fit rounded-md">
+                        <Chip size="sm" variant="soft" color={getStatusTokenChipColor(status.colorToken)} className="w-fit rounded-md">
                             <Chip.Label className="text-[11px]">{status.label}</Chip.Label>
                         </Chip>
                         {priority ? (
@@ -488,7 +521,7 @@ export function TaskList({
                     <div className="hidden md:block">{renderActivity(task, meta)}</div>
                 </div>
 
-                {subtasks.length > 0 && (
+                {subtasks.length > 0 && !isCollapsed && (
                     <div>
                         {[...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((subtask) => renderSubtaskRow(subtask, task, isCompleted || subtask.completed))}
                     </div>
@@ -607,10 +640,19 @@ export function TaskList({
                         <div className="overflow-hidden rounded-xl border border-border bg-surface md:min-w-[760px]">
                             <div className="hidden grid-cols-[34px_minmax(180px,1fr)_90px_96px_116px_100px_120px] items-center gap-2 border-b border-border bg-surface-secondary/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:grid">
                                 <div onClick={(event) => event.stopPropagation()}>
-                                    <Checkbox aria-label="Select visible tasks" isSelected={allVisibleSelected} onChange={togglePageSelection}>
-                                        <Checkbox.Control className="size-4 rounded-md">
-                                            <Checkbox.Indicator />
-                                        </Checkbox.Control>
+                                    <Checkbox aria-label="Select visible tasks" isSelected={allVisibleSelected} onChange={(isSelected) => {
+                                        setSelectedIds((current) => {
+                                            const next = new Set(current);
+                                            paginatedTasks.forEach((task) => isSelected ? next.add(task.id) : next.delete(task.id));
+                                            return next;
+                                        });
+                                        setSelectionMode(true);
+                                    }}>
+                                        <Checkbox.Content>
+                                            <Checkbox.Control className="size-4 rounded-md">
+                                                <Checkbox.Indicator />
+                                            </Checkbox.Control>
+                                        </Checkbox.Content>
                                     </Checkbox>
                                 </div>
                                 <span>Issue</span>
@@ -695,15 +737,6 @@ export function TaskList({
                     </form>
                 </div>
             </div>
-            {selectedTask && (
-                <TaskDetailModal 
-                    isOpen={isDetailModalOpen}
-                    onOpenChange={setIsDetailModalOpen}
-                    task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
-                    projectId={projectId}
-                    onUpdate={fetchTasks}
-                />
-            )}
         </div>
     );
 }

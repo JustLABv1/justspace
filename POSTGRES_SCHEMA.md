@@ -10,6 +10,8 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/004_collaboration.up.sql`: adds project members, invitations, and encrypted project files
 - `backend/migrations/005_task_file_attachments.up.sql`: scopes project files to optional task attachments
 - `backend/migrations/006_task_collaboration_presence.up.sql`: adds task assignees, task comments, task presence, project presence, and task-scoped activity
+- `backend/migrations/007_task_description.up.sql`: adds durable task descriptions for new and existing installs
+- `backend/migrations/008_task_keys_and_statuses.up.sql`: adds persistent task keys, project-local task workflows, and backfills existing projects/tasks
 
 ## Core Tables
 
@@ -34,6 +36,8 @@ This document reflects the current PostgreSQL schema used by justspace.
 | `name` | `varchar(512)` | Project title |
 | `description` | `text` | Project summary |
 | `status` | `varchar(20)` | `todo`, `in-progress`, `completed` |
+| `task_key_prefix` | `varchar(16)` | Stable human-facing task key prefix, e.g. `TEST` |
+| `next_task_number` | `integer` | Server-side counter for the next issued project task key |
 | `days_per_week` | `real` | Optional staffing value |
 | `allocated_days` | `integer` | Optional total allocation |
 | `is_encrypted` | `boolean` | Vault/E2EE flag |
@@ -43,6 +47,7 @@ This document reflects the current PostgreSQL schema used by justspace.
 Indexes:
 
 - `idx_projects_user_id` on `user_id`
+- `idx_projects_task_key_prefix` unique index on `task_key_prefix`
 
 ### tasks
 
@@ -51,6 +56,8 @@ Indexes:
 | `id` | `uuid` | Primary key |
 | `user_id` | `uuid` | FK to `users(id)` |
 | `project_id` | `uuid` | FK to `projects(id)` |
+| `task_number` | `integer` | Project-local running number used to generate task keys |
+| `task_key` | `varchar(32)` | Stable human-readable task key, e.g. `TEST-14` |
 | `title` | `varchar(256)` | Task title |
 | `description` | `text` | Task description/body shown above subtasks |
 | `completed` | `boolean` | Completion flag |
@@ -61,7 +68,7 @@ Indexes:
 | `time_entries` | `jsonb` | Historical time-entry array |
 | `sort_order` | `integer` | Manual ordering key |
 | `priority` | `varchar(10)` | `low`, `medium`, `high`, `urgent` |
-| `kanban_status` | `varchar(20)` | `todo`, `in-progress`, `review`, `waiting`, `done` |
+| `kanban_status` | `varchar(64)` | Project-local workflow key validated against `project_task_statuses` |
 | `deadline` | `timestamptz` | Optional deadline |
 | `notes` | `jsonb` | Communication/history entries |
 | `tags` | `text[]` | Freeform, searchable task tags |
@@ -75,6 +82,8 @@ Indexes:
 
 - `idx_tasks_project_id` on `project_id`
 - `idx_tasks_user_id` on `user_id`
+- `idx_tasks_task_key` unique index on `task_key`
+- `idx_tasks_project_task_number` on (`project_id`, `task_number`)
 - `idx_tasks_tags` GIN index on `tags`
 - `idx_tasks_dependencies` GIN index on `dependencies`
 
@@ -84,6 +93,32 @@ Notes:
 - Tag filtering is implemented client-side with match-all semantics for multiple selected tags.
 - Task completion is blocked while incomplete dependencies remain.
 - Completing a recurring top-level task creates the next instance automatically using the stored recurrence rule.
+- `completed` is now synchronized from the selected workflow state so existing completion logic still works.
+
+### project_task_statuses
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `key` | `varchar(64)` | Stable workflow key used by tasks and board columns |
+| `label` | `varchar(64)` | Human-facing status label |
+| `color_token` | `varchar(16)` | HeroUI-aligned token: `default`, `accent`, `warning`, `danger`, `success` |
+| `position` | `integer` | Project-local workflow order / board column order |
+| `is_completed_state` | `boolean` | Marks statuses that should set tasks to completed |
+| `is_builtin` | `boolean` | Protects seeded statuses such as `done` from destructive deletion |
+| `created_at` | `timestamptz` | Creation timestamp |
+| `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+Indexes / constraints:
+
+- Unique on (`project_id`, `key`)
+- Unique on (`project_id`, `position`)
+
+Notes:
+
+- New projects seed this table from `users.preferences.taskStatusTemplates`.
+- Projects own their workflow after seeding; later workspace template edits do not retroactively rewrite existing project workflows.
 
 ### wiki_guides
 

@@ -13,6 +13,7 @@ import {
     Project,
     ProjectFile,
     ProjectMember,
+    ProjectTaskStatus,
     ResourceVersion,
     Snippet,
     Task,
@@ -105,6 +106,9 @@ export const db = {
     async listTasks(projectId: string) {
         return await api.listTasks<Task>(projectId);
     },
+    async getTaskByKey(projectId: string, taskKey: string) {
+        return await api.getTaskByKey<Task>(projectId, taskKey);
+    },
     async createEmptyTask(projectId: string, title: string, order: number = 0, isEncrypted: boolean = false, parentId?: string, kanbanStatus: Task['kanbanStatus'] = 'todo') {
         return await api.createTask<Task>({
             projectId,
@@ -125,8 +129,26 @@ export const db = {
     async updateTask(id: string, data: Partial<Task> & { workDuration?: string }) {
         return await api.updateTask<Task>(id, data as Record<string, unknown>);
     },
+    async reorderTasks(projectId: string, updates: Array<{ id: string; kanbanStatus?: string; completed?: boolean; order?: number }>) {
+        return await api.reorderTasks<Task>(projectId, updates as unknown as Record<string, unknown>[]);
+    },
     async deleteTask(id: string) {
         return await api.deleteTask(id);
+    },
+    async listProjectTaskStatuses(projectId: string) {
+        return await api.listProjectTaskStatuses<ProjectTaskStatus>(projectId);
+    },
+    async createProjectTaskStatus(projectId: string, data: Pick<ProjectTaskStatus, 'label' | 'colorToken' | 'isCompletedState'>) {
+        return await api.createProjectTaskStatus<ProjectTaskStatus>(projectId, data as Record<string, unknown>);
+    },
+    async updateProjectTaskStatus(projectId: string, statusId: string, data: Partial<Pick<ProjectTaskStatus, 'label' | 'colorToken' | 'isCompletedState'>>) {
+        return await api.updateProjectTaskStatus<ProjectTaskStatus>(projectId, statusId, data as Record<string, unknown>);
+    },
+    async deleteProjectTaskStatus(projectId: string, statusId: string, replacementStatusId: string) {
+        return await api.deleteProjectTaskStatus(projectId, statusId, replacementStatusId);
+    },
+    async reorderProjectTaskStatuses(projectId: string, statusIds: string[]) {
+        return await api.reorderProjectTaskStatuses<ProjectTaskStatus>(projectId, statusIds);
     },
 
     // Encryption Keys

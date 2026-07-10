@@ -3,21 +3,14 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getCompletedStatus, getStatusTokenChipColor, getStatusTokenDotClass } from '@/services/frontend/lib/task-statuses';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ProjectFile, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
+import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskComment } from '@/services/frontend/types';
 import { Avatar, Button, Chip, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
 import dayjs from 'dayjs';
 import { Calendar, Check, Clock, GitBranch, Lock, MessageCircle, MoreHorizontal, Paperclip, Plus, Trash2, UserCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TaskDetailModal } from './TaskDetailModal';
-
-const COLUMNS: { id: Task['kanbanStatus']; label: string; dotColor: string; includes?: Task['kanbanStatus'][] }[] = [
-    { id: 'todo', label: 'To Do', dotColor: 'bg-accent' },
-    { id: 'in-progress', label: 'In Progress', dotColor: 'bg-warning' },
-    { id: 'review', label: 'Need Review', dotColor: 'bg-danger', includes: ['waiting'] },
-    { id: 'done', label: 'Done', dotColor: 'bg-success' },
-];
 
 type TaskMeta = {
     assignees: TaskAssignee[];
@@ -40,26 +33,32 @@ export function KanbanBoard({
     searchQuery = '',
     selectedTags = [],
     hideCompleted = false,
-    quickFilter = 'all'
+    quickFilter = 'all',
+    statusOptions = [],
+    refreshToken,
+    onOpenTask,
 }: {
     projectId: string,
     searchQuery?: string,
     selectedTags?: string[],
     hideCompleted?: boolean,
-    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked'
+    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked',
+    statusOptions?: ProjectTaskStatus[],
+    refreshToken?: number,
+    onOpenTask?: (task: Task) => void,
 }) {
     const { user, privateKey } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isEncrypted, setIsEncrypted] = useState(false);
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
-    const [addingToColumn, setAddingToColumn] = useState<Task['kanbanStatus'] | null>(null);
+    const [addingToColumn, setAddingToColumn] = useState<string | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [taskMeta, setTaskMeta] = useState<Record<string, TaskMeta>>({});
     const newTaskInputRef = useRef<HTMLInputElement>(null);
+    const resolvedStatuses = [...statusOptions].sort((a, b) => a.position - b.position);
+    const completedStatus = getCompletedStatus(resolvedStatuses);
 
     const fetchTasks = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -100,28 +99,8 @@ export function KanbanBoard({
                 return task;
             }));
 
-            const visibleParentIds = new Set(
-                decryptedTasks
-                    .filter(task => !task.parentId)
-                    .filter(task => {
-                        const subtasks = decryptedTasks.filter(subtask => subtask.parentId === task.id);
-                        const matchesTask = taskMatchesFilters(task, searchQuery, selectedTags);
-                        const matchesSubtask = subtasks.some(subtask => taskMatchesFilters(subtask, searchQuery, selectedTags));
-                        const matchesCompleted = hideCompleted ? (task.kanbanStatus !== 'done' && !task.completed) : true;
-                        return (matchesTask || matchesSubtask) && matchesCompleted;
-                    })
-                    .map(task => task.id)
-            );
-
-            const filteredTasks = decryptedTasks.filter(task => {
-                if (!task.parentId) {
-                    return visibleParentIds.has(task.id);
-                }
-                return visibleParentIds.has(task.parentId);
-            });
-
-            setTasks(filteredTasks);
-            const metaTasks = filteredTasks.slice(0, 100);
+            setTasks(decryptedTasks);
+            const metaTasks = decryptedTasks.slice(0, 100);
             const metaEntries = await Promise.all(metaTasks.map(async (task) => {
                 try {
                     const [assigneesRes, filesRes, commentsRes] = await Promise.all([
@@ -144,11 +123,16 @@ export function KanbanBoard({
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey, documentKey, searchQuery, selectedTags, hideCompleted]);
+    }, [projectId, user, privateKey, documentKey]);
 
     useEffect(() => {
         fetchTasks(true);
     }, [fetchTasks]);
+
+    useEffect(() => {
+        if (refreshToken === undefined) return;
+        void fetchTasks(false);
+    }, [fetchTasks, refreshToken]);
 
     useEffect(() => {
         const unsub = wsClient.subscribe(async (event: WSEvent) => {
@@ -172,20 +156,91 @@ export function KanbanBoard({
     useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent).detail;
-            startAdding(detail?.column || 'todo');
+            startAdding(detail?.column || resolvedStatuses[0]?.key || 'todo');
         };
         window.addEventListener('kanban-add-task', handler);
         return () => window.removeEventListener('kanban-add-task', handler);
-    }, []);
+    }, [resolvedStatuses]);
 
-    const moveTask = async (taskId: string, newStatus: Task['kanbanStatus']) => {
+    const mainTasks = tasks
+        .filter((task) => !task.parentId)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const getVisibleColumnTasks = useCallback((statusKey: string) => {
+        return mainTasks.filter((t) => {
+            const effectiveStatus = t.completed ? completedStatus.key : (t.kanbanStatus || resolvedStatuses[0]?.key || 'todo');
+            const meta = taskMeta[t.id] || { assignees: [], files: [], comments: [] };
+            const matchesQuickFilter =
+                quickFilter === 'all' ||
+                (quickFilter === 'mine' && !!user && meta.assignees.some((assignee) => assignee.userId === user.id)) ||
+                (quickFilter === 'unassigned' && meta.assignees.length === 0) ||
+                (quickFilter === 'due-soon' && !!t.deadline && !t.completed && dayjs(t.deadline).diff(dayjs(), 'day') <= 7) ||
+                (quickFilter === 'blocked' && ((t.dependencies || []).length > 0));
+            const matchesSearch = taskMatchesFilters(t, searchQuery, selectedTags);
+            const matchesCompleted = hideCompleted ? !t.completed : true;
+            return effectiveStatus === statusKey && matchesQuickFilter && matchesSearch && matchesCompleted;
+        });
+    }, [completedStatus.key, hideCompleted, mainTasks, quickFilter, resolvedStatuses, searchQuery, selectedTags, taskMeta, user]);
+
+    const persistTaskOrder = useCallback(async (nextMainTasks: Task[]) => {
+        await db.reorderTasks(
+            projectId,
+            nextMainTasks.map((task, index) => ({
+                id: task.id,
+                kanbanStatus: task.kanbanStatus,
+                completed: task.completed,
+                order: index,
+            })),
+        );
+    }, [projectId]);
+
+    const moveTask = async (taskId: string, newStatus: string, beforeTaskId?: string) => {
         const previousTasks = [...tasks];
-        try {
-            const isCompleted = newStatus === 'done';
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, kanbanStatus: newStatus, completed: isCompleted } : t));
+        const movedTask = mainTasks.find((task) => task.id === taskId);
+        if (!movedTask) return;
 
-            await db.updateTask(taskId, { kanbanStatus: newStatus, completed: isCompleted });
-            toast.success(`Task moved to ${COLUMNS.find(c => c.id === newStatus)?.label}`);
+        const nextStatus = resolvedStatuses.find((status) => status.key === newStatus);
+        const columnMap = new Map<string, Task[]>();
+        resolvedStatuses.forEach((status) => columnMap.set(status.key, []));
+
+        const normalizedMainTasks = mainTasks.map((task) => task.id === taskId
+            ? { ...task, kanbanStatus: newStatus, completed: nextStatus?.isCompletedState ?? false }
+            : task,
+        );
+
+        for (const task of normalizedMainTasks) {
+            const statusKey = task.completed ? completedStatus.key : (task.kanbanStatus || resolvedStatuses[0]?.key || 'todo');
+            const bucket = columnMap.get(statusKey) || [];
+            if (task.id !== taskId) {
+                bucket.push(task);
+                columnMap.set(statusKey, bucket);
+            }
+        }
+
+        const targetColumn = [...(columnMap.get(newStatus) || [])];
+        if (beforeTaskId) {
+            const insertIndex = targetColumn.findIndex((task) => task.id === beforeTaskId);
+            if (insertIndex >= 0) {
+                targetColumn.splice(insertIndex, 0, { ...movedTask, kanbanStatus: newStatus, completed: nextStatus?.isCompletedState ?? false });
+            } else {
+                targetColumn.push({ ...movedTask, kanbanStatus: newStatus, completed: nextStatus?.isCompletedState ?? false });
+            }
+        } else {
+            targetColumn.push({ ...movedTask, kanbanStatus: newStatus, completed: nextStatus?.isCompletedState ?? false });
+        }
+        columnMap.set(newStatus, targetColumn);
+
+        const reorderedMainTasks = resolvedStatuses.flatMap((status) => columnMap.get(status.key) || []).map((task, index) => ({
+            ...task,
+            order: index,
+        }));
+
+        const reorderedMap = new Map(reorderedMainTasks.map((task) => [task.id, task]));
+        setTasks((current) => current.map((task) => reorderedMap.get(task.id) || task));
+
+        try {
+            await persistTaskOrder(reorderedMainTasks);
+            toast.success(`Task moved to ${nextStatus?.label || newStatus}`);
         } catch (error) {
             console.error('Failed to move task, rolling back:', error);
             setTasks(previousTasks);
@@ -206,7 +261,7 @@ export function KanbanBoard({
         }
     };
 
-    const startAdding = (columnId: Task['kanbanStatus']) => {
+    const startAdding = (columnId: string) => {
         setAddingToColumn(columnId);
         setNewTaskTitle('');
         setTimeout(() => newTaskInputRef.current?.focus(), 0);
@@ -217,7 +272,7 @@ export function KanbanBoard({
         setNewTaskTitle('');
     };
 
-    const handleAddTask = async (columnId: Task['kanbanStatus']) => {
+    const handleAddTask = async (columnId: string) => {
         if (!newTaskTitle.trim()) { cancelAdding(); return; }
         setIsCreating(true);
         try {
@@ -244,36 +299,17 @@ export function KanbanBoard({
         </div>
     );
 
-    const mainTasks = tasks.filter(t => !t.parentId);
-
-    // Helper to get column tasks, including merged statuses
-    // A task with completed=true is always treated as 'done' regardless of kanbanStatus
-    const getColumnTasks = (column: typeof COLUMNS[number]) => {
-        const statuses = [column.id, ...(column.includes || [])];
-        return mainTasks.filter(t => {
-            const effectiveStatus = t.completed ? 'done' : (t.kanbanStatus || 'todo');
-            const meta = taskMeta[t.id] || { assignees: [], files: [], comments: [] };
-            const matchesQuickFilter =
-                quickFilter === 'all' ||
-                (quickFilter === 'mine' && !!user && meta.assignees.some((assignee) => assignee.userId === user.id)) ||
-                (quickFilter === 'unassigned' && meta.assignees.length === 0) ||
-                (quickFilter === 'due-soon' && !!t.deadline && !t.completed && dayjs(t.deadline).diff(dayjs(), 'day') <= 7) ||
-                (quickFilter === 'blocked' && ((t.dependencies || []).length > 0 || t.kanbanStatus === 'waiting'));
-            return statuses.includes(effectiveStatus) && matchesQuickFilter;
-        });
-    };
-
     return (
         <ScrollShadow className="pb-6 -mx-6 px-6" orientation="horizontal" hideScrollBar>
             <div className="flex gap-4 min-w-max md:min-w-[1100px]">
-                {COLUMNS.map(column => {
-                    const columnTasks = getColumnTasks(column);
+                {resolvedStatuses.map((column) => {
+                    const columnTasks = getVisibleColumnTasks(column.key);
                     return (
                         <div key={column.id} className="flex flex-col gap-3 w-[280px] shrink-0">
                             {/* Column Header */}
                             <div className="flex items-center justify-between px-1 py-1.5">
                                 <div className="flex items-center gap-2.5">
-                                    <div className={`w-2.5 h-2.5 rounded-full ${column.dotColor}`} />
+                                    <div className={`w-2.5 h-2.5 rounded-full ${getStatusTokenDotClass(column.colorToken)}`} />
                                     <h3 className="text-sm font-semibold text-foreground">{column.label}</h3>
                                 </div>
                                 <Chip size="sm" variant="soft" color="default" className="h-5 rounded-md">
@@ -287,7 +323,7 @@ export function KanbanBoard({
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
                                     const taskId = e.dataTransfer.getData('taskId');
-                                    moveTask(taskId, column.id);
+                                    void moveTask(taskId, column.key);
                                 }}
                             >
                                 {columnTasks.map(task => {
@@ -303,9 +339,15 @@ export function KanbanBoard({
                                             onDragStart={(e) => {
                                                 e.dataTransfer.setData('taskId', task.id);
                                             }}
+                                            onDragOver={(e) => e.preventDefault()}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                const taskId = e.dataTransfer.getData('taskId');
+                                                void moveTask(taskId, column.key, task.id);
+                                            }}
                                             onClick={() => {
-                                                setSelectedTask(task);
-                                                setIsDetailModalOpen(true);
+                                                onOpenTask?.(task);
                                             }}
                                             className="rounded-lg border border-border/70 bg-surface px-3 py-2.5 cursor-grab active:cursor-grabbing hover:border-accent/40 hover:bg-surface-secondary/20 transition-all group"
                                         >
@@ -331,7 +373,7 @@ export function KanbanBoard({
                                                             <Dropdown.Item
                                                                 id={`edit-${task.id}`}
                                                                 textValue="Edit"
-                                                                onAction={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                                                                onAction={() => onOpenTask?.(task)}
                                                             >
                                                                 <div className="flex items-center gap-2 text-[12px]">
                                                                     <MessageCircle size={12} />
@@ -352,6 +394,10 @@ export function KanbanBoard({
                                                         </Dropdown.Menu>
                                                     </Dropdown.Popover>
                                                 </Dropdown>
+                                            </div>
+
+                                            <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                                                {task.taskKey}
                                             </div>
 
                                             {/* Subtask progress */}
@@ -377,8 +423,7 @@ export function KanbanBoard({
                                                                     className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-surface-secondary hover:text-foreground"
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
-                                                                        setSelectedTask(subtask);
-                                                                        setIsDetailModalOpen(true);
+                                                                        onOpenTask?.(subtask);
                                                                     }}
                                                                 >
                                                                     <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${subtask.completed ? 'border-success bg-success/15 text-success' : 'border-border text-transparent'}`}>
@@ -402,6 +447,9 @@ export function KanbanBoard({
                                                             <Chip.Label className="text-[10px]">{priorityConfig.label}</Chip.Label>
                                                         </Chip>
                                                     )}
+                                                    <Chip size="sm" variant="soft" color={getStatusTokenChipColor(column.colorToken)} className="h-5 rounded-md">
+                                                        <Chip.Label className="text-[10px]">{column.label}</Chip.Label>
+                                                    </Chip>
                                                     {task.tags && task.tags.length > 0 && task.tags.slice(0, 2).map(tag => (
                                                         <span key={tag} className="text-[10px] text-muted-foreground/70">
                                                             #{tag}
@@ -460,14 +508,14 @@ export function KanbanBoard({
                                 })}
 
                                 {/* Add task inline */}
-                                {addingToColumn === column.id ? (
+                                {addingToColumn === column.key ? (
                                     <div className="p-3 rounded-lg border border-accent/40 bg-surface space-y-2">
                                         <Input
                                             ref={newTaskInputRef}
                                             value={newTaskTitle}
                                             onChange={e => setNewTaskTitle(e.target.value)}
                                             onKeyDown={e => {
-                                                if (e.key === 'Enter') handleAddTask(column.id);
+                                                if (e.key === 'Enter') handleAddTask(column.key);
                                                 if (e.key === 'Escape') cancelAdding();
                                             }}
                                             placeholder="Task title..."
@@ -479,7 +527,7 @@ export function KanbanBoard({
                                                 size="sm"
                                                 variant="primary"
                                                 className="h-6 px-2.5 rounded-lg text-[11px]"
-                                                onPress={() => handleAddTask(column.id)}
+                                                onPress={() => handleAddTask(column.key)}
                                                 isPending={isCreating}
                                             >
                                                 <Check size={11} className="mr-0.5" /> Add
@@ -498,7 +546,7 @@ export function KanbanBoard({
                                     <Button
                                         variant="ghost"
                                         className="w-full h-8 border border-dashed border-border/60 hover:border-accent/40 text-[12px] text-muted-foreground hover:text-accent rounded-lg transition-all bg-transparent"
-                                        onPress={() => startAdding(column.id)}
+                                        onPress={() => startAdding(column.key)}
                                     >
                                         <Plus size={14} className="mr-1.5" />
                                         New Task
@@ -509,15 +557,6 @@ export function KanbanBoard({
                     );
                 })}
             </div>
-            {selectedTask && (
-                <TaskDetailModal
-                    isOpen={isDetailModalOpen}
-                    onOpenChange={setIsDetailModalOpen}
-                    task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
-                    projectId={projectId}
-                    onUpdate={fetchTasks}
-                />
-            )}
         </ScrollShadow>
     );
 }

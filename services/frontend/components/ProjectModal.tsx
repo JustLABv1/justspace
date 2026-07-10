@@ -22,6 +22,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [status, setStatus] = useState<'todo' | 'in-progress' | 'completed'>('todo');
+    const [taskKeyPrefix, setTaskKeyPrefix] = useState('');
     const [daysPerWeek, setDaysPerWeek] = useState<string>('');
     const [allocatedDays, setAllocatedDays] = useState<string>('');
     const [isEncrypted, setIsEncrypted] = useState(false);
@@ -33,6 +34,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setName(project.name);
             setDescription(project.description);
             setStatus(project.status as 'todo' | 'in-progress' | 'completed');
+            setTaskKeyPrefix(project.taskKeyPrefix || '');
             setDaysPerWeek(project.daysPerWeek?.toString() || '');
             setAllocatedDays(project.allocatedDays?.toString() || '');
             setIsEncrypted(!!project.isEncrypted);
@@ -40,6 +42,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setName('');
             setDescription('');
             setStatus('todo');
+            setTaskKeyPrefix('');
             setDaysPerWeek('');
             setAllocatedDays('');
             setIsEncrypted(hasVault);
@@ -54,6 +57,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                 name, 
                 description, 
                 status,
+                taskKeyPrefix,
                 daysPerWeek: daysPerWeek ? parseFloat(daysPerWeek) : undefined,
                 allocatedDays: allocatedDays ? parseInt(allocatedDays) : undefined,
                 isEncrypted,
@@ -109,9 +113,11 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             isDisabled={!hasVault || (project?.isEncrypted)}
                                             aria-label="Toggle encryption"
                                         >
-                                            <Switch.Control>
-                                                <Switch.Thumb />
-                                            </Switch.Control>
+                                            <Switch.Content>
+                                                <Switch.Control>
+                                                    <Switch.Thumb />
+                                                </Switch.Control>
+                                            </Switch.Content>
                                         </Switch>
                                 </div>
                                 {!hasVault && (
@@ -138,6 +144,21 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                         className={textAreaClass}
                                     />
                                 </TextField>
+
+                                <TextField value={taskKeyPrefix} onChange={setTaskKeyPrefix} className={fieldClass}>
+                                    <Label className={labelClass}>Task Key Prefix</Label>
+                                    <Input
+                                        placeholder="e.g. TEST"
+                                        variant="secondary"
+                                        className={inputClass}
+                                        disabled={!!project?.taskKeyPrefixLocked}
+                                    />
+                                </TextField>
+                                {project?.taskKeyPrefixLocked && (
+                                    <p className="text-xs text-muted-foreground">
+                                        This prefix is locked because this project already has issued task keys.
+                                    </p>
+                                )}
 
                                 <div className="space-y-2">
                                     <Label className={labelClass}>Status</Label>

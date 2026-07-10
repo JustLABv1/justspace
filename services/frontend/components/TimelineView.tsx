@@ -5,11 +5,10 @@ import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto'
 import { db } from '@/services/frontend/lib/db';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { Task } from '@/services/frontend/types';
+import { ProjectTaskStatus, Task } from '@/services/frontend/types';
 import dayjs from 'dayjs';
 import { Lock } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TaskDetailModal } from './TaskDetailModal';
 
 const PRIORITY_COLORS: Record<string, string> = {
     urgent: 'bg-danger/80',
@@ -28,18 +27,21 @@ export function TimelineView({
     searchQuery = '',
     selectedTags = [],
     hideCompleted = false,
+    refreshToken,
+    onOpenTask,
 }: {
     projectId: string;
     searchQuery?: string;
     selectedTags?: string[];
     hideCompleted?: boolean;
+    statusOptions?: ProjectTaskStatus[];
+    refreshToken?: number;
+    onOpenTask?: (task: Task) => void;
 }) {
     const { user, privateKey } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const fetchTasks = useCallback(async (isInitial = false) => {
@@ -73,7 +75,7 @@ export function TimelineView({
                 return task;
             }));
 
-            const filtered = decrypted.filter(task => {
+            const visibleParents = decrypted.filter(task => {
                 if (task.parentId) return false;
 
                 const subtasks = decrypted.filter(subtask => subtask.parentId === task.id);
@@ -85,7 +87,14 @@ export function TimelineView({
                 return true;
             });
 
-            setTasks(filtered);
+            const timelineRows = visibleParents.flatMap((parentTask) => {
+                const visibleSubtasks = decrypted
+                    .filter((subtask) => subtask.parentId === parentTask.id)
+                    .filter((subtask) => !hideCompleted || !subtask.completed);
+                return [parentTask, ...visibleSubtasks];
+            });
+
+            setTasks(timelineRows);
         } catch (err) {
             console.error(err);
         } finally {
@@ -94,6 +103,11 @@ export function TimelineView({
     }, [projectId, user, privateKey, documentKey, searchQuery, selectedTags, hideCompleted]);
 
     useEffect(() => { fetchTasks(true); }, [fetchTasks]);
+
+    useEffect(() => {
+        if (refreshToken === undefined) return;
+        void fetchTasks(false);
+    }, [fetchTasks, refreshToken]);
 
     useEffect(() => {
         const unsub = wsClient.subscribe(async (event: WSEvent) => {
@@ -184,12 +198,21 @@ export function TimelineView({
                     {tasks.map((task, i) => (
                         <div
                             key={task.id}
-                            onClick={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                            onClick={() => onOpenTask?.(task)}
                             className={`flex items-center gap-2 px-4 cursor-pointer hover:bg-surface-secondary/60 transition-colors ${i % 2 === 0 ? '' : 'bg-surface-secondary/20'}`}
                             style={{ height: ROW_HEIGHT }}
                         >
                             {task.isEncrypted && <Lock size={10} className="text-muted-foreground shrink-0" />}
-                            <span className="text-[12px] text-foreground truncate" title={task.title}>{task.title}</span>
+                            <div className="min-w-0">
+                                <span className={`block truncate text-[12px] text-foreground ${task.parentId ? 'pl-3' : ''}`} title={task.title}>
+                                    {task.parentId ? `↳ ${task.title}` : task.title}
+                                </span>
+                                {task.parentId && (
+                                    <span className="block truncate pl-3 text-[10px] text-muted-foreground">
+                                        Subtask
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -246,7 +269,7 @@ export function TimelineView({
 
                             {/* Task rows with bars */}
                             {tasks.map((task, i) => {
-                                const barColor = PRIORITY_COLORS[task.priority || 'default'];
+                                const barColor = task.parentId ? `${PRIORITY_COLORS[task.priority || 'default']} opacity-80` : PRIORITY_COLORS[task.priority || 'default'];
                                 const startDay = dayjs(task.createdAt).diff(minDate, 'day');
                                 const endDay = task.deadline
                                     ? dayjs(task.deadline).diff(minDate, 'day') + 1
@@ -262,7 +285,7 @@ export function TimelineView({
                                         style={{ height: ROW_HEIGHT }}
                                     >
                                         <div
-                                            onClick={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                                            onClick={() => onOpenTask?.(task)}
                                             className={`absolute h-6 rounded-md cursor-pointer flex items-center px-2 transition-opacity hover:opacity-90 ${barColor} ${task.completed ? 'opacity-40' : ''} ${isOverdue ? 'ring-1 ring-danger/50' : ''}`}
                                             style={{ left: barLeft, width: barWidth }}
                                             title={task.title}
@@ -276,16 +299,6 @@ export function TimelineView({
                     </div>
                 </div>
             </div>
-
-            {selectedTask && (
-                <TaskDetailModal
-                    isOpen={isDetailModalOpen}
-                    onOpenChange={setIsDetailModalOpen}
-                    task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
-                    projectId={projectId}
-                    onUpdate={fetchTasks}
-                />
-            )}
         </>
     );
 }

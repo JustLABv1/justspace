@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,10 +23,16 @@ func New(pool *pgxpool.Pool) *Repo {
 }
 
 const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, p.days_per_week, p.allocated_days, p.is_encrypted,
-	pm.role, p.created_at, p.updated_at
+	p.task_key_prefix, (p.next_task_number > 1) AS task_key_prefix_locked, pm.role, p.created_at, p.updated_at
 	FROM projects p
 	JOIN project_members pm ON pm.project_id = p.id
 	WHERE pm.user_id = $1`
+
+const taskSelectColumns = `id, user_id, project_id, task_number, task_key, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`
+
+const taskStatusSelectColumns = `id, project_id, key, label, color_token, position, is_completed_state, is_builtin, created_at, updated_at`
+
+var nonAlphanumeric = regexp.MustCompile(`[^A-Za-z0-9]+`)
 
 func scanProject(row pgx.Row, project *models.Project) error {
 	return row.Scan(
@@ -35,10 +44,131 @@ func scanProject(row pgx.Row, project *models.Project) error {
 		&project.DaysPerWeek,
 		&project.AllocatedDays,
 		&project.IsEncrypted,
+		&project.TaskKeyPrefix,
+		&project.TaskKeyPrefixLocked,
 		&project.Role,
 		&project.CreatedAt,
 		&project.UpdatedAt,
 	)
+}
+
+func scanTaskRow(row pgx.Row, task *models.Task) error {
+	return row.Scan(
+		&task.ID,
+		&task.UserID,
+		&task.ProjectID,
+		&task.TaskNumber,
+		&task.TaskKey,
+		&task.Title,
+		&task.Description,
+		&task.Completed,
+		&task.ParentID,
+		&task.TimeSpent,
+		&task.IsTimerRunning,
+		&task.TimerStartedAt,
+		&task.TimeEntries,
+		&task.Order,
+		&task.Priority,
+		&task.KanbanStatus,
+		&task.Deadline,
+		&task.Notes,
+		&task.Tags,
+		&task.Dependencies,
+		&task.Recurrence,
+		&task.IsEncrypted,
+		&task.CreatedAt,
+		&task.UpdatedAt,
+	)
+}
+
+func scanProjectTaskStatusRow(row pgx.Row, status *models.ProjectTaskStatus) error {
+	return row.Scan(
+		&status.ID,
+		&status.ProjectID,
+		&status.Key,
+		&status.Label,
+		&status.ColorToken,
+		&status.Position,
+		&status.IsCompletedState,
+		&status.IsBuiltin,
+		&status.CreatedAt,
+		&status.UpdatedAt,
+	)
+}
+
+func normalizeStatusKey(value string) string {
+	key := strings.ToLower(strings.TrimSpace(value))
+	key = strings.ReplaceAll(key, "&", " and ")
+	key = strings.ReplaceAll(key, "/", " ")
+	key = nonAlphanumeric.ReplaceAllString(key, "-")
+	key = strings.Trim(key, "-")
+	if key == "" {
+		key = "status"
+	}
+	return key
+}
+
+func normalizeProjectTaskKeyPrefix(value string) string {
+	prefix := strings.ToUpper(strings.TrimSpace(value))
+	prefix = nonAlphanumeric.ReplaceAllString(prefix, "")
+	if prefix == "" {
+		prefix = "PRJ"
+	}
+	if len(prefix) > 8 {
+		prefix = prefix[:8]
+	}
+	return prefix
+}
+
+func normalizeStatusColorToken(value string) string {
+	switch strings.TrimSpace(value) {
+	case "default", "accent", "warning", "danger", "success":
+		return strings.TrimSpace(value)
+	default:
+		return "default"
+	}
+}
+
+func normalizedProjectKeyPrefixOrNil(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := normalizeProjectTaskKeyPrefix(*value)
+	return &normalized
+}
+
+func uniqueProjectTaskKeyPrefix(ctx context.Context, tx pgx.Tx, requested, fallbackName string, excludeProjectID *string) (string, error) {
+	base := strings.TrimSpace(requested)
+	if base == "" {
+		base = fallbackName
+	}
+	base = normalizeProjectTaskKeyPrefix(base)
+	candidate := base
+	suffix := 1
+
+	for {
+		var exists bool
+		query := `SELECT EXISTS(SELECT 1 FROM projects WHERE task_key_prefix = $1`
+		args := []any{candidate}
+		if excludeProjectID != nil {
+			query += ` AND id <> $2`
+			args = append(args, *excludeProjectID)
+		}
+		query += `)`
+		if err := tx.QueryRow(ctx, query, args...).Scan(&exists); err != nil {
+			return "", fmt.Errorf("check project task key prefix uniqueness: %w", err)
+		}
+		if !exists {
+			return candidate, nil
+		}
+		suffix++
+		candidate = base
+		suffixText := strconv.Itoa(suffix)
+		if len(candidate)+len(suffixText) > 8 {
+			candidate = candidate[:8-len(suffixText)]
+		}
+		candidate += suffixText
+	}
 }
 
 // ---- Users ----
@@ -126,6 +256,105 @@ func (r *Repo) UpdateUser(ctx context.Context, id string, name *string, prefs *j
 	return u, nil
 }
 
+func defaultTaskStatusTemplates() []models.ProjectTaskStatus {
+	return []models.ProjectTaskStatus{
+		{Key: "todo", Label: "Todo", ColorToken: "default", Position: 0, IsCompletedState: false, IsBuiltin: true},
+		{Key: "in-progress", Label: "In progress", ColorToken: "accent", Position: 1, IsCompletedState: false, IsBuiltin: true},
+		{Key: "review", Label: "Review", ColorToken: "warning", Position: 2, IsCompletedState: false, IsBuiltin: true},
+		{Key: "waiting", Label: "Blocked", ColorToken: "danger", Position: 3, IsCompletedState: false, IsBuiltin: true},
+		{Key: "done", Label: "Done", ColorToken: "success", Position: 4, IsCompletedState: true, IsBuiltin: true},
+	}
+}
+
+func (r *Repo) loadWorkspaceTaskStatusTemplates(ctx context.Context, userID string) ([]models.ProjectTaskStatus, error) {
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil || len(user.Preferences) == 0 {
+		return defaultTaskStatusTemplates(), nil
+	}
+
+	var rawPreferences map[string]any
+	if err := json.Unmarshal(user.Preferences, &rawPreferences); err != nil {
+		return defaultTaskStatusTemplates(), nil
+	}
+
+	rawTemplates, ok := rawPreferences["taskStatusTemplates"].([]any)
+	if !ok || len(rawTemplates) == 0 {
+		return defaultTaskStatusTemplates(), nil
+	}
+
+	var templates []models.ProjectTaskStatus
+	for idx, raw := range rawTemplates {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		label, _ := item["label"].(string)
+		if strings.TrimSpace(label) == "" {
+			continue
+		}
+		key, _ := item["key"].(string)
+		colorToken, _ := item["colorToken"].(string)
+		isCompletedState, _ := item["isCompletedState"].(bool)
+		isBuiltin, _ := item["isBuiltin"].(bool)
+		templates = append(templates, models.ProjectTaskStatus{
+			Key:              normalizeStatusKey(key),
+			Label:            strings.TrimSpace(label),
+			ColorToken:       normalizeStatusColorToken(colorToken),
+			Position:         idx,
+			IsCompletedState: isCompletedState,
+			IsBuiltin:        isBuiltin,
+		})
+	}
+
+	if len(templates) == 0 {
+		return defaultTaskStatusTemplates(), nil
+	}
+
+	foundDone := false
+	for i := range templates {
+		if templates[i].Key == "done" {
+			templates[i].IsCompletedState = true
+			templates[i].IsBuiltin = true
+			foundDone = true
+		}
+	}
+	if !foundDone {
+		templates = append(templates, models.ProjectTaskStatus{
+			Key:              "done",
+			Label:            "Done",
+			ColorToken:       "success",
+			Position:         len(templates),
+			IsCompletedState: true,
+			IsBuiltin:        true,
+		})
+	}
+
+	return templates, nil
+}
+
+func seedProjectTaskStatuses(ctx context.Context, tx pgx.Tx, projectID string, templates []models.ProjectTaskStatus) error {
+	for idx, template := range templates {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO project_task_statuses (project_id, key, label, color_token, position, is_completed_state, is_builtin)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)
+			 ON CONFLICT (project_id, key) DO NOTHING`,
+			projectID,
+			normalizeStatusKey(template.Key),
+			strings.TrimSpace(template.Label),
+			normalizeStatusColorToken(template.ColorToken),
+			idx,
+			template.IsCompletedState || normalizeStatusKey(template.Key) == "done",
+			template.IsBuiltin,
+		); err != nil {
+			return fmt.Errorf("seed project task statuses: %w", err)
+		}
+	}
+	return nil
+}
+
 // ---- Projects ----
 
 func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Project, error) {
@@ -138,7 +367,7 @@ func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Projec
 	var out []models.Project
 	for rows.Next() {
 		var p models.Project
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.Role, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.Role, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -168,13 +397,18 @@ func (r *Repo) CreateProject(ctx context.Context, userID string, req models.Crea
 	}
 	defer tx.Rollback(ctx)
 
+	taskKeyPrefix, err := uniqueProjectTaskKeyPrefix(ctx, tx, req.TaskKeyPrefix, req.Name, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	p := &models.Project{}
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO projects (user_id, name, description, status, days_per_week, allocated_days, is_encrypted)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id, user_id, name, description, status, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
-		userID, req.Name, req.Description, req.Status, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		`INSERT INTO projects (user_id, name, description, status, task_key_prefix, days_per_week, allocated_days, is_encrypted)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
+		userID, req.Name, req.Description, req.Status, taskKeyPrefix, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("create project: %w", err)
 	}
 
@@ -184,6 +418,14 @@ func (r *Repo) CreateProject(ctx context.Context, userID string, req models.Crea
 		p.ID, userID,
 	); err != nil {
 		return nil, fmt.Errorf("create project owner membership: %w", err)
+	}
+
+	templates, err := r.loadWorkspaceTaskStatusTemplates(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load workspace task status templates: %w", err)
+	}
+	if err := seedProjectTaskStatuses(ctx, tx, p.ID, templates); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -196,19 +438,41 @@ func (r *Repo) CreateProject(ctx context.Context, userID string, req models.Crea
 }
 
 func (r *Repo) UpdateProject(ctx context.Context, id, userID string, req models.UpdateProjectRequest) (*models.Project, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin update project: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var normalizedPrefix *string
+	if req.TaskKeyPrefix != nil {
+		value, err := uniqueProjectTaskKeyPrefix(ctx, tx, *req.TaskKeyPrefix, *req.TaskKeyPrefix, &id)
+		if err != nil {
+			return nil, err
+		}
+		normalizedPrefix = &value
+	}
+
 	p := &models.Project{}
-	err := r.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`UPDATE projects SET name = COALESCE($3, name), description = COALESCE($4, description), status = COALESCE($5, status),
-		 days_per_week = COALESCE($6, days_per_week), allocated_days = COALESCE($7, allocated_days), is_encrypted = COALESCE($8, is_encrypted)
+		 task_key_prefix = CASE
+		 	WHEN $6::text IS NOT NULL AND next_task_number <= 1 THEN $6::text
+		 	ELSE task_key_prefix
+		 END,
+		 days_per_week = COALESCE($7, days_per_week), allocated_days = COALESCE($8, allocated_days), is_encrypted = COALESCE($9, is_encrypted)
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = projects.id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
 		 )
-		 RETURNING id, user_id, name, description, status, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
-		id, userID, req.Name, req.Description, req.Status, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt)
+		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
+		id, userID, req.Name, req.Description, req.Status, normalizedPrefix, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update project: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit update project: %w", err)
 	}
 	role := "editor"
 	if memberRole, roleErr := r.GetProjectRole(ctx, id, userID); roleErr == nil && memberRole != "" {
@@ -263,6 +527,269 @@ func (r *Repo) RequireProjectRole(ctx context.Context, projectID, userID string,
 		}
 	}
 	return false, nil
+}
+
+func (r *Repo) ListProjectTaskStatuses(ctx context.Context, projectID string) ([]models.ProjectTaskStatus, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+taskStatusSelectColumns+`
+		 FROM project_task_statuses
+		 WHERE project_id = $1
+		 ORDER BY position ASC, created_at ASC`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list project task statuses: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.ProjectTaskStatus
+	for rows.Next() {
+		var status models.ProjectTaskStatus
+		if err := scanProjectTaskStatusRow(rows, &status); err != nil {
+			return nil, err
+		}
+		out = append(out, status)
+	}
+	if out == nil {
+		out = []models.ProjectTaskStatus{}
+	}
+	return out, nil
+}
+
+func (r *Repo) GetProjectTaskStatusByKey(ctx context.Context, projectID, key string) (*models.ProjectTaskStatus, error) {
+	status := &models.ProjectTaskStatus{}
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+taskStatusSelectColumns+`
+		 FROM project_task_statuses
+		 WHERE project_id = $1 AND key = $2`,
+		projectID, normalizeStatusKey(key),
+	)
+	if err := scanProjectTaskStatusRow(row, status); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get project task status by key: %w", err)
+	}
+	return status, nil
+}
+
+func (r *Repo) GetProjectTaskStatusByID(ctx context.Context, projectID, statusID string) (*models.ProjectTaskStatus, error) {
+	status := &models.ProjectTaskStatus{}
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+taskStatusSelectColumns+`
+		 FROM project_task_statuses
+		 WHERE project_id = $1 AND id = $2`,
+		projectID, statusID,
+	)
+	if err := scanProjectTaskStatusRow(row, status); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get project task status by id: %w", err)
+	}
+	return status, nil
+}
+
+func (r *Repo) CreateProjectTaskStatus(ctx context.Context, projectID string, req models.CreateProjectTaskStatusRequest) (*models.ProjectTaskStatus, error) {
+	statuses, err := r.ListProjectTaskStatuses(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	keyBase := normalizeStatusKey(req.Label)
+	key := keyBase
+	suffix := 1
+	exists := func(candidate string) bool {
+		for _, status := range statuses {
+			if status.Key == candidate {
+				return true
+			}
+		}
+		return false
+	}
+	for exists(key) {
+		suffix++
+		key = keyBase + "-" + strconv.Itoa(suffix)
+	}
+
+	status := &models.ProjectTaskStatus{}
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO project_task_statuses (project_id, key, label, color_token, position, is_completed_state, is_builtin)
+		 VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+		 RETURNING `+taskStatusSelectColumns,
+		projectID,
+		key,
+		strings.TrimSpace(req.Label),
+		normalizeStatusColorToken(req.ColorToken),
+		len(statuses),
+		req.IsCompletedState,
+	)
+	if err := scanProjectTaskStatusRow(row, status); err != nil {
+		return nil, fmt.Errorf("create project task status: %w", err)
+	}
+	return status, nil
+}
+
+func (r *Repo) UpdateProjectTaskStatus(ctx context.Context, projectID, statusID string, req models.UpdateProjectTaskStatusRequest) (*models.ProjectTaskStatus, error) {
+	existing, err := r.GetProjectTaskStatusByID(ctx, projectID, statusID)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+
+	isCompletedState := existing.IsCompletedState
+	if req.IsCompletedState != nil {
+		isCompletedState = *req.IsCompletedState
+	}
+	if existing.Key == "done" {
+		isCompletedState = true
+	}
+
+	row := r.pool.QueryRow(ctx,
+		`UPDATE project_task_statuses
+		 SET label = COALESCE($3, label),
+		     color_token = COALESCE($4, color_token),
+		     is_completed_state = $5,
+		     updated_at = NOW()
+		 WHERE project_id = $1
+		   AND id = $2
+		 RETURNING `+taskStatusSelectColumns,
+		projectID,
+		statusID,
+		req.Label,
+		nullableNormalizedColorToken(req.ColorToken),
+		isCompletedState,
+	)
+
+	status := &models.ProjectTaskStatus{}
+	if err := scanProjectTaskStatusRow(row, status); err != nil {
+		return nil, fmt.Errorf("update project task status: %w", err)
+	}
+
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE tasks
+		 SET completed = $3
+		 WHERE project_id = $1 AND kanban_status = $2`,
+		projectID, status.Key, status.IsCompletedState,
+	); err != nil {
+		return nil, fmt.Errorf("sync task completion for status update: %w", err)
+	}
+
+	return status, nil
+}
+
+func (r *Repo) DeleteProjectTaskStatus(ctx context.Context, projectID, statusID, replacementStatusID string) error {
+	status, err := r.GetProjectTaskStatusByID(ctx, projectID, statusID)
+	if err != nil {
+		return err
+	}
+	if status == nil {
+		return nil
+	}
+	if status.IsBuiltin {
+		return fmt.Errorf("cannot delete built-in status")
+	}
+
+	replacement, err := r.GetProjectTaskStatusByID(ctx, projectID, replacementStatusID)
+	if err != nil {
+		return err
+	}
+	if replacement == nil {
+		return fmt.Errorf("replacement status not found")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin delete project task status: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE tasks
+		 SET kanban_status = $3,
+		     completed = $4
+		 WHERE project_id = $1
+		   AND kanban_status = $2`,
+		projectID, status.Key, replacement.Key, replacement.IsCompletedState,
+	); err != nil {
+		return fmt.Errorf("reassign tasks for deleted status: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM project_task_statuses
+		 WHERE project_id = $1
+		   AND id = $2`,
+		projectID, statusID,
+	); err != nil {
+		return fmt.Errorf("delete project task status: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit delete project task status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repo) ReorderProjectTaskStatuses(ctx context.Context, projectID string, statusIDs []string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin reorder project task statuses: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for idx, statusID := range statusIDs {
+		if _, err := tx.Exec(ctx,
+			`UPDATE project_task_statuses
+			 SET position = $3,
+			     updated_at = NOW()
+			 WHERE project_id = $1 AND id = $2`,
+			projectID, statusID, idx,
+		); err != nil {
+			return fmt.Errorf("reorder project task statuses: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit reorder project task statuses: %w", err)
+	}
+	return nil
+}
+
+func nullableNormalizedColorToken(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := normalizeStatusColorToken(*value)
+	return &normalized
+}
+
+func (r *Repo) ReorderProjectTasks(ctx context.Context, projectID string, updates []models.UpdateTaskRequestWithID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin reorder project tasks: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for _, update := range updates {
+		if _, err := tx.Exec(ctx,
+			`UPDATE tasks
+			 SET kanban_status = COALESCE($3, kanban_status),
+			     completed = COALESCE($4, completed),
+			     sort_order = COALESCE($5, sort_order)
+			 WHERE id = $1
+			   AND project_id = $2`,
+			update.ID, projectID, update.KanbanStatus, update.Completed, update.Order,
+		); err != nil {
+			return fmt.Errorf("reorder task %s: %w", update.ID, err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit reorder project tasks: %w", err)
+	}
+	return nil
 }
 
 func (r *Repo) ListProjectMemberUserIDs(ctx context.Context, projectID string) ([]string, error) {
@@ -751,7 +1278,7 @@ func scanTasks(rows pgx.Rows) ([]models.Task, error) {
 	var out []models.Task
 	for rows.Next() {
 		var t models.Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := scanTaskRow(rows, &t); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -764,19 +1291,41 @@ func scanTasks(rows pgx.Rows) ([]models.Task, error) {
 
 func (r *Repo) GetTask(ctx context.Context, id, userID string) (*models.Task, error) {
 	t := &models.Task{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+taskSelectColumns+`
 		 FROM tasks
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2
 		 )`, id, userID,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
-	if err != nil {
+	)
+	if err := scanTaskRow(row, t); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("get task: %w", err)
+	}
+	return t, nil
+}
+
+func (r *Repo) GetTaskByKey(ctx context.Context, projectID, taskKey, userID string) (*models.Task, error) {
+	t := &models.Task{}
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+taskSelectColumns+`
+		 FROM tasks
+		 WHERE project_id = $1
+		   AND task_key = $2
+		   AND EXISTS (
+		   	SELECT 1 FROM project_members pm
+		   	WHERE pm.project_id = tasks.project_id AND pm.user_id = $3
+		   )`,
+		projectID, taskKey, userID,
+	)
+	if err := scanTaskRow(row, t); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get task by key: %w", err)
 	}
 	return t, nil
 }
@@ -803,7 +1352,7 @@ func (r *Repo) HasIncompleteDependencies(ctx context.Context, userID string, dep
 
 func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+		`SELECT `+taskSelectColumns+`
 		 FROM tasks
 		 WHERE project_id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
@@ -819,7 +1368,7 @@ func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]model
 
 func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int) ([]models.Task, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at
+		`SELECT `+taskSelectColumns+`
 		 FROM tasks
 		 WHERE EXISTS (
 		 	SELECT 1 FROM project_members pm
@@ -839,42 +1388,109 @@ func (r *Repo) CreateTask(ctx context.Context, userID string, req models.CreateT
 	if kanban == "" {
 		kanban = "todo"
 	}
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, project_id, title, description, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags, dependencies, recurrence)
-			 SELECT $1, $2, $3, COALESCE($4, ''), false, $5, 'medium', $6, $7, $8, COALESCE($9::text[], '{}'::text[]), COALESCE($10::text[], '{}'::text[]), NULLIF($11::text, '')
+	project, err := r.GetProject(ctx, req.ProjectID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load project for create task: %w", err)
+	}
+	if project == nil {
+		return nil, fmt.Errorf("project not found")
+	}
+	status, err := r.GetProjectTaskStatusByKey(ctx, req.ProjectID, kanban)
+	if err != nil {
+		return nil, fmt.Errorf("load task status for create task: %w", err)
+	}
+	if status == nil {
+		return nil, fmt.Errorf("unknown task status")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin create task: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var taskNumber int
+	if err := tx.QueryRow(ctx,
+		`UPDATE projects
+		 SET next_task_number = next_task_number + 1
+		 WHERE id = $1
+		 RETURNING next_task_number - 1`,
+		req.ProjectID,
+	).Scan(&taskNumber); err != nil {
+		return nil, fmt.Errorf("reserve next task number: %w", err)
+	}
+
+	row := tx.QueryRow(ctx,
+		`INSERT INTO tasks (user_id, project_id, task_number, task_key, title, description, completed, sort_order, priority, kanban_status, is_encrypted, parent_id, tags, dependencies, recurrence)
+			 SELECT $1, $2, $3, $4, $5, COALESCE($6, ''), $7, $8, 'medium', $9, $10, $11, COALESCE($12::text[], '{}'::text[]), COALESCE($13::text[], '{}'::text[]), NULLIF($14::text, '')
 			 WHERE EXISTS (
 			 	SELECT 1 FROM project_members pm
 			 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
 			 )
-			 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
-		userID, req.ProjectID, req.Title, req.Description, req.Order, kanban, req.IsEncrypted, req.ParentID, req.Tags, req.Dependencies, req.Recurrence,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
-	if err != nil {
+			 RETURNING `+taskSelectColumns,
+		userID, req.ProjectID, taskNumber, fmt.Sprintf("%s-%d", project.TaskKeyPrefix, taskNumber), req.Title, req.Description, status.IsCompletedState, req.Order, status.Key, req.IsEncrypted, req.ParentID, req.Tags, req.Dependencies, req.Recurrence,
+	)
+	if err := scanTaskRow(row, t); err != nil {
 		return nil, fmt.Errorf("create task: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit create task: %w", err)
 	}
 	return t, nil
 }
 
 func (r *Repo) CreateTasksBatch(ctx context.Context, userID string, req models.CreateTasksBatchRequest) ([]models.Task, error) {
+	project, err := r.GetProject(ctx, req.ProjectID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load project for create tasks batch: %w", err)
+	}
+	if project == nil {
+		return nil, fmt.Errorf("project not found")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin create tasks batch: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	var startOrder int
-	r.pool.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1`, req.ProjectID).Scan(&startOrder)
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE project_id = $1`, req.ProjectID).Scan(&startOrder); err != nil {
+		return nil, fmt.Errorf("load batch start order: %w", err)
+	}
+
+	var nextTaskNumber int
+	if err := tx.QueryRow(ctx,
+		`UPDATE projects
+		 SET next_task_number = next_task_number + $2
+		 WHERE id = $1
+		 RETURNING next_task_number - $2`,
+		req.ProjectID, len(req.Titles),
+	).Scan(&nextTaskNumber); err != nil {
+		return nil, fmt.Errorf("reserve batch task numbers: %w", err)
+	}
 	var tasks []models.Task
 	for i, title := range req.Titles {
 		t := &models.Task{}
-		err := r.pool.QueryRow(ctx,
-			`INSERT INTO tasks (user_id, project_id, title, description, completed, sort_order, priority, kanban_status, is_encrypted)
-				 SELECT $1, $2, $3, '', false, $4, 'medium', 'todo', $5
+		row := tx.QueryRow(ctx,
+			`INSERT INTO tasks (user_id, project_id, task_number, task_key, title, description, completed, sort_order, priority, kanban_status, is_encrypted)
+				 SELECT $1, $2, $3, $4, $5, '', false, $6, 'medium', 'todo', $7
 			 WHERE EXISTS (
 			 	SELECT 1 FROM project_members pm
 			 	WHERE pm.project_id = $2 AND pm.user_id = $1 AND pm.role IN ('owner', 'admin', 'editor')
 			 )
-			 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, is_encrypted, created_at, updated_at`,
-			userID, req.ProjectID, title, startOrder+i, req.IsEncrypted,
-		).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
-		if err != nil {
+			 RETURNING `+taskSelectColumns,
+			userID, req.ProjectID, nextTaskNumber+i, fmt.Sprintf("%s-%d", project.TaskKeyPrefix, nextTaskNumber+i), title, startOrder+i, req.IsEncrypted,
+		)
+		if err := scanTaskRow(row, t); err != nil {
 			return nil, fmt.Errorf("create task batch %d: %w", i, err)
 		}
 		tasks = append(tasks, *t)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit create tasks batch: %w", err)
 	}
 	return tasks, nil
 }
@@ -889,14 +1505,43 @@ func (r *Repo) CreateRecurringTask(ctx context.Context, userID string, source mo
 		return nil, fmt.Errorf("next recurring task order: %w", err)
 	}
 
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, project_id, title, description, completed, sort_order, priority, kanban_status, deadline, tags, dependencies, recurrence, is_encrypted)
-			 VALUES ($1, $2, $3, $4, false, $5, $6, 'todo', $7, COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), $10, $11)
-			 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
-		userID, source.ProjectID, source.Title, source.Description, nextOrder, source.Priority, nextDeadline, source.Tags, source.Dependencies, source.Recurrence, source.IsEncrypted,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
+	project, err := r.GetProject(ctx, source.ProjectID, userID)
 	if err != nil {
+		return nil, fmt.Errorf("load project for recurring task: %w", err)
+	}
+	if project == nil {
+		return nil, fmt.Errorf("project not found")
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin recurring task: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var taskNumber int
+	if err := tx.QueryRow(ctx,
+		`UPDATE projects
+		 SET next_task_number = next_task_number + 1
+		 WHERE id = $1
+		 RETURNING next_task_number - 1`,
+		source.ProjectID,
+	).Scan(&taskNumber); err != nil {
+		return nil, fmt.Errorf("reserve recurring task number: %w", err)
+	}
+
+	row := tx.QueryRow(ctx,
+		`INSERT INTO tasks (user_id, project_id, task_number, task_key, title, description, completed, sort_order, priority, kanban_status, deadline, tags, dependencies, recurrence, is_encrypted)
+			 VALUES ($1, $2, $3, $4, $5, $6, false, $7, $8, 'todo', $9, COALESCE($10::text[], '{}'::text[]), COALESCE($11::text[], '{}'::text[]), $12, $13)
+			 RETURNING `+taskSelectColumns,
+		userID, source.ProjectID, taskNumber, fmt.Sprintf("%s-%d", project.TaskKeyPrefix, taskNumber), source.Title, source.Description, nextOrder, source.Priority, nextDeadline, source.Tags, source.Dependencies, source.Recurrence, source.IsEncrypted,
+	)
+	if err := scanTaskRow(row, t); err != nil {
 		return nil, fmt.Errorf("create recurring task: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit recurring task: %w", err)
 	}
 
 	return t, nil
@@ -904,7 +1549,7 @@ func (r *Repo) CreateRecurringTask(ctx context.Context, userID string, source mo
 
 func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.UpdateTaskRequest) (*models.Task, error) {
 	t := &models.Task{}
-	err := r.pool.QueryRow(ctx,
+	row := r.pool.QueryRow(ctx,
 		`UPDATE tasks SET
 				title = COALESCE($3, title), description = COALESCE($4, description), completed = COALESCE($5, completed), parent_id = COALESCE($6, parent_id),
 				time_spent = COALESCE($7, time_spent), is_timer_running = COALESCE($8, is_timer_running),
@@ -919,10 +1564,10 @@ func (r *Repo) UpdateTask(ctx context.Context, id, userID string, req models.Upd
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
 		 )
-		 RETURNING id, user_id, project_id, title, description, completed, parent_id, time_spent, is_timer_running, timer_started_at, time_entries, sort_order, priority, kanban_status, deadline, notes, tags, dependencies, recurrence, is_encrypted, created_at, updated_at`,
+		 RETURNING `+taskSelectColumns,
 		id, userID, req.Title, req.Description, req.Completed, req.ParentID, req.TimeSpent, req.IsTimerRunning, req.TimerStartedAt, req.TimeEntries, req.Order, req.Priority, req.KanbanStatus, req.Deadline, req.Notes, req.Tags, req.Dependencies, req.Recurrence, req.IsEncrypted,
-	).Scan(&t.ID, &t.UserID, &t.ProjectID, &t.Title, &t.Description, &t.Completed, &t.ParentID, &t.TimeSpent, &t.IsTimerRunning, &t.TimerStartedAt, &t.TimeEntries, &t.Order, &t.Priority, &t.KanbanStatus, &t.Deadline, &t.Notes, &t.Tags, &t.Dependencies, &t.Recurrence, &t.IsEncrypted, &t.CreatedAt, &t.UpdatedAt)
-	if err != nil {
+	)
+	if err := scanTaskRow(row, t); err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
 	}
 	return t, nil

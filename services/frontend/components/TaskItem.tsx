@@ -234,9 +234,11 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         isSelected={task.completed} 
                         onChange={(val: boolean) => onToggle(task.id, val)}
                     >
-                        <Checkbox.Control className="size-6 rounded-xl border-2">
-                            <Checkbox.Indicator />
-                        </Checkbox.Control>
+                        <Checkbox.Content>
+                            <Checkbox.Control className="size-6 rounded-xl border-2">
+                                <Checkbox.Indicator />
+                            </Checkbox.Control>
+                        </Checkbox.Content>
                     </Checkbox>
                 </div>
 
