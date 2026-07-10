@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/justlabv1/justspace/backend/internal/repository"
 )
 
 type contextKey string
 
 const UserIDKey contextKey = "userID"
 
-func Auth(jwtSecret string) func(http.Handler) http.Handler {
+func Auth(jwtSecret string, repo *repository.Repo) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenStr := ""
@@ -48,6 +49,16 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 			userID, ok := claims["sub"].(string)
 			if !ok || userID == "" {
 				http.Error(w, `{"error":"invalid user"}`, http.StatusUnauthorized)
+				return
+			}
+			active, currentVersion, stateErr := repo.GetUserAuthState(r.Context(), userID)
+			if stateErr != nil || !active {
+				http.Error(w, `{"error":"account disabled"}`, http.StatusUnauthorized)
+				return
+			}
+			tokenVersion, hasTokenVersion := claims["sv"].(float64)
+			if (hasTokenVersion && int64(tokenVersion) != currentVersion) || (!hasTokenVersion && currentVersion != 0) {
+				http.Error(w, `{"error":"session expired"}`, http.StatusUnauthorized)
 				return
 			}
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)

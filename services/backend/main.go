@@ -48,11 +48,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize file storage: %v", err)
 	}
-	hub := websocket.NewHub(cfg.JWTSecret)
+	hub := websocket.NewHub(cfg.JWTSecret, repo)
 	go hub.Run()
 	go reminders.NewDeadlineService(repo, hub).Run()
+	go reminders.RunAdminAuditRetention(repo)
 
-	authH := handlers.NewAuthHandler(repo, cfg.JWTSecret)
+	authH := handlers.NewAuthHandler(repo, cfg.JWTSecret, cfg.OIDCEncryptionKey, cfg.CORSOrigin, hub, fileStore)
 	projectH := handlers.NewProjectHandler(repo, hub)
 	taskH := handlers.NewTaskHandler(repo, hub)
 	wikiH := handlers.NewWikiHandler(repo, hub)
@@ -79,13 +80,35 @@ func main() {
 	r.Post("/api/auth/signup", authH.Signup)
 	r.Post("/api/auth/login", authH.Login)
 	r.Post("/api/auth/logout", authH.Logout)
+	r.Get("/api/auth/config", authH.AuthConfig)
+	r.Get("/api/platform/branding", authH.PublicBranding)
+	r.Get("/api/platform/branding/logo/{size}", authH.PublicBrandLogo)
+	r.Get("/api/auth/oidc/{provider}/start", authH.OIDCStart)
+	r.Get("/api/auth/oidc/{provider}/callback", authH.OIDCCallback)
 	r.Get("/api/ws", hub.HandleWS)
 
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.Auth(cfg.JWTSecret))
+		r.Use(middleware.Auth(cfg.JWTSecret, repo))
 
 		r.Get("/api/auth/me", authH.Me)
 		r.Put("/api/auth/profile", authH.UpdateProfile)
+		r.Get("/api/auth/oidc/identities", authH.ListOIDCIdentities)
+		r.Delete("/api/auth/oidc/identities/{identityId}", authH.DeleteOIDCIdentity)
+		r.Get("/api/auth/oidc/{provider}/link", authH.OIDCStartLink)
+
+		r.Get("/api/admin/settings", authH.AdminSettings)
+		r.Put("/api/admin/settings", authH.UpdateAdminSettings)
+		r.Get("/api/admin/branding", authH.AdminBranding)
+		r.Put("/api/admin/branding", authH.UpdateAdminBranding)
+		r.Post("/api/admin/branding/logo", authH.UploadBrandLogo)
+		r.Delete("/api/admin/branding/logo", authH.DeleteBrandLogo)
+		r.Get("/api/admin/overview", authH.AdminOverview)
+		r.Get("/api/admin/audit", authH.AdminAudit)
+		r.Get("/api/admin/users", authH.AdminUsers)
+		r.Patch("/api/admin/users/{userId}", authH.UpdateAdminUser)
+		r.Post("/api/admin/oidc/providers", authH.AdminCreateOIDCProvider)
+		r.Put("/api/admin/oidc/providers/{providerId}", authH.AdminUpdateOIDCProvider)
+		r.Delete("/api/admin/oidc/providers/{providerId}", authH.AdminDeleteOIDCProvider)
 
 		r.Get("/api/projects", projectH.List)
 		r.Post("/api/projects", projectH.Create)
@@ -184,7 +207,7 @@ func corsMiddleware(origin string) func(http.Handler) http.Handler {
 					break
 				}
 			}
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Max-Age", "86400")

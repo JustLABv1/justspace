@@ -14,6 +14,9 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/008_task_keys_and_statuses.up.sql`: adds persistent task keys, project-local task workflows, and backfills existing projects/tasks
 - `backend/migrations/009_notifications.up.sql`: adds persistent in-app collaboration notifications
 - `backend/migrations/010_deadline_notifications.up.sql`: adds deadline reminder delivery tracking
+- `backend/migrations/011_task_messages.up.sql`: migrates task notes into task messages
+- `backend/migrations/012_platform_admin_oidc.up.sql`: adds platform administration, account lifecycle, and OIDC identity/provider persistence
+- `backend/migrations/013_platform_branding_audit.up.sql`: adds global branding, removes the per-user workspace name, and adds the append-only administrator audit log
 
 ## Core Tables
 
@@ -24,10 +27,39 @@ This document reflects the current PostgreSQL schema used by justspace.
 | `id` | `uuid` | Primary key, generated with `gen_random_uuid()` |
 | `email` | `varchar(255)` | Unique login identity |
 | `name` | `varchar(255)` | Display name |
-| `password_hash` | `varchar(255)` | Backend-managed password hash |
+| `password_hash` | `varchar(255)` | Backend-managed password hash; nullable for OIDC-only accounts |
+| `is_platform_admin` | `boolean` | Global platform administrator flag, separate from project roles |
+| `is_active` | `boolean` | Account lifecycle flag checked by every authenticated request |
+| `session_version` | `bigint` | Revokes existing JWT and WebSocket sessions after admin changes |
 | `preferences` | `jsonb` | User settings payload |
 | `created_at` | `timestamptz` | Creation timestamp |
 | `updated_at` | `timestamptz` | Auto-updated by trigger |
+
+### platform_settings
+
+Singleton table containing `local_auth_enabled` and the global `brand_name`. `brand_logo_key` and `brand_logo_updated_at` reference the server-side PNG variants used by the web app and PWA. Password login and public password signup are disabled together when `local_auth_enabled` is false; the API requires an active OIDC provider in that case.
+
+The platform brand defaults to `justspace`. The former `users.preferences.workspaceName` value is removed by migration 013 so the name is managed centrally.
+
+### admin_audit_log
+
+Append-only record of platform administration changes (authentication settings, user access, OIDC providers, and branding). Entries retain the acting user when available, a stable action/target pair, optional JSON metadata, and a timestamp. The backend removes entries older than 12 months once per day. A guarded transaction-local setting is required for retention deletes; normal updates and deletes are rejected by a database trigger.
+
+### oidc_providers
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Provider identifier |
+| `slug` | `varchar(64)` | Stable URL-safe provider key |
+| `name` | `varchar(128)` | Display name shown on the login page |
+| `issuer_url` | `varchar(1024)` | OpenID Connect discovery issuer |
+| `client_id` | `varchar(512)` | OIDC client identifier |
+| `client_secret` | `text` | AES-GCM ciphertext using `OIDC_ENCRYPTION_KEY`; never returned to clients |
+| `enabled` | `boolean` | Whether this provider is offered for login/linking |
+
+### user_oidc_identities
+
+Stores the stable `(provider_id, subject)` identity mapping used for OIDC login. A provider cannot be deleted while identities reference it; it can be disabled instead.
 
 ### projects
 

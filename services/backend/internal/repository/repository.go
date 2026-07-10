@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justlabv1/justspace/backend/internal/models"
 )
@@ -184,42 +185,68 @@ func uniqueProjectTaskKeyPrefix(ctx context.Context, tx pgx.Tx, requested, fallb
 // ---- Users ----
 
 func (r *Repo) CreateUser(ctx context.Context, email, name, passwordHash string) (*models.User, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin create user: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Serialise the first-user decision across concurrent local and OIDC signups.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('justspace:first-platform-admin', 0))`); err != nil {
+		return nil, fmt.Errorf("lock first user creation: %w", err)
+	}
+	var userCount int
+	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
+		return nil, fmt.Errorf("count users: %w", err)
+	}
 	u := &models.User{}
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3)
-		 RETURNING id, email, name, preferences, created_at, updated_at`,
-		email, name, passwordHash,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Preferences, &u.CreatedAt, &u.UpdatedAt)
+	err = tx.QueryRow(ctx,
+		`INSERT INTO users (email, name, password_hash, is_platform_admin)
+		 VALUES ($1, $2, NULLIF($3, ''), $4)
+		 RETURNING id, email, name, preferences, is_platform_admin, is_active, session_version, created_at, updated_at`,
+		email, name, passwordHash, userCount == 0,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Preferences, &u.IsPlatformAdmin, &u.IsActive, &u.SessionVersion, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit create user: %w", err)
 	}
 	return u, nil
 }
 
 func (r *Repo) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	u := &models.User{}
+	var passwordHash *string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, password_hash, preferences, created_at, updated_at FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Preferences, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, email, name, password_hash, preferences, is_platform_admin, is_active, session_version, created_at, updated_at FROM users WHERE email = $1`, email,
+	).Scan(&u.ID, &u.Email, &u.Name, &passwordHash, &u.Preferences, &u.IsPlatformAdmin, &u.IsActive, &u.SessionVersion, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
+	if passwordHash != nil {
+		u.PasswordHash = *passwordHash
+	}
 	return u, nil
 }
 
 func (r *Repo) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	u := &models.User{}
+	var passwordHash *string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, password_hash, preferences, created_at, updated_at FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Preferences, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, email, name, password_hash, preferences, is_platform_admin, is_active, session_version, created_at, updated_at FROM users WHERE id = $1`, id,
+	).Scan(&u.ID, &u.Email, &u.Name, &passwordHash, &u.Preferences, &u.IsPlatformAdmin, &u.IsActive, &u.SessionVersion, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+	if passwordHash != nil {
+		u.PasswordHash = *passwordHash
 	}
 	return u, nil
 }
@@ -256,14 +283,411 @@ func (r *Repo) SearchUsers(ctx context.Context, query string, limit int) ([]mode
 func (r *Repo) UpdateUser(ctx context.Context, id string, name *string, prefs *json.RawMessage) (*models.User, error) {
 	u := &models.User{}
 	err := r.pool.QueryRow(ctx,
-		`UPDATE users SET name = COALESCE($2, name), preferences = COALESCE($3, preferences)
-		 WHERE id = $1 RETURNING id, email, name, preferences, created_at, updated_at`,
+		`UPDATE users SET name = COALESCE($2, name), preferences = COALESCE($3, preferences), updated_at = NOW()
+		 WHERE id = $1 RETURNING id, email, name, preferences, is_platform_admin, is_active, session_version, created_at, updated_at`,
 		id, name, prefs,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Preferences, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Preferences, &u.IsPlatformAdmin, &u.IsActive, &u.SessionVersion, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update user: %w", err)
 	}
 	return u, nil
+}
+
+// GetUserAuthState is deliberately small so the auth middleware can invalidate
+// sessions immediately after an admin deactivates an account or changes its
+// platform privileges.
+func (r *Repo) GetUserAuthState(ctx context.Context, id string) (bool, int64, error) {
+	var active bool
+	var version int64
+	err := r.pool.QueryRow(ctx, `SELECT is_active, session_version FROM users WHERE id = $1`, id).Scan(&active, &version)
+	if err == pgx.ErrNoRows {
+		return false, 0, nil
+	}
+	if err != nil {
+		return false, 0, fmt.Errorf("get user auth state: %w", err)
+	}
+	return active, version, nil
+}
+
+func (r *Repo) GetPlatformSettings(ctx context.Context) (*models.PlatformSettings, error) {
+	settings := &models.PlatformSettings{}
+	err := r.pool.QueryRow(ctx, `SELECT local_auth_enabled, brand_name, brand_logo_key, brand_logo_updated_at FROM platform_settings WHERE id = TRUE`).Scan(&settings.LocalAuthEnabled, &settings.BrandName, &settings.BrandLogoKey, &settings.BrandLogoUpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get platform settings: %w", err)
+	}
+	return settings, nil
+}
+
+func (r *Repo) UpdatePlatformSettings(ctx context.Context, req models.PlatformSettingsUpdateRequest) (*models.PlatformSettings, error) {
+	settings := &models.PlatformSettings{}
+	err := r.pool.QueryRow(ctx,
+		`UPDATE platform_settings
+		 SET local_auth_enabled = COALESCE($1, local_auth_enabled),
+		     brand_name = COALESCE($2, brand_name), updated_at = NOW()
+		 WHERE id = TRUE
+		 RETURNING local_auth_enabled, brand_name, brand_logo_key, brand_logo_updated_at`, req.LocalAuthEnabled, req.BrandName,
+	).Scan(&settings.LocalAuthEnabled, &settings.BrandName, &settings.BrandLogoKey, &settings.BrandLogoUpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update platform settings: %w", err)
+	}
+	return settings, nil
+}
+
+func (r *Repo) UpdateBrandLogoKey(ctx context.Context, key *string) (*models.PlatformSettings, error) {
+	var commandTag pgconn.CommandTag
+	var err error
+	if key == nil {
+		commandTag, err = r.pool.Exec(ctx,
+			`UPDATE platform_settings
+			 SET brand_logo_key = NULL, brand_logo_updated_at = NULL, updated_at = NOW()
+			 WHERE id = TRUE`,
+		)
+	} else {
+		commandTag, err = r.pool.Exec(ctx,
+			`UPDATE platform_settings
+			 SET brand_logo_key = $1, brand_logo_updated_at = NOW(), updated_at = NOW()
+			 WHERE id = TRUE`,
+			*key,
+		)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("update brand logo key: %w", err)
+	}
+	if commandTag.RowsAffected() != 1 {
+		return nil, fmt.Errorf("update brand logo key: platform settings row not found")
+	}
+	return r.GetPlatformSettings(ctx)
+}
+
+func (r *Repo) GetAdminOverview(ctx context.Context) (*models.AdminOverview, error) {
+	overview := &models.AdminOverview{DatabaseStatus: "healthy"}
+	if err := r.pool.QueryRow(ctx, `SELECT 1`).Scan(new(int)); err != nil {
+		overview.DatabaseStatus = "unhealthy"
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE is_active), COUNT(*) FILTER (WHERE NOT is_active), COUNT(*) FILTER (WHERE is_platform_admin) FROM users`).Scan(&overview.TotalUsers, &overview.ActiveUsers, &overview.InactiveUsers, &overview.PlatformAdmins); err != nil {
+		return nil, fmt.Errorf("get overview users: %w", err)
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM projects`).Scan(&overview.Projects); err != nil {
+		return nil, fmt.Errorf("get overview projects: %w", err)
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM tasks`).Scan(&overview.Tasks); err != nil {
+		return nil, fmt.Errorf("get overview tasks: %w", err)
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE enabled) FROM oidc_providers`).Scan(&overview.TotalOIDCProviders, &overview.EnabledOIDCProviders); err != nil {
+		return nil, fmt.Errorf("get overview oidc providers: %w", err)
+	}
+	settings, err := r.GetPlatformSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	overview.LocalAuthEnabled = settings.LocalAuthEnabled
+	return overview, nil
+}
+
+func (r *Repo) CreateAdminAudit(ctx context.Context, actorID, action, targetType, targetID, targetLabel string, metadata json.RawMessage) error {
+	if len(metadata) == 0 {
+		metadata = json.RawMessage(`{}`)
+	}
+	var nullableTargetID *string
+	if strings.TrimSpace(targetID) != "" {
+		nullableTargetID = &targetID
+	}
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO admin_audit_log (actor_user_id, action, target_type, target_id, target_label, metadata)
+		 VALUES ($1, $2, $3, $4::uuid, $5, $6)`, actorID, action, targetType, nullableTargetID, targetLabel, metadata)
+	return err
+}
+
+func (r *Repo) ListAdminAudit(ctx context.Context, limit, offset int) ([]models.AdminAuditEvent, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM admin_audit_log`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count admin audit: %w", err)
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.actor_user_id, COALESCE(u.name, ''), COALESCE(u.email, ''), a.action, a.target_type, a.target_id, a.target_label, a.metadata, a.created_at
+		 FROM admin_audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+		 ORDER BY a.created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list admin audit: %w", err)
+	}
+	defer rows.Close()
+	events := make([]models.AdminAuditEvent, 0)
+	for rows.Next() {
+		var event models.AdminAuditEvent
+		if err := rows.Scan(&event.ID, &event.ActorUserID, &event.ActorName, &event.ActorEmail, &event.Action, &event.TargetType, &event.TargetID, &event.TargetLabel, &event.Metadata, &event.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan admin audit: %w", err)
+		}
+		events = append(events, event)
+	}
+	return events, total, rows.Err()
+}
+
+func (r *Repo) DeleteExpiredAdminAudit(ctx context.Context) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin audit retention: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT set_config('justspace.audit_cleanup', 'on', true)`); err != nil {
+		return fmt.Errorf("enable audit cleanup: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM admin_audit_log WHERE created_at < NOW() - INTERVAL '12 months'`); err != nil {
+		return fmt.Errorf("delete expired admin audit: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit audit retention: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) CountEnabledOIDCProviders(ctx context.Context) (int, error) {
+	var count int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM oidc_providers WHERE enabled = TRUE`).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count enabled oidc providers: %w", err)
+	}
+	return count, nil
+}
+
+func (r *Repo) ListAdminUsers(ctx context.Context, query string, limit, offset int) ([]models.AdminUser, int, error) {
+	pattern := "%" + strings.TrimSpace(query) + "%"
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM users WHERE email ILIKE $1 OR name ILIKE $1`, pattern).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count admin users: %w", err)
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, email, name, is_platform_admin, is_active, created_at, updated_at
+		 FROM users WHERE email ILIKE $1 OR name ILIKE $1
+		 ORDER BY created_at ASC, id ASC LIMIT $2 OFFSET $3`, pattern, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list admin users: %w", err)
+	}
+	defer rows.Close()
+	users := make([]models.AdminUser, 0)
+	for rows.Next() {
+		var user models.AdminUser
+		if err := rows.Scan(&user.ID, &user.Email, &user.Name, &user.IsPlatformAdmin, &user.IsActive, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan admin user: %w", err)
+		}
+		users = append(users, user)
+	}
+	return users, total, rows.Err()
+}
+
+func (r *Repo) UpdateAdminUser(ctx context.Context, actorID, targetID string, req models.AdminUserUpdateRequest) (*models.AdminUser, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin admin user update: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('justspace:platform-admins', 0))`); err != nil {
+		return nil, fmt.Errorf("lock platform admin update: %w", err)
+	}
+
+	var current models.AdminUser
+	err = tx.QueryRow(ctx,
+		`SELECT id, email, name, is_platform_admin, is_active, created_at, updated_at
+		 FROM users WHERE id = $1 FOR UPDATE`, targetID,
+	).Scan(&current.ID, &current.Email, &current.Name, &current.IsPlatformAdmin, &current.IsActive, &current.CreatedAt, &current.UpdatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock admin user: %w", err)
+	}
+	if actorID == targetID && ((req.IsActive != nil && !*req.IsActive) || (req.IsPlatformAdmin != nil && !*req.IsPlatformAdmin)) {
+		return nil, fmt.Errorf("you cannot remove your own active admin access")
+	}
+	wouldBeAdmin := current.IsPlatformAdmin
+	if req.IsPlatformAdmin != nil {
+		wouldBeAdmin = *req.IsPlatformAdmin
+	}
+	wouldBeActive := current.IsActive
+	if req.IsActive != nil {
+		wouldBeActive = *req.IsActive
+	}
+	if current.IsPlatformAdmin && current.IsActive && (!wouldBeAdmin || !wouldBeActive) {
+		var activeAdmins int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE is_platform_admin = TRUE AND is_active = TRUE`).Scan(&activeAdmins); err != nil {
+			return nil, fmt.Errorf("count active admins: %w", err)
+		}
+		if activeAdmins <= 1 {
+			return nil, fmt.Errorf("the last active platform admin cannot be removed")
+		}
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET is_platform_admin = COALESCE($2, is_platform_admin),
+		 is_active = COALESCE($3, is_active), session_version = session_version + 1, updated_at = NOW()
+		 WHERE id = $1`, targetID, req.IsPlatformAdmin, req.IsActive); err != nil {
+		return nil, fmt.Errorf("update admin user: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit admin user update: %w", err)
+	}
+	current.IsPlatformAdmin = wouldBeAdmin
+	current.IsActive = wouldBeActive
+	return &current, nil
+}
+
+func (r *Repo) ListOIDCProviders(ctx context.Context, includeDisabled bool) ([]models.OIDCProvider, error) {
+	query := `SELECT id, slug, name, issuer_url, client_id, client_secret, enabled, created_at, updated_at FROM oidc_providers`
+	args := []any{}
+	if !includeDisabled {
+		query += ` WHERE enabled = TRUE`
+	}
+	query += ` ORDER BY name ASC`
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list oidc providers: %w", err)
+	}
+	defer rows.Close()
+	providers := make([]models.OIDCProvider, 0)
+	for rows.Next() {
+		var provider models.OIDCProvider
+		if err := rows.Scan(&provider.ID, &provider.Slug, &provider.Name, &provider.IssuerURL, &provider.ClientID, &provider.ClientSecret, &provider.Enabled, &provider.CreatedAt, &provider.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan oidc provider: %w", err)
+		}
+		provider.HasSecret = provider.ClientSecret != ""
+		provider.ClientSecret = ""
+		providers = append(providers, provider)
+	}
+	return providers, rows.Err()
+}
+
+func (r *Repo) GetOIDCProviderBySlug(ctx context.Context, slug string) (*models.OIDCProvider, error) {
+	provider := &models.OIDCProvider{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, slug, name, issuer_url, client_id, client_secret, enabled, created_at, updated_at
+		 FROM oidc_providers WHERE slug = $1`, slug,
+	).Scan(&provider.ID, &provider.Slug, &provider.Name, &provider.IssuerURL, &provider.ClientID, &provider.ClientSecret, &provider.Enabled, &provider.CreatedAt, &provider.UpdatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get oidc provider: %w", err)
+	}
+	provider.HasSecret = provider.ClientSecret != ""
+	return provider, nil
+}
+
+func (r *Repo) GetOIDCProviderByID(ctx context.Context, id string) (*models.OIDCProvider, error) {
+	provider := &models.OIDCProvider{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, slug, name, issuer_url, client_id, client_secret, enabled, created_at, updated_at
+		 FROM oidc_providers WHERE id = $1`, id,
+	).Scan(&provider.ID, &provider.Slug, &provider.Name, &provider.IssuerURL, &provider.ClientID, &provider.ClientSecret, &provider.Enabled, &provider.CreatedAt, &provider.UpdatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get oidc provider: %w", err)
+	}
+	provider.HasSecret = provider.ClientSecret != ""
+	return provider, nil
+}
+
+func (r *Repo) CreateOIDCProvider(ctx context.Context, req models.OIDCProviderRequest, encryptedSecret string) (*models.OIDCProvider, error) {
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+	provider := &models.OIDCProvider{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO oidc_providers (slug, name, issuer_url, client_id, client_secret, enabled)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING id, slug, name, issuer_url, client_id, client_secret, enabled, created_at, updated_at`,
+		req.Slug, req.Name, req.IssuerURL, req.ClientID, encryptedSecret, enabled,
+	).Scan(&provider.ID, &provider.Slug, &provider.Name, &provider.IssuerURL, &provider.ClientID, &provider.ClientSecret, &provider.Enabled, &provider.CreatedAt, &provider.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create oidc provider: %w", err)
+	}
+	provider.HasSecret = provider.ClientSecret != ""
+	provider.ClientSecret = ""
+	return provider, nil
+}
+
+func (r *Repo) UpdateOIDCProvider(ctx context.Context, id string, req models.OIDCProviderRequest, encryptedSecret *string) (*models.OIDCProvider, error) {
+	provider := &models.OIDCProvider{}
+	err := r.pool.QueryRow(ctx,
+		`UPDATE oidc_providers SET slug = $2, name = $3, issuer_url = $4, client_id = $5,
+		 client_secret = COALESCE($6, client_secret), enabled = COALESCE($7, enabled), updated_at = NOW()
+		 WHERE id = $1
+		 RETURNING id, slug, name, issuer_url, client_id, client_secret, enabled, created_at, updated_at`,
+		id, req.Slug, req.Name, req.IssuerURL, req.ClientID, encryptedSecret, req.Enabled,
+	).Scan(&provider.ID, &provider.Slug, &provider.Name, &provider.IssuerURL, &provider.ClientID, &provider.ClientSecret, &provider.Enabled, &provider.CreatedAt, &provider.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update oidc provider: %w", err)
+	}
+	provider.HasSecret = provider.ClientSecret != ""
+	provider.ClientSecret = ""
+	return provider, nil
+}
+
+func (r *Repo) DeleteOIDCProvider(ctx context.Context, id string) error {
+	var identityCount int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM user_oidc_identities WHERE provider_id = $1`, id).Scan(&identityCount); err != nil {
+		return fmt.Errorf("count oidc identities: %w", err)
+	}
+	if identityCount > 0 {
+		return fmt.Errorf("provider has linked identities; disable it instead")
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM oidc_providers WHERE id = $1`, id)
+	return err
+}
+
+func (r *Repo) GetOIDCIdentity(ctx context.Context, providerID, subject string) (*models.OIDCIdentity, error) {
+	identity := &models.OIDCIdentity{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT i.id, i.user_id, i.provider_id, p.name, p.slug, i.subject, i.created_at
+		 FROM user_oidc_identities i JOIN oidc_providers p ON p.id = i.provider_id
+		 WHERE i.provider_id = $1 AND i.subject = $2`, providerID, subject,
+	).Scan(&identity.ID, &identity.UserID, &identity.ProviderID, &identity.ProviderName, &identity.ProviderSlug, &identity.Subject, &identity.CreatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get oidc identity: %w", err)
+	}
+	return identity, nil
+}
+
+func (r *Repo) ListOIDCIdentities(ctx context.Context, userID string) ([]models.OIDCIdentity, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT i.id, i.user_id, i.provider_id, p.name, p.slug, i.subject, i.created_at
+		 FROM user_oidc_identities i JOIN oidc_providers p ON p.id = i.provider_id
+		 WHERE i.user_id = $1 ORDER BY p.name ASC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list oidc identities: %w", err)
+	}
+	defer rows.Close()
+	identities := make([]models.OIDCIdentity, 0)
+	for rows.Next() {
+		var identity models.OIDCIdentity
+		if err := rows.Scan(&identity.ID, &identity.UserID, &identity.ProviderID, &identity.ProviderName, &identity.ProviderSlug, &identity.Subject, &identity.CreatedAt); err != nil {
+			return nil, err
+		}
+		identities = append(identities, identity)
+	}
+	return identities, rows.Err()
+}
+
+func (r *Repo) CreateOIDCIdentity(ctx context.Context, userID, providerID, subject string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO user_oidc_identities (user_id, provider_id, subject) VALUES ($1, $2, $3)`, userID, providerID, subject)
+	return err
+}
+
+func (r *Repo) DeleteOIDCIdentity(ctx context.Context, userID, identityID string) error {
+	var count int
+	var hasPassword bool
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*), EXISTS(SELECT 1 FROM users WHERE id = $1 AND password_hash IS NOT NULL) FROM user_oidc_identities WHERE user_id = $1`, userID).Scan(&count, &hasPassword); err != nil {
+		return err
+	}
+	if count <= 1 && !hasPassword {
+		return fmt.Errorf("at least one login identity must remain")
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM user_oidc_identities WHERE id = $1 AND user_id = $2`, identityID, userID)
+	return err
 }
 
 func defaultTaskStatusTemplates() []models.ProjectTaskStatus {

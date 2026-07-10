@@ -25,7 +25,6 @@ export interface SavedProjectView {
 }
 
 export interface WorkspacePreferences {
-	workspaceName: string;
 	reminders: ReminderPreferences;
 	savedViews: SavedProjectView[];
 	taskStatusTemplates: WorkspaceTaskStatusTemplate[];
@@ -40,7 +39,6 @@ export const DEFAULT_TASK_STATUS_TEMPLATES: WorkspaceTaskStatusTemplate[] = [
 ];
 
 const DEFAULT_PREFERENCES: WorkspacePreferences = {
-	workspaceName: 'justspace',
 	reminders: {
 		enabled: false,
 		minutesBefore: 15,
@@ -60,9 +58,6 @@ export function parseUserPreferences(preferences?: Record<string, unknown> | nul
 	const taskStatusTemplatesSource = Array.isArray(source.taskStatusTemplates) ? source.taskStatusTemplates : [];
 
 	return {
-		workspaceName: typeof source.workspaceName === 'string' && source.workspaceName.trim()
-			? source.workspaceName
-			: DEFAULT_PREFERENCES.workspaceName,
 		reminders: {
 			enabled: remindersSource.enabled === true,
 			minutesBefore: typeof remindersSource.minutesBefore === 'number' && Number.isFinite(remindersSource.minutesBefore)
@@ -112,9 +107,10 @@ export function mergeUserPreferences(
 	patch: Partial<WorkspacePreferences>,
 ): Record<string, unknown> {
 	const parsed = parseUserPreferences(current);
+	const withoutLegacyWorkspaceName = { ...(current || {}) };
+	delete withoutLegacyWorkspaceName.workspaceName;
 	return {
-		...(current || {}),
-		workspaceName: patch.workspaceName ?? parsed.workspaceName,
+		...withoutLegacyWorkspaceName,
 		reminders: {
 			...parsed.reminders,
 			...(patch.reminders || {}),
