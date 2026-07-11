@@ -4,6 +4,7 @@ import { DeleteModal } from '@/components/DeleteModal';
 import { EmptyState, EmptyStateAction } from '@/components/EmptyState';
 import { ProjectModal } from '@/components/ProjectModal';
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
@@ -46,11 +47,12 @@ export default function ProjectsPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | undefined>(undefined);
     const { user, privateKey } = useAuth();
+    const { workspaceId } = useWorkspace();
 
     const fetchProjects = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
         try {
-            const data = await db.listProjects();
+            const data = await db.listProjects(workspaceId);
             const rawProjects = data.documents;
 
             const processedProjects = await Promise.all(rawProjects.map(async (project) => {
@@ -89,7 +91,7 @@ export default function ProjectsPage() {
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [privateKey, user]);
+    }, [privateKey, user, workspaceId]);
 
     useEffect(() => {
         fetchProjects(true);
@@ -115,6 +117,9 @@ export default function ProjectsPage() {
     const handleCreateOrUpdate = async (data: Partial<Project> & { shouldEncrypt?: boolean }) => {
         const { isEncrypted: targetEncrypted, ...projectData } = data;
         const finalData = { ...projectData, isEncrypted: targetEncrypted };
+		if (!selectedProject?.id && workspaceId) {
+			finalData.workspaceId = workspaceId;
+		}
 
         // Project names are encrypted before this request. Resolve the default key
         // from the readable name first so the server never receives ciphertext as

@@ -2,6 +2,7 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { MilestonePanel } from '@/components/MilestonePanel';
 import { ProjectCollaborationPanel } from '@/components/ProjectCollaborationPanel';
 import { ProjectModal } from '@/components/ProjectModal';
 import { TaskCalendar } from '@/components/TaskCalendar';
@@ -571,11 +572,9 @@ export default function ProjectDetailPage() {
                                         </Avatar>
                                     </div>
                                     <Dropdown>
-                                        <Dropdown.Trigger>
-                                            <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
+                                        <Button aria-label="Project actions" variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
                                                 <MoreHorizontal size={16} />
                                             </Button>
-                                        </Dropdown.Trigger>
                                         <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
                                             <Dropdown.Menu>
                                                 <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
@@ -652,8 +651,7 @@ export default function ProjectDetailPage() {
                                         />
                                     </div>
                                     <Dropdown>
-                                        <Dropdown.Trigger>
-                                            <Button
+                                        <Button
                                                 variant={quickFilter !== 'all' || hideCompleted ? 'secondary' : 'ghost'}
                                                 size="sm"
                                                 className="h-8 rounded-lg px-2.5 text-[12px] font-medium"
@@ -662,7 +660,6 @@ export default function ProjectDetailPage() {
                                                 {hideCompleted ? 'Pending' : quickFilter === 'all' ? 'All tasks' : ({ mine: 'My tasks', unassigned: 'Unassigned', 'due-soon': 'Due soon', blocked: 'Blocked' }[quickFilter])}
                                                 <ChevronDown size={12} />
                                             </Button>
-                                        </Dropdown.Trigger>
                                         <Dropdown.Popover placement="bottom start">
                                             <Dropdown.Menu>
                                                 {[
@@ -694,8 +691,7 @@ export default function ProjectDetailPage() {
                                         </Dropdown.Popover>
                                     </Dropdown>
                                     <Dropdown>
-                                        <Dropdown.Trigger>
-                                            <Button
+                                        <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-muted-foreground"
@@ -703,7 +699,6 @@ export default function ProjectDetailPage() {
                                                 <ChevronDown size={12} />
                                                 Views
                                             </Button>
-                                        </Dropdown.Trigger>
                                         <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
                                             <Dropdown.Menu>
                                                 <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
@@ -847,7 +842,8 @@ export default function ProjectDetailPage() {
                     </Card>
                 </main>
 
-                <aside className="min-w-0 self-start">
+                <aside className="min-w-0 self-start space-y-4">
+                    <MilestonePanel projectId={project.id} compact />
                     <ProjectCollaborationPanel project={project} compact />
                 </aside>
             </div>

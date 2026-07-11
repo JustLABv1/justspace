@@ -5,6 +5,7 @@ import { useBranding } from '@/services/frontend/context/BrandingContext';
 import { api, AuthConfig, OIDCIdentity } from '@/services/frontend/lib/api';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { DEFAULT_TASK_STATUS_TEMPLATES, mergeUserPreferences, parseUserPreferences, WorkspaceTaskStatusTemplate } from '@/services/frontend/lib/preferences';
 import { promptForPwaInstall, usePwaInstallState } from '@/services/frontend/lib/pwa';
 import { Button, Checkbox, Form, Input, Label, ListBox, Select, Surface, toast } from '@heroui/react';
@@ -50,6 +51,10 @@ function SettingsContent() {
     
     useEffect(() => {
         const tab = searchParams.get('tab');
+        if (tab === 'Workspace') {
+            router.replace('/workspace');
+            return;
+        }
         if (tab && tab !== activeTab) {
             setActiveTab(tab);
         }
@@ -63,6 +68,7 @@ function SettingsContent() {
     };
 
     const { user, hasVault, privateKey, userKeys, setupVault, unlockVault, updateProfile } = useAuth();
+    const { workspaceId } = useWorkspace();
     const { branding } = useBranding();
     const [vaultPassword, setVaultPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,9 +134,9 @@ function SettingsContent() {
         if (!user) return;
         try {
             const [projects, guides, snippets] = await Promise.all([
-                db.listProjects(),
-                db.listGuides(),
-                db.listSnippets()
+                db.listProjects(workspaceId),
+                db.listGuides(workspaceId),
+                db.listSnippets(workspaceId)
             ]);
             
             setStats({
@@ -141,7 +147,7 @@ function SettingsContent() {
         } catch (error) {
             console.error('Failed to fetch stats:', error);
         }
-    }, [user]);
+    }, [user, workspaceId]);
 
     useEffect(() => {
         fetchStats();
@@ -409,10 +415,11 @@ function SettingsContent() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
                 <div className="md:col-span-1 space-y-0.5">
                     {menuItems.map((item) => (
-                        <button 
+                        <Button
                             key={item.id}
-                            onClick={() => handleTabChange(item.id)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-colors ${
+                            variant="ghost"
+                            onPress={() => handleTabChange(item.id)}
+                            className={`w-full justify-start gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
                                 activeTab === item.id 
                                     ? 'bg-surface-secondary text-foreground' 
                                     : 'text-muted-foreground hover:bg-surface-secondary hover:text-foreground'
@@ -420,7 +427,7 @@ function SettingsContent() {
                         >
                             <item.icon size={15} />
                             {item.label}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
@@ -566,6 +573,7 @@ function SettingsContent() {
                                 </div>
                             </div>
                         )}
+
 
                         {activeTab === 'User' && (
                             <div className="space-y-4">
@@ -847,7 +855,7 @@ function SettingsContent() {
                             </div>
                         )}
 
-                        <div className="pt-4 border-t border-border flex justify-end gap-2">
+                        {activeTab !== 'Workspace' && <div className="pt-4 border-t border-border flex justify-end gap-2">
                             <Button 
                                 variant="ghost" 
                                 className="rounded-xl h-8 px-3 text-[12px] font-medium"
@@ -864,7 +872,7 @@ function SettingsContent() {
                                 <Save size={12} className="mr-1.5" />
                                 Save Changes
                             </Button>
-                        </div>
+                        </div>}
                     </div>
                 </div>
             </div>

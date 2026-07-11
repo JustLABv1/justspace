@@ -543,8 +543,7 @@ export function TaskList({
                                 {tasks.filter(t => t.completed).length}/{tasks.length} done
                             </span>
                             <Dropdown>
-                                <Dropdown.Trigger>
-                                    <Button 
+                                <Button
                                         variant="ghost" 
                                         size="sm" 
                                         className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
@@ -552,7 +551,6 @@ export function TaskList({
                                     >
                                         Templates
                                     </Button>
-                                </Dropdown.Trigger>
                                 <Dropdown.Popover>
                                     <Dropdown.Menu className="w-56">
                                         <Dropdown.Section>

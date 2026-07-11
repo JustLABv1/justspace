@@ -23,7 +23,7 @@ func NewSnippetHandler(repo *repository.Repo, hub *websocket.Hub) *SnippetHandle
 
 func (h *SnippetHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
-	snippets, err := h.repo.ListSnippets(r.Context(), userID)
+	snippets, err := h.repo.ListSnippets(r.Context(), userID, r.URL.Query().Get("workspaceId"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list snippets")
 		return

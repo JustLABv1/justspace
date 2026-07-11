@@ -27,6 +27,14 @@ let state: PwaInstallState = {
     installOutcome: null,
 };
 
+const serverState: PwaInstallState = {
+    browser: 'other',
+    canInstall: false,
+    isStandalone: false,
+    serviceWorkerReady: false,
+    installOutcome: null,
+};
+
 const listeners = new Set<() => void>();
 
 function emitChange() {
@@ -104,13 +112,7 @@ function getSnapshot() {
 }
 
 function getServerSnapshot(): PwaInstallState {
-    return {
-        browser: 'other',
-        canInstall: false,
-        isStandalone: false,
-        serviceWorkerReady: false,
-        installOutcome: null,
-    };
+    return serverState;
 }
 
 export function usePwaInstallState() {

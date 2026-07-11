@@ -46,6 +46,34 @@ func ensureProjectRole(w http.ResponseWriter, r *http.Request, repo *repository.
 	return true
 }
 
+func ensureWorkspaceAccess(w http.ResponseWriter, r *http.Request, repo *repository.Repo, workspaceID, userID string) bool {
+	allowed, err := repo.CanAccessWorkspace(r.Context(), workspaceID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate workspace access")
+		return false
+	}
+	if !allowed {
+		writeError(w, http.StatusForbidden, "workspace access denied")
+		return false
+	}
+	return true
+}
+
+func ensureWorkspaceRole(w http.ResponseWriter, r *http.Request, repo *repository.Repo, workspaceID, userID string, roles ...string) bool {
+	role, err := repo.GetWorkspaceRole(r.Context(), workspaceID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate workspace role")
+		return false
+	}
+	for _, allowedRole := range roles {
+		if role == allowedRole {
+			return true
+		}
+	}
+	writeError(w, http.StatusForbidden, "insufficient workspace permissions")
+	return false
+}
+
 func ensureTaskAccess(w http.ResponseWriter, r *http.Request, repo *repository.Repo, taskID, userID string) (*models.Task, bool) {
 	task, err := repo.GetTask(r.Context(), taskID, userID)
 	if err != nil {

@@ -8,6 +8,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { VaultBanner } from "@/components/VaultBanner";
 import { VaultSetupNotice } from "@/components/VaultSetupNotice";
 import { AuthProvider, useAuth } from '@/services/frontend/context/AuthContext';
+import { WorkspaceProvider } from '@/services/frontend/context/WorkspaceContext';
 import { useBranding } from '@/services/frontend/context/BrandingContext';
 import { promptForPwaInstall, usePwaInstallState } from '@/services/frontend/lib/pwa';
 import { Avatar, Button, Dropdown, Label } from "@heroui/react";
@@ -19,9 +20,9 @@ import React, { useEffect, useState, useSyncExternalStore } from 'react';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
         <AuthProvider>
-            <AuthBoundary>
-                {children}
-            </AuthBoundary>
+            <WorkspaceProvider>
+                <AuthBoundary>{children}</AuthBoundary>
+            </WorkspaceProvider>
         </AuthProvider>
     );
 }
@@ -48,14 +49,14 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
         () => false
     );
 
-    const isCollapsed = useSyncExternalStore(
-        (callback) => {
-            window.addEventListener('sidebar-collapsed-change', callback);
-            return () => window.removeEventListener('sidebar-collapsed-change', callback);
-        },
-        () => localStorage.getItem('sidebar-collapsed') === 'true',
-        () => false
-    );
+    const [isCollapsed, setIsCollapsed] = useState(false);
+
+    useEffect(() => {
+        const syncSidebarState = () => setIsCollapsed(localStorage.getItem('sidebar-collapsed') === 'true');
+        syncSidebarState();
+        window.addEventListener('sidebar-collapsed-change', syncSidebarState);
+        return () => window.removeEventListener('sidebar-collapsed-change', syncSidebarState);
+    }, []);
 
     const isAuthPage = pathname === '/login' || pathname === '/signup';
 
@@ -137,9 +138,12 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
             <main className="flex-1 min-w-0 flex flex-col bg-background overflow-hidden relative">
                 {/* Mobile Header */}
                 <header className="md:hidden flex items-center justify-between h-14 px-4 bg-surface border-b border-border z-40">
-                    <button
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+                    <Button
+                        variant="ghost"
+                        isIconOnly
+                        size="sm"
+                        onPress={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className="h-9 w-9 -ml-2 rounded-xl text-muted-foreground hover:text-foreground"
                         aria-label="Toggle menu"
                     >
                         <div className="flex flex-col gap-1.5 w-5">
@@ -147,7 +151,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                             <span className={`h-0.5 w-full bg-current rounded-full transition-all ${isMobileMenuOpen ? 'opacity-0' : ''}`} />
                             <span className={`h-0.5 w-full bg-current rounded-full transition-all ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
                         </div>
-                    </button>
+                    </Button>
                     <div className="flex items-center gap-2">
                         <Avatar size="sm" className="size-7 rounded-xl">
                             <Avatar.Image src={logoUrl ?? undefined} alt="" />
@@ -157,13 +161,16 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                     </div>
                     <div className="flex items-center gap-1 -mr-2">
                         <NotificationInbox />
-                        <button
-                            onClick={() => setIsSearchOpen(true)}
-                            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                        <Button
+                            variant="ghost"
+                            isIconOnly
+                            size="sm"
+                            onPress={() => setIsSearchOpen(true)}
+                            className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground"
                             aria-label="Open search"
                         >
                             <Search size={18} />
-                        </button>
+                        </Button>
                     </div>
                 </header>
 
@@ -172,8 +179,10 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                     <div className="w-48" />
 
                     {/* Search button — highlights when open */}
-                    <button
-                        onClick={() => setIsSearchOpen(true)}
+                    <Button
+                        variant="secondary"
+                        onPress={() => setIsSearchOpen(true)}
+                        aria-label="Open global search"
                         className={`flex items-center gap-2.5 px-4 py-2 rounded-xl border transition-all min-w-[360px] max-w-[480px] ${
                             isSearchOpen
                                 ? 'bg-surface border-accent/40 ring-2 ring-accent/15 shadow-sm'
@@ -185,7 +194,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                             Search by name, label, task or team member...
                         </span>
                         <kbd className="ml-auto text-[10px] font-medium bg-surface rounded px-1.5 py-0.5 text-muted-foreground border border-border shrink-0">⌘K</kbd>
-                    </button>
+                    </Button>
 
                     <div className="flex items-center gap-2 w-48 justify-end">
                         {pwa.canInstall && !pwa.isStandalone && (
@@ -204,18 +213,16 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                         <NotificationInbox />
 
                         <Dropdown>
-                            <Dropdown.Trigger>
-                                <button className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-surface-secondary transition-colors">
-                                    <Avatar size="sm" className="w-7 h-7 shrink-0">
-                                        <Avatar.Fallback className="bg-accent/20 text-accent text-[11px] font-semibold">
-                                            {user?.name?.charAt(0).toUpperCase() || <User size={12} />}
-                                        </Avatar.Fallback>
-                                    </Avatar>
-                                    <span className="text-[13px] font-medium text-foreground hidden lg:block max-w-[120px] truncate">
-                                        {user?.name || 'Guest'}
-                                    </span>
-                                    <ChevronDown size={12} className="text-muted-foreground hidden lg:block" />
-                                </button>
+                            <Dropdown.Trigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-surface-secondary">
+                                <Avatar size="sm" className="w-7 h-7 shrink-0">
+                                    <Avatar.Fallback className="bg-accent/20 text-accent text-[11px] font-semibold">
+                                        {user?.name?.charAt(0).toUpperCase() || <User size={12} />}
+                                    </Avatar.Fallback>
+                                </Avatar>
+                                <span className="text-[13px] font-medium text-foreground hidden lg:block max-w-[120px] truncate">
+                                    {user?.name || 'Guest'}
+                                </span>
+                                <ChevronDown size={12} className="text-muted-foreground hidden lg:block" />
                             </Dropdown.Trigger>
                             <Dropdown.Popover placement="bottom end" className="min-w-[180px]">
                                 <Dropdown.Menu>

@@ -1,5 +1,6 @@
 export interface Project {
     id: string;
+    workspaceId?: string;
     userId?: string;
     name: string;
     description: string;
@@ -26,6 +27,19 @@ export interface ProjectTaskStatus {
     updatedAt: string;
 }
 
+export interface ProjectMilestone {
+    id: string;
+    projectId: string;
+    createdBy: string;
+    title: string;
+    description: string;
+    status: 'open' | 'completed';
+    dueDate?: string;
+    position: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface ProjectMember {
     id: string;
     projectId: string;
@@ -41,6 +55,7 @@ export interface TeamInvitation {
     projectId: string;
     email: string;
     role: 'admin' | 'editor' | 'viewer';
+    workspaceRole?: 'admin' | 'member' | 'guest';
     token?: string;
     status: 'pending' | 'accepted' | 'cancelled' | 'expired';
     invitedUserId?: string;
@@ -128,6 +143,9 @@ export interface PresenceSession {
 
 export interface WikiGuide {
     id: string;
+    workspaceId?: string;
+    projectId?: string;
+    parentId?: string;
     title: string;
     description: string;
     isEncrypted?: boolean;
@@ -210,6 +228,8 @@ export interface SnippetBlock {
 
 export interface Snippet {
     id: string;
+    workspaceId?: string;
+    projectId?: string;
     title: string;
     content: string;
     blocks?: string; // JSON stringified SnippetBlock[]

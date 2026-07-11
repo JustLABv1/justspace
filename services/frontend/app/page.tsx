@@ -4,6 +4,7 @@ import { ActivityFeed } from '@/components/ActivityFeed';
 import { ResourceHeatmap } from '@/components/ResourceHeatmap';
 import { TaskCalendar } from '@/components/TaskCalendar';
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { Project, Snippet, Task, WikiGuide } from '@/services/frontend/types';
@@ -40,6 +41,7 @@ export default function Home() {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [justDoneIds, setJustDoneIds] = useState<Set<string>>(new Set());
   const { user, privateKey } = useAuth();
+  const { workspaceId } = useWorkspace();
 
   const hours = new Date().getHours();
   useEffect(() => {
@@ -51,9 +53,9 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     try {
       const [projects, guides, snippets, allTasks] = await Promise.all([
-        db.listProjects(),
-        db.listGuides(),
-        db.listSnippets(),
+        db.listProjects(workspaceId),
+        db.listGuides(workspaceId),
+        db.listSnippets(workspaceId),
         db.listAllTasks(100)
       ]);
 
@@ -167,7 +169,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [privateKey, user]);
+  }, [privateKey, user, workspaceId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -224,22 +226,25 @@ export default function Home() {
           <h1 className="text-lg font-semibold text-foreground">
             {greeting}{user?.name?.split(' ')[0] ? `, ${user.name.split(' ')[0]}` : ''}
           </h1>
-          <p className="text-[13px] text-muted-foreground flex items-center gap-1.5">
+          <div className="text-[13px] text-muted-foreground flex items-center gap-1.5">
             {dayjs().format('dddd, MMMM D')}
             <span className="opacity-30">·</span>
             <Tooltip delay={0}>
-              <Tooltip.Trigger aria-label="Vault status">
-                <span className={`inline-flex items-center gap-1 cursor-help ${privateKey ? 'text-success' : 'text-warning'}`}>
+              <Button
+                aria-label="Vault status"
+                variant="ghost"
+                size="sm"
+                className={`h-auto min-w-0 rounded-md p-0 text-[13px] font-normal ${privateKey ? 'text-success' : 'text-warning'}`}
+              >
                   {privateKey ? <ShieldCheck size={11} /> : <Lock size={11} />}
                   Vault {privateKey ? 'unlocked' : 'locked'}
-                </span>
-              </Tooltip.Trigger>
+              </Button>
               <Tooltip.Content showArrow placement="top">
                 <Tooltip.Arrow />
                 {privateKey ? 'Encrypted data is accessible.' : 'Unlock vault to see encrypted content.'}
               </Tooltip.Content>
             </Tooltip>
-          </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/wiki">

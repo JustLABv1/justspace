@@ -92,6 +92,7 @@ type AdminUser struct {
 
 type Project struct {
 	ID                  string    `json:"id"`
+	WorkspaceID         string    `json:"workspaceId"`
 	UserID              string    `json:"userId"`
 	Name                string    `json:"name"`
 	Description         string    `json:"description"`
@@ -121,6 +122,7 @@ type TeamInvitation struct {
 	ProjectID     string     `json:"projectId"`
 	Email         string     `json:"email"`
 	Role          string     `json:"role"`
+	WorkspaceRole string     `json:"workspaceRole"`
 	Token         *string    `json:"token,omitempty"`
 	Status        string     `json:"status"`
 	InvitedUserID *string    `json:"invitedUserId,omitempty"`
@@ -185,6 +187,19 @@ type ProjectTaskStatus struct {
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
+type ProjectMilestone struct {
+	ID          string     `json:"id"`
+	ProjectID   string     `json:"projectId"`
+	CreatedBy   string     `json:"createdBy"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Status      string     `json:"status"`
+	DueDate     *time.Time `json:"dueDate,omitempty"`
+	Position    int        `json:"position"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+}
+
 type TaskAssignee struct {
 	TaskID     string    `json:"taskId"`
 	UserID     string    `json:"userId"`
@@ -221,6 +236,9 @@ type RecurrenceRule struct {
 
 type WikiGuide struct {
 	ID            string               `json:"id"`
+	WorkspaceID   string               `json:"workspaceId"`
+	ProjectID     *string              `json:"projectId,omitempty"`
+	ParentID      *string              `json:"parentId,omitempty"`
 	UserID        string               `json:"userId"`
 	Title         string               `json:"title"`
 	Description   string               `json:"description"`
@@ -277,6 +295,9 @@ type Notification struct {
 
 type Snippet struct {
 	ID          string    `json:"id"`
+	WorkspaceID string    `json:"workspaceId"`
+	ProjectID   *string   `json:"projectId,omitempty"`
+	Collection  *string   `json:"collection,omitempty"`
 	UserID      string    `json:"userId"`
 	Title       string    `json:"title"`
 	Content     string    `json:"content"`
@@ -287,6 +308,42 @@ type Snippet struct {
 	IsEncrypted bool      `json:"isEncrypted"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type Workspace struct {
+	ID                       string    `json:"id"`
+	OwnerID                  string    `json:"ownerId"`
+	Name                     string    `json:"name"`
+	Slug                     string    `json:"slug"`
+	Role                     string    `json:"role"`
+	AutoAddMembersToProjects bool      `json:"autoAddMembersToProjects"`
+	CreatedAt                time.Time `json:"createdAt"`
+	UpdatedAt                time.Time `json:"updatedAt"`
+}
+
+type WorkspaceMember struct {
+	WorkspaceID string    `json:"workspaceId"`
+	UserID      string    `json:"userId"`
+	Name        string    `json:"name"`
+	Email       string    `json:"email"`
+	Role        string    `json:"role"`
+	JoinedAt    time.Time `json:"joinedAt"`
+	PublicKey   *string   `json:"publicKey,omitempty"`
+	HasVault    bool      `json:"hasVault"`
+}
+
+type WorkspaceInvitation struct {
+	ID            string     `json:"id"`
+	WorkspaceID   string     `json:"workspaceId"`
+	Email         string     `json:"email"`
+	Role          string     `json:"role"`
+	Token         *string    `json:"token,omitempty"`
+	Status        string     `json:"status"`
+	InvitedUserID *string    `json:"invitedUserId,omitempty"`
+	InvitedByID   string     `json:"invitedById"`
+	ExpiresAt     time.Time  `json:"expiresAt"`
+	AcceptedAt    *time.Time `json:"acceptedAt,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
 }
 
 type UserKeys struct {
@@ -364,6 +421,29 @@ type PlatformSettingsUpdateRequest struct {
 	BrandName        *string `json:"brandName,omitempty"`
 }
 
+type CreateWorkspaceRequest struct {
+	Name string `json:"name"`
+}
+
+type UpdateWorkspaceRequest struct {
+	Name                     *string `json:"name,omitempty"`
+	AutoAddMembersToProjects *bool   `json:"autoAddMembersToProjects,omitempty"`
+}
+
+type CreateWorkspaceMemberRequest struct {
+	UserID string `json:"userId"`
+	Role   string `json:"role"`
+}
+
+type UpdateWorkspaceMemberRequest struct {
+	Role string `json:"role"`
+}
+
+type CreateWorkspaceInvitationRequest struct {
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
+
 type OIDCProviderRequest struct {
 	Slug         string `json:"slug"`
 	Name         string `json:"name"`
@@ -374,6 +454,7 @@ type OIDCProviderRequest struct {
 }
 
 type CreateProjectRequest struct {
+	WorkspaceID   string   `json:"workspaceId,omitempty"`
 	Name          string   `json:"name"`
 	Description   string   `json:"description"`
 	Status        string   `json:"status"`
@@ -406,10 +487,11 @@ type UpdateProjectMemberRequest struct {
 }
 
 type CreateInvitationRequest struct {
-	ProjectID    string  `json:"projectId"`
-	Email        string  `json:"email"`
-	Role         string  `json:"role"`
-	EncryptedKey *string `json:"encryptedKey,omitempty"`
+	ProjectID     string  `json:"projectId"`
+	Email         string  `json:"email"`
+	Role          string  `json:"role"`
+	WorkspaceRole string  `json:"workspaceRole,omitempty"`
+	EncryptedKey  *string `json:"encryptedKey,omitempty"`
 }
 
 type AcceptInvitationRequest struct {
@@ -470,6 +552,19 @@ type CreateProjectTaskStatusRequest struct {
 	IsCompletedState bool   `json:"isCompletedState"`
 }
 
+type CreateProjectMilestoneRequest struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description,omitempty"`
+	DueDate     *string `json:"dueDate,omitempty"`
+}
+
+type UpdateProjectMilestoneRequest struct {
+	Title       *string `json:"title,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Status      *string `json:"status,omitempty"`
+	DueDate     *string `json:"dueDate,omitempty"`
+}
+
 type UpdateProjectTaskStatusRequest struct {
 	Label            *string `json:"label,omitempty"`
 	ColorToken       *string `json:"colorToken,omitempty"`
@@ -510,12 +605,18 @@ type AssignTaskUserRequest struct {
 }
 
 type CreateGuideRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	IsEncrypted bool   `json:"isEncrypted"`
+	WorkspaceID string  `json:"workspaceId,omitempty"`
+	ProjectID   *string `json:"projectId,omitempty"`
+	ParentID    *string `json:"parentId,omitempty"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	IsEncrypted bool    `json:"isEncrypted"`
 }
 
 type UpdateGuideRequest struct {
+	WorkspaceID *string `json:"workspaceId,omitempty"`
+	ProjectID   *string `json:"projectId,omitempty"`
+	ParentID    *string `json:"parentId,omitempty"`
 	Title       *string `json:"title,omitempty"`
 	Description *string `json:"description,omitempty"`
 	IsEncrypted *bool   `json:"isEncrypted,omitempty"`
@@ -543,6 +644,9 @@ type UpdateInstallationRequest struct {
 }
 
 type CreateSnippetRequest struct {
+	WorkspaceID string   `json:"workspaceId,omitempty"`
+	ProjectID   *string  `json:"projectId,omitempty"`
+	Collection  *string  `json:"collection,omitempty"`
 	Title       string   `json:"title"`
 	Content     string   `json:"content"`
 	Blocks      *string  `json:"blocks,omitempty"`
@@ -553,6 +657,9 @@ type CreateSnippetRequest struct {
 }
 
 type UpdateSnippetRequest struct {
+	WorkspaceID *string  `json:"workspaceId,omitempty"`
+	ProjectID   *string  `json:"projectId,omitempty"`
+	Collection  *string  `json:"collection,omitempty"`
 	Title       *string  `json:"title,omitempty"`
 	Content     *string  `json:"content,omitempty"`
 	Blocks      *string  `json:"blocks,omitempty"`

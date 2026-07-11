@@ -913,12 +913,10 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         <div className="flex -space-x-2">
                                             {presence.slice(0, 4).map((session) => (
                                                 <Tooltip key={session.userId}>
-                                                    <Tooltip.Trigger>
-                                                        <span>
-                                                            <Avatar size="sm" color="accent" variant="soft" className="border border-surface">
-                                                                <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                                                            </Avatar>
-                                                        </span>
+                                                    <Tooltip.Trigger aria-label={`Viewing: ${session.name}`}>
+                                                        <Avatar size="sm" color="accent" variant="soft" className="border border-surface">
+                                                            <Avatar.Fallback>{session.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                                                        </Avatar>
                                                     </Tooltip.Trigger>
                                                     <Tooltip.Content showArrow className="rounded-lg bg-surface text-foreground shadow-lg">
                                                         <div className="px-1 py-0.5">
@@ -978,7 +976,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         variant="secondary"
                                                         className="w-full rounded-lg"
                                                     />
-                                                    <Button 
+                                                    <Button
+                                                        aria-label="Add subtask"
                                                         type="submit" 
                                                         isIconOnly 
                                                         size="sm" 
@@ -1046,8 +1045,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                         const subtaskStatus = getTaskStatusForTask(st, resolvedStatusOptions);
                                                                                         return (
                                                                                             <Dropdown>
-                                                                                                <Dropdown.Trigger>
-                                                                                                    <Button
+                                                                                                <Button
                                                                                                         variant="ghost"
                                                                                                         className="h-7 min-w-[92px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]"
                                                                                                         isDisabled={!canEditTask}
@@ -1058,7 +1056,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                                         </span>
                                                                                                         <ChevronDown size={12} />
                                                                                                     </Button>
-                                                                                                </Dropdown.Trigger>
                                                                                                 <Dropdown.Popover placement="bottom end">
                                                                                                     <Dropdown.Menu>
                                                                                                         {resolvedStatusOptions.map((status) => (
@@ -1080,8 +1077,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                         const primaryAssignee = subtaskMembers[0];
                                                                                         return (
                                                                                             <Dropdown>
-                                                                                                <Dropdown.Trigger>
-                                                                                                    <Button
+                                                                                                <Button
                                                                                                         variant="secondary"
                                                                                                         className="h-7 max-w-[170px] justify-start rounded-md px-2 text-[11px]"
                                                                                                         isDisabled={!canEditTask}
@@ -1099,7 +1095,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                                         )}
                                                                                                         <ChevronDown size={12} className="ml-auto shrink-0" />
                                                                                                     </Button>
-                                                                                                </Dropdown.Trigger>
                                                                                                 <Dropdown.Popover placement="bottom end" className="min-w-[220px]">
                                                                                                     <Dropdown.Menu>
                                                                                                         {subtaskMembers.map((assignee) => (
@@ -1128,6 +1123,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                         );
                                                                                     })()}
                                                                                     <Button
+                                                                                        aria-label={`Delete ${st.title}`}
                                                                                         variant="ghost"
                                                                                         isIconOnly
                                                                                         size="sm"
@@ -1212,7 +1208,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                         <span className="min-w-0 truncate text-[12px] font-medium text-foreground">{message.userName}</span>
                                                                         <span className="shrink-0 text-[11px] text-muted-foreground">{dayjs(message.createdAt).fromNow()}</span>
                                                                         {message.userId === user?.id && (
-                                                                            <Button variant="ghost" isIconOnly className="ml-auto h-6 w-6 rounded-md text-muted-foreground hover:text-danger" onPress={() => handleDeleteMessage(message.id)}>
+                                                                            <Button aria-label="Delete message" variant="ghost" isIconOnly className="ml-auto h-6 w-6 rounded-md text-muted-foreground hover:text-danger" onPress={() => handleDeleteMessage(message.id)}>
                                                                                 <Trash size={11} />
                                                                             </Button>
                                                                         )}
@@ -1234,7 +1230,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                             <form onSubmit={handleCreateMessage} className="space-y-2 rounded-lg border border-border bg-surface p-3">
                                                 <div className="relative"><TextArea value={newMessage} onChange={(event) => setNewMessage(event.target.value)} placeholder="Add a message for the team..." rows={3} variant="secondary" className="w-full resize-none rounded-xl pb-10 text-xs" /><Button type="submit" size="sm" variant="primary" className="absolute bottom-2 right-2 h-7 rounded-md px-3 text-xs">Send</Button></div>
                                                 <div className="flex flex-wrap items-center gap-1.5">
-                                                    {mentionableMembers.length > 0 && <Dropdown><Dropdown.Trigger><Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground"><AtSign size={11} /> Mention <ChevronDown size={11} /></Button></Dropdown.Trigger><Dropdown.Popover placement="top start" className="min-w-[220px]"><Dropdown.Menu>{mentionableMembers.map((member) => <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => toggleMention(member.userId)}><div className="flex items-center gap-2"><Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar><div className="min-w-0"><div className="truncate text-sm">{member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div></div></Dropdown.Item>)}</Dropdown.Menu></Dropdown.Popover></Dropdown>}
+                                                    {mentionableMembers.length > 0 && <Dropdown><Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground"><AtSign size={11} /> Mention <ChevronDown size={11} /></Button><Dropdown.Popover placement="top start" className="min-w-[220px]"><Dropdown.Menu>{mentionableMembers.map((member) => <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => toggleMention(member.userId)}><div className="flex items-center gap-2"><Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar><div className="min-w-0"><div className="truncate text-sm">{member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div></div></Dropdown.Item>)}</Dropdown.Menu></Dropdown.Popover></Dropdown>}
                                                     {mentionedUserIds.length > 0 && <TagGroup onRemove={(keys) => setMentionedUserIds((current) => current.filter((userId) => !keys.has(userId)))}><TagGroup.List className="flex flex-wrap gap-1">{mentionableMembers.filter((member) => mentionedUserIds.includes(member.userId)).map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}</TagGroup.List></TagGroup>}
                                                 </div>
                                             </form>
@@ -1263,8 +1259,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         const primaryAssignee = assignees[0];
                                                         return (
                                                             <Dropdown>
-                                                                <Dropdown.Trigger>
-                                                                    <Button variant="secondary" className="h-8 w-full justify-start rounded-md px-2.5 text-[11px]" isDisabled={!canEditTask}>
+                                                                <Button variant="secondary" className="h-8 w-full justify-start rounded-md px-2.5 text-[11px]" isDisabled={!canEditTask}>
                                                                         {primaryAssignee ? (
                                                                             <>
                                                                                 <Avatar size="sm" color="accent" variant="soft" className="size-5 shrink-0">
@@ -1278,7 +1273,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                         )}
                                                                         <ChevronDown size={13} className="ml-auto shrink-0" />
                                                                     </Button>
-                                                                </Dropdown.Trigger>
                                                                 <Dropdown.Popover placement="bottom end" className="min-w-[230px]">
                                                                     <Dropdown.Menu>
                                                                         {assignees.map((assignee) => (
@@ -1308,15 +1302,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <div className="flex items-center justify-between gap-3">
                                                         <Label className="text-[11px] font-medium text-muted-foreground">Status</Label>
                                                         <Dropdown>
-                                                            <Dropdown.Trigger>
-                                                                <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
+                                                            <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
                                                                     <span className="flex items-center gap-2 truncate">
                                                                         <span className={`h-1.5 w-1.5 rounded-full ${getStatusTokenDotClass(currentStatusOption.colorToken)}`} />
                                                                         {currentStatusOption.label}
                                                                     </span>
                                                                     <ChevronDown size={12} />
                                                                 </Button>
-                                                            </Dropdown.Trigger>
                                                             <Dropdown.Popover placement="bottom end">
                                                                 <Dropdown.Menu>
                                                                     {resolvedStatusOptions.map((status) => (
@@ -1335,14 +1327,12 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <div className="flex items-center justify-between gap-3">
                                                         <Label className="text-[11px] font-medium text-muted-foreground">Priority</Label>
                                                         <Dropdown>
-                                                            <Dropdown.Trigger>
-                                                                <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
+                                                            <Button variant="ghost" className="h-7 min-w-[88px] justify-between rounded-md bg-surface-secondary/55 px-2 text-[11px]" isDisabled={!canEditTask}>
                                                                     <span className={`truncate ${currentPriorityOption?.className || 'text-muted-foreground'}`}>
                                                                         {currentPriorityOption?.label || 'None'}
                                                                     </span>
                                                                     <ChevronDown size={12} />
                                                                 </Button>
-                                                            </Dropdown.Trigger>
                                                             <Dropdown.Popover placement="bottom end">
                                                                 <Dropdown.Menu>
                                                                     {priorityOptions.map((priority) => (
@@ -1381,9 +1371,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                         <DatePicker.Popover className="max-w-[calc(100vw-2rem)]">
                                                             <Calendar>
                                                                 <Calendar.Header>
-                                                                    <Button slot="previous" variant="ghost" isIconOnly size="sm"><ChevronLeft size={16} /></Button>
+                                                                    <Button aria-label="Previous month" slot="previous" variant="ghost" isIconOnly size="sm"><ChevronLeft size={16} /></Button>
                                                                     <Calendar.Heading />
-                                                                    <Button slot="next" variant="ghost" isIconOnly size="sm"><ChevronRight size={16} /></Button>
+                                                                    <Button aria-label="Next month" slot="next" variant="ghost" isIconOnly size="sm"><ChevronRight size={16} /></Button>
                                                                 </Calendar.Header>
                                                                 <Calendar.Grid className="w-full">
                                                                     <Calendar.GridHeader>
@@ -1520,6 +1510,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                         <Link2 size={10} className="text-muted-foreground shrink-0" />
                                                                         <span className="flex-1 truncate text-[12px] text-foreground">{depTask?.title || 'Unknown task'}</span>
                                                                         <Button
+                                                                            aria-label={`Remove dependency ${depTask?.title || 'task'}`}
                                                                             variant="ghost"
                                                                             isIconOnly
                                                                             className="h-6 w-6 rounded-md text-muted-foreground hover:text-danger"
@@ -1625,7 +1616,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                     <span className="min-w-0 truncate text-[12px] font-medium text-foreground">{comment.userName}</span>
                                                                                     <span className="shrink-0 text-[11px] text-muted-foreground">{dayjs(comment.createdAt).fromNow()}</span>
                                                                                     {comment.userId === user?.id && (
-                                                                                        <Button variant="ghost" isIconOnly className="ml-auto h-6 w-6 rounded-md text-muted-foreground hover:text-danger" onPress={() => handleDeleteComment(comment.id)}>
+                                                                                        <Button aria-label="Delete comment" variant="ghost" isIconOnly className="ml-auto h-6 w-6 rounded-md text-muted-foreground hover:text-danger" onPress={() => handleDeleteComment(comment.id)}>
                                                                                             <Trash size={11} />
                                                                                         </Button>
                                                                                     )}
@@ -1661,11 +1652,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                             <div className="flex flex-wrap items-center gap-1.5">
                                                                 {mentionableMembers.length > 0 && (
                                                                     <Dropdown>
-                                                                        <Dropdown.Trigger>
-                                                                            <Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground">
+                                                                        <Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground">
                                                                                 <AtSign size={11} /> Mention <ChevronDown size={11} />
                                                                             </Button>
-                                                                        </Dropdown.Trigger>
                                                                         <Dropdown.Popover placement="top start" className="min-w-[220px]">
                                                                             <Dropdown.Menu>
                                                                                 {mentionableMembers.map((member) => (
@@ -1744,7 +1733,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                 </span>
                                                                             </div>
                                                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                <Button 
+                                                                                <Button
+                                                                                    aria-label="Edit note"
                                                                                     variant="ghost" 
                                                                                     isIconOnly 
                                                                                     size="sm" 
@@ -1753,7 +1743,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                                 >
                                                                                     <Edit size={10} />
                                                                                 </Button>
-                                                                                <Button 
+                                                                                <Button
+                                                                                    aria-label="Delete note"
                                                                                     variant="ghost" 
                                                                                     isIconOnly 
                                                                                     size="sm" 
@@ -1883,6 +1874,7 @@ function TaskAttachmentRow({
                 </div>
             </div>
             <Button
+                aria-label={`Delete ${displayName}`}
                 variant="ghost"
                 isIconOnly
                 className="h-7 w-7 rounded-lg text-muted-foreground hover:text-danger"

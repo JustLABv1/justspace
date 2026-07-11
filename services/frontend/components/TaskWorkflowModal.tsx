@@ -186,16 +186,17 @@ export function TaskWorkflowModal({ isOpen, onClose, projectId, statuses, onChan
                                                     </Select.Popover>
                                                 </Select>
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg" onPress={() => reorderStatus(status.id, 'up')} isDisabled={index === 0 || isSaving}>
+                                                    <Button aria-label={`Move ${status.label} up`} variant="ghost" isIconOnly className="h-8 w-8 rounded-lg" onPress={() => reorderStatus(status.id, 'up')} isDisabled={index === 0 || isSaving}>
                                                         <ArrowUp size={14} />
                                                     </Button>
-                                                    <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg" onPress={() => reorderStatus(status.id, 'down')} isDisabled={index === drafts.length - 1 || isSaving}>
+                                                    <Button aria-label={`Move ${status.label} down`} variant="ghost" isIconOnly className="h-8 w-8 rounded-lg" onPress={() => reorderStatus(status.id, 'down')} isDisabled={index === drafts.length - 1 || isSaving}>
                                                         <ArrowDown size={14} />
                                                     </Button>
                                                     <Button variant="secondary" className="h-8 rounded-lg px-3 text-xs font-medium" onPress={() => void persistStatus(status)} isDisabled={isSaving}>
                                                         Save
                                                     </Button>
                                                     <Button
+                                                        aria-label={`Delete ${status.label}`}
                                                         variant="ghost"
                                                         isIconOnly
                                                         className="h-8 w-8 rounded-lg text-danger"

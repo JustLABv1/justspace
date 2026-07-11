@@ -129,6 +129,42 @@ export interface AdminAuditEvent {
     createdAt: string;
 }
 
+export interface Workspace {
+    id: string;
+    ownerId: string;
+    name: string;
+    slug: string;
+    role: 'owner' | 'admin' | 'member' | 'guest' | string;
+    autoAddMembersToProjects: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface WorkspaceMember {
+    workspaceId: string;
+    userId: string;
+    name: string;
+    email: string;
+    role: 'owner' | 'admin' | 'member' | 'guest' | string;
+    joinedAt: string;
+    publicKey?: string;
+    hasVault: boolean;
+}
+
+export interface WorkspaceInvitation {
+    id: string;
+    workspaceId: string;
+    email: string;
+    role: 'admin' | 'member' | 'guest' | string;
+    token?: string;
+    status: 'pending' | 'accepted' | 'cancelled' | 'expired' | string;
+    invitedUserId?: string;
+    invitedById: string;
+    expiresAt: string;
+    acceptedAt?: string;
+    createdAt: string;
+}
+
 export const api = {
     // Auth
     async signup(email: string, password: string, name: string): Promise<AuthResponse> {
@@ -186,6 +222,47 @@ export const api = {
             method: 'PUT',
             body: JSON.stringify(data),
         });
+    },
+
+    // Workspaces
+    async listWorkspaces(): Promise<ListResponse<Workspace>> {
+        return request('/api/workspaces');
+    },
+
+    async createWorkspace(name: string): Promise<Workspace> {
+        return request('/api/workspaces', { method: 'POST', body: JSON.stringify({ name }) });
+    },
+
+    async updateWorkspace(id: string, data: { name?: string; autoAddMembersToProjects?: boolean }): Promise<Workspace> {
+        return request(`/api/workspaces/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+
+    async listWorkspaceMembers(workspaceId: string): Promise<ListResponse<WorkspaceMember>> {
+        return request(`/api/workspaces/${workspaceId}/members`);
+    },
+
+    async addWorkspaceMember(workspaceId: string, data: { userId: string; role: string }): Promise<WorkspaceMember> {
+        return request(`/api/workspaces/${workspaceId}/members`, { method: 'POST', body: JSON.stringify(data) });
+    },
+
+    async updateWorkspaceMember(workspaceId: string, userId: string, role: string): Promise<WorkspaceMember> {
+        return request(`/api/workspaces/${workspaceId}/members/${userId}`, { method: 'PUT', body: JSON.stringify({ role }) });
+    },
+
+    async removeWorkspaceMember(workspaceId: string, userId: string): Promise<void> {
+        return request(`/api/workspaces/${workspaceId}/members/${userId}`, { method: 'DELETE' });
+    },
+
+    async listWorkspaceInvitations(workspaceId: string): Promise<ListResponse<WorkspaceInvitation>> {
+        return request(`/api/workspaces/${workspaceId}/invitations`);
+    },
+
+    async createWorkspaceInvitation(workspaceId: string, data: { email: string; role: string }): Promise<WorkspaceInvitation> {
+        return request(`/api/workspaces/${workspaceId}/invitations`, { method: 'POST', body: JSON.stringify(data) });
+    },
+
+    async cancelWorkspaceInvitation(workspaceId: string, invitationId: string): Promise<void> {
+        return request(`/api/workspaces/${workspaceId}/invitations/${invitationId}`, { method: 'DELETE' });
     },
 
     // Platform administration
@@ -258,8 +335,8 @@ export const api = {
     },
 
     // Projects
-    async listProjects<T>(): Promise<ListResponse<T>> {
-        return request('/api/projects');
+    async listProjects<T>(workspaceId?: string): Promise<ListResponse<T>> {
+        return request(`/api/projects${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`);
     },
 
     async getProject<T>(id: string): Promise<T> {
@@ -366,9 +443,25 @@ export const api = {
         });
     },
 
+    async listProjectMilestones<T>(projectId: string): Promise<ListResponse<T>> {
+        return request(`/api/projects/${projectId}/milestones`);
+    },
+
+    async createProjectMilestone<T>(projectId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${projectId}/milestones`, { method: 'POST', body: JSON.stringify(data) });
+    },
+
+    async updateMilestone<T>(id: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/milestones/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+
+    async deleteMilestone(id: string): Promise<void> {
+        return request(`/api/milestones/${id}`, { method: 'DELETE' });
+    },
+
     // Wiki
-    async listGuides<T>(): Promise<ListResponse<T>> {
-        return request('/api/wiki');
+    async listGuides<T>(workspaceId?: string): Promise<ListResponse<T>> {
+        return request(`/api/wiki${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`);
     },
 
     async getGuide<T>(id: string): Promise<T> {
@@ -413,8 +506,8 @@ export const api = {
     },
 
     // Snippets
-    async listSnippets<T>(): Promise<ListResponse<T>> {
-        return request('/api/snippets');
+    async listSnippets<T>(workspaceId?: string): Promise<ListResponse<T>> {
+        return request(`/api/snippets${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`);
     },
 
     async createSnippet<T>(data: Record<string, unknown>): Promise<T> {
@@ -542,7 +635,7 @@ export const api = {
         return request(`/api/projects/${projectId}/invitations/${invitationId}`, { method: 'DELETE' });
     },
 
-    async acceptInvitation(data: Record<string, unknown>): Promise<{ projectId: string }> {
+    async acceptInvitation(data: Record<string, unknown>): Promise<{ projectId?: string; workspaceId?: string }> {
         return request('/api/invitations/accept', {
             method: 'POST',
             body: JSON.stringify(data),

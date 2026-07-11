@@ -12,6 +12,7 @@ import {
     InstallationTarget,
     PresenceSession,
     Project,
+    ProjectMilestone,
     ProjectFile,
     ProjectMember,
     ProjectTaskStatus,
@@ -28,6 +29,36 @@ import {
 import { api } from './api';
 
 export const db = {
+    async listWorkspaces() {
+        return await api.listWorkspaces();
+    },
+    async createWorkspace(name: string) {
+        return await api.createWorkspace(name);
+    },
+    async updateWorkspace(id: string, data: { name?: string; autoAddMembersToProjects?: boolean }) {
+        return await api.updateWorkspace(id, data);
+    },
+    async listWorkspaceMembers(workspaceId: string) {
+        return await api.listWorkspaceMembers(workspaceId);
+    },
+    async addWorkspaceMember(workspaceId: string, data: { userId: string; role: string }) {
+        return await api.addWorkspaceMember(workspaceId, data);
+    },
+    async updateWorkspaceMember(workspaceId: string, userId: string, role: string) {
+        return await api.updateWorkspaceMember(workspaceId, userId, role);
+    },
+    async removeWorkspaceMember(workspaceId: string, userId: string) {
+        return await api.removeWorkspaceMember(workspaceId, userId);
+    },
+    async listWorkspaceInvitations(workspaceId: string) {
+        return await api.listWorkspaceInvitations(workspaceId);
+    },
+    async createWorkspaceInvitation(workspaceId: string, data: { email: string; role: string }) {
+        return await api.createWorkspaceInvitation(workspaceId, data);
+    },
+    async cancelWorkspaceInvitation(workspaceId: string, invitationId: string) {
+        return await api.cancelWorkspaceInvitation(workspaceId, invitationId);
+    },
     // Versions
     async listVersions(resourceId: string) {
         return await api.listVersions<ResourceVersion>(resourceId);
@@ -54,8 +85,8 @@ export const db = {
     },
 
     // Snippets
-    async listSnippets() {
-        return await api.listSnippets<Snippet>();
+    async listSnippets(workspaceId?: string) {
+        return await api.listSnippets<Snippet>(workspaceId);
     },
     async createSnippet(data: Omit<Snippet, 'id' | 'createdAt'>) {
         return await api.createSnippet<Snippet>(data as Record<string, unknown>);
@@ -68,8 +99,8 @@ export const db = {
     },
 
     // Projects
-    async listProjects() {
-        return await api.listProjects<Project>();
+    async listProjects(workspaceId?: string) {
+        return await api.listProjects<Project>(workspaceId);
     },
     async getProject(id: string) {
         return await api.getProject<Project>(id);
@@ -85,8 +116,8 @@ export const db = {
     },
 
     // Wiki Guides
-    async listGuides() {
-        return await api.listGuides<WikiGuide>();
+    async listGuides(workspaceId?: string) {
+        return await api.listGuides<WikiGuide>(workspaceId);
     },
     async getGuide(id: string) {
         return await api.getGuide<WikiGuide>(id);
@@ -165,6 +196,18 @@ export const db = {
     },
     async reorderProjectTaskStatuses(projectId: string, statusIds: string[]) {
         return await api.reorderProjectTaskStatuses<ProjectTaskStatus>(projectId, statusIds);
+    },
+    async listProjectMilestones(projectId: string) {
+        return await api.listProjectMilestones<ProjectMilestone>(projectId);
+    },
+    async createProjectMilestone(projectId: string, data: Partial<ProjectMilestone>) {
+        return await api.createProjectMilestone<ProjectMilestone>(projectId, data as Record<string, unknown>);
+    },
+    async updateMilestone(id: string, data: Partial<ProjectMilestone>) {
+        return await api.updateMilestone<ProjectMilestone>(id, data as Record<string, unknown>);
+    },
+    async deleteMilestone(id: string) {
+        return await api.deleteMilestone(id);
     },
 
     // Encryption Keys

@@ -23,7 +23,7 @@ func NewWikiHandler(repo *repository.Repo, hub *websocket.Hub) *WikiHandler {
 
 func (h *WikiHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
-	guides, err := h.repo.ListGuides(r.Context(), userID)
+	guides, err := h.repo.ListGuides(r.Context(), userID, r.URL.Query().Get("workspaceId"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list guides")
 		return
