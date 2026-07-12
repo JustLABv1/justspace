@@ -25,6 +25,7 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/019_workspace_project_membership_defaults.up.sql`: adds the per-workspace default for automatically adding members to new projects
 - `backend/migrations/020_workspace_types.up.sql`: adds the workspace operating model used to tailor planning features
 - `backend/migrations/021_consulting_customers_capacity.up.sql`: adds Consulting customers, project hour budgets, and member capacity planning
+- `backend/migrations/022_security_hardening.up.sql`: records Vault KDF cost and enforces a single owner per project
 
 ## Core Tables
 
@@ -226,6 +227,7 @@ Indexes:
 
 - `idx_project_members_project_id` on `project_id`
 - `idx_project_members_user_id` on `user_id`
+- `idx_project_members_single_owner` unique partial index on `project_id` for `role = 'owner'`
 
 Notes:
 
@@ -392,6 +394,7 @@ Indexes:
 | `encrypted_private_key` | `varchar(2048)` | Private key encrypted with vault password |
 | `salt` | `varchar(32)` | Password-derivation salt |
 | `iv` | `varchar(32)` | Encryption IV |
+| `kdf_iterations` | `integer` | PBKDF2-SHA256 work factor; legacy records use 100,000 and unlock migrates them to 600,000 |
 | `created_at` | `timestamptz` | Creation timestamp |
 | `updated_at` | `timestamptz` | Auto-updated by trigger |
 

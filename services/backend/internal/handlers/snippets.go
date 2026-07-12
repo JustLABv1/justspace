@@ -190,10 +190,21 @@ func (h *AccessHandler) Grant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := middleware.GetUserID(r)
-	if req.ResourceType == "Project" {
-		if !ensureProjectRole(w, r, h.repo, req.ResourceID, userID, "owner", "admin") {
-			return
-		}
+	if req.ResourceType != "Project" || req.ResourceID == "" || req.UserID == "" || req.EncryptedKey == "" {
+		writeError(w, http.StatusBadRequest, "only project access grants with a recipient and encrypted key are supported")
+		return
+	}
+	if !ensureProjectRole(w, r, h.repo, req.ResourceID, userID, "owner", "admin") {
+		return
+	}
+	allowed, err := h.repo.CanAccessProject(r.Context(), req.ResourceID, req.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate recipient access")
+		return
+	}
+	if !allowed {
+		writeError(w, http.StatusForbidden, "recipient is not a project member")
+		return
 	}
 	ac, err := h.repo.GrantAccess(r.Context(), req)
 	if err != nil {

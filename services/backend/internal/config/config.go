@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -19,6 +20,7 @@ type Config struct {
 	CORSOrigin        string
 	FileStorageRoot   string
 	MaxUploadBytes    int64
+	Production        bool
 }
 
 func Load() *Config {
@@ -26,7 +28,7 @@ func Load() *Config {
 	if port == 0 {
 		port = getEnvInt("BACKEND_PORT", 8080)
 	}
-	return &Config{
+	cfg := &Config{
 		Port:              port,
 		DBHost:            getEnv("DB_HOST", "localhost"),
 		DBPort:            getEnvInt("DB_PORT", 5432),
@@ -39,7 +41,20 @@ func Load() *Config {
 		CORSOrigin:        getEnv("CORS_ORIGIN", "http://localhost:3000"),
 		FileStorageRoot:   getEnv("FILE_STORAGE_ROOT", "/data/uploads"),
 		MaxUploadBytes:    getEnvInt64("MAX_UPLOAD_BYTES", 50*1024*1024),
+		Production:        strings.EqualFold(getEnv("APP_ENV", "development"), "production"),
 	}
+	if cfg.Production {
+		if len(cfg.JWTSecret) < 32 || cfg.JWTSecret == "change-me-in-production" {
+			panic("JWT_SECRET must be a unique value of at least 32 characters in production")
+		}
+		if cfg.OIDCEncryptionKey == "" {
+			panic("OIDC_ENCRYPTION_KEY must be configured in production")
+		}
+		if cfg.DBPassword == "justspace" || cfg.DBSSLMode == "disable" {
+			panic("production requires a non-default DB_PASSWORD and DB_SSLMODE other than disable")
+		}
+	}
+	return cfg
 }
 
 func (c *Config) DSN() string {

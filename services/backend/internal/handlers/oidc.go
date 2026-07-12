@@ -221,7 +221,7 @@ func (h *AuthHandler) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		h.oidcErrorRedirect(w, r, false, "failed to create session")
 		return
 	}
-	h.setTokenCookie(w, sessionToken)
+	h.setTokenCookie(w, r, sessionToken)
 	http.Redirect(w, r, h.frontendURL+"/?oidc=success", http.StatusFound)
 }
 
