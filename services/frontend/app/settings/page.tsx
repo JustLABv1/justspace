@@ -1,6 +1,8 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useBranding } from '@/services/frontend/context/BrandingContext';
+import { api, AuthConfig, OIDCIdentity } from '@/services/frontend/lib/api';
 import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { DEFAULT_TASK_STATUS_TEMPLATES, mergeUserPreferences, parseUserPreferences, WorkspaceTaskStatusTemplate } from '@/services/frontend/lib/preferences';
@@ -61,23 +63,24 @@ function SettingsContent() {
     };
 
     const { user, hasVault, privateKey, userKeys, setupVault, unlockVault, updateProfile } = useAuth();
+    const { branding } = useBranding();
     const [vaultPassword, setVaultPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [vaultError, setVaultError] = useState<string | null>(null);
     
     // Core states
     const [userName, setUserName] = useState('');
-    const [workspaceName, setWorkspaceName] = useState('');
     const [taskStatusTemplates, setTaskStatusTemplates] = useState<WorkspaceTaskStatusTemplate[]>(DEFAULT_TASK_STATUS_TEMPLATES);
     const [remindersEnabled, setRemindersEnabled] = useState(false);
     const [reminderLeadTime, setReminderLeadTime] = useState(15);
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
+    const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+    const [oidcIdentities, setOIDCIdentities] = useState<OIDCIdentity[]>([]);
 
     useEffect(() => {
         if (user) {
             setUserName(user.name || '');
             const prefs = parseUserPreferences(user.preferences);
-            setWorkspaceName(prefs.workspaceName);
             setTaskStatusTemplates(prefs.taskStatusTemplates);
             setRemindersEnabled(prefs.reminders.enabled);
             setReminderLeadTime(prefs.reminders.minutesBefore);
@@ -114,11 +117,11 @@ function SettingsContent() {
                 : 'bg-surface-secondary text-muted-foreground border-border';
 
     const pwaDescription = pwa.isStandalone
-        ? 'justspace is running as an installed app. You can reopen it directly from the Dock.'
+        ? `${branding.name} is running as an installed app. You can reopen it directly from the Dock.`
         : pwa.canInstall
-            ? 'This browser can install justspace as a standalone desktop app with its own Dock entry.'
+            ? `This browser can install ${branding.name} as a standalone desktop app with its own Dock entry.`
             : pwa.browser === 'safari'
-                ? 'Safari on macOS does not expose an install prompt. Use File > Add to Dock to install justspace manually.'
+                ? `Safari on macOS does not expose an install prompt. Use File > Add to Dock to install ${branding.name} manually.`
                 : 'Install support depends on the browser. Chrome and Edge will show an install prompt once the app is eligible.';
 
     const fetchStats = useCallback(async () => {
@@ -144,11 +147,31 @@ function SettingsContent() {
         fetchStats();
     }, [fetchStats]);
 
+    useEffect(() => {
+        if (!user) return;
+        Promise.all([api.getAuthConfig(), api.getOIDCIdentities()])
+            .then(([config, identities]) => {
+                setAuthConfig(config);
+                setOIDCIdentities(identities.documents);
+            })
+            .catch(() => undefined);
+    }, [user]);
+
+    const unlinkOIDCIdentity = async (identity: OIDCIdentity) => {
+        if (!window.confirm(`Unlink ${identity.providerName}?`)) return;
+        try {
+            await api.deleteOIDCIdentity(identity.id);
+            setOIDCIdentities((current) => current.filter((item) => item.id !== identity.id));
+            toast.success('OIDC identity unlinked');
+        } catch (error) {
+            toast.danger(error instanceof Error ? error.message : 'Unable to unlink identity');
+        }
+    };
+
     const handleSaveChanges = async () => {
         setIsSubmitting(true);
         try {
 			const preferences = mergeUserPreferences(user?.preferences, {
-				workspaceName,
                 taskStatusTemplates,
 				reminders: {
 					enabled: remindersEnabled,
@@ -410,21 +433,11 @@ function SettingsContent() {
                                     <p className="text-sm text-muted-foreground mt-0.5">Global defaults for your workspace.</p>
                                 </div>
                                 
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-foreground">Workspace Name</label>
-                                    <input 
-                                        className="w-full h-9 bg-background rounded-xl border border-border px-3 text-sm outline-none focus:border-accent transition-colors"
-                                        value={workspaceName}
-                                        onChange={(e) => setWorkspaceName(e.target.value)}
-                                        placeholder="Enter workspace name..."
-                                    />
-                                </div>
-
                                 <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-4">
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
                                             <h4 className="text-sm font-medium text-foreground">Desktop App</h4>
-                                            <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">Install justspace in your browser so it opens in a dedicated app window and can live in your Dock.</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">Install {branding.name} in your browser so it opens in a dedicated app window and can live in your Dock.</p>
                                         </div>
                                         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md border ${pwaStatusClass}`}>
                                             <Download size={12} />
@@ -451,7 +464,7 @@ function SettingsContent() {
                                                 }}
                                             >
                                                 <Download size={12} className="mr-1.5" />
-                                                Install justspace
+                                                Install {branding.name}
                                             </Button>
                                         )}
 
@@ -588,7 +601,7 @@ function SettingsContent() {
                             <div className="space-y-4">
                                 <div>
                                     <h3 className="text-base font-semibold">Notifications</h3>
-                                    <p className="text-sm text-muted-foreground mt-0.5">Remind yourself before deadlines while justspace is open in the browser or installed app.</p>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Remind yourself before deadlines while {branding.name} is open in the browser or installed app.</p>
                                 </div>
 
                                 <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-4">
@@ -710,6 +723,25 @@ function SettingsContent() {
                                         <Vault size={12} />
                                         {privateKey ? 'Unlocked' : 'Locked'}
                                     </span>
+                                </div>
+
+                                <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-3">
+                                    <div>
+                                        <h4 className="text-sm font-medium text-foreground">Sign-in identities</h4>
+                                        <p className="text-xs text-muted-foreground mt-0.5">Link an organization provider to this account for future sign-ins.</p>
+                                    </div>
+                                    {oidcIdentities.map((identity) => (
+                                        <div key={identity.id} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                                            <div className="min-w-0 flex-1"><p className="text-sm text-foreground">{identity.providerName}</p><p className="text-xs text-muted-foreground">{identity.providerSlug}</p></div>
+                                            <Button variant="tertiary" size="sm" onPress={() => void unlinkOIDCIdentity(identity)}>Unlink</Button>
+                                        </div>
+                                    ))}
+                                    {authConfig?.oidcProviders.filter((provider) => provider.enabled && !oidcIdentities.some((identity) => identity.providerId === provider.id)).map((provider) => (
+                                        <Button key={provider.id} variant="secondary" className="w-full justify-start" onPress={() => { window.location.href = api.getOIDCLinkURL(provider.slug); }}>
+                                            Link {provider.name}
+                                        </Button>
+                                    ))}
+                                    {oidcIdentities.length === 0 && (!authConfig || authConfig.oidcProviders.length === 0) && <p className="text-xs text-muted-foreground">No OIDC providers are configured.</p>}
                                 </div>
 
                                 <div className="rounded-xl border border-border bg-surface-secondary p-4 space-y-4">

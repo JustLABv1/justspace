@@ -7,17 +7,18 @@ import (
 )
 
 type Config struct {
-	Port       int
-	DBHost     string
-	DBPort     int
-	DBUser     string
-	DBPassword string
-	DBName     string
-	DBSSLMode  string
-	JWTSecret  string
-	CORSOrigin string
-	FileStorageRoot string
-	MaxUploadBytes  int64
+	Port              int
+	DBHost            string
+	DBPort            int
+	DBUser            string
+	DBPassword        string
+	DBName            string
+	DBSSLMode         string
+	JWTSecret         string
+	OIDCEncryptionKey string
+	CORSOrigin        string
+	FileStorageRoot   string
+	MaxUploadBytes    int64
 }
 
 func Load() *Config {
@@ -26,17 +27,18 @@ func Load() *Config {
 		port = getEnvInt("BACKEND_PORT", 8080)
 	}
 	return &Config{
-		Port:       port,
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnvInt("DB_PORT", 5432),
-		DBUser:     getEnv("DB_USER", "justspace"),
-		DBPassword: getEnv("DB_PASSWORD", "justspace"),
-		DBName:     getEnv("DB_NAME", "justspace"),
-		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
-		JWTSecret:  getEnv("JWT_SECRET", "change-me-in-production"),
-		CORSOrigin: getEnv("CORS_ORIGIN", "http://localhost:3000"),
-		FileStorageRoot: getEnv("FILE_STORAGE_ROOT", "/data/uploads"),
-		MaxUploadBytes:  getEnvInt64("MAX_UPLOAD_BYTES", 50*1024*1024),
+		Port:              port,
+		DBHost:            getEnv("DB_HOST", "localhost"),
+		DBPort:            getEnvInt("DB_PORT", 5432),
+		DBUser:            getEnv("DB_USER", "justspace"),
+		DBPassword:        getEnv("DB_PASSWORD", "justspace"),
+		DBName:            getEnv("DB_NAME", "justspace"),
+		DBSSLMode:         getEnv("DB_SSLMODE", "disable"),
+		JWTSecret:         getEnv("JWT_SECRET", "change-me-in-production"),
+		OIDCEncryptionKey: getEnv("OIDC_ENCRYPTION_KEY", ""),
+		CORSOrigin:        getEnv("CORS_ORIGIN", "http://localhost:3000"),
+		FileStorageRoot:   getEnv("FILE_STORAGE_ROOT", "/data/uploads"),
+		MaxUploadBytes:    getEnvInt64("MAX_UPLOAD_BYTES", 50*1024*1024),
 	}
 }
 

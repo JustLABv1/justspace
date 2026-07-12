@@ -6,6 +6,8 @@ import { getEnv } from './env-config';
 
 const getBaseURL = () => getEnv('NEXT_PUBLIC_API_URL') || 'http://localhost:8081';
 
+export const resolveApiURL = (path: string) => `${getBaseURL()}${path}`;
+
 interface ListResponse<T> {
     total: number;
     documents: T[];
@@ -51,11 +53,80 @@ export interface AuthUser {
     preferences: Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
+    isPlatformAdmin: boolean;
+    isActive: boolean;
 }
 
 export interface AuthResponse {
     token: string;
     user: AuthUser;
+}
+
+export interface AuthConfig {
+    localAuthEnabled: boolean;
+    oidcProviders: OIDCProvider[];
+}
+
+export interface OIDCProvider {
+    id: string;
+    slug: string;
+    name: string;
+    issuerUrl: string;
+    clientId: string;
+    hasSecret: boolean;
+    enabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface OIDCIdentity {
+    id: string;
+    providerId: string;
+    providerName: string;
+    providerSlug: string;
+    createdAt: string;
+}
+
+export interface AdminUser {
+    id: string;
+    email: string;
+    name: string;
+    isPlatformAdmin: boolean;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface PlatformBranding {
+    name: string;
+    logoPath?: string;
+    logoVersion?: string;
+}
+
+export interface AdminOverview {
+    databaseStatus: 'healthy' | 'unhealthy' | string;
+    totalUsers: number;
+    activeUsers: number;
+    inactiveUsers: number;
+    platformAdmins: number;
+    projects: number;
+    tasks: number;
+    enabledOidcProviders: number;
+    totalOidcProviders: number;
+    localAuthEnabled: boolean;
+}
+
+export interface AdminAuditEvent {
+    id: string;
+    actorUserId?: string;
+    actorName: string;
+    actorEmail: string;
+    action: string;
+    targetType: string;
+    targetId?: string;
+    targetLabel: string;
+    metadata: Record<string, unknown>;
+    createdAt: string;
 }
 
 export const api = {
@@ -65,6 +136,26 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ email, password, name }),
         });
+    },
+
+    async getAuthConfig(): Promise<AuthConfig> {
+        return request('/api/auth/config');
+    },
+
+    async getOIDCIdentities(): Promise<{ total: number; documents: OIDCIdentity[] }> {
+        return request('/api/auth/oidc/identities');
+    },
+
+    async deleteOIDCIdentity(id: string): Promise<void> {
+        return request(`/api/auth/oidc/identities/${id}`, { method: 'DELETE' });
+    },
+
+    getOIDCStartURL(slug: string): string {
+        return `${getBaseURL()}/api/auth/oidc/${encodeURIComponent(slug)}/start`;
+    },
+
+    getOIDCLinkURL(slug: string): string {
+        return `${getBaseURL()}/api/auth/oidc/${encodeURIComponent(slug)}/link`;
     },
 
     async login(email: string, password: string): Promise<AuthResponse> {
@@ -82,11 +173,88 @@ export const api = {
         return request('/api/auth/me');
     },
 
+    async getPlatformBranding(): Promise<PlatformBranding> {
+        return request('/api/platform/branding');
+    },
+
+    getPlatformBrandingAssetURL(path: string): string {
+        return resolveApiURL(path);
+    },
+
     async updateProfile(data: { name?: string; preferences?: Record<string, unknown> }): Promise<AuthUser> {
         return request('/api/auth/profile', {
             method: 'PUT',
             body: JSON.stringify(data),
         });
+    },
+
+    // Platform administration
+    async getAdminSettings(): Promise<{ settings: { localAuthEnabled: boolean }; oidcProviders: OIDCProvider[] }> {
+        return request('/api/admin/settings');
+    },
+
+    async getAdminBranding(): Promise<PlatformBranding> {
+        return request('/api/admin/branding');
+    },
+
+    async updateAdminBranding(data: { brandName: string }): Promise<PlatformBranding> {
+        return request('/api/admin/branding', { method: 'PUT', body: JSON.stringify(data) });
+    },
+
+    async uploadBrandLogo(file: File): Promise<PlatformBranding> {
+        const formData = new FormData();
+        formData.append('logo', file);
+        const response = await fetch(resolveApiURL('/api/admin/branding/logo'), {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+        });
+        if (!response.ok) {
+            let message = response.statusText;
+            try {
+                const body = await response.json();
+                message = body.error || message;
+            } catch { /* ignore */ }
+            throw new ApiError(message, response.status);
+        }
+        return response.json();
+    },
+
+    async deleteBrandLogo(): Promise<PlatformBranding> {
+        return request('/api/admin/branding/logo', { method: 'DELETE' });
+    },
+
+    async getAdminOverview(): Promise<AdminOverview> {
+        return request('/api/admin/overview');
+    },
+
+    async listAdminAudit(limit = 50, offset = 0): Promise<{ total: number; documents: AdminAuditEvent[]; limit: number; offset: number }> {
+        return request(`/api/admin/audit?limit=${limit}&offset=${offset}`);
+    },
+
+    async updateAdminSettings(data: { localAuthEnabled?: boolean }): Promise<{ localAuthEnabled: boolean }> {
+        return request('/api/admin/settings', { method: 'PUT', body: JSON.stringify(data) });
+    },
+
+    async listAdminUsers(query = ''): Promise<{ total: number; documents: AdminUser[] }> {
+        const suffix = query ? `?q=${encodeURIComponent(query)}` : '';
+        return request(`/api/admin/users${suffix}`);
+    },
+
+    async updateAdminUser(id: string, data: { isPlatformAdmin?: boolean; isActive?: boolean }): Promise<AdminUser> {
+        return request(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+
+    async createOIDCProvider(data: { slug: string; name: string; issuerUrl: string; clientId: string; clientSecret: string; enabled?: boolean }): Promise<OIDCProvider> {
+        return request('/api/admin/oidc/providers', { method: 'POST', body: JSON.stringify(data) });
+    },
+
+    async updateOIDCProvider(id: string, data: { slug: string; name: string; issuerUrl: string; clientId: string; clientSecret?: string; enabled?: boolean }): Promise<OIDCProvider> {
+        return request(`/api/admin/oidc/providers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    },
+
+    async deleteOIDCProvider(id: string): Promise<void> {
+        return request(`/api/admin/oidc/providers/${id}`, { method: 'DELETE' });
     },
 
     // Projects

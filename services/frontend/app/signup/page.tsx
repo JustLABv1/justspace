@@ -1,10 +1,12 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
-import { Button, Form, Input, Label, TextField, toast } from "@heroui/react";
+import { useBranding } from '@/services/frontend/context/BrandingContext';
+import { api, AuthConfig } from '@/services/frontend/lib/api';
+import { Avatar, Button, Form, Input, Label, TextField, toast } from "@heroui/react";
 import { ArrowRight, Lock, Mail, User } from "lucide-react";
 import Link from 'next/link';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export default function SignupPage() {
     const [email, setEmail] = useState('');
@@ -12,7 +14,13 @@ export default function SignupPage() {
     const [name, setName] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
     const { signup } = useAuth();
+    const { branding, logoUrl } = useBranding();
+
+    useEffect(() => {
+        api.getAuthConfig().then(setAuthConfig).catch(() => setAuthConfig({ localAuthEnabled: true, oidcProviders: [] }));
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,10 +49,8 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="flex justify-center mb-8">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center text-accent-foreground">
-                            <span className="font-bold text-sm leading-none">J</span>
-                        </div>
-                        <span className="font-semibold text-lg text-foreground">justspace</span>
+                        <Avatar className="size-8 rounded-xl"><Avatar.Image src={logoUrl ?? undefined} alt="" /><Avatar.Fallback className="rounded-xl bg-accent text-sm font-bold text-accent-foreground">{branding.name.charAt(0).toUpperCase()}</Avatar.Fallback></Avatar>
+                        <span className="font-semibold text-lg text-foreground">{branding.name}</span>
                     </div>
                 </div>
 
@@ -52,7 +58,7 @@ export default function SignupPage() {
                 <div className="bg-surface rounded-2xl border border-border p-8 shadow-sm">
                     <div className="mb-6">
                         <h1 className="text-xl font-semibold text-foreground">Create an account</h1>
-                        <p className="text-sm text-muted-foreground mt-1">Get started with justspace today.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Get started with {branding.name} today.</p>
                     </div>
 
                     {error && (
@@ -61,7 +67,7 @@ export default function SignupPage() {
                         </div>
                     )}
 
-                    <Form onSubmit={handleSubmit} className="space-y-4">
+                    {authConfig?.localAuthEnabled !== false && <Form onSubmit={handleSubmit} className="space-y-4">
                         <TextField className="w-full">
                             <Label className="text-sm font-medium text-foreground mb-1.5 block">Full name</Label>
                             <div className="relative">
@@ -115,7 +121,19 @@ export default function SignupPage() {
                             Create account
                             <ArrowRight size={15} className="ml-1" />
                         </Button>
-                    </Form>
+                    </Form>}
+
+                    {authConfig && authConfig.oidcProviders.length > 0 && (
+                        <div className="mt-6 space-y-3">
+                            {authConfig.localAuthEnabled && <div className="flex items-center gap-3 text-[11px] text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>}
+                            <p className="text-xs text-muted-foreground text-center">Create an account with your organization</p>
+                            {authConfig.oidcProviders.map((provider) => (
+                                <Button key={provider.id} variant="secondary" className="w-full h-10 rounded-xl text-sm" onPress={() => { window.location.href = api.getOIDCStartURL(provider.slug); }}>
+                                    Continue with {provider.name}
+                                </Button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <p className="text-center text-sm text-muted-foreground mt-5">

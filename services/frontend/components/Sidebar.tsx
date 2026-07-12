@@ -5,7 +5,8 @@ import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto'
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Project } from '@/services/frontend/types';
-import { Tooltip } from '@heroui/react';
+import { Avatar, Tooltip } from '@heroui/react';
+import { useBranding } from '@/services/frontend/context/BrandingContext';
 import {
     BookOpen,
     ChevronDown,
@@ -15,7 +16,8 @@ import {
     Code,
     FolderKanban,
     Home,
-    Settings
+    Settings,
+    ShieldCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -41,6 +43,7 @@ function getProjectColor(index: number) {
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }: SidebarProps) => {
     const pathname = usePathname();
     const { user, privateKey } = useAuth();
+    const { branding, logoUrl } = useBranding();
     const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
     const [sidebarProjects, setSidebarProjects] = useState<Project[]>([]);
 
@@ -93,7 +96,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     ];
 
     const footerNavItems = [
-        { name: 'Settings', href: '/settings', icon: Settings }
+        { name: 'Settings', href: '/settings', icon: Settings },
+        ...(user?.isPlatformAdmin ? [{ name: 'Admin', href: '/admin', icon: ShieldCheck }] : [])
     ];
 
     const renderNavLink = (item: { name: string; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }) => {
@@ -151,15 +155,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
             }`}>
                 {!isCollapsed ? (
                     <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-accent-foreground shrink-0">
-                            <span className="font-bold text-xs leading-none">J</span>
-                        </div>
-                        <span className="text-[14px] font-bold text-foreground tracking-tight">justspace</span>
+                        <Avatar size="sm" className="size-7 shrink-0 rounded-lg">
+                            <Avatar.Image src={logoUrl ?? undefined} alt="" />
+                            <Avatar.Fallback className="rounded-lg bg-accent text-accent-foreground text-xs font-bold">{branding.name.charAt(0).toUpperCase()}</Avatar.Fallback>
+                        </Avatar>
+                        <span className="text-[14px] font-bold text-foreground tracking-tight">{branding.name}</span>
                     </div>
                 ) : (
-                    <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-accent-foreground">
-                        <span className="font-bold text-xs leading-none">J</span>
-                    </div>
+                    <Avatar size="sm" className="size-7 rounded-lg">
+                        <Avatar.Image src={logoUrl ?? undefined} alt="" />
+                        <Avatar.Fallback className="rounded-lg bg-accent text-accent-foreground text-xs font-bold">{branding.name.charAt(0).toUpperCase()}</Avatar.Fallback>
+                    </Avatar>
                 )}
                 {!isCollapsed && (
                     <button

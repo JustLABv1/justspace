@@ -8,6 +8,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { VaultBanner } from "@/components/VaultBanner";
 import { VaultSetupNotice } from "@/components/VaultSetupNotice";
 import { AuthProvider, useAuth } from '@/services/frontend/context/AuthContext';
+import { useBranding } from '@/services/frontend/context/BrandingContext';
 import { promptForPwaInstall, usePwaInstallState } from '@/services/frontend/lib/pwa';
 import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { ChevronDown, Download, LogOut, Search, Settings, User } from "lucide-react";
@@ -29,6 +30,7 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, isLoading, logout } = useAuth();
+    const { branding, logoUrl } = useBranding();
     const pwa = usePwaInstallState();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -147,10 +149,11 @@ function AuthBoundary({ children }: { children: React.ReactNode }) {
                         </div>
                     </button>
                     <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-xl bg-accent flex items-center justify-center text-accent-foreground">
-                            <span className="font-bold text-sm leading-none">J</span>
-                        </div>
-                        <span className="font-semibold text-sm">justspace</span>
+                        <Avatar size="sm" className="size-7 rounded-xl">
+                            <Avatar.Image src={logoUrl ?? undefined} alt="" />
+                            <Avatar.Fallback className="rounded-xl bg-accent text-accent-foreground text-sm font-bold">{branding.name.charAt(0).toUpperCase()}</Avatar.Fallback>
+                        </Avatar>
+                        <span className="font-semibold text-sm">{branding.name}</span>
                     </div>
                     <div className="flex items-center gap-1 -mr-2">
                         <NotificationInbox />

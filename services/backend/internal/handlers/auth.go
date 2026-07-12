@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -11,16 +12,22 @@ import (
 	"github.com/justlabv1/justspace/backend/internal/middleware"
 	"github.com/justlabv1/justspace/backend/internal/models"
 	"github.com/justlabv1/justspace/backend/internal/repository"
+	"github.com/justlabv1/justspace/backend/internal/storage"
+	"github.com/justlabv1/justspace/backend/internal/websocket"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
-	repo      *repository.Repo
-	jwtSecret string
+	repo              *repository.Repo
+	jwtSecret         string
+	oidcEncryptionKey string
+	frontendURL       string
+	hub               *websocket.Hub
+	fileStore         *storage.FileStore
 }
 
-func NewAuthHandler(repo *repository.Repo, jwtSecret string) *AuthHandler {
-	return &AuthHandler{repo: repo, jwtSecret: jwtSecret}
+func NewAuthHandler(repo *repository.Repo, jwtSecret, oidcEncryptionKey, frontendURL string, hub *websocket.Hub, fileStore *storage.FileStore) *AuthHandler {
+	return &AuthHandler{repo: repo, jwtSecret: jwtSecret, oidcEncryptionKey: oidcEncryptionKey, frontendURL: strings.TrimRight(strings.Split(frontendURL, ",")[0], "/"), hub: hub, fileStore: fileStore}
 }
 
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +48,15 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing != nil {
 		writeError(w, http.StatusConflict, "user already exists")
+		return
+	}
+	settings, err := h.repo.GetPlatformSettings(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if !settings.LocalAuthEnabled {
+		writeError(w, http.StatusForbidden, "local authentication is disabled")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -74,8 +90,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if user == nil {
+	if user == nil || user.PasswordHash == "" || !user.IsActive {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+	settings, err := h.repo.GetPlatformSettings(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if !settings.LocalAuthEnabled {
+		writeError(w, http.StatusForbidden, "local authentication is disabled")
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
@@ -128,11 +153,20 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) generateToken(userID string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": userID,
+		"sv":  h.sessionVersion(context.Background(), userID),
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(7 * 24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(h.jwtSecret))
+}
+
+func (h *AuthHandler) sessionVersion(ctx context.Context, userID string) int64 {
+	_, version, err := h.repo.GetUserAuthState(ctx, userID)
+	if err != nil {
+		return 0
+	}
+	return version
 }
 
 func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, token string) {

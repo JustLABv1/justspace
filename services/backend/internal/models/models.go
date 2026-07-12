@@ -6,13 +6,88 @@ import (
 )
 
 type User struct {
-	ID           string          `json:"id"`
-	Email        string          `json:"email"`
-	Name         string          `json:"name"`
-	PasswordHash string          `json:"-"`
-	Preferences  json.RawMessage `json:"preferences"`
-	CreatedAt    time.Time       `json:"createdAt"`
-	UpdatedAt    time.Time       `json:"updatedAt"`
+	ID              string          `json:"id"`
+	Email           string          `json:"email"`
+	Name            string          `json:"name"`
+	PasswordHash    string          `json:"-"`
+	IsPlatformAdmin bool            `json:"isPlatformAdmin"`
+	IsActive        bool            `json:"isActive"`
+	SessionVersion  int64           `json:"-"`
+	Preferences     json.RawMessage `json:"preferences"`
+	CreatedAt       time.Time       `json:"createdAt"`
+	UpdatedAt       time.Time       `json:"updatedAt"`
+}
+
+type PlatformSettings struct {
+	LocalAuthEnabled   bool       `json:"localAuthEnabled"`
+	BrandName          string     `json:"brandName"`
+	BrandLogoKey       *string    `json:"-"`
+	BrandLogoUpdatedAt *time.Time `json:"-"`
+}
+
+type PlatformBranding struct {
+	Name        string `json:"name"`
+	LogoPath    string `json:"logoPath,omitempty"`
+	LogoVersion string `json:"logoVersion,omitempty"`
+}
+
+type AdminOverview struct {
+	DatabaseStatus       string `json:"databaseStatus"`
+	TotalUsers           int    `json:"totalUsers"`
+	ActiveUsers          int    `json:"activeUsers"`
+	InactiveUsers        int    `json:"inactiveUsers"`
+	PlatformAdmins       int    `json:"platformAdmins"`
+	Projects             int    `json:"projects"`
+	Tasks                int    `json:"tasks"`
+	EnabledOIDCProviders int    `json:"enabledOidcProviders"`
+	TotalOIDCProviders   int    `json:"totalOidcProviders"`
+	LocalAuthEnabled     bool   `json:"localAuthEnabled"`
+}
+
+type AdminAuditEvent struct {
+	ID          string          `json:"id"`
+	ActorUserID *string         `json:"actorUserId,omitempty"`
+	ActorName   string          `json:"actorName"`
+	ActorEmail  string          `json:"actorEmail"`
+	Action      string          `json:"action"`
+	TargetType  string          `json:"targetType"`
+	TargetID    *string         `json:"targetId,omitempty"`
+	TargetLabel string          `json:"targetLabel"`
+	Metadata    json.RawMessage `json:"metadata"`
+	CreatedAt   time.Time       `json:"createdAt"`
+}
+
+type OIDCProvider struct {
+	ID           string    `json:"id"`
+	Slug         string    `json:"slug"`
+	Name         string    `json:"name"`
+	IssuerURL    string    `json:"issuerUrl"`
+	ClientID     string    `json:"clientId"`
+	HasSecret    bool      `json:"hasSecret"`
+	ClientSecret string    `json:"-"`
+	Enabled      bool      `json:"enabled"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+type OIDCIdentity struct {
+	ID           string    `json:"id"`
+	UserID       string    `json:"-"`
+	ProviderID   string    `json:"providerId"`
+	ProviderName string    `json:"providerName"`
+	ProviderSlug string    `json:"providerSlug"`
+	Subject      string    `json:"-"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type AdminUser struct {
+	ID              string    `json:"id"`
+	Email           string    `json:"email"`
+	Name            string    `json:"name"`
+	IsPlatformAdmin bool      `json:"isPlatformAdmin"`
+	IsActive        bool      `json:"isActive"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 type Project struct {
@@ -277,6 +352,25 @@ type AuthResponse struct {
 type UpdateProfileRequest struct {
 	Name        *string          `json:"name,omitempty"`
 	Preferences *json.RawMessage `json:"preferences,omitempty"`
+}
+
+type AdminUserUpdateRequest struct {
+	IsPlatformAdmin *bool `json:"isPlatformAdmin,omitempty"`
+	IsActive        *bool `json:"isActive,omitempty"`
+}
+
+type PlatformSettingsUpdateRequest struct {
+	LocalAuthEnabled *bool   `json:"localAuthEnabled,omitempty"`
+	BrandName        *string `json:"brandName,omitempty"`
+}
+
+type OIDCProviderRequest struct {
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	IssuerURL    string `json:"issuerUrl"`
+	ClientID     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
+	Enabled      *bool  `json:"enabled,omitempty"`
 }
 
 type CreateProjectRequest struct {

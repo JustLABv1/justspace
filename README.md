@@ -75,6 +75,7 @@ Siehe `.env.example` für alle relevanten Umgebungsvariablen (DB, API, JWT, CORS
 **Wichtige Variablen:**
 - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
 - `JWT_SECRET` (Backend)
+- `OIDC_ENCRYPTION_KEY` (Backend, required to configure OIDC; use an independent key for encrypted client secrets)
 - `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` (Frontend)
 
 ---

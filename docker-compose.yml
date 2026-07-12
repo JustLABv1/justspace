@@ -33,6 +33,7 @@ services:
       DB_NAME: ${DB_NAME:-justspace}
       DB_SSLMODE: disable
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      OIDC_ENCRYPTION_KEY: ${OIDC_ENCRYPTION_KEY:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       MIGRATIONS_DIR: /app/migrations
       FILE_STORAGE_ROOT: /data/uploads

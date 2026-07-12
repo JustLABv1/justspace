@@ -1,8 +1,9 @@
 import AppLayout from "@/components/AppLayout";
+import { BrandingProvider } from "@/services/frontend/context/BrandingContext";
 import { PwaBootstrap } from "@/components/PwaBootstrap";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 import { getRuntimeConfig } from "@/services/frontend/lib/env-config";
-import { Toast } from "@heroui/react";
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
@@ -17,24 +18,45 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "justspace | Consultant Portal",
-  description: "Project tracking and documentation for consultants",
-  applicationName: "justspace",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "justspace",
-  },
-  formatDetection: {
-    telephone: false,
-  },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-  },
-};
+const serverApiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+
+async function getServerBranding() {
+  try {
+    const response = await fetch(`${serverApiBase}/api/platform/branding`, { cache: 'no-store' });
+    if (response.ok) {
+      return await response.json() as { name?: string; logoPath?: string };
+    }
+  } catch { /* use the default while the backend is unavailable */ }
+  return { name: 'justspace' };
+}
+
+function absoluteBrandAsset(path: string | undefined) {
+  if (!path) return undefined;
+  const iconPath = path.replace('/logo/512', '/logo/32');
+  return iconPath.startsWith('http') ? iconPath : `${serverApiBase}${iconPath}`;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const branding = await getServerBranding();
+  const name = branding.name?.trim() || 'justspace';
+  const logo = absoluteBrandAsset(branding.logoPath);
+  return {
+    title: `${name} | Consultant Portal`,
+    description: `Project tracking and documentation for ${name}`,
+    applicationName: name,
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: name,
+    },
+    formatDetection: { telephone: false },
+    icons: {
+      icon: logo || "/favicon.ico",
+      apple: logo || "/apple-touch-icon.png",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: [
@@ -66,10 +88,12 @@ export default function RootLayout({
       >
         <PwaBootstrap />
         <ThemeProvider>
-          <Toast.Provider placement="bottom end" />
-          <AppLayout>
-            {children}
-          </AppLayout>
+          <ToastProvider />
+          <BrandingProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </BrandingProvider>
         </ThemeProvider>
       </body>
     </html>

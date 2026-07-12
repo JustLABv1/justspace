@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
+	"github.com/justlabv1/justspace/backend/internal/repository"
 )
 
 var upgrader = websocket.Upgrader{
@@ -27,8 +28,10 @@ type Hub struct {
 	broadcast  chan broadcastMsg
 	register   chan *Client
 	unregister chan *Client
+	disconnect chan string
 	mu         sync.RWMutex
 	jwtSecret  string
+	repo       *repository.Repo
 }
 
 type broadcastMsg struct {
@@ -36,13 +39,15 @@ type broadcastMsg struct {
 	data   []byte
 }
 
-func NewHub(jwtSecret string) *Hub {
+func NewHub(jwtSecret string, repo *repository.Repo) *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
 		broadcast:  make(chan broadcastMsg, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		disconnect: make(chan string, 32),
 		jwtSecret:  jwtSecret,
+		repo:       repo,
 	}
 }
 
@@ -62,6 +67,16 @@ func (h *Hub) Run() {
 			}
 			h.mu.Unlock()
 			log.Printf("WS client disconnected: user=%s", client.userID)
+		case userID := <-h.disconnect:
+			h.mu.Lock()
+			for client := range h.clients {
+				if client.userID == userID {
+					delete(h.clients, client)
+					close(client.send)
+					_ = client.conn.Close()
+				}
+			}
+			h.mu.Unlock()
 		case msg := <-h.broadcast:
 			h.mu.RLock()
 			for client := range h.clients {
@@ -80,6 +95,12 @@ func (h *Hub) Run() {
 			}
 			h.mu.RUnlock()
 		}
+	}
+}
+
+func (h *Hub) DisconnectUser(userID string) {
+	if userID != "" {
+		h.disconnect <- userID
 	}
 }
 
@@ -134,6 +155,15 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	userID, _ := claims["sub"].(string)
 	if userID == "" {
 		http.Error(w, "invalid user", http.StatusUnauthorized)
+		return
+	}
+	active, currentVersion, stateErr := h.repo.GetUserAuthState(r.Context(), userID)
+	if stateErr != nil || !active {
+		http.Error(w, "account disabled", http.StatusUnauthorized)
+		return
+	}
+	if tokenVersion, ok := claims["sv"].(float64); (ok && int64(tokenVersion) != currentVersion) || (!ok && currentVersion != 0) {
+		http.Error(w, "session expired", http.StatusUnauthorized)
 		return
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
