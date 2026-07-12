@@ -9,7 +9,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.10.0
 	golang.org/x/crypto v0.54.0
-	golang.org/x/image v0.30.0
+	golang.org/x/image v0.41.0
 	golang.org/x/oauth2 v0.30.0
 )
 
