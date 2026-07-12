@@ -2,9 +2,10 @@
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useBranding } from '@/services/frontend/context/BrandingContext';
+import { AuthShell } from '@/components/AuthShell';
 import { api, AuthConfig } from '@/services/frontend/lib/api';
-import { Avatar, Button, Form, Input, Label, TextField, toast } from "@heroui/react";
-import { ArrowRight, Lock, Mail } from "lucide-react";
+import { Alert, Button, Card, Form, InputGroup, Label, TextField, toast } from "@heroui/react";
+import { ArrowRight, Lock, Mail, ShieldCheck } from "lucide-react";
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 
@@ -15,7 +16,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
     const { login } = useAuth();
-    const { branding, logoUrl } = useBranding();
+    const { branding } = useBranding();
 
     useEffect(() => {
         api.getAuthConfig().then(setAuthConfig).catch(() => setAuthConfig({ localAuthEnabled: true, oidcProviders: [] }));
@@ -46,64 +47,51 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-surface-lowest p-4">
-            <div className="w-full max-w-sm">
-                {/* Logo */}
-                <div className="flex justify-center mb-8">
-                    <div className="flex items-center gap-2.5">
-                        <Avatar className="size-8 rounded-xl"><Avatar.Image src={logoUrl ?? undefined} alt="" /><Avatar.Fallback className="rounded-xl bg-accent text-sm font-bold text-accent-foreground">{branding.name.charAt(0).toUpperCase()}</Avatar.Fallback></Avatar>
-                        <span className="font-semibold text-lg text-foreground">{branding.name}</span>
-                    </div>
+        <AuthShell>
+            <div className="w-full max-w-[430px]">
+                <div className="mb-8">
+                    <div className="mb-5 flex size-11 items-center justify-center rounded-2xl bg-accent-muted text-accent"><ShieldCheck className="size-5" /></div>
+                    <h1 className="text-3xl font-semibold tracking-[-0.03em] text-foreground">Welcome back</h1>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">Sign in to continue to your secure {branding.name} workspace.</p>
                 </div>
 
-                {/* Card */}
-                <div className="bg-surface rounded-2xl border border-border p-8 shadow-sm">
-                    <div className="mb-6">
-                        <h1 className="text-xl font-semibold text-foreground">Sign in to your account</h1>
-                        <p className="text-sm text-muted-foreground mt-1">Enter your credentials to continue.</p>
-                    </div>
+                <Card className="auth-form-card">
+                    <Card.Content className="p-0">
 
                     {error && (
-                        <div className="mb-5 p-3 rounded-xl bg-danger-muted border border-danger/20 text-danger text-sm">
-                            {error}
-                        </div>
+                        <Alert status="danger" className="mb-5"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>
                     )}
 
                     {authConfig?.localAuthEnabled !== false && <Form onSubmit={handleSubmit} className="space-y-4">
-                        <TextField className="w-full">
-                            <Label className="text-sm font-medium text-foreground mb-1.5 block">Email</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-                                <Input
+                        <TextField className="w-full" value={email} onChange={setEmail}>
+                            <Label>Email address</Label>
+                            <InputGroup>
+                                <InputGroup.Prefix><Mail className="size-4 text-muted-foreground" /></InputGroup.Prefix>
+                                <InputGroup.Input
                                     type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
                                     placeholder="you@example.com"
-                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-border bg-background text-sm"
                                     required
                                 />
-                            </div>
+                            </InputGroup>
                         </TextField>
 
-                        <TextField className="w-full">
-                            <Label className="text-sm font-medium text-foreground mb-1.5 block">Password</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-                                <Input
+                        <TextField className="w-full" value={password} onChange={setPassword}>
+                            <Label>Password</Label>
+                            <InputGroup>
+                                <InputGroup.Prefix><Lock className="size-4 text-muted-foreground" /></InputGroup.Prefix>
+                                <InputGroup.Input
                                     type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full h-10 pl-9 pr-4 rounded-xl border border-border bg-background text-sm"
                                     required
                                 />
-                            </div>
+                            </InputGroup>
                         </TextField>
 
                         <Button
                             type="submit"
                             variant="primary"
-                            className="w-full h-10 rounded-xl font-medium text-sm mt-1"
+                            fullWidth
+                            className="mt-2 h-11 rounded-xl font-medium"
                             isPending={isLoading}
                         >
                             Sign in
@@ -125,7 +113,8 @@ export default function LoginPage() {
                     {authConfig && !authConfig.localAuthEnabled && authConfig.oidcProviders.length === 0 && (
                         <p className="text-sm text-muted-foreground text-center">No authentication method is currently enabled.</p>
                     )}
-                </div>
+                    </Card.Content>
+                </Card>
 
                 {authConfig?.localAuthEnabled !== false && <p className="text-center text-sm text-muted-foreground mt-5">
                     Don&apos;t have an account?{' '}
@@ -134,6 +123,6 @@ export default function LoginPage() {
                     </Link>
                 </p>}
             </div>
-        </div>
+        </AuthShell>
     );
 }
