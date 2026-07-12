@@ -124,7 +124,13 @@ export const db = {
         return await api.createProject<Project>(data as Record<string, unknown>);
     },
     async updateProject(id: string, data: Partial<Project>) {
-        return await api.updateProject<Project>(id, data as Record<string, unknown>);
+		return await api.updateProject<Project>(id, data as Record<string, unknown>);
+    },
+    async migrateProjectEncryption(id: string, data: Record<string, unknown>) {
+        return await api.migrateProjectEncryption<Project>(id, data);
+    },
+    async repairProjectEncryption(id: string, data: { taskIds: string[]; expectedUpdatedAt: string }) {
+        return await api.repairProjectEncryption(id, data);
     },
     async deleteProject(id: string) {
         return await api.deleteProject(id);

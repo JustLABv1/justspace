@@ -378,6 +378,14 @@ export const api = {
         });
     },
 
+    async migrateProjectEncryption<T>(id: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/projects/${id}/encryption/migrate`, { method: 'POST', body: JSON.stringify(data) });
+    },
+
+    async repairProjectEncryption(id: string, data: Record<string, unknown>): Promise<void> {
+        return request(`/api/projects/${id}/encryption/repair`, { method: 'POST', body: JSON.stringify(data) });
+    },
+
     async deleteProject(id: string): Promise<void> {
         return request(`/api/projects/${id}`, { method: 'DELETE' });
     },

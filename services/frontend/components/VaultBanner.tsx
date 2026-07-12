@@ -6,12 +6,12 @@ import { Binary, KeyRound, LockKeyhole, LogOut, ShieldCheck } from 'lucide-react
 import { useState } from 'react';
 
 export const VaultBanner = () => {
-    const { hasVault, privateKey, unlockVault, logout } = useAuth();
+    const { hasVault, privateKey, vaultState, unlockVault, logout } = useAuth();
     const [password, setPassword] = useState('');
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState('');
 
-    if (!hasVault || privateKey) return null;
+    if (!hasVault || privateKey || vaultState === 'restoring') return null;
 
     const handleUnlock = async (e: React.FormEvent) => {
         e.preventDefault();

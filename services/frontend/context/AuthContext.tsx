@@ -1,11 +1,14 @@
 'use client';
 
 import { api, AuthUser } from '@/services/frontend/lib/api';
-import { decryptPrivateKey, generateUserKeyPair, reencryptPrivateKey } from '@/services/frontend/lib/crypto';
+import { decryptDocumentKey, decryptPrivateKey, generateUserKeyPair, makePrivateKeyNonExtractable, reencryptPrivateKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { vaultSession } from '@/services/frontend/lib/vault-session';
 import { UserKeys } from '@/services/frontend/types';
 import { useRouter } from 'next/navigation';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+
+export type VaultState = 'restoring' | 'locked' | 'unlocked';
 
 interface AuthContextType {
     user: AuthUser | null;
@@ -13,11 +16,15 @@ interface AuthContextType {
     privateKey: CryptoKey | null;
     userKeys: UserKeys | null;
     hasVault: boolean;
+	vaultState: VaultState;
+	vaultExpiresAt: number | null;
     login: (email: string, pass: string) => Promise<void>;
     signup: (email: string, pass: string, name: string) => Promise<void>;
     logout: () => Promise<void>;
+	lockVault: () => Promise<void>;
     unlockVault: (password: string) => Promise<void>;
     setupVault: (password: string) => Promise<void>;
+	getResourceKey: (resourceId: string) => Promise<CryptoKey | null>;
     updateProfile: (data: { name?: string; preferences?: Record<string, unknown> }) => Promise<AuthUser>;
 }
 
@@ -28,7 +35,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
     const [userKeys, setUserKeys] = useState<UserKeys | null>(null);
     const [hasVault, setHasVault] = useState(false);
+	const [vaultState, setVaultState] = useState<VaultState>('restoring');
+	const [vaultExpiresAt, setVaultExpiresAt] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+	const resourceKeys = useRef(new Map<string, Promise<CryptoKey | null>>());
     const router = useRouter();
 
     useEffect(() => {
@@ -63,51 +73,78 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             }
 
-            // Attempt session restoration if vault exists
+            // Restore only a non-extractable, time-limited device session.
             if (keys) {
-                const jwkJson = sessionStorage.getItem('vault_session_key');
-                if (jwkJson) {
-                    try {
-                        const jwk = JSON.parse(jwkJson);
-                        const pk = await crypto.subtle.importKey(
-                            'jwk',
-                            jwk,
-                            { name: 'RSA-OAEP', hash: 'SHA-256' },
-                            true,
-                            ['decrypt']
-                        );
-                        setPrivateKey(pk);
-                    } catch (e) {
-                        console.error('Failed to restore vault session:', e);
-                        sessionStorage.removeItem('vault_session_key');
+                try {
+                    const session = await vaultSession.load(currentUser.id, keys.id);
+                    if (session) {
+                        setPrivateKey(session.privateKey);
+                        setVaultExpiresAt(session.expiresAt);
+                        setVaultState('unlocked');
+                    } else {
+                        setVaultState('locked');
                     }
+                } catch (e) {
+                    console.error('Failed to restore vault session:', e);
+                    await vaultSession.clear();
+                    setVaultState('locked');
                 }
+            } else {
+                setVaultState('locked');
             }
         } catch {
             setUser(null);
             setHasVault(false);
             setUserKeys(null);
+            setVaultState('locked');
         } finally {
             setIsLoading(false);
         }
     };
+
+    const lockVault = async () => {
+        resourceKeys.current.clear();
+        setPrivateKey(null);
+        setVaultExpiresAt(null);
+        setVaultState('locked');
+        await vaultSession.clear();
+    };
+
+    const getResourceKey = async (resourceId: string): Promise<CryptoKey | null> => {
+        if (!privateKey || vaultState !== 'unlocked') return null;
+        const existing = resourceKeys.current.get(resourceId);
+        if (existing) return existing;
+        const pending = db.getAccessKey(resourceId).then(async (access) => {
+            if (!access) return null;
+            return decryptDocumentKey(access.encryptedKey, privateKey);
+        }).catch((error) => {
+            console.error('Failed to resolve resource key:', resourceId, error);
+            return null;
+        });
+        resourceKeys.current.set(resourceId, pending);
+        return pending;
+    };
+
+    useEffect(() => {
+        if (!vaultExpiresAt) return;
+        const delay = vaultExpiresAt - Date.now();
+        if (delay <= 0) {
+            void lockVault();
+            return;
+        }
+        const timer = window.setTimeout(() => void lockVault(), delay);
+        return () => window.clearTimeout(timer);
+    }, [vaultExpiresAt]);
 
     const login = async (email: string, pass: string) => {
         setIsLoading(true);
         try {
             const authResp = await api.login(email, pass);
             setUser(authResp.user);
-            
-            try {
-                const keys = await db.getUserKeys(authResp.user.id);
-                setHasVault(!!keys);
-                setUserKeys(keys || null);
-            } catch (dbError) {
-                console.error('Non-critical login error (fetching vault keys):', dbError);
-                setHasVault(false);
-                setUserKeys(null);
-            }
-            
+            const keys = await db.getUserKeys(authResp.user.id);
+            setHasVault(!!keys);
+            setUserKeys(keys || null);
+            setVaultState(keys ? 'locked' : 'locked');
             router.push('/');
         } catch (error) {
             console.error('Core authentication failure:', error);
@@ -122,6 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const authResp = await api.signup(email, pass, name);
             setUser(authResp.user);
+            setVaultState('locked');
             router.push('/');
         } catch (error) {
             throw error;
@@ -132,11 +170,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const logout = async () => {
         try {
+            await lockVault();
             await api.logout();
             setUser(null);
-            setPrivateKey(null);
             setHasVault(false);
-            sessionStorage.removeItem('vault_session_key');
+            setUserKeys(null);
             router.push('/login');
         } catch (error) {
             console.error(error);
@@ -148,18 +186,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoading(true);
         try {
             const keyPair = await generateUserKeyPair(password);
-            const keys = await db.createUserKeys({
-                userId: user.id,
-                email: user.email,
-                ...keyPair
-            });
+            const keys = await db.createUserKeys({ userId: user.id, email: user.email, ...keyPair });
             setHasVault(true);
             setUserKeys(keys as UserKeys);
-            // Also unlock it immediately
             await unlockVault(password);
-        } catch (error) {
-            console.error('Setup vault error:', error);
-            throw error;
         } finally {
             setIsLoading(false);
         }
@@ -169,31 +199,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!user) return;
         setIsLoading(true);
         try {
-            const keys = await db.getUserKeys(user.id);
+            let keys = await db.getUserKeys(user.id);
             if (!keys) throw new Error('No vault found');
-
-            const pk = await decryptPrivateKey(
-                keys.encryptedPrivateKey,
-                password,
-                keys.salt,
-                keys.iv,
-                keys.kdfIterations || 100000,
-            );
-            setPrivateKey(pk);
+            const exportableKey = await decryptPrivateKey(keys.encryptedPrivateKey, password, keys.salt, keys.iv, keys.kdfIterations || 100000);
             if ((keys.kdfIterations || 100000) < 600000) {
-                const upgraded = await reencryptPrivateKey(pk, password);
-                const updated = await db.updateUserKeys(keys.id, upgraded);
-                setUserKeys(updated as UserKeys);
-            } else {
-                setUserKeys(keys);
+                const upgraded = await reencryptPrivateKey(exportableKey, password);
+                keys = await db.updateUserKeys(keys.id, upgraded) as UserKeys;
             }
-
-            // Keep decrypted vault material only in memory. Persisting an
-            // exportable private key in sessionStorage makes an XSS incident
-            // equivalent to losing the vault password.
-            sessionStorage.removeItem('vault_session_key');
+            const runtimeKey = await makePrivateKeyNonExtractable(exportableKey);
+            const expiresAt = Date.now() + 8 * 60 * 60 * 1000;
+            await vaultSession.save({ userId: user.id, keyId: keys.id, expiresAt, privateKey: runtimeKey });
+            resourceKeys.current.clear();
+            setPrivateKey(runtimeKey);
+            setUserKeys(keys);
+            setVaultExpiresAt(expiresAt);
+            setVaultState('unlocked');
         } catch (error) {
-            console.error('Unlock vault error:', error);
+            await lockVault();
             throw error;
         } finally {
             setIsLoading(false);
@@ -213,11 +235,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             privateKey, 
             userKeys,
             hasVault, 
+			vaultState,
+			vaultExpiresAt,
             login, 
             signup, 
             logout, 
+			lockVault,
             unlockVault, 
             setupVault,
+			getResourceKey,
 			updateProfile,
         }}>
             {children}

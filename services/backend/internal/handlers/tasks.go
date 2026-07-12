@@ -211,6 +211,21 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	project, projectErr := h.repo.GetProject(r.Context(), existingTask.ProjectID, userID)
+	if projectErr != nil || project == nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if project.IsEncrypted {
+		if req.IsEncrypted != nil && !*req.IsEncrypted {
+			writeError(w, http.StatusConflict, "tasks in encrypted projects cannot be made plaintext")
+			return
+		}
+		if (req.Title != nil || req.Description != nil) && (req.IsEncrypted == nil || !*req.IsEncrypted) {
+			writeError(w, http.StatusConflict, "updated task content must remain encrypted")
+			return
+		}
+	}
 	if req.Completed != nil && *req.Completed && !existingTask.Completed {
 		dependencies := existingTask.Dependencies
 		if req.Dependencies != nil {

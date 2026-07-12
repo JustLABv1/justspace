@@ -6,6 +6,9 @@ const ALGORITHM_AES = 'AES-GCM';
 const ALGORITHM_RSA = 'RSA-OAEP';
 
 export interface EncryptedData {
+	/** v1 is emitted by current clients; legacy payloads omit it. */
+    v?: 1;
+	alg?: 'A256GCM';
     ciphertext: string;
     iv: string;
 }
@@ -159,6 +162,12 @@ export async function decryptPrivateKey(
     );
 }
 
+/** Re-import a private key as non-extractable before keeping it in a vault session. */
+export async function makePrivateKeyNonExtractable(privateKey: CryptoKey): Promise<CryptoKey> {
+    const pkcs8 = await crypto.subtle.exportKey('pkcs8', privateKey);
+    return crypto.subtle.importKey('pkcs8', pkcs8, { name: ALGORITHM_RSA, hash: 'SHA-256' }, false, ['decrypt']);
+}
+
 /**
  * Generates a random AES-GCM key for a document.
  */
@@ -183,6 +192,8 @@ export async function encryptData(data: string, key: CryptoKey): Promise<Encrypt
     );
 
     return {
+		v: 1,
+		alg: 'A256GCM',
         ciphertext: bytesToBase64(new Uint8Array(ciphertextBuffer)),
         iv: bytesToBase64(iv)
     };

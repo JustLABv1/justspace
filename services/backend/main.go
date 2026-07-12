@@ -132,6 +132,8 @@ func main() {
 		r.Post("/api/projects", projectH.Create)
 		r.Get("/api/projects/{id}", projectH.Get)
 		r.Put("/api/projects/{id}", projectH.Update)
+		r.Post("/api/projects/{id}/encryption/migrate", projectH.MigrateEncryption)
+		r.Post("/api/projects/{id}/encryption/repair", projectH.RepairEncryption)
 		r.Delete("/api/projects/{id}", projectH.Delete)
 		r.Get("/api/projects/{projectId}/allocations", customerH.ListAllocations)
 		r.Put("/api/projects/{projectId}/allocations/{userId}", customerH.UpsertAllocation)

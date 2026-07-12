@@ -3,12 +3,12 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useBranding } from '@/services/frontend/context/BrandingContext';
 import { api, AuthConfig, OIDCIdentity } from '@/services/frontend/lib/api';
-import { encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
+import { decryptData, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { DEFAULT_TASK_STATUS_TEMPLATES, mergeUserPreferences, parseUserPreferences, WorkspaceTaskStatusTemplate } from '@/services/frontend/lib/preferences';
 import { promptForPwaInstall, usePwaInstallState } from '@/services/frontend/lib/pwa';
-import { Button, Checkbox, Form, Input, Label, ListBox, Select, Surface, toast } from '@heroui/react';
+import { Alert, Button, Checkbox, Chip, Form, Input, Label, ListBox, Modal, Select, Surface, toast } from '@heroui/react';
 import {
     Bell,
     CheckCircle,
@@ -67,12 +67,16 @@ function SettingsContent() {
         router.push(`?${params.toString()}`, { scroll: false });
     };
 
-    const { user, hasVault, privateKey, userKeys, setupVault, unlockVault, updateProfile } = useAuth();
+    const { user, hasVault, privateKey, userKeys, setupVault, unlockVault, updateProfile, getResourceKey, lockVault } = useAuth();
     const { workspaceId } = useWorkspace();
     const { branding } = useBranding();
     const [vaultPassword, setVaultPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [vaultError, setVaultError] = useState<string | null>(null);
+	const [repairableTasks, setRepairableTasks] = useState<Array<{ projectId: string; projectName: string; projectUpdatedAt: string; taskId: string; taskTitle: string }>>([]);
+	const [isRepairDialogOpen, setIsRepairDialogOpen] = useState(false);
+	const [isAuditingEncryption, setIsAuditingEncryption] = useState(false);
+	const [isRepairingEncryption, setIsRepairingEncryption] = useState(false);
     
     // Core states
     const [userName, setUserName] = useState('');
@@ -277,32 +281,33 @@ function SettingsContent() {
                 const docKey = await generateDocumentKey();
                 const encName = await encryptData(p.name, docKey);
                 const encDesc = await encryptData(p.description, docKey);
-                
-                await db.updateProject(p.id, {
+                const tasks = await db.listTasks(p.id);
+                const [members, workspaceMembers] = await Promise.all([
+                    db.listProjectMembers(p.id),
+                    p.workspaceId ? db.listWorkspaceMembers(p.workspaceId) : Promise.resolve({ documents: [] }),
+                ]);
+                const publicKeys = new Map(workspaceMembers.documents.map(member => [member.userId, member.publicKey]));
+                publicKeys.set(user.id, userKeys.publicKey);
+                const missingVaults = members.documents.filter(member => !publicKeys.get(member.userId));
+                if (missingVaults.length) {
+                    throw new Error(`Cannot encrypt ${p.name}: ${missingVaults.map(member => member.email).join(', ')} must set up a vault first.`);
+                }
+                const wrappedKeys = await Promise.all(members.documents.map(async (member) => ({
+                    userId: member.userId,
+                    encryptedKey: await encryptDocumentKey(docKey, publicKeys.get(member.userId)!),
+                })));
+                const encryptedTasks = await Promise.all(tasks.documents.map(async (task) => ({
+                    id: task.id,
+                    title: JSON.stringify(await encryptData(task.title, docKey)),
+                    description: JSON.stringify(await encryptData(task.description || '', docKey)),
+                })));
+                await db.migrateProjectEncryption(p.id, {
                     name: JSON.stringify(encName),
                     description: JSON.stringify(encDesc),
-                    isEncrypted: true
+                    tasks: encryptedTasks,
+                    wrappedKeys,
+                    expectedUpdatedAt: p.updatedAt,
                 });
-
-                const encKey = await encryptDocumentKey(docKey, userKeys.publicKey);
-                await db.grantAccess({
-                    resourceId: p.id,
-                    userId: user.id,
-                    encryptedKey: encKey,
-                    resourceType: 'Project'
-                });
-
-                // Tasks
-                const tasks = await db.listTasks(p.id);
-                for (const t of tasks.documents) {
-                    const encTaskTitle = await encryptData(t.title, docKey);
-                    const encTaskDescription = await encryptData(t.description || '', docKey);
-                    await db.updateTask(t.id, {
-                        title: JSON.stringify(encTaskTitle),
-                        description: JSON.stringify(encTaskDescription),
-                        isEncrypted: true
-                    });
-                }
             }
 
             setMigrationProgress('Migration complete. Your workspace is now secure.');
@@ -318,6 +323,55 @@ function SettingsContent() {
             setIsMigrating(false);
         }
     };
+
+	const handleEncryptionAudit = async () => {
+		if (!privateKey) return;
+		setIsAuditingEncryption(true);
+		try {
+			const projects = await db.listProjects();
+			const repairs: Array<{ projectId: string; projectName: string; projectUpdatedAt: string; taskId: string; taskTitle: string }> = [];
+			for (const project of projects.documents.filter((item) => item.isEncrypted)) {
+				const key = await getResourceKey(project.id);
+				if (!key) continue;
+				const tasks = await db.listTasks(project.id);
+				for (const task of tasks.documents.filter((item) => !item.isEncrypted)) {
+					try {
+						const parsed = JSON.parse(task.title);
+						if (!parsed?.ciphertext || !parsed?.iv) continue;
+						const title = await decryptData(parsed, key);
+						repairs.push({ projectId: project.id, projectName: project.name, projectUpdatedAt: project.updatedAt, taskId: task.id, taskTitle: title });
+					} catch { /* Not a validated ciphertext for this project key. */ }
+				}
+			}
+			setRepairableTasks(repairs);
+			setIsRepairDialogOpen(true);
+		} catch (error) {
+			console.error(error);
+			toast.danger('Encryption audit failed');
+		} finally {
+			setIsAuditingEncryption(false);
+		}
+	};
+
+	const handleConfirmedRepair = async () => {
+		setIsRepairingEncryption(true);
+		try {
+			const groups = new Map<string, typeof repairableTasks>();
+			for (const item of repairableTasks) groups.set(item.projectId, [...(groups.get(item.projectId) || []), item]);
+			for (const [projectId, tasks] of groups) {
+				await db.repairProjectEncryption(projectId, { taskIds: tasks.map((task) => task.taskId), expectedUpdatedAt: tasks[0].projectUpdatedAt });
+			}
+			setIsRepairDialogOpen(false);
+			setRepairableTasks([]);
+			toast.success('Validated encryption flags repaired');
+			await fetchStats();
+		} catch (error) {
+			console.error(error);
+			toast.danger('Repair could not be applied; review the current project state and try again.');
+		} finally {
+			setIsRepairingEncryption(false);
+		}
+	};
 
     const updateTemplate = (index: number, patch: Partial<WorkspaceTaskStatusTemplate>) => {
         setTaskStatusTemplates((current) => current.map((template, currentIndex) => currentIndex === index ? { ...template, ...patch } : template));
@@ -796,12 +850,21 @@ function SettingsContent() {
                                     )}
 
                                     {privateKey && (
-                                        <div className="p-3 rounded-xl bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
-                                            <CheckCircle size={14} />
-                                            Vault active and keys decrypted
+                                        <div className="space-y-2">
+                                            <div className="p-3 rounded-xl bg-success-muted border border-success/20 flex items-center gap-2 text-success text-xs font-medium">
+                                                <CheckCircle size={14} /> Vault active for this device session
+                                            </div>
+                                            <Button variant="secondary" size="sm" className="w-full" onPress={() => void lockVault()}>Lock vault now</Button>
                                         </div>
                                     )}
                                 </div>
+
+                                {privateKey && (
+                                    <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-3">
+                                        <div><h4 className="text-sm font-medium text-foreground">Encryption integrity</h4><p className="text-xs text-muted-foreground mt-0.5">Find ciphertext records whose encryption flag is inconsistent. No data is changed until you confirm a validated repair.</p></div>
+                                        <Button variant="secondary" size="sm" className="w-full" onPress={() => void handleEncryptionAudit()} isPending={isAuditingEncryption}><Database size={13} /> Check encrypted projects</Button>
+                                    </div>
+                                )}
 
                                 {privateKey && (stats.projects > 0 || stats.wiki > 0 || stats.snippets > 0) && (
                                     <div className="rounded-xl border border-warning/30 bg-warning-muted p-4 space-y-4">
@@ -852,6 +915,31 @@ function SettingsContent() {
                                         Migration completed successfully
                                     </div>
                                 )}
+
+                                <Modal>
+                                    <Modal.Backdrop isOpen={isRepairDialogOpen} onOpenChange={setIsRepairDialogOpen} variant="blur">
+                                        <Modal.Container size="lg" scroll="inside">
+                                            <Modal.Dialog>
+                                                <Modal.CloseTrigger />
+                                                <Modal.Header><Modal.Heading>Encryption repair review</Modal.Heading></Modal.Header>
+                                                <Modal.Body className="space-y-3">
+                                                    {repairableTasks.length === 0 ? (
+                                                        <Alert status="success"><Alert.Indicator /><Alert.Content><Alert.Title>No repairable inconsistencies found</Alert.Title><Alert.Description>Encrypted task flags and validated ciphertexts are consistent.</Alert.Description></Alert.Content></Alert>
+                                                    ) : (
+                                                        <>
+                                                            <Alert status="warning"><Alert.Indicator /><Alert.Content><Alert.Title>{repairableTasks.length} task flags can be repaired</Alert.Title><Alert.Description>Each title was decrypted locally with its project key. The repair only restores the missing encryption flag; it never rewrites ciphertext.</Alert.Description></Alert.Content></Alert>
+                                                            <div className="space-y-2">{repairableTasks.map((task) => <div key={task.taskId} className="rounded-lg border border-border px-3 py-2 flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-sm truncate">{task.taskTitle}</p><p className="text-xs text-muted-foreground truncate">{task.projectName}</p></div><Chip size="sm" color="warning" variant="soft"><Chip.Label>repairable</Chip.Label></Chip></div>)}</div>
+                                                        </>
+                                                    )}
+                                                </Modal.Body>
+                                                <Modal.Footer>
+                                                    <Button slot="close" variant="tertiary">Cancel</Button>
+                                                    {repairableTasks.length > 0 && <Button variant="primary" onPress={() => void handleConfirmedRepair()} isPending={isRepairingEncryption}>Repair validated tasks</Button>}
+                                                </Modal.Footer>
+                                            </Modal.Dialog>
+                                        </Modal.Container>
+                                    </Modal.Backdrop>
+                                </Modal>
                             </div>
                         )}
 

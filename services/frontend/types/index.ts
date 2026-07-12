@@ -14,6 +14,7 @@ export interface Project {
     isEncrypted?: boolean;
     role?: 'owner' | 'admin' | 'editor' | 'viewer';
     createdAt: string;
+    updatedAt: string;
 }
 
 export interface ProjectTaskStatus {

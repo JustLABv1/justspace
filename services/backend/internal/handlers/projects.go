@@ -83,6 +83,15 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	existing, err := h.repo.GetProject(r.Context(), id, userID)
+	if err != nil || existing == nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if req.IsEncrypted != nil && *req.IsEncrypted != existing.IsEncrypted {
+		writeError(w, http.StatusConflict, "change project encryption only through the encryption migration flow")
+		return
+	}
 	project, err := h.repo.UpdateProject(r.Context(), id, userID, req)
 	if err != nil {
 		log.Printf("UpdateProject error: %v", err)
@@ -96,6 +105,48 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 		h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "project_activity", Document: activity, UserID: userID})
 	}
 	writeJSON(w, http.StatusOK, project)
+}
+
+func (h *ProjectHandler) MigrateEncryption(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "id")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin") {
+		return
+	}
+	var req models.ProjectEncryptionMigrationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	project, err := h.repo.MigrateProjectEncryption(r.Context(), projectID, userID, req)
+	if err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "projects", Document: project, UserID: userID})
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "tasks", Document: map[string]string{"projectId": projectID}, UserID: userID})
+	writeJSON(w, http.StatusOK, project)
+}
+
+func (h *ProjectHandler) RepairEncryption(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	projectID := chi.URLParam(r, "id")
+	if !ensureProjectRole(w, r, h.repo, projectID, userID, "owner", "admin") {
+		return
+	}
+	var req models.ProjectEncryptionRepairRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := h.repo.RepairProjectEncryption(r.Context(), projectID, userID, req); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), projectID)
+	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "tasks", Document: map[string]string{"projectId": projectID}, UserID: userID})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "encryption flags repaired"})
 }
 
 func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
