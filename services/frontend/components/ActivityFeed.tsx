@@ -180,15 +180,13 @@ export function ActivityFeed() {
                 <div className="flex items-center gap-1.5 ml-auto">
                     {/* Entity filter */}
                     <Dropdown>
-                        <Dropdown.Trigger>
-                            <Button
+                        <Button
                                 variant="secondary"
                                 className="h-7 px-2.5 rounded-lg text-[11px] font-medium gap-1"
                             >
                                 {entityOptions.find(o => o.value === entityFilter)?.label ?? 'All'}
                                 <ChevronDown size={10} />
                             </Button>
-                        </Dropdown.Trigger>
                         <Dropdown.Popover placement="bottom end" className="min-w-[120px]">
                             <Dropdown.Menu>
                                 {entityOptions.map(opt => (
@@ -210,15 +208,13 @@ export function ActivityFeed() {
 
                     {/* Action filter */}
                     <Dropdown>
-                        <Dropdown.Trigger>
-                            <Button
+                        <Button
                                 variant="secondary"
                                 className="h-7 px-2.5 rounded-lg text-[11px] font-medium gap-1"
                             >
                                 {actionOptions.find(o => o.value === actionFilter)?.label ?? 'Any'}
                                 <ChevronDown size={10} />
                             </Button>
-                        </Dropdown.Trigger>
                         <Dropdown.Popover placement="bottom end" className="min-w-[130px]">
                             <Dropdown.Menu>
                                 {actionOptions.map(opt => (

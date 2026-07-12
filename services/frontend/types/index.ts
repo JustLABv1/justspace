@@ -1,5 +1,6 @@
 export interface Project {
     id: string;
+    workspaceId?: string;
     userId?: string;
     name: string;
     description: string;
@@ -8,6 +9,8 @@ export interface Project {
     taskKeyPrefixLocked?: boolean;
     daysPerWeek?: number;
     allocatedDays?: number;
+    clientId?: string;
+    hourBudget?: number;
     isEncrypted?: boolean;
     role?: 'owner' | 'admin' | 'editor' | 'viewer';
     createdAt: string;
@@ -26,6 +29,19 @@ export interface ProjectTaskStatus {
     updatedAt: string;
 }
 
+export interface ProjectMilestone {
+    id: string;
+    projectId: string;
+    createdBy: string;
+    title: string;
+    description: string;
+    status: 'open' | 'completed';
+    dueDate?: string;
+    position: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface ProjectMember {
     id: string;
     projectId: string;
@@ -36,11 +52,30 @@ export interface ProjectMember {
     joinedAt: string;
 }
 
+export interface Customer {
+    id: string;
+    workspaceId: string;
+    name: string;
+    contactName?: string;
+    contactEmail?: string;
+    notes: string;
+    archivedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ProjectMemberAllocation {
+    projectId: string;
+    userId: string;
+    daysPerWeek: number;
+}
+
 export interface TeamInvitation {
     id: string;
     projectId: string;
     email: string;
     role: 'admin' | 'editor' | 'viewer';
+    workspaceRole?: 'admin' | 'member' | 'guest';
     token?: string;
     status: 'pending' | 'accepted' | 'cancelled' | 'expired';
     invitedUserId?: string;
@@ -128,6 +163,9 @@ export interface PresenceSession {
 
 export interface WikiGuide {
     id: string;
+    workspaceId?: string;
+    projectId?: string;
+    parentId?: string;
     title: string;
     description: string;
     isEncrypted?: boolean;
@@ -210,6 +248,8 @@ export interface SnippetBlock {
 
 export interface Snippet {
     id: string;
+    workspaceId?: string;
+    projectId?: string;
     title: string;
     content: string;
     blocks?: string; // JSON stringified SnippetBlock[]

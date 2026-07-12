@@ -1,14 +1,16 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { Project } from '@/services/frontend/types';
-import { Avatar, Tooltip } from '@heroui/react';
+import { Avatar, Button, Dropdown, Label, Tooltip } from '@heroui/react';
 import { useBranding } from '@/services/frontend/context/BrandingContext';
 import {
     BookOpen,
+    Building2,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
@@ -16,11 +18,13 @@ import {
     Code,
     FolderKanban,
     Home,
+    Plus,
     Settings,
-    ShieldCheck
+    ShieldCheck,
+    UsersRound
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import pkg from '../package.json';
 
@@ -42,7 +46,9 @@ function getProjectColor(index: number) {
 
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }: SidebarProps) => {
     const pathname = usePathname();
+    const router = useRouter();
     const { user, privateKey } = useAuth();
+    const { workspace, workspaces, workspaceId, setActiveWorkspace } = useWorkspace();
     const { branding, logoUrl } = useBranding();
     const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
     const [sidebarProjects, setSidebarProjects] = useState<Project[]>([]);
@@ -50,7 +56,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     const fetchProjects = useCallback(async () => {
         if (!user) return;
         try {
-            const res = await db.listProjects();
+            const res = await db.listProjects(workspaceId);
             const projects = res.documents as unknown as Project[];
 
             const decrypted = await Promise.all(projects.map(async (p) => {
@@ -70,7 +76,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
             // Filter out archived and completed, sort by name
             setSidebarProjects(decrypted.filter(p => p.status !== 'archived' && p.status !== 'completed').sort((a, b) => a.name.localeCompare(b.name)));
         } catch { /* ignore */ }
-    }, [user, privateKey]);
+    }, [user, privateKey, workspaceId]);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -91,11 +97,13 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     ];
 
     const bottomNavItems = [
+        ...(workspace?.type === 'consulting' ? [{ name: 'Customers', href: '/customers', icon: Building2 }] : []),
         { name: 'Wiki', href: '/wiki', icon: BookOpen },
         { name: 'Snippets', href: '/snippets', icon: Code },
     ];
 
     const footerNavItems = [
+        { name: 'Workspace', href: '/workspace', icon: UsersRound },
         { name: 'Settings', href: '/settings', icon: Settings },
         ...(user?.isPlatformAdmin ? [{ name: 'Admin', href: '/admin', icon: ShieldCheck }] : [])
     ];
@@ -154,13 +162,53 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                 isCollapsed ? 'justify-center px-2' : 'justify-between px-3.5'
             }`}>
                 {!isCollapsed ? (
-                    <div className="flex items-center gap-2.5">
-                        <Avatar size="sm" className="size-7 shrink-0 rounded-lg">
-                            <Avatar.Image src={logoUrl ?? undefined} alt="" />
-                            <Avatar.Fallback className="rounded-lg bg-accent text-accent-foreground text-xs font-bold">{branding.name.charAt(0).toUpperCase()}</Avatar.Fallback>
-                        </Avatar>
-                        <span className="text-[14px] font-bold text-foreground tracking-tight">{branding.name}</span>
-                    </div>
+                    <Dropdown>
+                        <Dropdown.Trigger className="min-w-0 max-w-[170px] rounded-xl px-1.5 py-1 hover:bg-surface-secondary">
+                            <span className="flex min-w-0 items-center gap-2.5">
+                                <Avatar size="sm" className="size-7 shrink-0 rounded-lg">
+                                    <Avatar.Image src={logoUrl ?? undefined} alt="" />
+                                    <Avatar.Fallback className="rounded-lg bg-accent text-accent-foreground text-xs font-bold">{(workspace?.name || branding.name).charAt(0).toUpperCase()}</Avatar.Fallback>
+                                </Avatar>
+                                <span className="truncate text-[14px] font-bold tracking-tight text-foreground">{workspace?.name || branding.name}</span>
+                            </span>
+                        </Dropdown.Trigger>
+                        <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
+                            <Dropdown.Menu aria-label="Workspaces" onAction={(key) => {
+                                const action = String(key);
+                                if (action === 'create-workspace') {
+                                    router.push('/workspace');
+                                    return;
+                                }
+                                if (action === 'manage-workspace') {
+                                    router.push('/workspace');
+                                    return;
+                                }
+                                setActiveWorkspace(action);
+                            }}>
+                                <Dropdown.Section>
+                                    <Label className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Workspaces</Label>
+                                    {workspaces.map((item) => (
+                                        <Dropdown.Item key={item.id} id={item.id} textValue={item.name}>
+                                            <div className="flex w-full items-center justify-between gap-3">
+                                                <Label className="truncate text-[13px]">{item.name}</Label>
+                                                {item.id === workspaceId && <span className="text-[10px] text-accent">Active</span>}
+                                            </div>
+                                        </Dropdown.Item>
+                                    ))}
+                                </Dropdown.Section>
+                                <Dropdown.Section>
+                                    <Dropdown.Item id="create-workspace" textValue="New workspace">
+                                        <Plus size={14} />
+                                        <Label>New workspace</Label>
+                                    </Dropdown.Item>
+                                    {workspace && <Dropdown.Item id="manage-workspace" textValue="Manage workspace">
+                                        <UsersRound size={14} />
+                                        <Label>Manage workspace</Label>
+                                    </Dropdown.Item>}
+                                </Dropdown.Section>
+                            </Dropdown.Menu>
+                        </Dropdown.Popover>
+                    </Dropdown>
                 ) : (
                     <Avatar size="sm" className="size-7 rounded-lg">
                         <Avatar.Image src={logoUrl ?? undefined} alt="" />
@@ -168,26 +216,32 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                     </Avatar>
                 )}
                 {!isCollapsed && (
-                    <button
-                        onClick={() => setIsCollapsed(true)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-secondary transition-colors"
+                    <Button
+                        variant="ghost"
+                        isIconOnly
+                        size="sm"
+                        onPress={() => setIsCollapsed(true)}
+                        className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
                         aria-label="Collapse sidebar"
                     >
                         <ChevronLeft size={14} />
-                    </button>
+                    </Button>
                 )}
             </div>
 
             {/* Expand button when collapsed */}
             {isCollapsed && (
                 <div className="flex justify-center py-2 shrink-0">
-                    <button
-                        onClick={() => setIsCollapsed(false)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-secondary transition-colors"
+                    <Button
+                        variant="ghost"
+                        isIconOnly
+                        size="sm"
+                        onPress={() => setIsCollapsed(false)}
+                        className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
                         aria-label="Expand sidebar"
                     >
                         <ChevronRight size={14} />
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -201,8 +255,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                 <div className="mt-1">
                     {!isCollapsed ? (
                         <>
-                            <button
-                                onClick={() => setIsProjectsExpanded(!isProjectsExpanded)}
+                            <Button
+                                variant="ghost"
+                                onPress={() => setIsProjectsExpanded(!isProjectsExpanded)}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[13px] transition-colors ${
                                     isProjectsActive
                                         ? 'bg-surface-secondary text-foreground font-medium'
@@ -212,7 +267,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                                 <FolderKanban size={16} strokeWidth={isProjectsActive ? 2 : 1.75} />
                                 <span className="flex-1 text-left">Projects</span>
                                 {isProjectsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                            </button>
+                            </Button>
 
                             {isProjectsExpanded && (
                                 <div className="ml-3 mt-0.5 space-y-0.5 border-l border-border/60 pl-2.5">

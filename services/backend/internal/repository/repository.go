@@ -23,8 +23,8 @@ func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, p.days_per_week, p.allocated_days, p.is_encrypted,
-	p.task_key_prefix, (p.next_task_number > 1) AS task_key_prefix_locked, pm.role, p.created_at, p.updated_at
+const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, p.days_per_week, p.allocated_days, p.client_id, p.hour_budget, p.is_encrypted,
+	p.task_key_prefix, (p.next_task_number > 1) AS task_key_prefix_locked, pm.role, p.created_at, p.updated_at, p.workspace_id
 	FROM projects p
 	JOIN project_members pm ON pm.project_id = p.id
 	WHERE pm.user_id = $1`
@@ -44,12 +44,15 @@ func scanProject(row pgx.Row, project *models.Project) error {
 		&project.Status,
 		&project.DaysPerWeek,
 		&project.AllocatedDays,
+		&project.ClientID,
+		&project.HourBudget,
 		&project.IsEncrypted,
 		&project.TaskKeyPrefix,
 		&project.TaskKeyPrefixLocked,
 		&project.Role,
 		&project.CreatedAt,
 		&project.UpdatedAt,
+		&project.WorkspaceID,
 	)
 }
 
@@ -106,6 +109,10 @@ func normalizeStatusKey(value string) string {
 		key = "status"
 	}
 	return key
+}
+
+func validWorkspaceType(value string) bool {
+	return value == "project_management" || value == "consulting"
 }
 
 func normalizeProjectTaskKeyPrefix(value string) string {
@@ -789,11 +796,422 @@ func seedProjectTaskStatuses(ctx context.Context, tx pgx.Tx, projectID string, t
 	return nil
 }
 
+// ---- Workspaces ----
+
+func scanWorkspace(row pgx.Row, workspace *models.Workspace) error {
+	return row.Scan(&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
+}
+
+func (r *Repo) GetDefaultWorkspaceID(ctx context.Context, userID string) (string, error) {
+	var id string
+	err := r.pool.QueryRow(ctx, `
+		SELECT w.id
+		FROM workspaces w
+		JOIN workspace_members wm ON wm.workspace_id = w.id
+		WHERE wm.user_id = $1
+		ORDER BY w.created_at ASC
+		LIMIT 1`, userID).Scan(&id)
+	if err == pgx.ErrNoRows {
+		return "", fmt.Errorf("workspace not found for user %s", userID)
+	}
+	return id, err
+}
+
+func (r *Repo) CanAccessWorkspace(ctx context.Context, workspaceID, userID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)`, workspaceID, userID).Scan(&exists)
+	return exists, err
+}
+
+func (r *Repo) ListWorkspaces(ctx context.Context, userID string) ([]models.Workspace, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT w.id, w.owner_user_id, w.name, w.slug, w.type, wm.role, w.auto_add_members_to_projects, w.created_at, w.updated_at
+		FROM workspaces w
+		JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
+		ORDER BY w.name ASC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list workspaces: %w", err)
+	}
+	defer rows.Close()
+	workspaces := make([]models.Workspace, 0)
+	for rows.Next() {
+		var workspace models.Workspace
+		if err := rows.Scan(&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan workspace: %w", err)
+		}
+		workspaces = append(workspaces, workspace)
+	}
+	return workspaces, rows.Err()
+}
+
+func (r *Repo) CreateWorkspace(ctx context.Context, userID string, req models.CreateWorkspaceRequest) (*models.Workspace, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, fmt.Errorf("workspace name is required")
+	}
+	workspaceType := strings.TrimSpace(req.Type)
+	if workspaceType == "" {
+		workspaceType = "project_management"
+	}
+	if !validWorkspaceType(workspaceType) {
+		return nil, fmt.Errorf("a valid workspace type is required")
+	}
+	slug := normalizeStatusKey(name)
+	if slug == "" {
+		slug = "workspace"
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin create workspace: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	workspace := &models.Workspace{}
+	err = tx.QueryRow(ctx, `
+		INSERT INTO workspaces (owner_user_id, name, slug, type)
+		VALUES ($1, $2, $3 || '-' || LEFT(REPLACE(gen_random_uuid()::text, '-', ''), 6), $4)
+			RETURNING id, owner_user_id, name, slug, type, 'owner', auto_add_members_to_projects, created_at, updated_at`, userID, name, slug, workspaceType).Scan(
+		&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner')`, workspace.ID, userID); err != nil {
+		return nil, fmt.Errorf("create workspace owner membership: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit create workspace: %w", err)
+	}
+	return workspace, nil
+}
+
+func (r *Repo) UpdateWorkspace(ctx context.Context, id, userID string, req models.UpdateWorkspaceRequest) (*models.Workspace, error) {
+	if req.Type != nil && !validWorkspaceType(*req.Type) {
+		return nil, fmt.Errorf("a valid workspace type is required")
+	}
+	workspace := &models.Workspace{}
+	err := r.pool.QueryRow(ctx, `
+		UPDATE workspaces w
+		SET name = COALESCE($3, w.name),
+			type = COALESCE($4, w.type),
+			auto_add_members_to_projects = COALESCE($5, w.auto_add_members_to_projects)
+		WHERE w.id = $1 AND EXISTS (
+			SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = $2 AND wm.role IN ('owner', 'admin')
+		)
+		RETURNING w.id, w.owner_user_id, w.name, w.slug, w.type,
+			(SELECT wm.role FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = $2),
+			w.auto_add_members_to_projects, w.created_at, w.updated_at`, id, userID, req.Name, req.Type, req.AutoAddMembersToProjects).Scan(
+		&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update workspace: %w", err)
+	}
+	return workspace, nil
+}
+
+func (r *Repo) GetWorkspaceRole(ctx context.Context, workspaceID, userID string) (string, error) {
+	var role string
+	err := r.pool.QueryRow(ctx,
+		`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID, userID).Scan(&role)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("get workspace role: %w", err)
+	}
+	return role, nil
+}
+
+func (r *Repo) ListWorkspaceMembers(ctx context.Context, workspaceID string) ([]models.WorkspaceMember, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT wm.workspace_id, wm.user_id, u.name, u.email, wm.role, wm.joined_at, uk.public_key, uk.user_id IS NOT NULL, wm.weekly_capacity_days
+		 FROM workspace_members wm
+		 JOIN users u ON u.id = wm.user_id
+		 LEFT JOIN user_keys uk ON uk.user_id = wm.user_id
+		 WHERE wm.workspace_id = $1
+		 ORDER BY CASE wm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END, u.name ASC`, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list workspace members: %w", err)
+	}
+	defer rows.Close()
+	members := make([]models.WorkspaceMember, 0)
+	for rows.Next() {
+		var member models.WorkspaceMember
+		if err := rows.Scan(&member.WorkspaceID, &member.UserID, &member.Name, &member.Email, &member.Role, &member.JoinedAt, &member.PublicKey, &member.HasVault, &member.WeeklyCapacityDays); err != nil {
+			return nil, fmt.Errorf("scan workspace member: %w", err)
+		}
+		members = append(members, member)
+	}
+	return members, rows.Err()
+}
+
+func (r *Repo) CreateWorkspaceMember(ctx context.Context, workspaceID, userID, role string) (*models.WorkspaceMember, error) {
+	member := &models.WorkspaceMember{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO workspace_members (workspace_id, user_id, role)
+		 VALUES ($1, $2, $3)
+		 RETURNING workspace_id, user_id, joined_at, weekly_capacity_days`, workspaceID, userID, role).Scan(&member.WorkspaceID, &member.UserID, &member.JoinedAt, &member.WeeklyCapacityDays)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace member: %w", err)
+	}
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load workspace member user: %w", err)
+	}
+	if user == nil {
+		return nil, fmt.Errorf("workspace member user not found")
+	}
+	member.Name = user.Name
+	member.Email = user.Email
+	member.Role = role
+	return member, nil
+}
+
+func (r *Repo) UpdateWorkspaceMember(ctx context.Context, workspaceID, userID string, req models.UpdateWorkspaceMemberRequest) (*models.WorkspaceMember, error) {
+	member := &models.WorkspaceMember{}
+	err := r.pool.QueryRow(ctx,
+		`UPDATE workspace_members wm
+		 SET role = CASE WHEN wm.role = 'owner' THEN wm.role ELSE COALESCE(NULLIF($3, ''), wm.role) END, weekly_capacity_days = COALESCE($4, wm.weekly_capacity_days)
+		 WHERE wm.workspace_id = $1 AND wm.user_id = $2
+		 RETURNING wm.workspace_id, wm.user_id, wm.role, wm.joined_at, wm.weekly_capacity_days`, workspaceID, userID, req.Role, req.WeeklyCapacityDays).
+		Scan(&member.WorkspaceID, &member.UserID, &member.Role, &member.JoinedAt, &member.WeeklyCapacityDays)
+	if err != nil {
+		return nil, fmt.Errorf("update workspace member role: %w", err)
+	}
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("load workspace member user: %w", err)
+	}
+	member.Name = user.Name
+	member.Email = user.Email
+	return member, nil
+}
+
+func (r *Repo) IsConsultingWorkspace(ctx context.Context, workspaceID string) (bool, error) {
+	var consulting bool
+	err := r.pool.QueryRow(ctx, `SELECT type = 'consulting' FROM workspaces WHERE id = $1`, workspaceID).Scan(&consulting)
+	return consulting, err
+}
+
+func (r *Repo) ListCustomers(ctx context.Context, workspaceID string, includeArchived bool) ([]models.Customer, error) {
+	query := `SELECT id, workspace_id, name, contact_name, contact_email, notes, archived_at, created_at, updated_at FROM customers WHERE workspace_id = $1`
+	if !includeArchived {
+		query += ` AND archived_at IS NULL`
+	}
+	query += ` ORDER BY name ASC`
+	rows, err := r.pool.Query(ctx, query, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list customers: %w", err)
+	}
+	defer rows.Close()
+	customers := make([]models.Customer, 0)
+	for rows.Next() {
+		var customer models.Customer
+		if err := rows.Scan(&customer.ID, &customer.WorkspaceID, &customer.Name, &customer.ContactName, &customer.ContactEmail, &customer.Notes, &customer.ArchivedAt, &customer.CreatedAt, &customer.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan customer: %w", err)
+		}
+		customers = append(customers, customer)
+	}
+	return customers, rows.Err()
+}
+
+func (r *Repo) CreateCustomer(ctx context.Context, workspaceID string, req models.CreateCustomerRequest) (*models.Customer, error) {
+	customer := &models.Customer{}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, fmt.Errorf("customer name is required")
+	}
+	err := r.pool.QueryRow(ctx, `INSERT INTO customers (workspace_id, name, contact_name, contact_email, notes) VALUES ($1, $2, $3, $4, $5) RETURNING id, workspace_id, name, contact_name, contact_email, notes, archived_at, created_at, updated_at`, workspaceID, name, req.ContactName, req.ContactEmail, req.Notes).Scan(&customer.ID, &customer.WorkspaceID, &customer.Name, &customer.ContactName, &customer.ContactEmail, &customer.Notes, &customer.ArchivedAt, &customer.CreatedAt, &customer.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create customer: %w", err)
+	}
+	return customer, nil
+}
+
+func (r *Repo) UpdateCustomer(ctx context.Context, customerID, workspaceID string, req models.UpdateCustomerRequest) (*models.Customer, error) {
+	customer := &models.Customer{}
+	err := r.pool.QueryRow(ctx, `UPDATE customers SET name = COALESCE($3, name), contact_name = COALESCE($4, contact_name), contact_email = COALESCE($5, contact_email), notes = COALESCE($6, notes), archived_at = CASE WHEN $7::boolean IS TRUE THEN NOW() WHEN $7::boolean IS FALSE THEN NULL ELSE archived_at END WHERE id = $1 AND workspace_id = $2 RETURNING id, workspace_id, name, contact_name, contact_email, notes, archived_at, created_at, updated_at`, customerID, workspaceID, req.Name, req.ContactName, req.ContactEmail, req.Notes, req.Archived).Scan(&customer.ID, &customer.WorkspaceID, &customer.Name, &customer.ContactName, &customer.ContactEmail, &customer.Notes, &customer.ArchivedAt, &customer.CreatedAt, &customer.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update customer: %w", err)
+	}
+	return customer, nil
+}
+
+func (r *Repo) ListProjectAllocations(ctx context.Context, projectID string) ([]models.ProjectMemberAllocation, error) {
+	rows, err := r.pool.Query(ctx, `SELECT project_id, user_id, days_per_week FROM project_member_allocations WHERE project_id = $1`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list project allocations: %w", err)
+	}
+	defer rows.Close()
+	allocations := make([]models.ProjectMemberAllocation, 0)
+	for rows.Next() {
+		var allocation models.ProjectMemberAllocation
+		if err := rows.Scan(&allocation.ProjectID, &allocation.UserID, &allocation.DaysPerWeek); err != nil {
+			return nil, err
+		}
+		allocations = append(allocations, allocation)
+	}
+	return allocations, rows.Err()
+}
+
+func (r *Repo) UpsertProjectAllocation(ctx context.Context, projectID, userID string, daysPerWeek float64) (*models.ProjectMemberAllocation, error) {
+	allocation := &models.ProjectMemberAllocation{}
+	err := r.pool.QueryRow(ctx, `INSERT INTO project_member_allocations (project_id, user_id, days_per_week) SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2) ON CONFLICT (project_id, user_id) DO UPDATE SET days_per_week = EXCLUDED.days_per_week RETURNING project_id, user_id, days_per_week`, projectID, userID, daysPerWeek).Scan(&allocation.ProjectID, &allocation.UserID, &allocation.DaysPerWeek)
+	if err != nil {
+		return nil, fmt.Errorf("upsert project allocation: %w", err)
+	}
+	return allocation, nil
+}
+
+func (r *Repo) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) ([]string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin remove workspace member: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var email string
+	if err := tx.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, userID).Scan(&email); err != nil {
+		return nil, fmt.Errorf("load workspace member email: %w", err)
+	}
+
+	var ownedProjectCount int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM project_members pm JOIN projects p ON p.id = pm.project_id
+		 WHERE p.workspace_id = $1 AND pm.user_id = $2 AND pm.role = 'owner'`, workspaceID, userID).Scan(&ownedProjectCount); err != nil {
+		return nil, fmt.Errorf("count owned workspace projects: %w", err)
+	}
+	if ownedProjectCount > 0 {
+		return nil, fmt.Errorf("transfer ownership of the member's projects before removing them from the workspace")
+	}
+
+	rows, err := tx.Query(ctx,
+		`SELECT pm.project_id::text FROM project_members pm JOIN projects p ON p.id = pm.project_id
+		 WHERE p.workspace_id = $1 AND pm.user_id = $2`, workspaceID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list project memberships for workspace removal: %w", err)
+	}
+	projectIDs := make([]string, 0)
+	for rows.Next() {
+		var projectID string
+		if err := rows.Scan(&projectID); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan project membership for workspace removal: %w", err)
+		}
+		projectIDs = append(projectIDs, projectID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("read project memberships for workspace removal: %w", err)
+	}
+	rows.Close()
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM project_members pm USING projects p
+		 WHERE pm.project_id = p.id AND p.workspace_id = $1 AND pm.user_id = $2`, workspaceID, userID); err != nil {
+		return nil, fmt.Errorf("remove project memberships with workspace member: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM access_control ac USING projects p
+		 WHERE ac.resource_id = p.id AND ac.resource_type = 'Project' AND p.workspace_id = $1 AND ac.user_id = $2`, workspaceID, userID); err != nil {
+		return nil, fmt.Errorf("remove project access with workspace member: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE team_invitations invitation SET status = 'cancelled'
+		 FROM projects p
+		 WHERE invitation.project_id = p.id AND p.workspace_id = $1
+		 AND LOWER(invitation.email) = LOWER($2) AND invitation.status = 'pending'`, workspaceID, email); err != nil {
+		return nil, fmt.Errorf("cancel project invitations with workspace member: %w", err)
+	}
+	result, err := tx.Exec(ctx,
+		`DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND role <> 'owner'`, workspaceID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("remove workspace member: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return nil, fmt.Errorf("workspace member not found or is the workspace owner")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit remove workspace member: %w", err)
+	}
+	return projectIDs, nil
+}
+
+func (r *Repo) CreateWorkspaceInvitation(ctx context.Context, invitedByID string, req models.CreateWorkspaceInvitationRequest, workspaceID, tokenHash string, invitedUserID *string, expiresAt time.Time) (*models.WorkspaceInvitation, error) {
+	invite := &models.WorkspaceInvitation{}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO workspace_invitations (workspace_id, invited_by_id, invited_user_id, email, role, token_hash, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, workspace_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at`,
+		workspaceID, invitedByID, invitedUserID, req.Email, req.Role, tokenHash, expiresAt).
+		Scan(&invite.ID, &invite.WorkspaceID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace invitation: %w", err)
+	}
+	return invite, nil
+}
+
+func (r *Repo) ListWorkspaceInvitations(ctx context.Context, workspaceID string) ([]models.WorkspaceInvitation, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, workspace_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
+		 FROM workspace_invitations WHERE workspace_id = $1 ORDER BY created_at DESC`, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list workspace invitations: %w", err)
+	}
+	defer rows.Close()
+	invitations := make([]models.WorkspaceInvitation, 0)
+	for rows.Next() {
+		var invite models.WorkspaceInvitation
+		if err := rows.Scan(&invite.ID, &invite.WorkspaceID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan workspace invitation: %w", err)
+		}
+		invitations = append(invitations, invite)
+	}
+	return invitations, rows.Err()
+}
+
+func (r *Repo) GetWorkspaceInvitationByTokenHash(ctx context.Context, tokenHash string) (*models.WorkspaceInvitation, error) {
+	invite := &models.WorkspaceInvitation{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, workspace_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
+		 FROM workspace_invitations WHERE token_hash = $1`, tokenHash).
+		Scan(&invite.ID, &invite.WorkspaceID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get workspace invitation by token hash: %w", err)
+	}
+	return invite, nil
+}
+
+func (r *Repo) AcceptWorkspaceInvitation(ctx context.Context, invitationID, userID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE workspace_invitations SET status = 'accepted', invited_user_id = $2, accepted_at = NOW()
+		 WHERE id = $1`, invitationID, userID)
+	if err != nil {
+		return fmt.Errorf("accept workspace invitation: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) CancelWorkspaceInvitation(ctx context.Context, workspaceID, invitationID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE workspace_invitations SET status = 'cancelled' WHERE id = $1 AND workspace_id = $2`, invitationID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("cancel workspace invitation: %w", err)
+	}
+	return nil
+}
+
 // ---- Projects ----
 
-func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Project, error) {
-	rows, err := r.pool.Query(ctx,
-		projectSelect+` ORDER BY p.created_at DESC`, userID)
+func (r *Repo) ListProjects(ctx context.Context, userID string, workspaceIDs ...string) ([]models.Project, error) {
+	query := projectSelect
+	args := []any{userID}
+	if len(workspaceIDs) > 0 && workspaceIDs[0] != "" {
+		query += ` AND p.workspace_id = $2`
+		args = append(args, workspaceIDs[0])
+	}
+	query += ` ORDER BY p.created_at DESC`
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
@@ -801,7 +1219,7 @@ func (r *Repo) ListProjects(ctx context.Context, userID string) ([]models.Projec
 	var out []models.Project
 	for rows.Next() {
 		var p models.Project
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.Role, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.ClientID, &p.HourBudget, &p.IsEncrypted, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.Role, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -837,12 +1255,26 @@ func (r *Repo) CreateProject(ctx context.Context, userID string, req models.Crea
 	}
 
 	p := &models.Project{}
+	workspaceID := req.WorkspaceID
+	if workspaceID == "" {
+		workspaceID, err = r.GetDefaultWorkspaceID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	workspaceRole, err := r.GetWorkspaceRole(ctx, workspaceID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if workspaceRole != "owner" && workspaceRole != "admin" && workspaceRole != "member" {
+		return nil, fmt.Errorf("workspace role cannot create projects")
+	}
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO projects (user_id, name, description, status, task_key_prefix, days_per_week, allocated_days, is_encrypted)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
-		userID, req.Name, req.Description, req.Status, taskKeyPrefix, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		`INSERT INTO projects (workspace_id, user_id, name, description, status, task_key_prefix, days_per_week, allocated_days, client_id, hour_budget, is_encrypted)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, client_id, hour_budget, is_encrypted, created_at, updated_at, workspace_id`,
+		workspaceID, userID, req.Name, req.Description, req.Status, taskKeyPrefix, req.DaysPerWeek, req.AllocatedDays, req.ClientID, req.HourBudget, req.IsEncrypted,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.ClientID, &p.HourBudget, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID); err != nil {
 		return nil, fmt.Errorf("create project: %w", err)
 	}
 
@@ -852,6 +1284,24 @@ func (r *Repo) CreateProject(ctx context.Context, userID string, req models.Crea
 		p.ID, userID,
 	); err != nil {
 		return nil, fmt.Errorf("create project owner membership: %w", err)
+	}
+
+	var autoAddMembers bool
+	if err := tx.QueryRow(ctx, `SELECT auto_add_members_to_projects FROM workspaces WHERE id = $1`, workspaceID).Scan(&autoAddMembers); err != nil {
+		return nil, fmt.Errorf("load workspace project membership default: %w", err)
+	}
+	if autoAddMembers && !req.IsEncrypted {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO project_members (project_id, user_id, role)
+			 SELECT $1, wm.user_id,
+				CASE WHEN wm.role = 'guest' THEN 'viewer' ELSE 'editor' END
+			 FROM workspace_members wm
+			 WHERE wm.workspace_id = $2 AND wm.user_id <> $3
+			 ON CONFLICT (project_id, user_id) DO NOTHING`,
+			p.ID, workspaceID, userID,
+		); err != nil {
+			return nil, fmt.Errorf("add workspace members to project: %w", err)
+		}
 	}
 
 	templates, err := r.loadWorkspaceTaskStatusTemplates(ctx, userID)
@@ -894,14 +1344,14 @@ func (r *Repo) UpdateProject(ctx context.Context, id, userID string, req models.
 		 	WHEN $6::text IS NOT NULL AND next_task_number <= 1 THEN $6::text
 		 	ELSE task_key_prefix
 		 END,
-		 days_per_week = COALESCE($7, days_per_week), allocated_days = COALESCE($8, allocated_days), is_encrypted = COALESCE($9, is_encrypted)
+		 days_per_week = COALESCE($7, days_per_week), allocated_days = COALESCE($8, allocated_days), client_id = COALESCE($9, client_id), hour_budget = COALESCE($10, hour_budget), is_encrypted = COALESCE($11, is_encrypted)
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = projects.id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
 		 )
-		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, is_encrypted, created_at, updated_at`,
-		id, userID, req.Name, req.Description, req.Status, normalizedPrefix, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt)
+		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, client_id, hour_budget, is_encrypted, created_at, updated_at, workspace_id`,
+		id, userID, req.Name, req.Description, req.Status, normalizedPrefix, req.DaysPerWeek, req.AllocatedDays, req.ClientID, req.HourBudget, req.IsEncrypted,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.ClientID, &p.HourBudget, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("update project: %w", err)
 	}
@@ -1231,6 +1681,64 @@ func (r *Repo) ReorderProjectTaskStatuses(ctx context.Context, projectID string,
 	return nil
 }
 
+// ---- Project milestones ----
+
+func scanMilestoneRows(rows pgx.Rows) ([]models.ProjectMilestone, error) {
+	milestones := make([]models.ProjectMilestone, 0)
+	for rows.Next() {
+		var milestone models.ProjectMilestone
+		if err := rows.Scan(&milestone.ID, &milestone.ProjectID, &milestone.CreatedBy, &milestone.Title, &milestone.Description, &milestone.Status, &milestone.DueDate, &milestone.Position, &milestone.CreatedAt, &milestone.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan milestone: %w", err)
+		}
+		milestones = append(milestones, milestone)
+	}
+	return milestones, rows.Err()
+}
+
+const milestoneSelect = `SELECT id, project_id, created_by, title, description, status, due_date, position, created_at, updated_at FROM project_milestones`
+
+func (r *Repo) ListProjectMilestones(ctx context.Context, projectID, userID string) ([]models.ProjectMilestone, error) {
+	rows, err := r.pool.Query(ctx, milestoneSelect+` WHERE project_id = $1 AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $1 AND pm.user_id = $2) ORDER BY position ASC, due_date ASC NULLS LAST, created_at ASC`, projectID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list project milestones: %w", err)
+	}
+	defer rows.Close()
+	return scanMilestoneRows(rows)
+}
+
+func (r *Repo) CreateProjectMilestone(ctx context.Context, projectID, userID string, req models.CreateProjectMilestoneRequest) (*models.ProjectMilestone, error) {
+	milestone := &models.ProjectMilestone{}
+	// Position is calculated inside the insert so concurrent project members do not
+	// need to coordinate client-side ordering.
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO project_milestones (project_id, created_by, title, description, due_date, position)
+		SELECT $1, $2, $3, $4, $5::date, COALESCE(MAX(position), -1) + 1
+		FROM project_milestones WHERE project_id = $1
+		AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = $1 AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor'))
+		RETURNING id, project_id, created_by, title, description, status, due_date, position, created_at, updated_at`, projectID, userID, req.Title, req.Description, req.DueDate).Scan(&milestone.ID, &milestone.ProjectID, &milestone.CreatedBy, &milestone.Title, &milestone.Description, &milestone.Status, &milestone.DueDate, &milestone.Position, &milestone.CreatedAt, &milestone.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create project milestone: %w", err)
+	}
+	return milestone, nil
+}
+
+func (r *Repo) UpdateProjectMilestone(ctx context.Context, milestoneID, userID string, req models.UpdateProjectMilestoneRequest) (*models.ProjectMilestone, error) {
+	milestone := &models.ProjectMilestone{}
+	err := r.pool.QueryRow(ctx, `
+		UPDATE project_milestones m SET title = COALESCE($3, m.title), description = COALESCE($4, m.description), status = COALESCE($5, m.status), due_date = COALESCE($6::date, m.due_date)
+		WHERE m.id = $1 AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = m.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor'))
+		RETURNING m.id, m.project_id, m.created_by, m.title, m.description, m.status, m.due_date, m.position, m.created_at, m.updated_at`, milestoneID, userID, req.Title, req.Description, req.Status, req.DueDate).Scan(&milestone.ID, &milestone.ProjectID, &milestone.CreatedBy, &milestone.Title, &milestone.Description, &milestone.Status, &milestone.DueDate, &milestone.Position, &milestone.CreatedAt, &milestone.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update project milestone: %w", err)
+	}
+	return milestone, nil
+}
+
+func (r *Repo) DeleteProjectMilestone(ctx context.Context, milestoneID, userID string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM project_milestones m WHERE m.id = $1 AND EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = m.project_id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor'))`, milestoneID, userID)
+	return err
+}
+
 func nullableNormalizedColorToken(value *string) *string {
 	if value == nil {
 		return nil
@@ -1321,8 +1829,19 @@ func (r *Repo) ListProjectMembers(ctx context.Context, projectID string) ([]mode
 }
 
 func (r *Repo) CreateProjectMember(ctx context.Context, projectID, userID, role string) (*models.ProjectMember, error) {
+	var workspaceID string
+	if err := r.pool.QueryRow(ctx, `SELECT workspace_id FROM projects WHERE id = $1`, projectID).Scan(&workspaceID); err != nil {
+		return nil, fmt.Errorf("load project workspace for member: %w", err)
+	}
+	allowed, err := r.CanAccessWorkspace(ctx, workspaceID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("validate workspace member for project: %w", err)
+	}
+	if !allowed {
+		return nil, fmt.Errorf("project members must belong to the workspace")
+	}
 	member := &models.ProjectMember{}
-	err := r.pool.QueryRow(ctx,
+	err = r.pool.QueryRow(ctx,
 		`INSERT INTO project_members (project_id, user_id, role)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
@@ -1349,7 +1868,7 @@ func (r *Repo) UpdateProjectMemberRole(ctx context.Context, projectID, userID, r
 		`UPDATE project_members pm
 		 SET role = $3
 		 FROM users u
-		 WHERE pm.project_id = $1 AND pm.user_id = $2 AND u.id = pm.user_id
+		 WHERE pm.project_id = $1 AND pm.user_id = $2 AND pm.role <> 'owner' AND u.id = pm.user_id
 		 RETURNING pm.id, pm.project_id, pm.user_id, u.email, u.name, pm.role, pm.joined_at`,
 		projectID, userID, role,
 	).Scan(&member.ID, &member.ProjectID, &member.UserID, &member.Email, &member.Name, &member.Role, &member.JoinedAt)
@@ -1360,9 +1879,12 @@ func (r *Repo) UpdateProjectMemberRole(ctx context.Context, projectID, userID, r
 }
 
 func (r *Repo) RemoveProjectMember(ctx context.Context, projectID, userID string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`, projectID, userID)
+	result, err := r.pool.Exec(ctx, `DELETE FROM project_members WHERE project_id = $1 AND user_id = $2 AND role <> 'owner'`, projectID, userID)
 	if err != nil {
 		return fmt.Errorf("remove project member: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return fmt.Errorf("project member not found or is the project owner")
 	}
 	return nil
 }
@@ -1370,11 +1892,11 @@ func (r *Repo) RemoveProjectMember(ctx context.Context, projectID, userID string
 func (r *Repo) CreateInvitation(ctx context.Context, invitedByID string, req models.CreateInvitationRequest, tokenHash string, invitedUserID *string, expiresAt time.Time) (*models.TeamInvitation, error) {
 	invite := &models.TeamInvitation{}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO team_invitations (project_id, invited_by_id, invited_user_id, email, role, token_hash, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id, project_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at`,
-		req.ProjectID, invitedByID, invitedUserID, req.Email, req.Role, tokenHash, expiresAt,
-	).Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
+		`INSERT INTO team_invitations (project_id, invited_by_id, invited_user_id, email, role, workspace_role, token_hash, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		 RETURNING id, project_id, email, role, workspace_role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at`,
+		req.ProjectID, invitedByID, invitedUserID, req.Email, req.Role, req.WorkspaceRole, tokenHash, expiresAt,
+	).Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.WorkspaceRole, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create invitation: %w", err)
 	}
@@ -1383,7 +1905,7 @@ func (r *Repo) CreateInvitation(ctx context.Context, invitedByID string, req mod
 
 func (r *Repo) ListInvitations(ctx context.Context, projectID string) ([]models.TeamInvitation, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, project_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
+		`SELECT id, project_id, email, role, workspace_role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
 		 FROM team_invitations
 		 WHERE project_id = $1
 		 ORDER BY created_at DESC`,
@@ -1397,7 +1919,7 @@ func (r *Repo) ListInvitations(ctx context.Context, projectID string) ([]models.
 	var out []models.TeamInvitation
 	for rows.Next() {
 		var invite models.TeamInvitation
-		if err := rows.Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt); err != nil {
+		if err := rows.Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.WorkspaceRole, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, invite)
@@ -1411,11 +1933,11 @@ func (r *Repo) ListInvitations(ctx context.Context, projectID string) ([]models.
 func (r *Repo) GetInvitationByTokenHash(ctx context.Context, tokenHash string) (*models.TeamInvitation, error) {
 	invite := &models.TeamInvitation{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, project_id, email, role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
+		`SELECT id, project_id, email, role, workspace_role, status, invited_user_id, invited_by_id, expires_at, accepted_at, created_at
 		 FROM team_invitations
 		 WHERE token_hash = $1`,
 		tokenHash,
-	).Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
+	).Scan(&invite.ID, &invite.ProjectID, &invite.Email, &invite.Role, &invite.WorkspaceRole, &invite.Status, &invite.InvitedUserID, &invite.InvitedByID, &invite.ExpiresAt, &invite.AcceptedAt, &invite.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -1425,17 +1947,45 @@ func (r *Repo) GetInvitationByTokenHash(ctx context.Context, tokenHash string) (
 	return invite, nil
 }
 
-func (r *Repo) AcceptInvitation(ctx context.Context, invitationID, userID string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE team_invitations
-		 SET status = 'accepted', invited_user_id = $2, accepted_at = NOW()
-		 WHERE id = $1`,
-		invitationID, userID,
-	)
+func (r *Repo) AcceptInvitation(ctx context.Context, invitationID, userID string) (string, error) {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("accept invitation: %w", err)
+		return "", fmt.Errorf("begin accept project invitation: %w", err)
 	}
-	return nil
+	defer tx.Rollback(ctx)
+
+	var projectID, workspaceID, projectRole, workspaceRole string
+	if err := tx.QueryRow(ctx,
+		`SELECT invitation.project_id, project.workspace_id, invitation.role, invitation.workspace_role
+		 FROM team_invitations invitation
+		 JOIN projects project ON project.id = invitation.project_id
+		 WHERE invitation.id = $1 AND invitation.status = 'pending'
+		 FOR UPDATE`, invitationID).
+		Scan(&projectID, &workspaceID, &projectRole, &workspaceRole); err != nil {
+		return "", fmt.Errorf("load project invitation for acceptance: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO workspace_members (workspace_id, user_id, role)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (workspace_id, user_id) DO NOTHING`, workspaceID, userID, workspaceRole); err != nil {
+		return "", fmt.Errorf("add invited user to workspace: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO project_members (project_id, user_id, role)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role`, projectID, userID, projectRole); err != nil {
+		return "", fmt.Errorf("add invited user to project: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE team_invitations SET status = 'accepted', invited_user_id = $2, accepted_at = NOW()
+		 WHERE id = $1`, invitationID, userID); err != nil {
+		return "", fmt.Errorf("accept invitation: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit accept project invitation: %w", err)
+	}
+	return workspaceID, nil
 }
 
 func (r *Repo) CancelInvitation(ctx context.Context, invitationID string) error {
@@ -2068,9 +2618,15 @@ func (r *Repo) DeleteTask(ctx context.Context, id, userID string) error {
 
 // ---- Wiki Guides ----
 
-func (r *Repo) ListGuides(ctx context.Context, userID string) ([]models.WikiGuide, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, title, description, is_encrypted, created_at, updated_at FROM wiki_guides WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+func (r *Repo) ListGuides(ctx context.Context, userID string, workspaceIDs ...string) ([]models.WikiGuide, error) {
+	query := `SELECT id, user_id, title, description, is_encrypted, created_at, updated_at, workspace_id, project_id, parent_id FROM wiki_guides WHERE user_id = $1`
+	args := []any{userID}
+	if len(workspaceIDs) > 0 && workspaceIDs[0] != "" {
+		query += ` AND workspace_id = $2`
+		args = append(args, workspaceIDs[0])
+	}
+	query += ` ORDER BY created_at DESC`
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list guides: %w", err)
 	}
@@ -2078,7 +2634,7 @@ func (r *Repo) ListGuides(ctx context.Context, userID string) ([]models.WikiGuid
 	var out []models.WikiGuide
 	for rows.Next() {
 		var g models.WikiGuide
-		if err := rows.Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt); err != nil {
+		if err := rows.Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt, &g.WorkspaceID, &g.ProjectID, &g.ParentID); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
@@ -2092,8 +2648,8 @@ func (r *Repo) ListGuides(ctx context.Context, userID string) ([]models.WikiGuid
 func (r *Repo) GetGuide(ctx context.Context, id, userID string) (*models.WikiGuide, error) {
 	g := &models.WikiGuide{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, title, description, is_encrypted, created_at, updated_at FROM wiki_guides WHERE id = $1 AND user_id = $2`, id, userID,
-	).Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt)
+		`SELECT id, user_id, title, description, is_encrypted, created_at, updated_at, workspace_id, project_id, parent_id FROM wiki_guides WHERE id = $1 AND user_id = $2`, id, userID,
+	).Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt, &g.WorkspaceID, &g.ProjectID, &g.ParentID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -2110,11 +2666,28 @@ func (r *Repo) GetGuide(ctx context.Context, id, userID string) (*models.WikiGui
 
 func (r *Repo) CreateGuide(ctx context.Context, userID string, req models.CreateGuideRequest) (*models.WikiGuide, error) {
 	g := &models.WikiGuide{}
+	workspaceID := req.WorkspaceID
+	if workspaceID == "" {
+		var err error
+		workspaceID, err = r.GetDefaultWorkspaceID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if allowed, err := r.CanAccessWorkspace(ctx, workspaceID, userID); err != nil || !allowed {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("workspace access denied")
+	}
+	if err := r.validateKnowledgeLinks(ctx, workspaceID, req.ProjectID, req.ParentID); err != nil {
+		return nil, err
+	}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO wiki_guides (user_id, title, description, is_encrypted) VALUES ($1, $2, $3, $4)
-		 RETURNING id, user_id, title, description, is_encrypted, created_at, updated_at`,
-		userID, req.Title, req.Description, req.IsEncrypted,
-	).Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt)
+		`INSERT INTO wiki_guides (workspace_id, user_id, project_id, parent_id, title, description, is_encrypted) VALUES ($1, $2, NULLIF($3::text, '')::uuid, NULLIF($4::text, '')::uuid, $5, $6, $7)
+		 RETURNING id, user_id, title, description, is_encrypted, created_at, updated_at, workspace_id, project_id, parent_id`,
+		workspaceID, userID, req.ProjectID, req.ParentID, req.Title, req.Description, req.IsEncrypted,
+	).Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt, &g.WorkspaceID, &g.ProjectID, &g.ParentID)
 	if err != nil {
 		return nil, fmt.Errorf("create guide: %w", err)
 	}
@@ -2123,12 +2696,29 @@ func (r *Repo) CreateGuide(ctx context.Context, userID string, req models.Create
 
 func (r *Repo) UpdateGuide(ctx context.Context, id, userID string, req models.UpdateGuideRequest) (*models.WikiGuide, error) {
 	g := &models.WikiGuide{}
+	var currentWorkspaceID string
+	if err := r.pool.QueryRow(ctx, `SELECT workspace_id FROM wiki_guides WHERE id = $1 AND user_id = $2`, id, userID).Scan(&currentWorkspaceID); err != nil {
+		return nil, fmt.Errorf("load guide workspace: %w", err)
+	}
+	workspaceID := currentWorkspaceID
+	if req.WorkspaceID != nil && *req.WorkspaceID != "" {
+		workspaceID = *req.WorkspaceID
+	}
+	if allowed, err := r.CanAccessWorkspace(ctx, workspaceID, userID); err != nil || !allowed {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("workspace access denied")
+	}
+	if err := r.validateKnowledgeLinks(ctx, workspaceID, req.ProjectID, req.ParentID); err != nil {
+		return nil, err
+	}
 	err := r.pool.QueryRow(ctx,
-		`UPDATE wiki_guides SET title = COALESCE($3, title), description = COALESCE($4, description), is_encrypted = COALESCE($5, is_encrypted)
+		`UPDATE wiki_guides SET title = COALESCE($3, title), description = COALESCE($4, description), is_encrypted = COALESCE($5, is_encrypted), workspace_id = COALESCE($6, workspace_id), project_id = CASE WHEN $7::text IS NOT NULL THEN NULLIF($7::text, '')::uuid ELSE project_id END, parent_id = CASE WHEN $8::text IS NOT NULL THEN NULLIF($8::text, '')::uuid ELSE parent_id END
 		 WHERE id = $1 AND user_id = $2
-		 RETURNING id, user_id, title, description, is_encrypted, created_at, updated_at`,
-		id, userID, req.Title, req.Description, req.IsEncrypted,
-	).Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt)
+		 RETURNING id, user_id, title, description, is_encrypted, created_at, updated_at, workspace_id, project_id, parent_id`,
+		id, userID, req.Title, req.Description, req.IsEncrypted, req.WorkspaceID, req.ProjectID, req.ParentID,
+	).Scan(&g.ID, &g.UserID, &g.Title, &g.Description, &g.IsEncrypted, &g.CreatedAt, &g.UpdatedAt, &g.WorkspaceID, &g.ProjectID, &g.ParentID)
 	if err != nil {
 		return nil, fmt.Errorf("update guide: %w", err)
 	}
@@ -2446,9 +3036,15 @@ func (r *Repo) LogActivity(ctx context.Context, userID, actType, entityType, ent
 
 // ---- Snippets ----
 
-func (r *Repo) ListSnippets(ctx context.Context, userID string) ([]models.Snippet, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, title, content, blocks, language, tags, description, is_encrypted, created_at, updated_at FROM snippets WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+func (r *Repo) ListSnippets(ctx context.Context, userID string, workspaceIDs ...string) ([]models.Snippet, error) {
+	query := `SELECT id, user_id, title, content, blocks, language, tags, description, is_encrypted, created_at, updated_at, workspace_id, project_id, collection FROM snippets WHERE user_id = $1`
+	args := []any{userID}
+	if len(workspaceIDs) > 0 && workspaceIDs[0] != "" {
+		query += ` AND workspace_id = $2`
+		args = append(args, workspaceIDs[0])
+	}
+	query += ` ORDER BY created_at DESC`
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list snippets: %w", err)
 	}
@@ -2456,7 +3052,7 @@ func (r *Repo) ListSnippets(ctx context.Context, userID string) ([]models.Snippe
 	var out []models.Snippet
 	for rows.Next() {
 		var s models.Snippet
-		if err := rows.Scan(&s.ID, &s.UserID, &s.Title, &s.Content, &s.Blocks, &s.Language, &s.Tags, &s.Description, &s.IsEncrypted, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Title, &s.Content, &s.Blocks, &s.Language, &s.Tags, &s.Description, &s.IsEncrypted, &s.CreatedAt, &s.UpdatedAt, &s.WorkspaceID, &s.ProjectID, &s.Collection); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -2469,26 +3065,82 @@ func (r *Repo) ListSnippets(ctx context.Context, userID string) ([]models.Snippe
 
 func (r *Repo) CreateSnippet(ctx context.Context, userID string, req models.CreateSnippetRequest) (*models.Snippet, error) {
 	s := &models.Snippet{}
+	workspaceID := req.WorkspaceID
+	if workspaceID == "" {
+		var err error
+		workspaceID, err = r.GetDefaultWorkspaceID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if allowed, err := r.CanAccessWorkspace(ctx, workspaceID, userID); err != nil || !allowed {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("workspace access denied")
+	}
+	if err := r.validateKnowledgeLinks(ctx, workspaceID, req.ProjectID, nil); err != nil {
+		return nil, err
+	}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO snippets (user_id, title, content, blocks, language, tags, description, is_encrypted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		 RETURNING id, user_id, title, content, blocks, language, tags, description, is_encrypted, created_at, updated_at`,
-		userID, req.Title, req.Content, req.Blocks, req.Language, req.Tags, req.Description, req.IsEncrypted,
-	).Scan(&s.ID, &s.UserID, &s.Title, &s.Content, &s.Blocks, &s.Language, &s.Tags, &s.Description, &s.IsEncrypted, &s.CreatedAt, &s.UpdatedAt)
+		`INSERT INTO snippets (workspace_id, user_id, project_id, collection, title, content, blocks, language, tags, description, is_encrypted) VALUES ($1, $2, NULLIF($3::text, '')::uuid, NULLIF($4::text, ''), $5, $6, $7, $8, $9, $10, $11)
+		 RETURNING id, user_id, title, content, blocks, language, tags, description, is_encrypted, created_at, updated_at, workspace_id, project_id, collection`,
+		workspaceID, userID, req.ProjectID, req.Collection, req.Title, req.Content, req.Blocks, req.Language, req.Tags, req.Description, req.IsEncrypted,
+	).Scan(&s.ID, &s.UserID, &s.Title, &s.Content, &s.Blocks, &s.Language, &s.Tags, &s.Description, &s.IsEncrypted, &s.CreatedAt, &s.UpdatedAt, &s.WorkspaceID, &s.ProjectID, &s.Collection)
 	if err != nil {
 		return nil, fmt.Errorf("create snippet: %w", err)
 	}
 	return s, nil
 }
 
+func (r *Repo) validateKnowledgeLinks(ctx context.Context, workspaceID string, projectID, parentID *string) error {
+	if projectID != nil && strings.TrimSpace(*projectID) != "" {
+		var exists bool
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1 AND workspace_id = $2)`, *projectID, workspaceID).Scan(&exists); err != nil {
+			return fmt.Errorf("validate knowledge project link: %w", err)
+		}
+		if !exists {
+			return fmt.Errorf("project does not belong to workspace")
+		}
+	}
+	if parentID != nil && strings.TrimSpace(*parentID) != "" {
+		var exists bool
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM wiki_guides WHERE id = $1 AND workspace_id = $2)`, *parentID, workspaceID).Scan(&exists); err != nil {
+			return fmt.Errorf("validate wiki parent link: %w", err)
+		}
+		if !exists {
+			return fmt.Errorf("parent guide does not belong to workspace")
+		}
+	}
+	return nil
+}
+
 func (r *Repo) UpdateSnippet(ctx context.Context, id, userID string, req models.UpdateSnippetRequest) (*models.Snippet, error) {
 	s := &models.Snippet{}
+	var currentWorkspaceID string
+	if err := r.pool.QueryRow(ctx, `SELECT workspace_id FROM snippets WHERE id = $1 AND user_id = $2`, id, userID).Scan(&currentWorkspaceID); err != nil {
+		return nil, fmt.Errorf("load snippet workspace: %w", err)
+	}
+	workspaceID := currentWorkspaceID
+	if req.WorkspaceID != nil && *req.WorkspaceID != "" {
+		workspaceID = *req.WorkspaceID
+	}
+	if allowed, err := r.CanAccessWorkspace(ctx, workspaceID, userID); err != nil || !allowed {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("workspace access denied")
+	}
+	if err := r.validateKnowledgeLinks(ctx, workspaceID, req.ProjectID, nil); err != nil {
+		return nil, err
+	}
 	err := r.pool.QueryRow(ctx,
 		`UPDATE snippets SET title = COALESCE($3, title), content = COALESCE($4, content), blocks = COALESCE($5, blocks),
-		 language = COALESCE($6, language), tags = COALESCE($7, tags), description = COALESCE($8, description), is_encrypted = COALESCE($9, is_encrypted)
+			 language = COALESCE($6, language), tags = COALESCE($7, tags), description = COALESCE($8, description), is_encrypted = COALESCE($9, is_encrypted), workspace_id = COALESCE($10, workspace_id), project_id = CASE WHEN $11::text IS NOT NULL THEN NULLIF($11::text, '')::uuid ELSE project_id END, collection = CASE WHEN $12::text IS NOT NULL THEN NULLIF($12::text, '') ELSE collection END
 		 WHERE id = $1 AND user_id = $2
-		 RETURNING id, user_id, title, content, blocks, language, tags, description, is_encrypted, created_at, updated_at`,
-		id, userID, req.Title, req.Content, req.Blocks, req.Language, req.Tags, req.Description, req.IsEncrypted,
-	).Scan(&s.ID, &s.UserID, &s.Title, &s.Content, &s.Blocks, &s.Language, &s.Tags, &s.Description, &s.IsEncrypted, &s.CreatedAt, &s.UpdatedAt)
+		 RETURNING id, user_id, title, content, blocks, language, tags, description, is_encrypted, created_at, updated_at, workspace_id, project_id, collection`,
+		id, userID, req.Title, req.Content, req.Blocks, req.Language, req.Tags, req.Description, req.IsEncrypted, req.WorkspaceID, req.ProjectID, req.Collection,
+	).Scan(&s.ID, &s.UserID, &s.Title, &s.Content, &s.Blocks, &s.Language, &s.Tags, &s.Description, &s.IsEncrypted, &s.CreatedAt, &s.UpdatedAt, &s.WorkspaceID, &s.ProjectID, &s.Collection)
 	if err != nil {
 		return nil, fmt.Errorf("update snippet: %w", err)
 	}

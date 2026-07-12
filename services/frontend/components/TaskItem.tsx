@@ -253,6 +253,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
 
                 <div className="flex items-center gap-0.5">
                     <Button 
+                        aria-label={isExpanded ? `Collapse ${task.title}` : `Expand ${task.title}`}
                         variant="ghost" 
                         isIconOnly 
                         className={`h-6 w-6 rounded-md transition-all ${
@@ -263,6 +264,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                         {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                     </Button>
                     <Button 
+                        aria-label={`Delete ${task.title}`}
                         variant="ghost" 
                         isIconOnly 
                         className="h-6 w-6 rounded-md text-muted-foreground/20 hover:text-danger transition-all opacity-0 group-hover:opacity-100"
@@ -364,6 +366,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     </span>
                     
                     <Button 
+                        aria-label={task.isTimerRunning ? `Pause timer for ${task.title}` : `Start timer for ${task.title}`}
                         variant="ghost" 
                         isIconOnly 
                         className="h-5 w-5 rounded-sm transition-all"
@@ -375,7 +378,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                     {parsedTimeEntries.length > 0 && (
                         <Tooltip delay={0}>
                             <Tooltip.Trigger>
-                                <Button variant="ghost" isIconOnly className="h-5 w-5 rounded-sm text-muted-foreground/60 hover:text-foreground transition-colors">
+                                <Button aria-label={`View time records for ${task.title}`} variant="ghost" isIconOnly className="h-5 w-5 rounded-sm text-muted-foreground/60 hover:text-foreground transition-colors">
                                    <Clock size={10} />
                                 </Button>
                             </Tooltip.Trigger>
@@ -440,7 +443,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                 variant="secondary"
                                 className="h-8 rounded-xl pl-3 pr-9 text-sm"
                             />
-                            <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
+                            <Button aria-label={`Add subtask to ${task.title}`} type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
                                 <Plus size={12} />
                             </Button>
                         </form>
@@ -478,7 +481,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                                         {note.type} · {dayjs(note.date).fromNow()}
                                                     </span>
                                                     <div className="flex items-center gap-0.5 opacity-0 group-hover/note:opacity-100 transition-opacity">
-                                                        <Button 
+                                                        <Button
+                                                            aria-label="Edit note"
                                                             variant="ghost" 
                                                             isIconOnly 
                                                             className="h-5 w-5 rounded-md hover:text-accent transition-colors"
@@ -486,7 +490,8 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                                         >
                                                             <Pen size={10} />
                                                         </Button>
-                                                        <Button 
+                                                        <Button
+                                                            aria-label="Delete note"
                                                             variant="ghost" 
                                                             isIconOnly 
                                                             className="h-5 w-5 rounded-md hover:text-danger transition-colors"
@@ -540,7 +545,7 @@ const parsedTimeEntries = (task.timeEntries || []).map(e => {
                                         variant="secondary"
                                         className="h-8 rounded-xl pl-3 pr-9 text-sm"
                                     />
-                                    <Button type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
+                                    <Button aria-label="Save note" type="submit" variant="ghost" isIconOnly className="absolute right-1 top-1 h-6 w-6 rounded-lg hover:text-accent">
                                         <Plus size={12} />
                                     </Button>
                                 </div>

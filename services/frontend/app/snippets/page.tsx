@@ -6,6 +6,7 @@ import { SnippetDetailModal } from '@/components/SnippetDetailModal';
 import { SnippetModal } from '@/components/SnippetModal';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
@@ -28,6 +29,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 export default function SnippetsPage() {
     const { user, userKeys, privateKey } = useAuth();
+    const { workspaceId } = useWorkspace();
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +43,7 @@ export default function SnippetsPage() {
     const fetchSnippets = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
         try {
-            const data = await db.listSnippets();
+            const data = await db.listSnippets(workspaceId);
             const allSnippets = data.documents;
 
             const decryptedSnippets = await Promise.all(allSnippets.map(async (snippet) => {
@@ -86,7 +88,7 @@ export default function SnippetsPage() {
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [privateKey, user]);
+    }, [privateKey, user, workspaceId]);
 
     useEffect(() => {
         if (user) {
@@ -234,14 +236,12 @@ export default function SnippetsPage() {
         }
     };
 
-    // Derive collections from tags (use all unique tags as collection names)
-    const allTags = Array.from(new Set(snippets.flatMap(s => s.tags || []))).sort();
-
+    const collections = Array.from(new Set(snippets.map((snippet) => snippet.collection?.trim()).filter((collection): collection is string => Boolean(collection)))).sort((a, b) => a.localeCompare(b));
     const filteredSnippets = snippets.filter(s => {
         const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             s.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             s.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-        const matchesCollection = activeCollection === null || (s.tags || []).includes(activeCollection);
+        const matchesCollection = activeCollection === null || s.collection === activeCollection;
         return matchesSearch && matchesCollection;
     });
 
@@ -278,13 +278,14 @@ export default function SnippetsPage() {
 
             <div className="flex gap-6">
                 {/* Collections sidebar */}
-                {allTags.length > 0 && (
+                {collections.length > 0 && (
                     <aside className="hidden lg:flex flex-col gap-0.5 w-44 shrink-0">
                         <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-2 mb-1 flex items-center gap-1.5">
                             <Tag size={10} /> Collections
                         </p>
-                        <button
-                            onClick={() => setActiveCollection(null)}
+                        <Button
+                            variant="ghost"
+                            onPress={() => setActiveCollection(null)}
                             className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[13px] transition-colors text-left ${
                                 activeCollection === null
                                     ? 'bg-surface-secondary text-foreground font-medium'
@@ -294,23 +295,24 @@ export default function SnippetsPage() {
                             <FolderOpen size={13} className="shrink-0" />
                             <span>All snippets</span>
                             <span className="ml-auto text-[11px] text-muted-foreground">{snippets.length}</span>
-                        </button>
-                        {allTags.map(tag => {
-                            const count = snippets.filter(s => (s.tags || []).includes(tag)).length;
+                        </Button>
+                        {collections.map((collection) => {
+                            const count = snippets.filter((snippet) => snippet.collection === collection).length;
                             return (
-                                <button
-                                    key={tag}
-                                    onClick={() => setActiveCollection(activeCollection === tag ? null : tag)}
+                                <Button
+                                    key={collection}
+                                    variant="ghost"
+                                    onPress={() => setActiveCollection(activeCollection === collection ? null : collection)}
                                     className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[13px] transition-colors text-left ${
-                                        activeCollection === tag
+                                        activeCollection === collection
                                             ? 'bg-surface-secondary text-foreground font-medium'
                                             : 'text-muted-foreground hover:bg-surface-secondary hover:text-foreground'
                                     }`}
                                 >
                                     <Folder size={13} className="shrink-0" />
-                                    <span className="truncate flex-1">{tag}</span>
+                                    <span className="truncate flex-1">{collection}</span>
                                     <span className="ml-auto text-[11px] text-muted-foreground">{count}</span>
-                                </button>
+                                </Button>
                             );
                         })}
                     </aside>
@@ -382,6 +384,7 @@ export default function SnippetsPage() {
                         {/* Footer - separate from clickable area */}
                         <Card.Footer className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
                             <div className="flex flex-wrap gap-1.5 min-w-0 flex-1">
+                                {snippet.collection && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">{snippet.collection}</span>}
                                 {snippet.tags && snippet.tags.length > 0 ? (
                                     snippet.tags.slice(0, 3).map(tag => (
                                         <span key={tag} className="text-[11px] text-muted-foreground">#{tag}</span>

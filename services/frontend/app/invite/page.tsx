@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { db } from '@/services/frontend/lib/db';
 import { Button, Spinner, toast } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -10,6 +11,7 @@ export default function InvitePage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { user, isLoading } = useAuth();
+    const { refresh: refreshWorkspaces } = useWorkspace();
     const [accepting, setAccepting] = useState(false);
 
     useEffect(() => {
@@ -23,9 +25,10 @@ export default function InvitePage() {
             setAccepting(true);
             try {
                 const result = await db.acceptInvitation(token);
+                await refreshWorkspaces();
                 if (!cancelled) {
                     toast.success('Invitation accepted');
-                    router.replace(`/projects/${result.projectId}`);
+                    router.replace(result.projectId ? `/projects/${result.projectId}` : result.workspaceId ? '/workspace' : '/');
                 }
             } catch (error) {
                 console.error(error);
@@ -43,7 +46,7 @@ export default function InvitePage() {
         return () => {
             cancelled = true;
         };
-    }, [accepting, router, searchParams, user]);
+    }, [accepting, refreshWorkspaces, router, searchParams, user]);
 
     if (isLoading || accepting) {
         return (
@@ -83,8 +86,9 @@ export default function InvitePage() {
                     setAccepting(true);
                     try {
                         const result = await db.acceptInvitation(token);
+                        await refreshWorkspaces();
                         toast.success('Invitation accepted');
-                        router.replace(`/projects/${result.projectId}`);
+                        router.replace(result.projectId ? `/projects/${result.projectId}` : result.workspaceId ? '/workspace' : '/');
                     } catch (error) {
                         console.error(error);
                         toast.danger('Failed to accept invitation');

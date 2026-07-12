@@ -85,6 +85,13 @@ func (h *CollaborationHandler) AddMember(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
+	if allowed, accessErr := h.repo.CanAccessWorkspace(r.Context(), project.WorkspaceID, req.UserID); accessErr != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate workspace membership")
+		return
+	} else if !allowed {
+		writeError(w, http.StatusBadRequest, "add the person to the workspace before adding them to a project")
+		return
+	}
 	if project.IsEncrypted && req.EncryptedKey == nil {
 		writeError(w, http.StatusBadRequest, "encryptedKey is required for encrypted projects")
 		return
@@ -182,6 +189,7 @@ func (h *CollaborationHandler) CreateInvitation(w http.ResponseWriter, r *http.R
 	}
 	req.ProjectID = projectID
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.WorkspaceRole = "member"
 	if req.Email == "" || req.Role == "" {
 		writeError(w, http.StatusBadRequest, "email and role are required")
 		return
@@ -201,6 +209,13 @@ func (h *CollaborationHandler) CreateInvitation(w http.ResponseWriter, r *http.R
 	}
 	if targetUser != nil {
 		invitedUserID = &targetUser.ID
+		if allowed, accessErr := h.repo.CanAccessWorkspace(r.Context(), project.WorkspaceID, targetUser.ID); accessErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to validate workspace membership")
+			return
+		} else if allowed {
+			writeError(w, http.StatusConflict, "user already belongs to the workspace; add them directly to the project")
+			return
+		}
 	}
 	if project.IsEncrypted && (targetUser == nil || req.EncryptedKey == nil) {
 		writeError(w, http.StatusBadRequest, "encrypted projects require an existing vault-enabled user and encryptedKey")
@@ -254,6 +269,35 @@ func (h *CollaborationHandler) AcceptInvitation(w http.ResponseWriter, r *http.R
 		writeError(w, http.StatusInternalServerError, "failed to load invitation")
 		return
 	}
+	if invite == nil {
+		workspaceInvite, workspaceErr := h.repo.GetWorkspaceInvitationByTokenHash(r.Context(), hashInvitationToken(req.Token))
+		if workspaceErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load workspace invitation")
+			return
+		}
+		if workspaceInvite == nil || workspaceInvite.Status != "pending" {
+			writeError(w, http.StatusNotFound, "invitation not found")
+			return
+		}
+		if time.Now().After(workspaceInvite.ExpiresAt) {
+			writeError(w, http.StatusBadRequest, "invitation expired")
+			return
+		}
+		if strings.ToLower(workspaceInvite.Email) != strings.ToLower(currentUser.Email) {
+			writeError(w, http.StatusForbidden, "invitation email does not match current user")
+			return
+		}
+		if _, err := h.repo.CreateWorkspaceMember(r.Context(), workspaceInvite.WorkspaceID, userID, workspaceInvite.Role); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to join workspace")
+			return
+		}
+		if err := h.repo.AcceptWorkspaceInvitation(r.Context(), workspaceInvite.ID, userID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to accept workspace invitation")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"workspaceId": workspaceInvite.WorkspaceID})
+		return
+	}
 	if invite == nil || invite.Status != "pending" {
 		writeError(w, http.StatusNotFound, "invitation not found")
 		return
@@ -267,11 +311,7 @@ func (h *CollaborationHandler) AcceptInvitation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if _, err := h.repo.CreateProjectMember(r.Context(), invite.ProjectID, userID, invite.Role); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to join project")
-		return
-	}
-	if err := h.repo.AcceptInvitation(r.Context(), invite.ID, userID); err != nil {
+	if _, err := h.repo.AcceptInvitation(r.Context(), invite.ID, userID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to accept invitation")
 		return
 	}

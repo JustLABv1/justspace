@@ -96,12 +96,10 @@ export function NotificationInbox() {
 
     return (
         <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-            <Popover.Trigger>
-                <Button variant="ghost" size="sm" isIconOnly aria-label="Notifications" className="relative h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground">
-                    <Bell size={16} />
-                    {unreadCount > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-4 h-4 rounded-full bg-accent px-1 text-[9px] font-semibold leading-4 text-accent-foreground">{unreadCount > 99 ? '99+' : unreadCount}</span>}
-                </Button>
-            </Popover.Trigger>
+            <Button variant="ghost" size="sm" isIconOnly aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} className="relative h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground">
+                <Bell size={16} />
+                {unreadCount > 0 && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 min-w-4 h-4 rounded-full bg-accent px-1 text-[9px] font-semibold leading-4 text-accent-foreground">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+            </Button>
             <Popover.Content placement="bottom end" className="w-[360px] max-w-[calc(100vw-2rem)] p-0">
                 <Popover.Dialog>
                     <div className="flex items-center justify-between border-b border-border px-4 py-3">

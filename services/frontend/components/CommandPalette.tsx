@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { buildProjectViewHref, parseUserPreferences, SavedProjectView } from '@/services/frontend/lib/preferences';
@@ -23,6 +24,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     const [savedViews, setSavedViews] = useState<SavedProjectView[]>([]);
     const router = useRouter();
     const { user, privateKey } = useAuth();
+    const { workspaceId } = useWorkspace();
 
     // ESC to close
     useEffect(() => {
@@ -37,9 +39,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         setLoading(true);
         try {
             const [projectsRes, guidesRes, snippetsRes, tasksRes] = await Promise.all([
-                db.listProjects(),
-                db.listGuides(),
-                db.listSnippets(),
+                db.listProjects(workspaceId),
+                db.listGuides(workspaceId),
+                db.listSnippets(workspaceId),
                 db.listAllTasks(200),
             ]);
 
@@ -115,7 +117,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         } finally {
             setLoading(false);
         }
-    }, [privateKey, user]);
+    }, [privateKey, user, workspaceId]);
 
     useEffect(() => {
         fetchData();

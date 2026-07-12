@@ -17,6 +17,14 @@ This document reflects the current PostgreSQL schema used by justspace.
 - `backend/migrations/011_task_messages.up.sql`: migrates task notes into task messages
 - `backend/migrations/012_platform_admin_oidc.up.sql`: adds platform administration, account lifecycle, and OIDC identity/provider persistence
 - `backend/migrations/013_platform_branding_audit.up.sql`: adds global branding, removes the per-user workspace name, and adds the append-only administrator audit log
+- `backend/migrations/014_workspaces_and_resource_scope.up.sql`: adds workspaces, workspace memberships, and workspace scope for projects, wiki guides, and snippets
+- `backend/migrations/015_knowledge_links.up.sql`: adds project links, wiki hierarchy, and snippet collections
+- `backend/migrations/016_project_milestones.up.sql`: adds project milestones
+- `backend/migrations/017_workspace_invitations.up.sql`: adds workspace invitations and invitation lifecycle state
+- `backend/migrations/018_workspace_project_membership.up.sql`: makes project invitations workspace-backed and backfills project collaborators into their workspaces
+- `backend/migrations/019_workspace_project_membership_defaults.up.sql`: adds the per-workspace default for automatically adding members to new projects
+- `backend/migrations/020_workspace_types.up.sql`: adds the workspace operating model used to tailor planning features
+- `backend/migrations/021_consulting_customers_capacity.up.sql`: adds Consulting customers, project hour budgets, and member capacity planning
 
 ## Core Tables
 
@@ -74,6 +82,8 @@ Stores the stable `(provider_id, subject)` identity mapping used for OIDC login.
 | `next_task_number` | `integer` | Server-side counter for the next issued project task key |
 | `days_per_week` | `real` | Optional staffing value |
 | `allocated_days` | `integer` | Optional total allocation |
+| `client_id` | `uuid` | Optional Consulting customer reference |
+| `hour_budget` | `real` | Optional Consulting hours budget for the project |
 | `is_encrypted` | `boolean` | Vault/E2EE flag |
 | `created_at` | `timestamptz` | Creation timestamp |
 | `updated_at` | `timestamptz` | Auto-updated by trigger |
@@ -414,6 +424,71 @@ Indexes:
 ## Triggers
 
 The schema defines one shared trigger function, `update_updated_at_column()`, and applies it to all mutable tables so `updated_at` changes automatically on updates.
+
+### workspaces
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `owner_user_id` | `uuid` | Initial owner; references `users(id)` |
+| `name` | `varchar(255)` | Workspace display name |
+| `slug` | `varchar(120)` | Stable owner-scoped identifier |
+| `type` | `varchar(32)` | `project_management` (default) or `consulting`; controls capacity-planning UI |
+| `auto_add_members_to_projects` | `boolean` | Adds members to new unencrypted projects when enabled; defaults to `false` |
+| `created_at` / `updated_at` | `timestamptz` | Workspace lifecycle timestamps |
+
+### workspace_members
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `workspace_id` | `uuid` | References `workspaces(id)` |
+| `user_id` | `uuid` | References `users(id)` |
+| `role` | `varchar(16)` | `owner`, `admin`, `member`, or `guest` |
+| `weekly_capacity_days` | `real` | Available days/week for this workspace member; defaults to `5` |
+| `joined_at` | `timestamptz` | Membership timestamp |
+
+### workspace_invitations
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `workspace_id` | `uuid` | References `workspaces(id)` |
+| `invited_by_id` | `uuid` | User who created the invitation |
+| `invited_user_id` | `uuid` | Optional existing account resolved by email |
+| `email` | `varchar(255)` | Invitation target email |
+| `role` | `varchar(16)` | `admin`, `member`, or `guest` |
+| `token_hash` | `varchar(255)` | SHA-256 hash of the one-time invitation token |
+| `status` | `varchar(16)` | `pending`, `accepted`, `cancelled`, or `expired` |
+| `expires_at` | `timestamptz` | Invitation expiry timestamp |
+| `accepted_at` | `timestamptz` | Acceptance timestamp, when applicable |
+| `created_at` / `updated_at` | `timestamptz` | Lifecycle timestamps |
+
+### customers
+
+Consulting-only customer directory scoped to a workspace. Customer records retain optional contact details and notes; `archived_at` removes them from the active list without removing historic project links.
+
+### project_member_allocations
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `project_id` / `user_id` | `uuid` | Composite primary key; references a project and assigned user |
+| `days_per_week` | `real` | Planned allocation for this project member, in days per week |
+
+Migration `014_workspaces_and_resource_scope` creates a personal workspace for every existing user, adds the owner membership, and backfills `workspace_id` on projects, wiki guides, and snippets. Those resource columns are mandatory after the backfill and indexed for workspace filtering. New workspaces are available through the authenticated `/api/workspaces` endpoints.
+
+Migration `015_knowledge_links` adds optional `project_id` links to wiki guides and snippets, hierarchical `parent_id` links for wiki guides, and a reusable `collection` field for snippets. These fields are nullable so existing personal resources remain valid.
+
+Migration `016_project_milestones` adds project milestones with an ordered position, open/completed status, optional due date, and description. Milestones are accessible only to project members.
+
+Migration `017_workspace_invitations` adds workspace-level invitations, role management, one-time hashed invite tokens, and the indexes/trigger required for invitation lifecycle management.
+
+Migration `018_workspace_project_membership` adds the workspace role to project invitations and backfills existing project collaborators as workspace members. New external project invitations add the recipient to the workspace and to the selected project when accepted.
+
+Migration `019_workspace_project_membership_defaults` adds `workspaces.auto_add_members_to_projects`. When enabled, new unencrypted projects add workspace members as project editors (guests as viewers); the project creator remains owner. Encrypted projects are excluded because every member needs an individual encrypted project key.
+
+Migration `020_workspace_types` adds `workspaces.type`. Existing workspaces default to `project_management`; Consulting workspaces expose optional per-project staffing values and the weekly-capacity dashboard.
+
+Migration `021_consulting_customers_capacity` adds Consulting-only customers, optional project hour budgets, a weekly capacity per workspace member, and per-project member allocations. Customer records are archived instead of deleted when they are no longer active.
 
 ## Operational Notes
 

@@ -1,8 +1,10 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
-import { Project } from '@/services/frontend/types';
-import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "@heroui/react";
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
+import { db } from '@/services/frontend/lib/db';
+import { Customer, Project } from '@/services/frontend/types';
+import { Button, Form, Input, Label, ListBox, Modal, Select, Switch, TextArea, TextField } from "@heroui/react";
 import { FolderOpen, Lock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
@@ -25,9 +27,14 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
     const [taskKeyPrefix, setTaskKeyPrefix] = useState('');
     const [daysPerWeek, setDaysPerWeek] = useState<string>('');
     const [allocatedDays, setAllocatedDays] = useState<string>('');
+    const [clientId, setClientId] = useState<string>('');
+    const [hourBudget, setHourBudget] = useState<string>('');
+    const [customers, setCustomers] = useState<Customer[]>([]);
     const [isEncrypted, setIsEncrypted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { hasVault } = useAuth();
+    const { workspace, workspaceId } = useWorkspace();
+    const isConsultingWorkspace = workspace?.type === 'consulting';
 
     useEffect(() => {
         if (project) {
@@ -37,6 +44,8 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setTaskKeyPrefix(project.taskKeyPrefix || '');
             setDaysPerWeek(project.daysPerWeek?.toString() || '');
             setAllocatedDays(project.allocatedDays?.toString() || '');
+            setClientId(project.clientId || '');
+            setHourBudget(project.hourBudget?.toString() || '');
             setIsEncrypted(!!project.isEncrypted);
         } else {
             setName('');
@@ -45,9 +54,16 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
             setTaskKeyPrefix('');
             setDaysPerWeek('');
             setAllocatedDays('');
+            setClientId('');
+            setHourBudget('');
             setIsEncrypted(hasVault);
         }
     }, [project, isOpen, hasVault]);
+
+    useEffect(() => {
+        if (!isOpen || !isConsultingWorkspace || !workspaceId) return;
+        void db.listCustomers(workspaceId).then((response) => setCustomers(response.documents)).catch(() => setCustomers([]));
+    }, [isConsultingWorkspace, isOpen, workspaceId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,6 +76,8 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                 taskKeyPrefix,
                 daysPerWeek: daysPerWeek ? parseFloat(daysPerWeek) : undefined,
                 allocatedDays: allocatedDays ? parseInt(allocatedDays) : undefined,
+                clientId: clientId || undefined,
+                hourBudget: hourBudget ? parseFloat(hourBudget) : undefined,
                 isEncrypted,
                 shouldEncrypt: isEncrypted && !project?.isEncrypted
             });
@@ -160,6 +178,20 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     </p>
                                 )}
 
+                                {isConsultingWorkspace && (
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <Select selectedKey={clientId || null} onSelectionChange={(key) => setClientId(key ? String(key) : '')}>
+                                            <Label className={labelClass}>Customer</Label>
+                                            <Select.Trigger className="h-10 rounded-xl"><Select.Value /><Select.Indicator /></Select.Trigger>
+                                            <Select.Popover><ListBox><ListBox.Item id="" textValue="No customer">No customer</ListBox.Item>{customers.map((customer) => <ListBox.Item key={customer.id} id={customer.id} textValue={customer.name}>{customer.name}</ListBox.Item>)}</ListBox></Select.Popover>
+                                        </Select>
+                                        <TextField value={hourBudget} onChange={setHourBudget} className={fieldClass}>
+                                            <Label className={labelClass}>Hour budget</Label>
+                                            <Input type="number" min="0" step="0.5" placeholder="e.g. 80" variant="secondary" className={inputClass} />
+                                        </TextField>
+                                    </div>
+                                )}
+
                                 <div className="space-y-2">
                                     <Label className={labelClass}>Status</Label>
                                     <div className="flex bg-surface-secondary/50 p-1 rounded-xl border border-border">
@@ -179,7 +211,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {isConsultingWorkspace && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <TextField value={daysPerWeek} onChange={setDaysPerWeek} className={fieldClass}>
                                         <Label className={labelClass}>Days / Week</Label>
                                         <Input 
@@ -200,7 +232,7 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             className={inputClass}
                                         />
                                     </TextField>
-                                </div>
+                                </div>}
                             </Modal.Body>
 
                             <Modal.Footer className="px-6 py-4 bg-surface-secondary/50 border-t border-border flex justify-end gap-2">

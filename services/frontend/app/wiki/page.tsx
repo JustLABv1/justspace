@@ -5,6 +5,7 @@ import { EmptyState, EmptyStateAction } from '@/components/EmptyState';
 import { VersionHistoryModal } from '@/components/VersionHistoryModal';
 import { WikiModal } from '@/components/WikiModal';
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
@@ -39,11 +40,12 @@ export default function WikiPage() {
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedGuide, setSelectedGuide] = useState<WikiGuide | undefined>(undefined);
     const { user, privateKey } = useAuth();
+    const { workspaceId } = useWorkspace();
 
     const fetchGuides = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
         try {
-            const data = await db.listGuides();
+            const data = await db.listGuides(workspaceId);
             const rawGuides = data.documents;
 
             const processedGuides = await Promise.all(rawGuides.map(async (guide) => {
@@ -85,7 +87,7 @@ export default function WikiPage() {
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [privateKey, user]);
+    }, [privateKey, user, workspaceId]);
 
     useEffect(() => {
         fetchGuides(true);
@@ -350,6 +352,11 @@ export default function WikiPage() {
                                     <Card.Title id={`guide-${guide.id}-title`} className="text-sm leading-snug line-clamp-1">
                                         {guide.title}
                                     </Card.Title>
+                                    {guide.parentId && guides.find((parent) => parent.id === guide.parentId) && (
+                                        <p className="mt-1 text-[11px] text-accent/80">
+                                            Unter: {guides.find((parent) => parent.id === guide.parentId)?.title}
+                                        </p>
+                                    )}
                                     {guide.description && (
                                         <Card.Description className="mt-1.5 line-clamp-2 text-xs leading-relaxed">
                                             {stripMarkdownPreview(guide.description)}

@@ -1,8 +1,11 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
+import { db } from '@/services/frontend/lib/db';
 import { Snippet, SnippetBlock } from '@/services/frontend/types';
-import { Button, Form, Input, Label, Modal, Switch, TextArea, TextField } from "@heroui/react";
+import { Project } from '@/services/frontend/types';
+import { Button, Form, Input, Label, ListBox, Modal, Select, Switch, TextArea, TextField } from "@heroui/react";
 import { Code, FileText, Lock, Trash2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
@@ -26,7 +29,11 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
     const [blocks, setBlocks] = useState<SnippetBlock[]>([]);
     const [isEncrypted, setIsEncrypted] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
+    const [projectId, setProjectId] = useState('');
+    const [collection, setCollection] = useState('');
+    const [projects, setProjects] = useState<Project[]>([]);
     const { hasVault } = useAuth();
+    const { workspaceId } = useWorkspace();
 
     useEffect(() => {
         if (snippet) {
@@ -34,6 +41,8 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
             setLanguage(snippet.language);
             setDescription(snippet.description || '');
             setTags(snippet.tags?.join(', ') || '');
+            setProjectId(snippet.projectId || '');
+            setCollection(snippet.collection || '');
             setIsEncrypted(snippet.isEncrypted ?? true);
             
             if (snippet.blocks) {
@@ -50,10 +59,17 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
             setLanguage('javascript');
             setDescription('');
             setTags('');
+            setProjectId('');
+            setCollection('');
             setBlocks([{ id: '1', type: 'code', content: '', language: 'javascript' }]);
             setIsEncrypted(hasVault);
         }
     }, [snippet, isOpen, hasVault]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        void db.listProjects(workspaceId).then((response) => setProjects(response.documents)).catch(() => setProjects([]));
+    }, [isOpen, workspaceId]);
 
     const addBlock = (type: 'code' | 'markdown') => {
         setBlocks([...blocks, { 
@@ -87,6 +103,8 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                 language, 
                 description, 
                 tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+                projectId: projectId || '',
+                collection: collection.trim() || '',
                 isEncrypted
             });
             onClose();
@@ -151,6 +169,31 @@ export const SnippetModal = ({ isOpen, onClose, onSubmit, snippet }: SnippetModa
                                             className={inputClass}
                                         />
                                     </TextField>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <TextField value={collection} onChange={setCollection} className={fieldClass}>
+                                        <Label className={labelClass}>Collection</Label>
+                                        <Input placeholder="e.g. Deployment" variant="secondary" className={inputClass} />
+                                    </TextField>
+                                    <Select
+                                        className="w-full"
+                                        variant="secondary"
+                                        value={projectId || null}
+                                        onChange={(value) => setProjectId(typeof value === 'string' && value !== 'workspace' ? value : '')}
+                                        placeholder="Workspace-wide snippet"
+                                    >
+                                        <Label className={labelClass}>Project scope</Label>
+                                        <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                                        <Select.Popover>
+                                            <ListBox>
+                                                <ListBox.Item id="workspace" textValue="Workspace-wide snippet">Workspace-wide snippet<ListBox.ItemIndicator /></ListBox.Item>
+                                                {projects.map((project) => (
+                                                    <ListBox.Item key={project.id} id={project.id} textValue={project.name}>{project.name}<ListBox.ItemIndicator /></ListBox.Item>
+                                                ))}
+                                            </ListBox>
+                                        </Select.Popover>
+                                    </Select>
                                 </div>
 
                                 <TextField value={description} onChange={setDescription} className={fieldClass}>

@@ -57,6 +57,7 @@ export const Pagination = ({
     <div className="flex items-center gap-2">
       <ButtonGroup variant={variant || "secondary"} size={size}>
         <Button
+          aria-label="Previous page"
           isDisabled={page <= 1}
           onPress={() => onChange(page - 1)}
           className={classNames?.prev}
@@ -81,6 +82,7 @@ export const Pagination = ({
         ))}
 
         <Button
+          aria-label="Next page"
           isDisabled={page >= total}
           onPress={() => onChange(page + 1)}
           className={classNames?.next}

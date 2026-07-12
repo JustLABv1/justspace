@@ -12,6 +12,8 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 - **Gespeicherte Ansichten & Suche:** Projektansichten mit Filtern speichern und per Command Palette schneller finden
 - **Erinnerungen & Wiederholungen:** Deadline-Reminders, persistente Abhängigkeiten und automatisch nachlaufende wiederkehrende Tasks
 - **Wiki & Snippets:** Markdown-basierte Wissensdatenbank und Code-Snippet-Verwaltung
+- **Workspaces & Teams:** Mehrere Workspaces, Rollenverwaltung, Einladungslinks und projektbezogene Zusammenarbeit
+- **Planung:** Meilensteine, Timeline, Kalender, wiederkehrende Tasks und Zeiterfassung
 - **Aktivitäts-Feed & Versionierung**
 - **Verschlüsselung:** Optionale Verschlüsselung sensibler Daten
 - **PWA-Installation:** Als installierbare Desktop-App mit Dock-Support in kompatiblen Browsern

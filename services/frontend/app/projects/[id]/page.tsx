@@ -2,6 +2,7 @@
 
 import { DeleteModal } from '@/components/DeleteModal';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { MilestonePanel } from '@/components/MilestonePanel';
 import { ProjectCollaborationPanel } from '@/components/ProjectCollaborationPanel';
 import { ProjectModal } from '@/components/ProjectModal';
 import { TaskCalendar } from '@/components/TaskCalendar';
@@ -11,6 +12,7 @@ import { TaskWorkflowModal } from '@/components/TaskWorkflowModal';
 import { TemplateModal } from '@/components/TemplateModal';
 import { TimelineView } from '@/components/TimelineView';
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserPreferences, SavedProjectView } from '@/services/frontend/lib/preferences';
@@ -86,6 +88,8 @@ export default function ProjectDetailPage() {
     const [taskRefreshToken, setTaskRefreshToken] = useState(0);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const { user, privateKey, updateProfile } = useAuth();
+    const { workspace } = useWorkspace();
+    const isConsultingWorkspace = workspace?.type === 'consulting';
 	const savedViews = parseUserPreferences(user?.preferences).savedViews.filter((view) => view.projectId === id);
     const openTaskKey = searchParams.get('task');
     const openTaskID = searchParams.get('taskId');
@@ -544,13 +548,13 @@ export default function ProjectDetailPage() {
                                         </p>
 
                                         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                                            {project.daysPerWeek && (
+                                            {isConsultingWorkspace && project.daysPerWeek && (
                                                 <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                                                     <Calendar size={13} />
                                                     <span>{project.daysPerWeek} days/week</span>
                                                 </div>
                                             )}
-                                            {project.allocatedDays && (
+                                            {isConsultingWorkspace && project.allocatedDays && (
                                                 <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                                                     <Clock size={13} />
                                                     <span>{project.allocatedDays} days allocated</span>
@@ -571,11 +575,9 @@ export default function ProjectDetailPage() {
                                         </Avatar>
                                     </div>
                                     <Dropdown>
-                                        <Dropdown.Trigger>
-                                            <Button variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
+                                        <Button aria-label="Project actions" variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground shrink-0">
                                                 <MoreHorizontal size={16} />
                                             </Button>
-                                        </Dropdown.Trigger>
                                         <Dropdown.Popover placement="bottom end" className="min-w-[160px]">
                                             <Dropdown.Menu>
                                                 <Dropdown.Item id="edit" textValue="Edit" onAction={() => setIsProjectModalOpen(true)}>
@@ -652,8 +654,7 @@ export default function ProjectDetailPage() {
                                         />
                                     </div>
                                     <Dropdown>
-                                        <Dropdown.Trigger>
-                                            <Button
+                                        <Button
                                                 variant={quickFilter !== 'all' || hideCompleted ? 'secondary' : 'ghost'}
                                                 size="sm"
                                                 className="h-8 rounded-lg px-2.5 text-[12px] font-medium"
@@ -662,7 +663,6 @@ export default function ProjectDetailPage() {
                                                 {hideCompleted ? 'Pending' : quickFilter === 'all' ? 'All tasks' : ({ mine: 'My tasks', unassigned: 'Unassigned', 'due-soon': 'Due soon', blocked: 'Blocked' }[quickFilter])}
                                                 <ChevronDown size={12} />
                                             </Button>
-                                        </Dropdown.Trigger>
                                         <Dropdown.Popover placement="bottom start">
                                             <Dropdown.Menu>
                                                 {[
@@ -694,8 +694,7 @@ export default function ProjectDetailPage() {
                                         </Dropdown.Popover>
                                     </Dropdown>
                                     <Dropdown>
-                                        <Dropdown.Trigger>
-                                            <Button
+                                        <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-muted-foreground"
@@ -703,7 +702,6 @@ export default function ProjectDetailPage() {
                                                 <ChevronDown size={12} />
                                                 Views
                                             </Button>
-                                        </Dropdown.Trigger>
                                         <Dropdown.Popover placement="bottom start" className="min-w-[220px]">
                                             <Dropdown.Menu>
                                                 <Dropdown.Item id="save-current-view" textValue="Save current view" onAction={handleSaveCurrentView}>
@@ -847,7 +845,8 @@ export default function ProjectDetailPage() {
                     </Card>
                 </main>
 
-                <aside className="min-w-0 self-start">
+                <aside className="min-w-0 self-start space-y-4">
+                    <MilestonePanel projectId={project.id} compact />
                     <ProjectCollaborationPanel project={project} compact />
                 </aside>
             </div>

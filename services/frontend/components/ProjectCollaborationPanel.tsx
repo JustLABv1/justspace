@@ -1,14 +1,16 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
+import { WorkspaceMember } from '@/services/frontend/lib/api';
 import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData, encryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, TeamInvitation, UserLookup } from '@/services/frontend/types';
-import { Avatar, Button, Chip, Dropdown, Input, Label, Modal, Tabs, toast } from '@heroui/react';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, ProjectMemberAllocation, TeamInvitation } from '@/services/frontend/types';
+import { Avatar, Button, Chip, Description, Dropdown, Input, Label, ListBox, Modal, Select, Tabs, toast } from '@heroui/react';
 import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
-import { FileText, FolderUp, Link as LinkIcon, Mail, RefreshCw, Trash2, UserPlus, Users } from 'lucide-react';
+import { FileText, FolderUp, Link as LinkIcon, Mail, MoreHorizontal, Trash2, UserPlus, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type CollaborationTab = 'team' | 'files' | 'activity';
@@ -22,13 +24,16 @@ const inviteRoleLabels: Record<InviteRole, string> = {
 
 export function ProjectCollaborationPanel({ project, compact = false }: { project: Project; compact?: boolean }) {
     const { privateKey } = useAuth();
+    const { workspace } = useWorkspace();
     const [selectedTab, setSelectedTab] = useState<CollaborationTab>('team');
     const [members, setMembers] = useState<ProjectMember[]>([]);
+    const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
     const [invites, setInvites] = useState<TeamInvitation[]>([]);
     const [files, setFiles] = useState<ProjectFile[]>([]);
     const [activity, setActivity] = useState<ActivityLog[]>([]);
     const [decryptedActivity, setDecryptedActivity] = useState<ActivityLog[]>([]);
     const [presence, setPresence] = useState<PresenceSession[]>([]);
+    const [allocations, setAllocations] = useState<ProjectMemberAllocation[]>([]);
     const [docKey, setDocKey] = useState<CryptoKey | null>(null);
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -65,18 +70,22 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
     useEffect(() => {
         const load = async () => {
             try {
-                const [memberRes, inviteRes, fileRes, activityRes, presenceRes] = await Promise.all([
+                const [memberRes, workspaceMemberRes, inviteRes, fileRes, activityRes, presenceRes, allocationRes] = await Promise.all([
                     db.listProjectMembers(project.id),
+                    project.workspaceId ? db.listWorkspaceMembers(project.workspaceId) : Promise.resolve({ documents: [] as WorkspaceMember[] }),
                     db.listProjectInvitations(project.id),
                     db.listProjectFiles(project.id),
                     db.listProjectActivity(project.id),
                     db.heartbeatProjectPresence(project.id),
+                    db.listProjectAllocations(project.id),
                 ]);
                 setMembers(memberRes.documents);
+                setWorkspaceMembers(workspaceMemberRes.documents);
                 setInvites(inviteRes.documents);
                 setFiles(fileRes.documents);
                 setActivity(activityRes.documents);
                 setPresence(presenceRes.documents);
+                setAllocations(allocationRes.documents);
             } catch (error) {
                 console.error('Failed to load collaboration panel:', error);
             }
@@ -92,6 +101,9 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
             }
             if (event.collection === 'project_members') {
                 void db.listProjectMembers(project.id).then((response) => setMembers(response.documents)).catch(console.error);
+            }
+            if (event.collection === 'workspace_members' && project.workspaceId) {
+                void db.listWorkspaceMembers(project.workspaceId).then((response) => setWorkspaceMembers(response.documents)).catch(console.error);
             }
             if (event.collection === 'team_invitations') {
                 void db.listProjectInvitations(project.id).then((response) => setInvites(response.documents)).catch(console.error);
@@ -267,6 +279,17 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
         }
     };
 
+    const updateAllocation = async (member: ProjectMember, value: string) => {
+        const daysPerWeek = Number(value);
+        if (!Number.isFinite(daysPerWeek) || daysPerWeek < 0) return;
+        try {
+            const updated = await db.updateProjectAllocation(project.id, member.userId, daysPerWeek);
+            setAllocations((current) => [...current.filter((item) => item.userId !== updated.userId), updated]);
+        } catch (error) {
+            toast.danger(error instanceof Error ? error.message : 'Could not update allocation');
+        }
+    };
+
     return (
         <div className={`rounded-xl border border-border bg-surface overflow-hidden ${compact ? 'flex flex-col' : ''}`}>
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
@@ -294,7 +317,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                 <div className="flex items-center gap-2 shrink-0">
                     <input ref={fileInputRef} type="file" className="hidden" onChange={handleUploadChange} />
                     {canEdit && (
-                        <Button variant="secondary" className="h-8 rounded-lg px-2.5 text-xs font-medium" onPress={() => fileInputRef.current?.click()} isPending={isUploading}>
+                        <Button aria-label="Upload file" variant="secondary" className="h-8 rounded-lg px-2.5 text-xs font-medium" onPress={() => fileInputRef.current?.click()} isPending={isUploading}>
                             <FolderUp size={13} />
                             {!compact && 'Upload file'}
                         </Button>
@@ -320,7 +343,8 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                 <Tabs.Panel id="team" className={`p-4 ${compact ? 'max-h-[360px] overflow-y-auto' : ''}`}>
                     <div className="space-y-3">
                         {members.map((member) => (
-                            <div key={member.userId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                            <div key={member.userId} className="rounded-lg border border-border px-3 py-2.5">
+                                <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <Avatar size="md" color="accent" variant="soft">
                                         <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
@@ -336,9 +360,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                                     </Chip>
                                     {canManageMembers && member.role !== 'owner' && (
                                         <Dropdown>
-                                            <Dropdown.Trigger>
-                                                <Button variant="ghost" className="h-8 rounded-lg px-2 text-xs">Manage</Button>
-                                            </Dropdown.Trigger>
+                                            <Button aria-label={`Manage ${member.name || member.email}`} variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground"><MoreHorizontal size={15} /></Button>
                                             <Dropdown.Popover placement="bottom end">
                                                 <Dropdown.Menu>
                                                     {(['admin', 'editor', 'viewer'] as const).map((role) => (
@@ -357,6 +379,26 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                                         </Dropdown>
                                     )}
                                 </div>
+                                </div>
+                                {workspace?.type === 'consulting' && (
+                                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-2.5">
+                                        <Label className="text-xs text-muted-foreground">Weekly allocation</Label>
+                                        <div className="flex items-center gap-1.5">
+                                            <Input
+                                                aria-label={`Weekly allocation for ${member.name || member.email}`}
+                                                type="number"
+                                                min="0"
+                                                step="0.5"
+                                                defaultValue={String(allocations.find((allocation) => allocation.userId === member.userId)?.daysPerWeek ?? 0)}
+                                                disabled={!canManageMembers}
+                                                onBlur={(event) => void updateAllocation(member, event.target.value)}
+                                                variant="secondary"
+                                                className="w-20"
+                                            />
+                                            <span className="text-xs text-muted-foreground">days/week</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
 
@@ -367,7 +409,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                                     <div key={invite.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface-secondary/50 px-3 py-2">
                                         <div className="min-w-0">
                                             <div className="text-sm text-foreground truncate">{invite.email}</div>
-                                            <div className="text-xs text-muted-foreground">Role: {invite.role} · Expires {dayjs(invite.expiresAt).format('MMM D, HH:mm')}</div>
+                                            <div className="text-xs text-muted-foreground">Project role: {invite.role} · becomes a workspace member · expires {dayjs(invite.expiresAt).format('MMM D, HH:mm')}</div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {invite.token && (
@@ -443,6 +485,8 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                 onClose={() => setIsInviteOpen(false)}
                 project={project}
                 docKey={docKey}
+                workspaceMembers={workspaceMembers}
+                projectMembers={members}
                 onCreated={(member, invitation) => {
                     if (member) {
                         setMembers((current) => {
@@ -514,83 +558,84 @@ function InviteMemberModal({
     onClose,
     project,
     docKey,
+    workspaceMembers,
+    projectMembers,
     onCreated,
 }: {
     isOpen: boolean;
     onClose: () => void;
     project: Project;
     docKey: CryptoKey | null;
+    workspaceMembers: WorkspaceMember[];
+    projectMembers: ProjectMember[];
     onCreated: (member?: ProjectMember, invitation?: TeamInvitation) => void;
 }) {
-    const { user } = useAuth();
-    const [query, setQuery] = useState('');
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<InviteRole>('editor');
-    const [results, setResults] = useState<UserLookup[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
+    const [selectedWorkspaceMemberId, setSelectedWorkspaceMemberId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        let ignore = false;
-        const search = async () => {
-            if (query.trim().length < 2) {
-                setResults([]);
-                return;
-            }
-            setIsSearching(true);
-            try {
-                const response = await db.searchUsers(query.trim());
-                if (!ignore) {
-                    setResults(response.documents.filter((item) => item.userId !== user?.id));
-                }
-            } catch (error) {
-                console.error(error);
-            } finally {
-                if (!ignore) {
-                    setIsSearching(false);
-                }
-            }
-        };
-        const timeout = window.setTimeout(() => {
-            void search();
-        }, 180);
-        return () => {
-            ignore = true;
-            window.clearTimeout(timeout);
-        };
-    }, [query, user?.id]);
+    const availableWorkspaceMembers = useMemo(
+        () => workspaceMembers.filter((member) => !projectMembers.some((projectMember) => projectMember.userId === member.userId)),
+        [projectMembers, workspaceMembers],
+    );
 
-    const submitInvite = async (target?: UserLookup) => {
+    const addWorkspaceMemberToProject = async () => {
+        const target = availableWorkspaceMembers.find((member) => member.userId === selectedWorkspaceMemberId);
+        if (!target) {
+            toast.danger('Select a workspace member');
+            return;
+        }
         setIsSubmitting(true);
         try {
             let encryptedKey: string | undefined;
             if (project.isEncrypted) {
-                if (!docKey || !target?.publicKey) {
+                if (!docKey || !target.publicKey) {
                     toast.danger('Encrypted projects require a vault-enabled teammate');
                     return;
                 }
                 encryptedKey = await encryptDocumentKey(docKey, target.publicKey);
             }
 
-            if (target?.userId) {
-                const member = await db.addProjectMember(project.id, { userId: target.userId, role, encryptedKey });
-                onCreated(member);
-                toast.success('Member added');
-                onClose();
-                return;
-            }
-
-            const invitation = await db.createProjectInvitation(project.id, {
-                email,
-                role,
-                encryptedKey,
-            });
-            onCreated(undefined, invitation);
-            toast.success('Invite created');
+            const member = await db.addProjectMember(project.id, { userId: target.userId, role, encryptedKey });
+            onCreated(member);
+            toast.success('Person added to project');
+            setSelectedWorkspaceMemberId('');
             onClose();
         } catch (error) {
             console.error(error);
-            toast.danger('Failed to invite teammate');
+            toast.danger('Could not add person to project');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const createExternalInvitation = async () => {
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!normalizedEmail) {
+            toast.danger('Enter an email address');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            let encryptedKey: string | undefined;
+            if (project.isEncrypted) {
+                const users = await db.searchUsers(normalizedEmail);
+                const target = users.documents.find((item) => item.email.toLowerCase() === normalizedEmail);
+                if (!docKey || !target?.publicKey) {
+                    toast.danger('Encrypted projects require an existing account with a configured vault');
+                    return;
+                }
+                encryptedKey = await encryptDocumentKey(docKey, target.publicKey);
+            }
+            const invitation = await db.createProjectInvitation(project.id, { email: normalizedEmail, role, encryptedKey });
+            onCreated(undefined, invitation);
+            toast.success('Invitation created');
+            setEmail('');
+            onClose();
+        } catch (error) {
+            console.error(error);
+            toast.danger(error instanceof Error ? error.message : 'Could not create invitation');
         } finally {
             setIsSubmitting(false);
         }
@@ -604,69 +649,51 @@ function InviteMemberModal({
                         <Modal.CloseTrigger />
                         <Modal.Header className="px-6 pt-5 pb-4 border-b border-border">
                             <div className="space-y-1">
-                                <Modal.Heading className="text-base font-semibold text-foreground">Invite teammate</Modal.Heading>
-                                <p className="text-xs text-muted-foreground">Search existing users or create an invite link for this project.</p>
+                                <Modal.Heading className="text-base font-semibold text-foreground">Add people to project</Modal.Heading>
+                                <p className="text-xs text-muted-foreground">Workspace members receive access to this project only when you add them here.</p>
                             </div>
                         </Modal.Header>
                         <Modal.Body className="px-6 py-5 space-y-5">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-medium text-muted-foreground">Search users</Label>
-                                <Input
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Name or email"
-                                    variant="secondary"
-                                    className="h-10 w-full rounded-xl"
-                                />
+                            <div className="rounded-xl border border-border bg-surface-secondary/30 p-4 space-y-4">
+                                <div>
+                                    <h3 className="text-sm font-medium text-foreground">Choose from workspace</h3>
+                                    <p className="mt-1 text-xs text-muted-foreground">These people already belong to the workspace but not yet to this project.</p>
+                                </div>
+                                <Select selectedKey={selectedWorkspaceMemberId || null} onSelectionChange={(key) => setSelectedWorkspaceMemberId(String(key))} variant="secondary" isDisabled={availableWorkspaceMembers.length === 0}>
+                                    <Label className="text-xs font-medium text-muted-foreground">Workspace member</Label>
+                                    <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+                                    <Select.Popover>
+                                        <ListBox>
+                                            {availableWorkspaceMembers.map((member) => (
+                                                <ListBox.Item key={member.userId} id={member.userId} textValue={`${member.name} ${member.email}`}>
+                                                    <Label>{member.name || member.email}</Label>
+                                                    <Description>{member.email} · Workspace role: {member.role}</Description>
+                                                    <ListBox.ItemIndicator />
+                                                </ListBox.Item>
+                                            ))}
+                                        </ListBox>
+                                    </Select.Popover>
+                                </Select>
+                                {availableWorkspaceMembers.length === 0 && <p className="text-xs text-muted-foreground">All workspace members are already in this project.</p>}
+                                <Button variant="secondary" className="w-full" isPending={isSubmitting} isDisabled={!selectedWorkspaceMemberId} onPress={() => void addWorkspaceMemberToProject()}>
+                                    <UserPlus size={14} />
+                                    Add to project
+                                </Button>
                             </div>
 
-                            <div className="space-y-2">
-                                <div className="rounded-xl border border-border p-3 space-y-2">
-                                {isSearching && (
-                                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                        <RefreshCw size={12} className="animate-spin" />
-                                        Searching…
-                                    </div>
-                                )}
-                                {!isSearching && results.length === 0 && (
-                                    <div className="text-xs text-muted-foreground">No matching existing users yet.</div>
-                                )}
-                                {results.map((result) => (
-                                    <button
-                                        key={result.userId}
-                                        type="button"
-                                        className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left hover:bg-surface-secondary/50"
-                                        onClick={() => {
-                                            setEmail(result.email);
-                                            void submitInvite(result);
-                                        }}
-                                    >
-                                        <div className="min-w-0">
-                                            <div className="text-sm font-medium text-foreground truncate">{result.name}</div>
-                                            <div className="text-xs text-muted-foreground truncate">{result.email}</div>
-                                        </div>
-                                        <Chip size="sm" variant="soft" color={result.hasVault ? 'success' : 'warning'}>
-                                            <Chip.Label className="text-[11px]">{result.hasVault ? 'Vault' : 'No vault'}</Chip.Label>
-                                        </Chip>
-                                    </button>
-                                ))}
+                            <div className="border-t border-border pt-5 space-y-4">
+                                <div>
+                                    <h3 className="text-sm font-medium text-foreground">Invite external person</h3>
+                                    <p className="mt-1 text-xs text-muted-foreground">On acceptance, this person becomes a workspace member and receives the selected project role.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="project-invite-email" className="text-xs font-medium text-muted-foreground">Email address</Label>
+                                    <Input id="project-invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="teammate@example.com" variant="secondary" className="h-10 w-full rounded-xl" />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs font-medium text-muted-foreground">Invite by email</Label>
-                                <Input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="teammate@example.com"
-                                    variant="secondary"
-                                    className="h-10 w-full rounded-xl"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-xs font-medium text-muted-foreground">Role</Label>
+                                <Label className="text-xs font-medium text-muted-foreground">Project role</Label>
                                 <div className="flex gap-2">
                                     {(['admin', 'editor', 'viewer'] as const).map((value) => (
                                         <Button
@@ -684,7 +711,7 @@ function InviteMemberModal({
 
                             {project.isEncrypted && (
                                 <div className="rounded-xl border border-warning/30 bg-warning-muted px-3 py-2 text-xs text-warning">
-                                    Encrypted projects can only be shared with teammates who already have a vault.
+                                    Encrypted projects can only be shared with existing accounts that have a configured vault.
                                 </div>
                             )}
                         </Modal.Body>
@@ -696,10 +723,11 @@ function InviteMemberModal({
                                 variant="primary"
                                 className="h-8 rounded-xl px-4 text-xs"
                                 isPending={isSubmitting}
-                                onPress={() => void submitInvite()}
+                                isDisabled={!email.trim()}
+                                onPress={() => void createExternalInvitation()}
                             >
                                 <Mail size={13} />
-                                Create invite
+                                Create invitation
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

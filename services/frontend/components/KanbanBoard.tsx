@@ -359,8 +359,8 @@ export function KanbanBoard({
                                                     <p className="text-[13px] font-medium text-foreground leading-snug line-clamp-2">{task.title}</p>
                                                 </div>
                                                 <Dropdown>
-                                                    <Dropdown.Trigger>
-                                                        <Button
+                                                    <Button
+                                                            aria-label={`Actions for ${task.title}`}
                                                             variant="ghost"
                                                             isIconOnly
                                                             className="h-6 w-6 rounded-md text-muted-foreground/0 group-hover:text-muted-foreground/50 hover:text-muted-foreground shrink-0"
@@ -368,7 +368,6 @@ export function KanbanBoard({
                                                         >
                                                             <MoreHorizontal size={13} />
                                                         </Button>
-                                                    </Dropdown.Trigger>
                                                     <Dropdown.Popover placement="bottom end" className="min-w-[140px]">
                                                         <Dropdown.Menu>
                                                             <Dropdown.Item

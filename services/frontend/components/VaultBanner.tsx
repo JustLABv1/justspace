@@ -1,8 +1,8 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
-import { Button } from '@heroui/react';
-import { KeyRound, Lock, LogOut } from 'lucide-react';
+import { Alert, Button, Form, InputGroup, Label, Modal, TextField } from '@heroui/react';
+import { Binary, KeyRound, LockKeyhole, LogOut, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
 export const VaultBanner = () => {
@@ -28,61 +28,69 @@ export const VaultBanner = () => {
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center backdrop-blur-sm bg-background/75">
-            <div className="w-full max-w-sm mx-4 bg-surface rounded-2xl border border-border shadow-2xl p-8 flex flex-col items-center gap-6">
-                {/* Icon */}
-                <div className="w-16 h-16 rounded-2xl bg-warning/10 border border-warning/20 flex items-center justify-center">
-                    <Lock size={26} className="text-warning" />
-                </div>
+        <Modal>
+            <Modal.Backdrop
+                isOpen
+                isDismissable={false}
+                isKeyboardDismissDisabled
+                variant="blur"
+                className="vault-modal__backdrop data-[entering]:duration-300 data-[exiting]:duration-200"
+            >
+                <Modal.Container className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-300 data-[entering]:ease-[cubic-bezier(0.23,1,0.32,1)]">
+                    <Modal.Dialog className="vault-modal__dialog sm:max-w-[460px]">
+                        <div className="vault-encryption" aria-hidden="true">
+                            <div className="vault-encryption__glow" />
+                            <div className="vault-encryption__orbit vault-encryption__orbit--outer"><span /><span /><span /></div>
+                            <div className="vault-encryption__orbit vault-encryption__orbit--inner"><span /><span /></div>
+                            <div className="vault-encryption__core">
+                                <LockKeyhole className="size-7" />
+                                <div className="vault-encryption__scan" />
+                            </div>
+                            <span className="vault-encryption__code vault-encryption__code--one">01101</span>
+                            <span className="vault-encryption__code vault-encryption__code--two">AES-256</span>
+                        </div>
 
-                {/* Text */}
-                <div className="text-center">
-                    <h2 className="text-[16px] font-bold text-foreground">Vault is Locked</h2>
-                    <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-[260px]">
-                        Enter your vault password to decrypt and access your protected content.
-                    </p>
-                </div>
+                        <Modal.Header className="items-center text-center">
+                            <div className="mx-auto mb-2 flex items-center gap-1.5 text-xs font-medium text-accent"><ShieldCheck className="size-4" /> Encrypted workspace</div>
+                            <Modal.Heading className="text-2xl font-semibold tracking-[-0.03em]">Your vault is locked</Modal.Heading>
+                        </Modal.Header>
 
-                {/* Form */}
-                <form onSubmit={handleUnlock} className="w-full space-y-3">
-                    <div className="relative">
-                        <KeyRound size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                            type="password"
-                            autoFocus
-                            placeholder="Enter vault password"
-                            className={`w-full h-10 bg-surface-secondary border rounded-xl pl-10 pr-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/50 ${
-                                error ? 'border-danger/50 focus:border-danger/70' : 'border-border focus:border-warning/50'
-                            }`}
-                            value={password}
-                            onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                        />
-                    </div>
+                        <Modal.Body className="text-center">
+                            <p className="mx-auto max-w-[350px] text-sm leading-6 text-muted-foreground">
+                                Your projects and knowledge are encrypted. Enter your vault password to reconstruct your private key on this device.
+                            </p>
 
-                    {error && (
-                        <p className="text-[12px] text-danger text-center">{error}</p>
-                    )}
+                            <div className="my-2 flex items-center justify-center gap-4 text-[11px] font-medium text-muted-foreground">
+                                <span className="flex items-center gap-1.5"><Binary className="size-3.5 text-accent" /> Local decryption</span>
+                                <span className="size-1 rounded-full bg-border" />
+                                <span className="flex items-center gap-1.5"><KeyRound className="size-3.5 text-accent" /> Zero-knowledge</span>
+                            </div>
 
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        className="w-full h-10 rounded-xl text-[13px] font-medium shadow-sm"
-                        isPending={isUnlocking}
-                    >
-                        <KeyRound size={14} className="mr-2" />
-                        Unlock Vault
-                    </Button>
-                </form>
+                            {error && <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert>}
 
-                {/* Secondary action */}
-                <button
-                    onClick={logout}
-                    className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                    <LogOut size={12} />
-                    Sign out instead
-                </button>
-            </div>
-        </div>
+                            <Form onSubmit={handleUnlock} className="mt-2 w-full space-y-3 text-left">
+                                <TextField fullWidth value={password} onChange={(value) => { setPassword(value); setError(''); }}>
+                                    <Label>Vault password</Label>
+                                    <InputGroup>
+                                        <InputGroup.Prefix><KeyRound className="size-4 text-muted-foreground" /></InputGroup.Prefix>
+                                        <InputGroup.Input type="password" autoFocus placeholder="Enter your vault password" required />
+                                    </InputGroup>
+                                </TextField>
+                                <Button type="submit" fullWidth className="h-11 rounded-xl font-medium" isPending={isUnlocking}>
+                                    <LockKeyhole className="size-4" />
+                                    {isUnlocking ? 'Decrypting workspace…' : 'Decrypt & unlock'}
+                                </Button>
+                            </Form>
+                        </Modal.Body>
+
+                        <Modal.Footer className="justify-center pt-0">
+                            <Button variant="ghost" size="sm" onPress={logout}>
+                                <LogOut className="size-3.5" /> Sign out instead
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
     );
 };

@@ -23,7 +23,7 @@ func NewProjectHandler(repo *repository.Repo, hub *websocket.Hub) *ProjectHandle
 
 func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
-	projects, err := h.repo.ListProjects(r.Context(), userID)
+	projects, err := h.repo.ListProjects(r.Context(), userID, r.URL.Query().Get("workspaceId"))
 	if err != nil {
 		log.Printf("ListProjects error: %v", err)
 		writeError(w, http.StatusInternalServerError, "failed to list projects")
