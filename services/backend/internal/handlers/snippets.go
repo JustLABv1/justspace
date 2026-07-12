@@ -190,20 +190,40 @@ func (h *AccessHandler) Grant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := middleware.GetUserID(r)
-	if req.ResourceType != "Project" || req.ResourceID == "" || req.UserID == "" || req.EncryptedKey == "" {
-		writeError(w, http.StatusBadRequest, "only project access grants with a recipient and encrypted key are supported")
+	if req.ResourceID == "" || req.UserID == "" || req.EncryptedKey == "" {
+		writeError(w, http.StatusBadRequest, "resource, recipient and encrypted key are required")
 		return
 	}
-	if !ensureProjectRole(w, r, h.repo, req.ResourceID, userID, "owner", "admin") {
-		return
-	}
-	allowed, err := h.repo.CanAccessProject(r.Context(), req.ResourceID, req.UserID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to validate recipient access")
-		return
-	}
-	if !allowed {
-		writeError(w, http.StatusForbidden, "recipient is not a project member")
+	switch req.ResourceType {
+	case "Project":
+		if !ensureProjectRole(w, r, h.repo, req.ResourceID, userID, "owner", "admin") {
+			return
+		}
+		allowed, err := h.repo.CanAccessProject(r.Context(), req.ResourceID, req.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to validate recipient access")
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "recipient is not a project member")
+			return
+		}
+	case "Snippet", "Wiki":
+		if req.UserID != userID {
+			writeError(w, http.StatusForbidden, "personal resource keys can only be granted to their owner")
+			return
+		}
+		allowed, err := h.repo.CanManagePersonalResource(r.Context(), req.ResourceID, userID, req.ResourceType)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to validate resource ownership")
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "resource access denied")
+			return
+		}
+	default:
+		writeError(w, http.StatusBadRequest, "unsupported resource type")
 		return
 	}
 	ac, err := h.repo.GrantAccess(r.Context(), req)

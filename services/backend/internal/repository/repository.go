@@ -1366,6 +1366,145 @@ func (r *Repo) UpdateProject(ctx context.Context, id, userID string, req models.
 	return p, nil
 }
 
+func isEncryptedEnvelope(value string) bool {
+	var envelope struct {
+		Ciphertext string `json:"ciphertext"`
+		IV         string `json:"iv"`
+	}
+	return json.Unmarshal([]byte(value), &envelope) == nil && envelope.Ciphertext != "" && envelope.IV != ""
+}
+
+// MigrateProjectEncryption changes project metadata, every task and every
+// member's wrapped key as one transaction. The server validates only envelope
+// shape; plaintext and the symmetric project key never leave the client.
+func (r *Repo) MigrateProjectEncryption(ctx context.Context, projectID, userID string, req models.ProjectEncryptionMigrationRequest) (*models.Project, error) {
+	if !isEncryptedEnvelope(req.Name) || !isEncryptedEnvelope(req.Description) || req.ExpectedUpdatedAt.IsZero() {
+		return nil, fmt.Errorf("valid encrypted project content and expectedUpdatedAt are required")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin project encryption migration: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var encrypted bool
+	var updatedAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT is_encrypted, updated_at FROM projects WHERE id = $1 FOR UPDATE`, projectID).Scan(&encrypted, &updatedAt); err != nil {
+		return nil, fmt.Errorf("load project for encryption migration: %w", err)
+	}
+	if encrypted {
+		return nil, fmt.Errorf("project is already encrypted")
+	}
+	if !updatedAt.Equal(req.ExpectedUpdatedAt) {
+		return nil, fmt.Errorf("project changed while encryption was being prepared")
+	}
+
+	memberRows, err := tx.Query(ctx, `SELECT user_id::text FROM project_members WHERE project_id = $1`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list project members: %w", err)
+	}
+	defer memberRows.Close()
+	members := map[string]bool{}
+	for memberRows.Next() {
+		var id string
+		if err := memberRows.Scan(&id); err != nil {
+			return nil, err
+		}
+		members[id] = true
+	}
+	if err := memberRows.Err(); err != nil {
+		return nil, err
+	}
+	wrapped := map[string]string{}
+	for _, key := range req.WrappedKeys {
+		if !members[key.UserID] || key.EncryptedKey == "" || wrapped[key.UserID] != "" {
+			return nil, fmt.Errorf("wrapped keys must cover each current project member exactly once")
+		}
+		wrapped[key.UserID] = key.EncryptedKey
+	}
+	if len(wrapped) != len(members) {
+		return nil, fmt.Errorf("every current project member needs a vault key before encryption")
+	}
+
+	taskRows, err := tx.Query(ctx, `SELECT id::text FROM tasks WHERE project_id = $1 FOR UPDATE`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("lock project tasks: %w", err)
+	}
+	taskIDs := map[string]bool{}
+	for taskRows.Next() {
+		var id string
+		if err := taskRows.Scan(&id); err != nil {
+			taskRows.Close()
+			return nil, err
+		}
+		taskIDs[id] = true
+	}
+	taskRows.Close()
+	if len(taskIDs) != len(req.Tasks) {
+		return nil, fmt.Errorf("task set changed while encryption was being prepared")
+	}
+	seenTasks := map[string]bool{}
+	for _, task := range req.Tasks {
+		if !taskIDs[task.ID] || seenTasks[task.ID] || !isEncryptedEnvelope(task.Title) || !isEncryptedEnvelope(task.Description) {
+			return nil, fmt.Errorf("migration contains invalid encrypted task content")
+		}
+		seenTasks[task.ID] = true
+	}
+	if _, err := tx.Exec(ctx, `UPDATE projects SET name = $2, description = $3, is_encrypted = true WHERE id = $1`, projectID, req.Name, req.Description); err != nil {
+		return nil, fmt.Errorf("encrypt project: %w", err)
+	}
+	for _, task := range req.Tasks {
+		if _, err := tx.Exec(ctx, `UPDATE tasks SET title = $2, description = $3, is_encrypted = true WHERE id = $1 AND project_id = $4`, task.ID, task.Title, task.Description, projectID); err != nil {
+			return nil, fmt.Errorf("encrypt task: %w", err)
+		}
+	}
+	for memberID, encryptedKey := range wrapped {
+		if _, err := tx.Exec(ctx, `INSERT INTO access_control (resource_id, user_id, encrypted_key, resource_type) VALUES ($1, $2, $3, 'Project') ON CONFLICT (resource_id, user_id) DO UPDATE SET encrypted_key = EXCLUDED.encrypted_key, resource_type = 'Project'`, projectID, memberID, encryptedKey); err != nil {
+			return nil, fmt.Errorf("store project access key: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit project encryption migration: %w", err)
+	}
+	return r.GetProject(ctx, projectID, userID)
+}
+
+func (r *Repo) RepairProjectEncryption(ctx context.Context, projectID, userID string, req models.ProjectEncryptionRepairRequest) error {
+	if len(req.TaskIDs) == 0 || req.ExpectedUpdatedAt.IsZero() {
+		return fmt.Errorf("tasks and expectedUpdatedAt are required")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin encryption repair: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var encrypted bool
+	var updatedAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT is_encrypted, updated_at FROM projects WHERE id = $1 FOR UPDATE`, projectID).Scan(&encrypted, &updatedAt); err != nil {
+		return err
+	}
+	if !encrypted {
+		return fmt.Errorf("project is not encrypted")
+	}
+	if !updatedAt.Equal(req.ExpectedUpdatedAt) {
+		return fmt.Errorf("project changed while repair was being prepared")
+	}
+	for _, taskID := range req.TaskIDs {
+		var title string
+		var taskEncrypted bool
+		if err := tx.QueryRow(ctx, `SELECT title, is_encrypted FROM tasks WHERE id = $1 AND project_id = $2 FOR UPDATE`, taskID, projectID).Scan(&title, &taskEncrypted); err != nil {
+			return fmt.Errorf("load repair task: %w", err)
+		}
+		if taskEncrypted || !isEncryptedEnvelope(title) {
+			return fmt.Errorf("task %s is not a repairable encrypted task", taskID)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE tasks SET is_encrypted = true WHERE id = $1`, taskID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func (r *Repo) DeleteProject(ctx context.Context, id, userID string) error {
 	_, err := r.pool.Exec(ctx,
 		`DELETE FROM projects WHERE id = $1 AND EXISTS (
@@ -1863,6 +2002,47 @@ func (r *Repo) CreateProjectMember(ctx context.Context, projectID, userID, role 
 	member.Name = user.Name
 	member.Role = role
 	return member, nil
+}
+
+func (r *Repo) CreateEncryptedProjectMember(ctx context.Context, projectID, userID, role, encryptedKey string) (*models.ProjectMember, error) {
+	if role != "admin" && role != "editor" && role != "viewer" || encryptedKey == "" {
+		return nil, fmt.Errorf("valid role and encrypted key are required")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	var workspaceID string
+	if err := tx.QueryRow(ctx, `SELECT workspace_id FROM projects WHERE id = $1 FOR UPDATE`, projectID).Scan(&workspaceID); err != nil {
+		return nil, err
+	}
+	var workspaceMember bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)`, workspaceID, userID).Scan(&workspaceMember); err != nil {
+		return nil, err
+	}
+	if !workspaceMember {
+		return nil, fmt.Errorf("project members must belong to the workspace")
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role`, projectID, userID, role); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO access_control (resource_id, user_id, encrypted_key, resource_type) VALUES ($1, $2, $3, 'Project') ON CONFLICT (resource_id, user_id) DO UPDATE SET encrypted_key = EXCLUDED.encrypted_key, resource_type = 'Project'`, projectID, userID, encryptedKey); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	members, err := r.ListProjectMembers(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for _, member := range members {
+		if member.UserID == userID {
+			return &member, nil
+		}
+	}
+	return nil, fmt.Errorf("created project member not found")
 }
 
 func (r *Repo) UpdateProjectMemberRole(ctx context.Context, projectID, userID, role string) (*models.ProjectMember, error) {
@@ -3027,6 +3207,13 @@ func (r *Repo) ListTaskActivity(ctx context.Context, taskID string, limit int) (
 }
 
 func (r *Repo) LogActivity(ctx context.Context, userID, actType, entityType, entityName string, projectID, taskID, metadata *string) (*models.ActivityLog, error) {
+	if projectID != nil {
+		var encrypted bool
+		if err := r.pool.QueryRow(ctx, `SELECT is_encrypted FROM projects WHERE id = $1`, *projectID).Scan(&encrypted); err == nil && encrypted {
+			entityName = "Encrypted item"
+			metadata = nil
+		}
+	}
 	a := &models.ActivityLog{}
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO activity (user_id, type, entity_type, entity_name, project_id, task_id, metadata)
@@ -3216,6 +3403,23 @@ func (r *Repo) GetAccessKey(ctx context.Context, resourceID, userID string) (*mo
 		return nil, fmt.Errorf("get access key: %w", err)
 	}
 	return ac, nil
+}
+
+func (r *Repo) CanManagePersonalResource(ctx context.Context, resourceID, userID, resourceType string) (bool, error) {
+	var exists bool
+	var query string
+	switch resourceType {
+	case "Snippet":
+		query = `SELECT EXISTS(SELECT 1 FROM snippets WHERE id = $1 AND user_id = $2)`
+	case "Wiki":
+		query = `SELECT EXISTS(SELECT 1 FROM wiki_guides WHERE id = $1 AND user_id = $2)`
+	default:
+		return false, fmt.Errorf("unsupported personal resource type")
+	}
+	if err := r.pool.QueryRow(ctx, query, resourceID, userID).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 func (r *Repo) GrantAccess(ctx context.Context, req models.GrantAccessRequest) (*models.AccessControl, error) {

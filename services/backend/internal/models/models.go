@@ -503,6 +503,30 @@ type UpdateProjectRequest struct {
 	IsEncrypted   *bool    `json:"isEncrypted,omitempty"`
 }
 
+type WrappedResourceKey struct {
+	UserID       string `json:"userId"`
+	EncryptedKey string `json:"encryptedKey"`
+}
+
+type EncryptedTaskUpdate struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type ProjectEncryptionMigrationRequest struct {
+	Name              string                `json:"name"`
+	Description       string                `json:"description"`
+	Tasks             []EncryptedTaskUpdate `json:"tasks"`
+	WrappedKeys       []WrappedResourceKey  `json:"wrappedKeys"`
+	ExpectedUpdatedAt time.Time             `json:"expectedUpdatedAt"`
+}
+
+type ProjectEncryptionRepairRequest struct {
+	TaskIDs           []string  `json:"taskIds"`
+	ExpectedUpdatedAt time.Time `json:"expectedUpdatedAt"`
+}
+
 type CreateCustomerRequest struct {
 	Name         string  `json:"name"`
 	ContactName  *string `json:"contactName,omitempty"`

@@ -97,23 +97,16 @@ func (h *CollaborationHandler) AddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	member, err := h.repo.CreateProjectMember(r.Context(), projectID, req.UserID, req.Role)
+	var member *models.ProjectMember
+	if project.IsEncrypted {
+		member, err = h.repo.CreateEncryptedProjectMember(r.Context(), projectID, req.UserID, req.Role, *req.EncryptedKey)
+	} else {
+		member, err = h.repo.CreateProjectMember(r.Context(), projectID, req.UserID, req.Role)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to add project member")
 		return
 	}
-	if project.IsEncrypted && req.EncryptedKey != nil {
-		if _, err := h.repo.GrantAccess(r.Context(), models.GrantAccessRequest{
-			ResourceID:   projectID,
-			UserID:       req.UserID,
-			EncryptedKey: *req.EncryptedKey,
-			ResourceType: "Project",
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to grant encrypted project access")
-			return
-		}
-	}
-
 	h.broadcastProject(projectID, models.WSEvent{Type: "create", Collection: "project_members", Document: member, UserID: userID})
 	writeJSON(w, http.StatusCreated, member)
 }
