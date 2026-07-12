@@ -48,7 +48,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize file storage: %v", err)
 	}
-	hub := websocket.NewHub(cfg.JWTSecret, repo)
+	hub := websocket.NewHub(cfg.JWTSecret, cfg.CORSOrigin, repo)
 	go hub.Run()
 	go reminders.NewDeadlineService(repo, hub).Run()
 	go reminders.RunAdminAuditRetention(repo)
@@ -73,6 +73,7 @@ func main() {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RealIP)
+	r.Use(securityHeaders)
 	r.Use(corsMiddleware(cfg.CORSOrigin))
 
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -225,8 +226,9 @@ func corsMiddleware(origin string) func(http.Handler) http.Handler {
 			origins := strings.Split(origin, ",")
 			reqOrigin := r.Header.Get("Origin")
 			for _, o := range origins {
-				if strings.TrimSpace(o) == reqOrigin || strings.TrimSpace(o) == "*" {
+				if strings.TrimSpace(o) == reqOrigin {
 					w.Header().Set("Access-Control-Allow-Origin", reqOrigin)
+					w.Header().Add("Vary", "Origin")
 					break
 				}
 			}
@@ -241,4 +243,17 @@ func corsMiddleware(origin string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
 }

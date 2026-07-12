@@ -75,8 +75,8 @@ func (h *CollaborationHandler) AddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	req.ProjectID = projectID
-	if req.UserID == "" || req.Role == "" {
-		writeError(w, http.StatusBadRequest, "userId and role are required")
+	if req.UserID == "" || !validAssignableProjectRole(req.Role) {
+		writeError(w, http.StatusBadRequest, "userId and a valid project role are required")
 		return
 	}
 
@@ -130,6 +130,10 @@ func (h *CollaborationHandler) UpdateMemberRole(w http.ResponseWriter, r *http.R
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if !validAssignableProjectRole(req.Role) {
+		writeError(w, http.StatusBadRequest, "a valid project role is required")
+		return
+	}
 	member, err := h.repo.UpdateProjectMemberRole(r.Context(), projectID, targetUserID, req.Role)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update member")
@@ -137,6 +141,12 @@ func (h *CollaborationHandler) UpdateMemberRole(w http.ResponseWriter, r *http.R
 	}
 	h.broadcastProject(projectID, models.WSEvent{Type: "update", Collection: "project_members", Document: member, UserID: userID})
 	writeJSON(w, http.StatusOK, member)
+}
+
+// Owner is intentionally excluded: ownership may only be transferred through
+// a dedicated owner-only operation, never through ordinary member management.
+func validAssignableProjectRole(role string) bool {
+	return role == "admin" || role == "editor" || role == "viewer"
 }
 
 func (h *CollaborationHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { api, AuthUser } from '@/services/frontend/lib/api';
-import { decryptPrivateKey, generateUserKeyPair } from '@/services/frontend/lib/crypto';
+import { decryptPrivateKey, generateUserKeyPair, reencryptPrivateKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { UserKeys } from '@/services/frontend/types';
 import { useRouter } from 'next/navigation';
@@ -176,14 +176,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 keys.encryptedPrivateKey,
                 password,
                 keys.salt,
-                keys.iv
+                keys.iv,
+                keys.kdfIterations || 100000,
             );
             setPrivateKey(pk);
-            setUserKeys(keys);
+            if ((keys.kdfIterations || 100000) < 600000) {
+                const upgraded = await reencryptPrivateKey(pk, password);
+                const updated = await db.updateUserKeys(keys.id, upgraded);
+                setUserKeys(updated as UserKeys);
+            } else {
+                setUserKeys(keys);
+            }
 
-            // Persist session
-            const jwk = await crypto.subtle.exportKey('jwk', pk);
-            sessionStorage.setItem('vault_session_key', JSON.stringify(jwk));
+            // Keep decrypted vault material only in memory. Persisting an
+            // exportable private key in sessionStorage makes an XSS incident
+            // equivalent to losing the vault password.
+            sessionStorage.removeItem('vault_session_key');
         } catch (error) {
             console.error('Unlock vault error:', error);
             throw error;

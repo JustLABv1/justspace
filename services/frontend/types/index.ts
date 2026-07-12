@@ -199,6 +199,7 @@ export interface UserKeys {
     encryptedPrivateKey: string;
     salt: string;
     iv: string;
+    kdfIterations: number;
 }
 
 export interface AccessControl {

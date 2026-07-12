@@ -24,20 +24,25 @@ type AuthHandler struct {
 	frontendURL       string
 	hub               *websocket.Hub
 	fileStore         *storage.FileStore
+	authLimiter       *authRateLimiter
 }
 
 func NewAuthHandler(repo *repository.Repo, jwtSecret, oidcEncryptionKey, frontendURL string, hub *websocket.Hub, fileStore *storage.FileStore) *AuthHandler {
-	return &AuthHandler{repo: repo, jwtSecret: jwtSecret, oidcEncryptionKey: oidcEncryptionKey, frontendURL: strings.TrimRight(strings.Split(frontendURL, ",")[0], "/"), hub: hub, fileStore: fileStore}
+	return &AuthHandler{repo: repo, jwtSecret: jwtSecret, oidcEncryptionKey: oidcEncryptionKey, frontendURL: strings.TrimRight(strings.Split(frontendURL, ",")[0], "/"), hub: hub, fileStore: fileStore, authLimiter: newAuthRateLimiter()}
 }
 
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
+	if !h.authLimiter.allow(r) {
+		writeError(w, http.StatusTooManyRequests, "too many authentication attempts")
+		return
+	}
 	var req models.SignupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Email == "" || req.Password == "" {
-		writeError(w, http.StatusBadRequest, "email and password are required")
+	if req.Email == "" || len(req.Password) < 12 {
+		writeError(w, http.StatusBadRequest, "email and a password of at least 12 characters are required")
 		return
 	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
@@ -74,11 +79,15 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
-	h.setTokenCookie(w, token)
-	writeJSON(w, http.StatusCreated, models.AuthResponse{Token: token, User: *user})
+	h.setTokenCookie(w, r, token)
+	writeJSON(w, http.StatusCreated, models.AuthResponse{User: *user})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	if !h.authLimiter.allow(r) {
+		writeError(w, http.StatusTooManyRequests, "too many authentication attempts")
+		return
+	}
 	var req models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -112,8 +121,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
-	h.setTokenCookie(w, token)
-	writeJSON(w, http.StatusOK, models.AuthResponse{Token: token, User: *user})
+	h.setTokenCookie(w, r, token)
+	writeJSON(w, http.StatusOK, models.AuthResponse{User: *user})
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -169,9 +178,9 @@ func (h *AuthHandler) sessionVersion(ctx context.Context, userID string) int64 {
 	return version
 }
 
-func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, token string) {
+func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, r *http.Request, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name: "js_token", Value: token, Path: "/",
-		MaxAge: 7 * 24 * 60 * 60, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		MaxAge: 7 * 24 * 60 * 60, HttpOnly: true, Secure: requestIsSecure(r), SameSite: http.SameSiteLaxMode,
 	})
 }

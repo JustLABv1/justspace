@@ -376,6 +376,7 @@ type UserKeys struct {
 	EncryptedPrivateKey string    `json:"encryptedPrivateKey"`
 	Salt                string    `json:"salt"`
 	IV                  string    `json:"iv"`
+	KDFIterations       int       `json:"kdfIterations"`
 	CreatedAt           time.Time `json:"createdAt"`
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
@@ -424,8 +425,7 @@ type LoginRequest struct {
 }
 
 type AuthResponse struct {
-	Token string `json:"token"`
-	User  User   `json:"user"`
+	User User `json:"user"`
 }
 
 type UpdateProfileRequest struct {
@@ -722,6 +722,7 @@ type CreateUserKeysRequest struct {
 	EncryptedPrivateKey string `json:"encryptedPrivateKey"`
 	Salt                string `json:"salt"`
 	IV                  string `json:"iv"`
+	KDFIterations       int    `json:"kdfIterations"`
 }
 
 type UpdateUserKeysRequest struct {
@@ -730,6 +731,7 @@ type UpdateUserKeysRequest struct {
 	EncryptedPrivateKey *string `json:"encryptedPrivateKey,omitempty"`
 	Salt                *string `json:"salt,omitempty"`
 	IV                  *string `json:"iv,omitempty"`
+	KDFIterations       *int    `json:"kdfIterations,omitempty"`
 }
 
 type GrantAccessRequest struct {

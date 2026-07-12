@@ -24,14 +24,15 @@ type Client struct {
 }
 
 type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan broadcastMsg
-	register   chan *Client
-	unregister chan *Client
-	disconnect chan string
-	mu         sync.RWMutex
-	jwtSecret  string
-	repo       *repository.Repo
+	clients        map[*Client]bool
+	broadcast      chan broadcastMsg
+	register       chan *Client
+	unregister     chan *Client
+	disconnect     chan string
+	mu             sync.RWMutex
+	jwtSecret      string
+	allowedOrigins map[string]struct{}
+	repo           *repository.Repo
 }
 
 type broadcastMsg struct {
@@ -39,15 +40,22 @@ type broadcastMsg struct {
 	data   []byte
 }
 
-func NewHub(jwtSecret string, repo *repository.Repo) *Hub {
+func NewHub(jwtSecret, corsOrigins string, repo *repository.Repo) *Hub {
+	allowedOrigins := make(map[string]struct{})
+	for _, origin := range strings.Split(corsOrigins, ",") {
+		if origin = strings.TrimSpace(origin); origin != "" {
+			allowedOrigins[origin] = struct{}{}
+		}
+	}
 	return &Hub{
-		clients:    make(map[*Client]bool),
-		broadcast:  make(chan broadcastMsg, 256),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		disconnect: make(chan string, 32),
-		jwtSecret:  jwtSecret,
-		repo:       repo,
+		clients:        make(map[*Client]bool),
+		broadcast:      make(chan broadcastMsg, 256),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		disconnect:     make(chan string, 32),
+		jwtSecret:      jwtSecret,
+		allowedOrigins: allowedOrigins,
+		repo:           repo,
 	}
 }
 
@@ -125,11 +133,15 @@ func (h *Hub) BroadcastUsers(userIDs []string, event interface{}) {
 }
 
 func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
-	tokenStr := r.URL.Query().Get("token")
-	if tokenStr == "" {
-		if cookie, err := r.Cookie("js_token"); err == nil {
-			tokenStr = cookie.Value
+	if origin := r.Header.Get("Origin"); origin != "" {
+		if _, ok := h.allowedOrigins[origin]; !ok {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
+			return
 		}
+	}
+	tokenStr := ""
+	if cookie, err := r.Cookie("js_token"); err == nil {
+		tokenStr = cookie.Value
 	}
 	if tokenStr == "" {
 		if auth := r.Header.Get("Authorization"); auth != "" {
@@ -141,6 +153,9 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return []byte(h.jwtSecret), nil
 	})
 	if err != nil || !token.Valid {

@@ -39,12 +39,13 @@ export interface UserKeyPair {
     encryptedPrivateKey: string;
     salt: string;
     iv: string;
+    kdfIterations: number;
 }
 
 /**
  * Derives a cryptographic key from a password using PBKDF2.
  */
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
     const encoder = new TextEncoder();
     const baseKey = await crypto.subtle.importKey(
         'raw',
@@ -58,7 +59,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
         {
             name: 'PBKDF2',
             salt: toArrayBuffer(salt),
-            iterations: 100000,
+            iterations,
             hash: 'SHA-256'
         },
         baseKey,
@@ -93,7 +94,7 @@ export async function generateUserKeyPair(vaultPassword: string): Promise<UserKe
     // Export and encrypt private key
     const privateKeyBuffer = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const vaultKey = await deriveKey(vaultPassword, salt);
+    const vaultKey = await deriveKey(vaultPassword, salt, 600000);
     const iv = crypto.getRandomValues(new Uint8Array(12));
 
     const encryptedPrivateKeyBuffer = await crypto.subtle.encrypt(
@@ -108,7 +109,22 @@ export async function generateUserKeyPair(vaultPassword: string): Promise<UserKe
         publicKey: publicKeyStr,
         encryptedPrivateKey: encryptedPrivateKeyStr,
         salt: bytesToBase64(salt),
-        iv: bytesToBase64(iv)
+        iv: bytesToBase64(iv),
+        kdfIterations: 600000,
+    };
+}
+
+export async function reencryptPrivateKey(privateKey: CryptoKey, vaultPassword: string): Promise<Pick<UserKeyPair, 'encryptedPrivateKey' | 'salt' | 'iv' | 'kdfIterations'>> {
+    const privateKeyBuffer = await crypto.subtle.exportKey('pkcs8', privateKey);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const vaultKey = await deriveKey(vaultPassword, salt, 600000);
+    const ciphertext = await crypto.subtle.encrypt({ name: ALGORITHM_AES, iv }, vaultKey, privateKeyBuffer);
+    return {
+        encryptedPrivateKey: bytesToBase64(new Uint8Array(ciphertext)),
+        salt: bytesToBase64(salt),
+        iv: bytesToBase64(iv),
+        kdfIterations: 600000,
     };
 }
 
@@ -119,13 +135,14 @@ export async function decryptPrivateKey(
     encryptedPrivateKeyStr: string,
     vaultPassword: string,
     saltStr: string,
-    ivStr: string
+    ivStr: string,
+    iterations = 100000
 ): Promise<CryptoKey> {
     const encryptedPrivateKey = base64ToBytes(encryptedPrivateKeyStr);
     const salt = base64ToBytes(saltStr);
     const iv = base64ToBytes(ivStr);
 
-    const vaultKey = await deriveKey(vaultPassword, salt);
+    const vaultKey = await deriveKey(vaultPassword, salt, iterations);
 
     const privateKeyBuffer = await crypto.subtle.decrypt(
         { name: ALGORITHM_AES, iv: toArrayBuffer(iv) },

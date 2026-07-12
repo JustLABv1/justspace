@@ -1829,6 +1829,9 @@ func (r *Repo) ListProjectMembers(ctx context.Context, projectID string) ([]mode
 }
 
 func (r *Repo) CreateProjectMember(ctx context.Context, projectID, userID, role string) (*models.ProjectMember, error) {
+	if role != "admin" && role != "editor" && role != "viewer" {
+		return nil, fmt.Errorf("invalid assignable project role")
+	}
 	var workspaceID string
 	if err := r.pool.QueryRow(ctx, `SELECT workspace_id FROM projects WHERE id = $1`, projectID).Scan(&workspaceID); err != nil {
 		return nil, fmt.Errorf("load project workspace for member: %w", err)
@@ -1863,6 +1866,9 @@ func (r *Repo) CreateProjectMember(ctx context.Context, projectID, userID, role 
 }
 
 func (r *Repo) UpdateProjectMemberRole(ctx context.Context, projectID, userID, role string) (*models.ProjectMember, error) {
+	if role != "admin" && role != "editor" && role != "viewer" {
+		return nil, fmt.Errorf("invalid assignable project role")
+	}
 	member := &models.ProjectMember{}
 	err := r.pool.QueryRow(ctx,
 		`UPDATE project_members pm
@@ -3157,8 +3163,8 @@ func (r *Repo) DeleteSnippet(ctx context.Context, id, userID string) error {
 func (r *Repo) GetUserKeys(ctx context.Context, userID string) (*models.UserKeys, error) {
 	uk := &models.UserKeys{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, email, public_key, encrypted_private_key, salt, iv, created_at, updated_at FROM user_keys WHERE user_id = $1`, userID,
-	).Scan(&uk.ID, &uk.UserID, &uk.Email, &uk.PublicKey, &uk.EncryptedPrivateKey, &uk.Salt, &uk.IV, &uk.CreatedAt, &uk.UpdatedAt)
+		`SELECT id, user_id, email, public_key, encrypted_private_key, salt, iv, kdf_iterations, created_at, updated_at FROM user_keys WHERE user_id = $1`, userID,
+	).Scan(&uk.ID, &uk.UserID, &uk.Email, &uk.PublicKey, &uk.EncryptedPrivateKey, &uk.Salt, &uk.IV, &uk.KDFIterations, &uk.CreatedAt, &uk.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -3171,10 +3177,10 @@ func (r *Repo) GetUserKeys(ctx context.Context, userID string) (*models.UserKeys
 func (r *Repo) CreateUserKeys(ctx context.Context, userID, email string, req models.CreateUserKeysRequest) (*models.UserKeys, error) {
 	uk := &models.UserKeys{}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO user_keys (user_id, email, public_key, encrypted_private_key, salt, iv) VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING id, user_id, email, public_key, encrypted_private_key, salt, iv, created_at, updated_at`,
-		userID, email, req.PublicKey, req.EncryptedPrivateKey, req.Salt, req.IV,
-	).Scan(&uk.ID, &uk.UserID, &uk.Email, &uk.PublicKey, &uk.EncryptedPrivateKey, &uk.Salt, &uk.IV, &uk.CreatedAt, &uk.UpdatedAt)
+		`INSERT INTO user_keys (user_id, email, public_key, encrypted_private_key, salt, iv, kdf_iterations) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, user_id, email, public_key, encrypted_private_key, salt, iv, kdf_iterations, created_at, updated_at`,
+		userID, email, req.PublicKey, req.EncryptedPrivateKey, req.Salt, req.IV, req.KDFIterations,
+	).Scan(&uk.ID, &uk.UserID, &uk.Email, &uk.PublicKey, &uk.EncryptedPrivateKey, &uk.Salt, &uk.IV, &uk.KDFIterations, &uk.CreatedAt, &uk.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create user keys: %w", err)
 	}
@@ -3185,11 +3191,11 @@ func (r *Repo) UpdateUserKeys(ctx context.Context, id, userID string, req models
 	uk := &models.UserKeys{}
 	err := r.pool.QueryRow(ctx,
 		`UPDATE user_keys SET email = COALESCE($3, email), public_key = COALESCE($4, public_key),
-		 encrypted_private_key = COALESCE($5, encrypted_private_key), salt = COALESCE($6, salt), iv = COALESCE($7, iv)
+		 encrypted_private_key = COALESCE($5, encrypted_private_key), salt = COALESCE($6, salt), iv = COALESCE($7, iv), kdf_iterations = COALESCE($8, kdf_iterations)
 		 WHERE id = $1 AND user_id = $2
-		 RETURNING id, user_id, email, public_key, encrypted_private_key, salt, iv, created_at, updated_at`,
-		id, userID, req.Email, req.PublicKey, req.EncryptedPrivateKey, req.Salt, req.IV,
-	).Scan(&uk.ID, &uk.UserID, &uk.Email, &uk.PublicKey, &uk.EncryptedPrivateKey, &uk.Salt, &uk.IV, &uk.CreatedAt, &uk.UpdatedAt)
+		 RETURNING id, user_id, email, public_key, encrypted_private_key, salt, iv, kdf_iterations, created_at, updated_at`,
+		id, userID, req.Email, req.PublicKey, req.EncryptedPrivateKey, req.Salt, req.IV, req.KDFIterations,
+	).Scan(&uk.ID, &uk.UserID, &uk.Email, &uk.PublicKey, &uk.EncryptedPrivateKey, &uk.Salt, &uk.IV, &uk.KDFIterations, &uk.CreatedAt, &uk.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update user keys: %w", err)
 	}
