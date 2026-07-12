@@ -23,7 +23,7 @@ func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, p.days_per_week, p.allocated_days, p.is_encrypted,
+const projectSelect = `SELECT p.id, p.user_id, p.name, p.description, p.status, p.days_per_week, p.allocated_days, p.client_id, p.hour_budget, p.is_encrypted,
 	p.task_key_prefix, (p.next_task_number > 1) AS task_key_prefix_locked, pm.role, p.created_at, p.updated_at, p.workspace_id
 	FROM projects p
 	JOIN project_members pm ON pm.project_id = p.id
@@ -44,6 +44,8 @@ func scanProject(row pgx.Row, project *models.Project) error {
 		&project.Status,
 		&project.DaysPerWeek,
 		&project.AllocatedDays,
+		&project.ClientID,
+		&project.HourBudget,
 		&project.IsEncrypted,
 		&project.TaskKeyPrefix,
 		&project.TaskKeyPrefixLocked,
@@ -107,6 +109,10 @@ func normalizeStatusKey(value string) string {
 		key = "status"
 	}
 	return key
+}
+
+func validWorkspaceType(value string) bool {
+	return value == "project_management" || value == "consulting"
 }
 
 func normalizeProjectTaskKeyPrefix(value string) string {
@@ -793,7 +799,7 @@ func seedProjectTaskStatuses(ctx context.Context, tx pgx.Tx, projectID string, t
 // ---- Workspaces ----
 
 func scanWorkspace(row pgx.Row, workspace *models.Workspace) error {
-	return row.Scan(&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
+	return row.Scan(&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
 }
 
 func (r *Repo) GetDefaultWorkspaceID(ctx context.Context, userID string) (string, error) {
@@ -819,7 +825,7 @@ func (r *Repo) CanAccessWorkspace(ctx context.Context, workspaceID, userID strin
 
 func (r *Repo) ListWorkspaces(ctx context.Context, userID string) ([]models.Workspace, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT w.id, w.owner_user_id, w.name, w.slug, wm.role, w.auto_add_members_to_projects, w.created_at, w.updated_at
+		SELECT w.id, w.owner_user_id, w.name, w.slug, w.type, wm.role, w.auto_add_members_to_projects, w.created_at, w.updated_at
 		FROM workspaces w
 		JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = $1
 		ORDER BY w.name ASC`, userID)
@@ -830,7 +836,7 @@ func (r *Repo) ListWorkspaces(ctx context.Context, userID string) ([]models.Work
 	workspaces := make([]models.Workspace, 0)
 	for rows.Next() {
 		var workspace models.Workspace
-		if err := rows.Scan(&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Role, &workspace.CreatedAt, &workspace.UpdatedAt); err != nil {
+		if err := rows.Scan(&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan workspace: %w", err)
 		}
 		workspaces = append(workspaces, workspace)
@@ -843,6 +849,13 @@ func (r *Repo) CreateWorkspace(ctx context.Context, userID string, req models.Cr
 	if name == "" {
 		return nil, fmt.Errorf("workspace name is required")
 	}
+	workspaceType := strings.TrimSpace(req.Type)
+	if workspaceType == "" {
+		workspaceType = "project_management"
+	}
+	if !validWorkspaceType(workspaceType) {
+		return nil, fmt.Errorf("a valid workspace type is required")
+	}
 	slug := normalizeStatusKey(name)
 	if slug == "" {
 		slug = "workspace"
@@ -854,10 +867,10 @@ func (r *Repo) CreateWorkspace(ctx context.Context, userID string, req models.Cr
 	defer tx.Rollback(ctx)
 	workspace := &models.Workspace{}
 	err = tx.QueryRow(ctx, `
-		INSERT INTO workspaces (owner_user_id, name, slug)
-		VALUES ($1, $2, $3 || '-' || LEFT(REPLACE(gen_random_uuid()::text, '-', ''), 6))
-			RETURNING id, owner_user_id, name, slug, 'owner', auto_add_members_to_projects, created_at, updated_at`, userID, name, slug).Scan(
-		&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
+		INSERT INTO workspaces (owner_user_id, name, slug, type)
+		VALUES ($1, $2, $3 || '-' || LEFT(REPLACE(gen_random_uuid()::text, '-', ''), 6), $4)
+			RETURNING id, owner_user_id, name, slug, type, 'owner', auto_add_members_to_projects, created_at, updated_at`, userID, name, slug, workspaceType).Scan(
+		&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
@@ -871,18 +884,22 @@ func (r *Repo) CreateWorkspace(ctx context.Context, userID string, req models.Cr
 }
 
 func (r *Repo) UpdateWorkspace(ctx context.Context, id, userID string, req models.UpdateWorkspaceRequest) (*models.Workspace, error) {
+	if req.Type != nil && !validWorkspaceType(*req.Type) {
+		return nil, fmt.Errorf("a valid workspace type is required")
+	}
 	workspace := &models.Workspace{}
 	err := r.pool.QueryRow(ctx, `
 		UPDATE workspaces w
 		SET name = COALESCE($3, w.name),
-			auto_add_members_to_projects = COALESCE($4, w.auto_add_members_to_projects)
+			type = COALESCE($4, w.type),
+			auto_add_members_to_projects = COALESCE($5, w.auto_add_members_to_projects)
 		WHERE w.id = $1 AND EXISTS (
 			SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = $2 AND wm.role IN ('owner', 'admin')
 		)
-		RETURNING w.id, w.owner_user_id, w.name, w.slug,
+		RETURNING w.id, w.owner_user_id, w.name, w.slug, w.type,
 			(SELECT wm.role FROM workspace_members wm WHERE wm.workspace_id = w.id AND wm.user_id = $2),
-			w.auto_add_members_to_projects, w.created_at, w.updated_at`, id, userID, req.Name, req.AutoAddMembersToProjects).Scan(
-		&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
+			w.auto_add_members_to_projects, w.created_at, w.updated_at`, id, userID, req.Name, req.Type, req.AutoAddMembersToProjects).Scan(
+		&workspace.ID, &workspace.OwnerID, &workspace.Name, &workspace.Slug, &workspace.Type, &workspace.Role, &workspace.AutoAddMembersToProjects, &workspace.CreatedAt, &workspace.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("update workspace: %w", err)
 	}
@@ -904,7 +921,7 @@ func (r *Repo) GetWorkspaceRole(ctx context.Context, workspaceID, userID string)
 
 func (r *Repo) ListWorkspaceMembers(ctx context.Context, workspaceID string) ([]models.WorkspaceMember, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT wm.workspace_id, wm.user_id, u.name, u.email, wm.role, wm.joined_at, uk.public_key, uk.user_id IS NOT NULL
+		`SELECT wm.workspace_id, wm.user_id, u.name, u.email, wm.role, wm.joined_at, uk.public_key, uk.user_id IS NOT NULL, wm.weekly_capacity_days
 		 FROM workspace_members wm
 		 JOIN users u ON u.id = wm.user_id
 		 LEFT JOIN user_keys uk ON uk.user_id = wm.user_id
@@ -917,7 +934,7 @@ func (r *Repo) ListWorkspaceMembers(ctx context.Context, workspaceID string) ([]
 	members := make([]models.WorkspaceMember, 0)
 	for rows.Next() {
 		var member models.WorkspaceMember
-		if err := rows.Scan(&member.WorkspaceID, &member.UserID, &member.Name, &member.Email, &member.Role, &member.JoinedAt, &member.PublicKey, &member.HasVault); err != nil {
+		if err := rows.Scan(&member.WorkspaceID, &member.UserID, &member.Name, &member.Email, &member.Role, &member.JoinedAt, &member.PublicKey, &member.HasVault, &member.WeeklyCapacityDays); err != nil {
 			return nil, fmt.Errorf("scan workspace member: %w", err)
 		}
 		members = append(members, member)
@@ -930,7 +947,7 @@ func (r *Repo) CreateWorkspaceMember(ctx context.Context, workspaceID, userID, r
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO workspace_members (workspace_id, user_id, role)
 		 VALUES ($1, $2, $3)
-		 RETURNING workspace_id, user_id, joined_at`, workspaceID, userID, role).Scan(&member.WorkspaceID, &member.UserID, &member.JoinedAt)
+		 RETURNING workspace_id, user_id, joined_at, weekly_capacity_days`, workspaceID, userID, role).Scan(&member.WorkspaceID, &member.UserID, &member.JoinedAt, &member.WeeklyCapacityDays)
 	if err != nil {
 		return nil, fmt.Errorf("create workspace member: %w", err)
 	}
@@ -947,14 +964,14 @@ func (r *Repo) CreateWorkspaceMember(ctx context.Context, workspaceID, userID, r
 	return member, nil
 }
 
-func (r *Repo) UpdateWorkspaceMemberRole(ctx context.Context, workspaceID, userID, role string) (*models.WorkspaceMember, error) {
+func (r *Repo) UpdateWorkspaceMember(ctx context.Context, workspaceID, userID string, req models.UpdateWorkspaceMemberRequest) (*models.WorkspaceMember, error) {
 	member := &models.WorkspaceMember{}
 	err := r.pool.QueryRow(ctx,
 		`UPDATE workspace_members wm
-		 SET role = $3
-		 WHERE wm.workspace_id = $1 AND wm.user_id = $2 AND wm.role <> 'owner'
-		 RETURNING wm.workspace_id, wm.user_id, wm.role, wm.joined_at`, workspaceID, userID, role).
-		Scan(&member.WorkspaceID, &member.UserID, &member.Role, &member.JoinedAt)
+		 SET role = CASE WHEN wm.role = 'owner' THEN wm.role ELSE COALESCE(NULLIF($3, ''), wm.role) END, weekly_capacity_days = COALESCE($4, wm.weekly_capacity_days)
+		 WHERE wm.workspace_id = $1 AND wm.user_id = $2
+		 RETURNING wm.workspace_id, wm.user_id, wm.role, wm.joined_at, wm.weekly_capacity_days`, workspaceID, userID, req.Role, req.WeeklyCapacityDays).
+		Scan(&member.WorkspaceID, &member.UserID, &member.Role, &member.JoinedAt, &member.WeeklyCapacityDays)
 	if err != nil {
 		return nil, fmt.Errorf("update workspace member role: %w", err)
 	}
@@ -965,6 +982,82 @@ func (r *Repo) UpdateWorkspaceMemberRole(ctx context.Context, workspaceID, userI
 	member.Name = user.Name
 	member.Email = user.Email
 	return member, nil
+}
+
+func (r *Repo) IsConsultingWorkspace(ctx context.Context, workspaceID string) (bool, error) {
+	var consulting bool
+	err := r.pool.QueryRow(ctx, `SELECT type = 'consulting' FROM workspaces WHERE id = $1`, workspaceID).Scan(&consulting)
+	return consulting, err
+}
+
+func (r *Repo) ListCustomers(ctx context.Context, workspaceID string, includeArchived bool) ([]models.Customer, error) {
+	query := `SELECT id, workspace_id, name, contact_name, contact_email, notes, archived_at, created_at, updated_at FROM customers WHERE workspace_id = $1`
+	if !includeArchived {
+		query += ` AND archived_at IS NULL`
+	}
+	query += ` ORDER BY name ASC`
+	rows, err := r.pool.Query(ctx, query, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list customers: %w", err)
+	}
+	defer rows.Close()
+	customers := make([]models.Customer, 0)
+	for rows.Next() {
+		var customer models.Customer
+		if err := rows.Scan(&customer.ID, &customer.WorkspaceID, &customer.Name, &customer.ContactName, &customer.ContactEmail, &customer.Notes, &customer.ArchivedAt, &customer.CreatedAt, &customer.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan customer: %w", err)
+		}
+		customers = append(customers, customer)
+	}
+	return customers, rows.Err()
+}
+
+func (r *Repo) CreateCustomer(ctx context.Context, workspaceID string, req models.CreateCustomerRequest) (*models.Customer, error) {
+	customer := &models.Customer{}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, fmt.Errorf("customer name is required")
+	}
+	err := r.pool.QueryRow(ctx, `INSERT INTO customers (workspace_id, name, contact_name, contact_email, notes) VALUES ($1, $2, $3, $4, $5) RETURNING id, workspace_id, name, contact_name, contact_email, notes, archived_at, created_at, updated_at`, workspaceID, name, req.ContactName, req.ContactEmail, req.Notes).Scan(&customer.ID, &customer.WorkspaceID, &customer.Name, &customer.ContactName, &customer.ContactEmail, &customer.Notes, &customer.ArchivedAt, &customer.CreatedAt, &customer.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("create customer: %w", err)
+	}
+	return customer, nil
+}
+
+func (r *Repo) UpdateCustomer(ctx context.Context, customerID, workspaceID string, req models.UpdateCustomerRequest) (*models.Customer, error) {
+	customer := &models.Customer{}
+	err := r.pool.QueryRow(ctx, `UPDATE customers SET name = COALESCE($3, name), contact_name = COALESCE($4, contact_name), contact_email = COALESCE($5, contact_email), notes = COALESCE($6, notes), archived_at = CASE WHEN $7::boolean IS TRUE THEN NOW() WHEN $7::boolean IS FALSE THEN NULL ELSE archived_at END WHERE id = $1 AND workspace_id = $2 RETURNING id, workspace_id, name, contact_name, contact_email, notes, archived_at, created_at, updated_at`, customerID, workspaceID, req.Name, req.ContactName, req.ContactEmail, req.Notes, req.Archived).Scan(&customer.ID, &customer.WorkspaceID, &customer.Name, &customer.ContactName, &customer.ContactEmail, &customer.Notes, &customer.ArchivedAt, &customer.CreatedAt, &customer.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update customer: %w", err)
+	}
+	return customer, nil
+}
+
+func (r *Repo) ListProjectAllocations(ctx context.Context, projectID string) ([]models.ProjectMemberAllocation, error) {
+	rows, err := r.pool.Query(ctx, `SELECT project_id, user_id, days_per_week FROM project_member_allocations WHERE project_id = $1`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list project allocations: %w", err)
+	}
+	defer rows.Close()
+	allocations := make([]models.ProjectMemberAllocation, 0)
+	for rows.Next() {
+		var allocation models.ProjectMemberAllocation
+		if err := rows.Scan(&allocation.ProjectID, &allocation.UserID, &allocation.DaysPerWeek); err != nil {
+			return nil, err
+		}
+		allocations = append(allocations, allocation)
+	}
+	return allocations, rows.Err()
+}
+
+func (r *Repo) UpsertProjectAllocation(ctx context.Context, projectID, userID string, daysPerWeek float64) (*models.ProjectMemberAllocation, error) {
+	allocation := &models.ProjectMemberAllocation{}
+	err := r.pool.QueryRow(ctx, `INSERT INTO project_member_allocations (project_id, user_id, days_per_week) SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2) ON CONFLICT (project_id, user_id) DO UPDATE SET days_per_week = EXCLUDED.days_per_week RETURNING project_id, user_id, days_per_week`, projectID, userID, daysPerWeek).Scan(&allocation.ProjectID, &allocation.UserID, &allocation.DaysPerWeek)
+	if err != nil {
+		return nil, fmt.Errorf("upsert project allocation: %w", err)
+	}
+	return allocation, nil
 }
 
 func (r *Repo) RemoveWorkspaceMember(ctx context.Context, workspaceID, userID string) ([]string, error) {
@@ -1126,7 +1219,7 @@ func (r *Repo) ListProjects(ctx context.Context, userID string, workspaceIDs ...
 	var out []models.Project
 	for rows.Next() {
 		var p models.Project
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.Role, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.DaysPerWeek, &p.AllocatedDays, &p.ClientID, &p.HourBudget, &p.IsEncrypted, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.Role, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -1177,11 +1270,11 @@ func (r *Repo) CreateProject(ctx context.Context, userID string, req models.Crea
 		return nil, fmt.Errorf("workspace role cannot create projects")
 	}
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO projects (workspace_id, user_id, name, description, status, task_key_prefix, days_per_week, allocated_days, is_encrypted)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, is_encrypted, created_at, updated_at, workspace_id`,
-		workspaceID, userID, req.Name, req.Description, req.Status, taskKeyPrefix, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID); err != nil {
+		`INSERT INTO projects (workspace_id, user_id, name, description, status, task_key_prefix, days_per_week, allocated_days, client_id, hour_budget, is_encrypted)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, client_id, hour_budget, is_encrypted, created_at, updated_at, workspace_id`,
+		workspaceID, userID, req.Name, req.Description, req.Status, taskKeyPrefix, req.DaysPerWeek, req.AllocatedDays, req.ClientID, req.HourBudget, req.IsEncrypted,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.ClientID, &p.HourBudget, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID); err != nil {
 		return nil, fmt.Errorf("create project: %w", err)
 	}
 
@@ -1251,14 +1344,14 @@ func (r *Repo) UpdateProject(ctx context.Context, id, userID string, req models.
 		 	WHEN $6::text IS NOT NULL AND next_task_number <= 1 THEN $6::text
 		 	ELSE task_key_prefix
 		 END,
-		 days_per_week = COALESCE($7, days_per_week), allocated_days = COALESCE($8, allocated_days), is_encrypted = COALESCE($9, is_encrypted)
+		 days_per_week = COALESCE($7, days_per_week), allocated_days = COALESCE($8, allocated_days), client_id = COALESCE($9, client_id), hour_budget = COALESCE($10, hour_budget), is_encrypted = COALESCE($11, is_encrypted)
 		 WHERE id = $1 AND EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = projects.id AND pm.user_id = $2 AND pm.role IN ('owner', 'admin', 'editor')
 		 )
-		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, is_encrypted, created_at, updated_at, workspace_id`,
-		id, userID, req.Name, req.Description, req.Status, normalizedPrefix, req.DaysPerWeek, req.AllocatedDays, req.IsEncrypted,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID)
+		 RETURNING id, user_id, name, description, status, task_key_prefix, (next_task_number > 1) AS task_key_prefix_locked, days_per_week, allocated_days, client_id, hour_budget, is_encrypted, created_at, updated_at, workspace_id`,
+		id, userID, req.Name, req.Description, req.Status, normalizedPrefix, req.DaysPerWeek, req.AllocatedDays, req.ClientID, req.HourBudget, req.IsEncrypted,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Status, &p.TaskKeyPrefix, &p.TaskKeyPrefixLocked, &p.DaysPerWeek, &p.AllocatedDays, &p.ClientID, &p.HourBudget, &p.IsEncrypted, &p.CreatedAt, &p.UpdatedAt, &p.WorkspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("update project: %w", err)
 	}

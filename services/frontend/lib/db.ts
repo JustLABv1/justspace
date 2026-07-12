@@ -32,10 +32,10 @@ export const db = {
     async listWorkspaces() {
         return await api.listWorkspaces();
     },
-    async createWorkspace(name: string) {
-        return await api.createWorkspace(name);
+    async createWorkspace(name: string, type?: 'project_management' | 'consulting') {
+        return await api.createWorkspace(name, type);
     },
-    async updateWorkspace(id: string, data: { name?: string; autoAddMembersToProjects?: boolean }) {
+    async updateWorkspace(id: string, data: { name?: string; type?: 'project_management' | 'consulting'; autoAddMembersToProjects?: boolean }) {
         return await api.updateWorkspace(id, data);
     },
     async listWorkspaceMembers(workspaceId: string) {
@@ -44,8 +44,8 @@ export const db = {
     async addWorkspaceMember(workspaceId: string, data: { userId: string; role: string }) {
         return await api.addWorkspaceMember(workspaceId, data);
     },
-    async updateWorkspaceMember(workspaceId: string, userId: string, role: string) {
-        return await api.updateWorkspaceMember(workspaceId, userId, role);
+    async updateWorkspaceMember(workspaceId: string, userId: string, data: { role?: string; weeklyCapacityDays?: number }) {
+        return await api.updateWorkspaceMember(workspaceId, userId, data);
     },
     async removeWorkspaceMember(workspaceId: string, userId: string) {
         return await api.removeWorkspaceMember(workspaceId, userId);
@@ -58,6 +58,15 @@ export const db = {
     },
     async cancelWorkspaceInvitation(workspaceId: string, invitationId: string) {
         return await api.cancelWorkspaceInvitation(workspaceId, invitationId);
+    },
+    async listCustomers(workspaceId: string, archived = false) {
+        return await api.listCustomers<import('@/services/frontend/types').Customer>(workspaceId, archived);
+    },
+    async createCustomer(workspaceId: string, data: Pick<import('@/services/frontend/types').Customer, 'name' | 'contactName' | 'contactEmail' | 'notes'>) {
+        return await api.createCustomer<import('@/services/frontend/types').Customer>(workspaceId, data);
+    },
+    async updateCustomer(workspaceId: string, customerId: string, data: Partial<import('@/services/frontend/types').Customer> & { archived?: boolean }) {
+        return await api.updateCustomer<import('@/services/frontend/types').Customer>(workspaceId, customerId, data);
     },
     // Versions
     async listVersions(resourceId: string) {
@@ -104,6 +113,12 @@ export const db = {
     },
     async getProject(id: string) {
         return await api.getProject<Project>(id);
+    },
+    async listProjectAllocations(projectId: string) {
+        return await api.listProjectAllocations<import('@/services/frontend/types').ProjectMemberAllocation>(projectId);
+    },
+    async updateProjectAllocation(projectId: string, userId: string, daysPerWeek: number) {
+        return await api.updateProjectAllocation<import('@/services/frontend/types').ProjectMemberAllocation>(projectId, userId, daysPerWeek);
     },
     async createProject(data: Omit<Project, 'id' | 'createdAt'>) {
         return await api.createProject<Project>(data as Record<string, unknown>);

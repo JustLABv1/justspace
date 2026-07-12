@@ -3,9 +3,9 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { db } from '@/services/frontend/lib/db';
-import { WorkspaceInvitation, WorkspaceMember } from '@/services/frontend/lib/api';
-import { Button, Card, Input, Label, ListBox, Select, Spinner, Switch, toast } from '@heroui/react';
-import { Copy, Mail, Plus, Save, Trash2, Users } from 'lucide-react';
+import { Workspace, WorkspaceInvitation, WorkspaceMember } from '@/services/frontend/lib/api';
+import { Button, Card, Description, Input, Label, ListBox, Radio, RadioGroup, Select, Spinner, Switch, toast } from '@heroui/react';
+import { BriefcaseBusiness, Copy, FolderKanban, Mail, Plus, Save, Trash2, Users } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 const workspaceRoles = [
@@ -16,6 +16,10 @@ const workspaceRoles = [
 
 const fieldClass = 'flex min-w-0 flex-col gap-1.5';
 const fieldLabelClass = 'text-xs font-medium text-muted-foreground';
+const workspaceTypes: Array<{ value: Workspace['type']; label: string; description: string; icon: typeof FolderKanban }> = [
+    { value: 'project_management', label: 'Project management', description: 'Focus on projects, tasks, milestones, and delivery progress.', icon: FolderKanban },
+    { value: 'consulting', label: 'Consulting', description: 'Adds per-project allocation and weekly capacity planning.', icon: BriefcaseBusiness },
+];
 
 export function WorkspaceManagementPanel() {
     const { user } = useAuth();
@@ -24,12 +28,15 @@ export function WorkspaceManagementPanel() {
     const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [workspaceName, setWorkspaceName] = useState('');
+    const [workspaceType, setWorkspaceType] = useState<Workspace['type']>('project_management');
     const [autoAddMembersToProjects, setAutoAddMembersToProjects] = useState(false);
     const [newWorkspaceName, setNewWorkspaceName] = useState('');
+    const [newWorkspaceType, setNewWorkspaceType] = useState<Workspace['type']>('project_management');
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('member');
     const [inviteLink, setInviteLink] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUpdatingWorkspaceType, setIsUpdatingWorkspaceType] = useState(false);
 
     const canManage = workspace?.role === 'owner' || workspace?.role === 'admin';
     const currentUserRole = members.find((member) => member.userId === user?.id)?.role ?? workspace?.role;
@@ -57,9 +64,10 @@ export function WorkspaceManagementPanel() {
 
     useEffect(() => {
         setWorkspaceName(workspace?.name ?? '');
+        setWorkspaceType(workspace?.type ?? 'project_management');
         setAutoAddMembersToProjects(workspace?.autoAddMembersToProjects ?? false);
         void loadWorkspaceData();
-    }, [loadWorkspaceData, workspace?.autoAddMembersToProjects, workspace?.name]);
+    }, [loadWorkspaceData, workspace?.autoAddMembersToProjects, workspace?.name, workspace?.type]);
 
     const pendingInvitations = useMemo(
         () => invitations.filter((invitation) => invitation.status === 'pending'),
@@ -78,6 +86,23 @@ export function WorkspaceManagementPanel() {
             toast.danger(error instanceof Error ? error.message : 'Could not update workspace');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const updateWorkspaceType = async (type: Workspace['type']) => {
+        if (!workspaceId || !canManage || type === workspaceType || isUpdatingWorkspaceType) return;
+        const previousType = workspaceType;
+        setWorkspaceType(type);
+        setIsUpdatingWorkspaceType(true);
+        try {
+            await db.updateWorkspace(workspaceId, { type });
+            await refresh();
+            toast.success(type === 'consulting' ? 'Consulting features enabled' : 'Project management features enabled');
+        } catch (error) {
+            setWorkspaceType(previousType);
+            toast.danger(error instanceof Error ? error.message : 'Could not update workspace type');
+        } finally {
+            setIsUpdatingWorkspaceType(false);
         }
     };
 
@@ -101,8 +126,9 @@ export function WorkspaceManagementPanel() {
         if (!name) return;
         setIsSaving(true);
         try {
-            await createWorkspace(name);
+            await createWorkspace(name, newWorkspaceType);
             setNewWorkspaceName('');
+            setNewWorkspaceType('project_management');
             toast.success('Workspace created');
         } catch (error) {
             toast.danger(error instanceof Error ? error.message : 'Could not create workspace');
@@ -131,11 +157,24 @@ export function WorkspaceManagementPanel() {
     const updateMemberRole = async (member: WorkspaceMember, role: string) => {
         if (!workspaceId || member.role === 'owner' || role === member.role) return;
         try {
-            const updated = await db.updateWorkspaceMember(workspaceId, member.userId, role);
+            const updated = await db.updateWorkspaceMember(workspaceId, member.userId, { role });
             setMembers((current) => current.map((item) => item.userId === updated.userId ? updated : item));
             toast.success('Role updated');
         } catch (error) {
             toast.danger(error instanceof Error ? error.message : 'Could not update role');
+        }
+    };
+
+    const updateMemberCapacity = async (member: WorkspaceMember, value: string) => {
+        if (!workspaceId || !canManage) return;
+        const weeklyCapacityDays = Number(value);
+        if (!Number.isFinite(weeklyCapacityDays) || weeklyCapacityDays < 0) return;
+        try {
+            const updated = await db.updateWorkspaceMember(workspaceId, member.userId, { weeklyCapacityDays });
+            setMembers((current) => current.map((item) => item.userId === updated.userId ? updated : item));
+            toast.success('Weekly capacity updated');
+        } catch (error) {
+            toast.danger(error instanceof Error ? error.message : 'Could not update weekly capacity');
         }
     };
 
@@ -170,14 +209,14 @@ export function WorkspaceManagementPanel() {
                     <Card.Description>Create your first workspace to organize projects, wiki, and snippets.</Card.Description>
                 </Card.Header>
                 <Card.Content>
-                    <form onSubmit={handleCreateWorkspace} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                    <form onSubmit={handleCreateWorkspace} className="space-y-4">
                         <div className={`${fieldClass} flex-1`}>
                             <Label htmlFor="new-workspace-name" className={fieldLabelClass}>Name</Label>
                             <Input id="new-workspace-name" value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="e.g. Product Team" variant="secondary" fullWidth />
                         </div>
+                        <WorkspaceTypePicker value={newWorkspaceType} onChange={setNewWorkspaceType} />
                         <Button type="submit" isPending={isSaving} isDisabled={!newWorkspaceName.trim()}>
-                            <Plus size={15} />
-                            Create workspace
+                            <Plus size={15} /> Create workspace
                         </Button>
                     </form>
                 </Card.Content>
@@ -209,6 +248,16 @@ export function WorkspaceManagementPanel() {
                         <span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1">{members.length} members</span>
                         <span className="rounded-full border border-border bg-surface-secondary px-2.5 py-1">Your role: {currentUserRole}</span>
                     </div>
+                </Card.Content>
+            </Card>
+
+            <Card className="border border-border">
+                <Card.Header>
+                    <Card.Title>Workspace type</Card.Title>
+                    <Card.Description>Choose the planning model for this workspace. Switching types keeps existing capacity values intact.</Card.Description>
+                </Card.Header>
+                <Card.Content>
+                    <WorkspaceTypePicker value={workspaceType} onChange={(value) => void updateWorkspaceType(value)} isDisabled={!canManage || isUpdatingWorkspaceType} />
                 </Card.Content>
             </Card>
 
@@ -309,6 +358,19 @@ export function WorkspaceManagementPanel() {
                                         <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {workspace?.type === 'consulting' && (
+                                            <Input
+                                                aria-label={`Weekly capacity for ${member.name || member.email}`}
+                                                type="number"
+                                                min="0"
+                                                step="0.5"
+                                                defaultValue={String(member.weeklyCapacityDays ?? 5)}
+                                                disabled={!canManage}
+                                                onBlur={(event) => void updateMemberCapacity(member, event.target.value)}
+                                                className="w-16"
+                                                variant="secondary"
+                                            />
+                                        )}
                                         {member.role === 'owner' ? (
                                             <span className="rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs text-muted-foreground">Owner</span>
                                         ) : (
@@ -352,7 +414,7 @@ export function WorkspaceManagementPanel() {
                 </Card>
             )}
 
-            <form onSubmit={handleCreateWorkspace} className="rounded-xl border border-border bg-surface-secondary/30 p-4">
+            <form onSubmit={handleCreateWorkspace} className="space-y-4 rounded-xl border border-border bg-surface-secondary/30 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                     <div className={`${fieldClass} flex-1`}>
                         <Label htmlFor="new-workspace-inline" className={fieldLabelClass}>Create workspace</Label>
@@ -363,7 +425,28 @@ export function WorkspaceManagementPanel() {
                         New workspace
                     </Button>
                 </div>
+                <WorkspaceTypePicker value={newWorkspaceType} onChange={setNewWorkspaceType} />
             </form>
         </div>
+    );
+}
+
+function WorkspaceTypePicker({ value, onChange, isDisabled = false }: {
+    value: Workspace['type'];
+    onChange: (value: Workspace['type']) => void;
+    isDisabled?: boolean;
+}) {
+    return (
+        <RadioGroup value={value} onChange={(nextValue) => onChange(nextValue as Workspace['type'])} isDisabled={isDisabled} aria-label="Workspace type" variant="secondary" className="grid gap-3 sm:grid-cols-2">
+            {workspaceTypes.map(({ value: type, label, description, icon: Icon }) => (
+                <Radio key={type} value={type} className="group min-h-24 w-full items-start gap-3 rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-accent/40 hover:bg-surface-secondary data-[selected=true]:border-accent data-[selected=true]:bg-accent-muted/20">
+                    <Radio.Control className="mt-0.5 shrink-0"><Radio.Indicator /></Radio.Control>
+                    <Radio.Content className="min-w-0 gap-1.5">
+                        <Label className="flex items-center gap-2 text-sm font-medium text-foreground"><Icon size={15} className="shrink-0 text-muted-foreground" />{label}</Label>
+                        <Description className="text-xs leading-relaxed text-muted-foreground">{description}</Description>
+                    </Radio.Content>
+                </Radio>
+            ))}
+        </RadioGroup>
     );
 }

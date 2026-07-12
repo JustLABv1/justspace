@@ -9,6 +9,8 @@ export interface Project {
     taskKeyPrefixLocked?: boolean;
     daysPerWeek?: number;
     allocatedDays?: number;
+    clientId?: string;
+    hourBudget?: number;
     isEncrypted?: boolean;
     role?: 'owner' | 'admin' | 'editor' | 'viewer';
     createdAt: string;
@@ -48,6 +50,24 @@ export interface ProjectMember {
     name: string;
     role: 'owner' | 'admin' | 'editor' | 'viewer';
     joinedAt: string;
+}
+
+export interface Customer {
+    id: string;
+    workspaceId: string;
+    name: string;
+    contactName?: string;
+    contactEmail?: string;
+    notes: string;
+    archivedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ProjectMemberAllocation {
+    projectId: string;
+    userId: string;
+    daysPerWeek: number;
 }
 
 export interface TeamInvitation {

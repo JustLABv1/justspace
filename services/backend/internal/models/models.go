@@ -101,6 +101,8 @@ type Project struct {
 	TaskKeyPrefixLocked bool      `json:"taskKeyPrefixLocked"`
 	DaysPerWeek         *float64  `json:"daysPerWeek"`
 	AllocatedDays       *int      `json:"allocatedDays"`
+	ClientID            *string   `json:"clientId,omitempty"`
+	HourBudget          *float64  `json:"hourBudget,omitempty"`
 	IsEncrypted         bool      `json:"isEncrypted"`
 	Role                *string   `json:"role,omitempty"`
 	CreatedAt           time.Time `json:"createdAt"`
@@ -315,6 +317,7 @@ type Workspace struct {
 	OwnerID                  string    `json:"ownerId"`
 	Name                     string    `json:"name"`
 	Slug                     string    `json:"slug"`
+	Type                     string    `json:"type"`
 	Role                     string    `json:"role"`
 	AutoAddMembersToProjects bool      `json:"autoAddMembersToProjects"`
 	CreatedAt                time.Time `json:"createdAt"`
@@ -322,14 +325,33 @@ type Workspace struct {
 }
 
 type WorkspaceMember struct {
-	WorkspaceID string    `json:"workspaceId"`
-	UserID      string    `json:"userId"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email"`
-	Role        string    `json:"role"`
-	JoinedAt    time.Time `json:"joinedAt"`
-	PublicKey   *string   `json:"publicKey,omitempty"`
-	HasVault    bool      `json:"hasVault"`
+	WorkspaceID        string    `json:"workspaceId"`
+	UserID             string    `json:"userId"`
+	Name               string    `json:"name"`
+	Email              string    `json:"email"`
+	Role               string    `json:"role"`
+	JoinedAt           time.Time `json:"joinedAt"`
+	PublicKey          *string   `json:"publicKey,omitempty"`
+	HasVault           bool      `json:"hasVault"`
+	WeeklyCapacityDays float64   `json:"weeklyCapacityDays"`
+}
+
+type Customer struct {
+	ID           string     `json:"id"`
+	WorkspaceID  string     `json:"workspaceId"`
+	Name         string     `json:"name"`
+	ContactName  *string    `json:"contactName,omitempty"`
+	ContactEmail *string    `json:"contactEmail,omitempty"`
+	Notes        string     `json:"notes"`
+	ArchivedAt   *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+}
+
+type ProjectMemberAllocation struct {
+	ProjectID   string  `json:"projectId"`
+	UserID      string  `json:"userId"`
+	DaysPerWeek float64 `json:"daysPerWeek"`
 }
 
 type WorkspaceInvitation struct {
@@ -423,10 +445,12 @@ type PlatformSettingsUpdateRequest struct {
 
 type CreateWorkspaceRequest struct {
 	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type UpdateWorkspaceRequest struct {
 	Name                     *string `json:"name,omitempty"`
+	Type                     *string `json:"type,omitempty"`
 	AutoAddMembersToProjects *bool   `json:"autoAddMembersToProjects,omitempty"`
 }
 
@@ -436,7 +460,8 @@ type CreateWorkspaceMemberRequest struct {
 }
 
 type UpdateWorkspaceMemberRequest struct {
-	Role string `json:"role"`
+	Role               string   `json:"role,omitempty"`
+	WeeklyCapacityDays *float64 `json:"weeklyCapacityDays,omitempty"`
 }
 
 type CreateWorkspaceInvitationRequest struct {
@@ -461,6 +486,8 @@ type CreateProjectRequest struct {
 	TaskKeyPrefix string   `json:"taskKeyPrefix"`
 	DaysPerWeek   *float64 `json:"daysPerWeek"`
 	AllocatedDays *int     `json:"allocatedDays"`
+	ClientID      *string  `json:"clientId,omitempty"`
+	HourBudget    *float64 `json:"hourBudget,omitempty"`
 	IsEncrypted   bool     `json:"isEncrypted"`
 }
 
@@ -471,7 +498,28 @@ type UpdateProjectRequest struct {
 	TaskKeyPrefix *string  `json:"taskKeyPrefix,omitempty"`
 	DaysPerWeek   *float64 `json:"daysPerWeek,omitempty"`
 	AllocatedDays *int     `json:"allocatedDays,omitempty"`
+	ClientID      *string  `json:"clientId,omitempty"`
+	HourBudget    *float64 `json:"hourBudget,omitempty"`
 	IsEncrypted   *bool    `json:"isEncrypted,omitempty"`
+}
+
+type CreateCustomerRequest struct {
+	Name         string  `json:"name"`
+	ContactName  *string `json:"contactName,omitempty"`
+	ContactEmail *string `json:"contactEmail,omitempty"`
+	Notes        string  `json:"notes,omitempty"`
+}
+
+type UpdateCustomerRequest struct {
+	Name         *string `json:"name,omitempty"`
+	ContactName  *string `json:"contactName,omitempty"`
+	ContactEmail *string `json:"contactEmail,omitempty"`
+	Notes        *string `json:"notes,omitempty"`
+	Archived     *bool   `json:"archived,omitempty"`
+}
+
+type UpsertProjectMemberAllocationRequest struct {
+	DaysPerWeek float64 `json:"daysPerWeek"`
 }
 
 type CreateProjectMemberRequest struct {

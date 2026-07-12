@@ -1,9 +1,26 @@
 'use client';
 
 import { Project } from '@/services/frontend/types';
+import { ProjectMemberAllocation } from '@/services/frontend/types';
+import { WorkspaceMember } from '@/services/frontend/lib/api';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
+import { db } from '@/services/frontend/lib/db';
 import { Zap } from "lucide-react";
+import { useEffect, useState } from 'react';
 
 export function ResourceHeatmap({ projects }: { projects: Project[] }) {
+    const { workspaceId } = useWorkspace();
+    const [members, setMembers] = useState<WorkspaceMember[]>([]);
+    const [allocations, setAllocations] = useState<ProjectMemberAllocation[]>([]);
+    useEffect(() => {
+        if (!workspaceId) return;
+        void Promise.all([db.listWorkspaceMembers(workspaceId), ...projects.map((project) => db.listProjectAllocations(project.id))])
+            .then(([memberResponse, ...allocationResponses]) => {
+                setMembers(memberResponse.documents);
+                setAllocations(allocationResponses.flatMap((response) => response.documents));
+            })
+            .catch(() => { setMembers([]); setAllocations([]); });
+    }, [projects, workspaceId]);
     const activeProjects = projects.filter(p => p.status === 'in-progress' && (p.daysPerWeek || 0) > 0);
     const totalDaysPerWeek = activeProjects.reduce((acc, p) => acc + (p.daysPerWeek || 0), 0);
     const maxDays = 5;
@@ -66,6 +83,17 @@ export function ResourceHeatmap({ projects }: { projects: Project[] }) {
                     ) : null}
                 </div>
             </div>
+            {members.length > 0 && (
+                <div className="mt-4 space-y-2 border-t border-border pt-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Team allocation</p>
+                    {members.map((member) => {
+                        const allocated = allocations.filter((allocation) => allocation.userId === member.userId).reduce((total, allocation) => total + allocation.daysPerWeek, 0);
+                        const capacity = member.weeklyCapacityDays || 5;
+                        const over = allocated > capacity;
+                        return <div key={member.userId} className="flex items-center justify-between gap-3 text-[12px]"><span className="truncate text-foreground">{member.name || member.email}</span><span className={over ? 'text-danger' : 'text-muted-foreground'}>{allocated.toFixed(1)} / {capacity}d</span></div>;
+                    })}
+                </div>
+            )}
         </div>
     );
 }

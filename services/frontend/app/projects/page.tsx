@@ -47,7 +47,8 @@ export default function ProjectsPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | undefined>(undefined);
     const { user, privateKey } = useAuth();
-    const { workspaceId } = useWorkspace();
+    const { workspace, workspaceId } = useWorkspace();
+    const isConsultingWorkspace = workspace?.type === 'consulting';
 
     const fetchProjects = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -306,7 +307,9 @@ export default function ProjectsPage() {
                     <EmptyState
                         icon={FolderKanban}
                         title="Create your first project"
-                        description="Track consulting engagements, weekly capacity, open tasks, and project documentation from one place."
+                        description={isConsultingWorkspace
+                            ? 'Track consulting engagements, weekly capacity, open tasks, and project documentation from one place.'
+                            : 'Organize work, tasks, milestones, and project documentation from one place.'}
                         action={(
                             <EmptyStateAction onPress={() => { setSelectedProject(undefined); setIsProjectModalOpen(true); }}>
                                 <Plus size={13} className="mr-1" />
@@ -403,6 +406,8 @@ interface ProjectCardProps {
 }
 
 function ProjectCard({ project, onEdit, onDelete, onArchive, isArchived }: ProjectCardProps & { isArchived?: boolean }) {
+    const { workspace } = useWorkspace();
+    const isConsultingWorkspace = workspace?.type === 'consulting';
     return (
         <div className="rounded-2xl border border-border bg-surface group overflow-hidden hover:shadow-sm transition-all">
             <Link href={`/projects/${project.id}`} className="block p-4">
@@ -435,7 +440,7 @@ function ProjectCard({ project, onEdit, onDelete, onArchive, isArchived }: Proje
                         project.status === 'in-progress' ? 'bg-accent' : 'bg-success'
                     }`} />
                     <span className="text-[11px] text-muted-foreground capitalize">{project.status.replace('-', ' ')}</span>
-                    {project.daysPerWeek && (
+                    {isConsultingWorkspace && project.daysPerWeek && (
                         <span className="text-[11px] text-muted-foreground">· {project.daysPerWeek}d/w</span>
                     )}
                 </div>

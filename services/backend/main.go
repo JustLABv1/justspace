@@ -66,6 +66,7 @@ func main() {
 	versionH := handlers.NewVersionHandler(repo)
 	collabH := handlers.NewCollaborationHandler(repo, hub, fileStore, cfg.MaxUploadBytes)
 	workspaceH := handlers.NewWorkspaceHandler(repo, hub)
+	customerH := handlers.NewCustomerHandler(repo)
 	milestoneH := handlers.NewMilestoneHandler(repo, hub)
 
 	r := chi.NewRouter()
@@ -108,6 +109,9 @@ func main() {
 		r.Get("/api/workspaces/{workspaceId}/invitations", workspaceH.ListInvitations)
 		r.Post("/api/workspaces/{workspaceId}/invitations", workspaceH.CreateInvitation)
 		r.Delete("/api/workspaces/{workspaceId}/invitations/{invitationId}", workspaceH.CancelInvitation)
+		r.Get("/api/workspaces/{workspaceId}/customers", customerH.List)
+		r.Post("/api/workspaces/{workspaceId}/customers", customerH.Create)
+		r.Put("/api/workspaces/{workspaceId}/customers/{customerId}", customerH.Update)
 
 		r.Get("/api/admin/settings", authH.AdminSettings)
 		r.Put("/api/admin/settings", authH.UpdateAdminSettings)
@@ -128,6 +132,8 @@ func main() {
 		r.Get("/api/projects/{id}", projectH.Get)
 		r.Put("/api/projects/{id}", projectH.Update)
 		r.Delete("/api/projects/{id}", projectH.Delete)
+		r.Get("/api/projects/{projectId}/allocations", customerH.ListAllocations)
+		r.Put("/api/projects/{projectId}/allocations/{userId}", customerH.UpsertAllocation)
 		r.Get("/api/projects/{projectId}/task-statuses", projectH.ListTaskStatuses)
 		r.Get("/api/projects/{projectId}/milestones", milestoneH.List)
 		r.Post("/api/projects/{projectId}/milestones", milestoneH.Create)

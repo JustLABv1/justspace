@@ -12,6 +12,7 @@ import { TaskWorkflowModal } from '@/components/TaskWorkflowModal';
 import { TemplateModal } from '@/components/TemplateModal';
 import { TimelineView } from '@/components/TimelineView';
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserPreferences, SavedProjectView } from '@/services/frontend/lib/preferences';
@@ -87,6 +88,8 @@ export default function ProjectDetailPage() {
     const [taskRefreshToken, setTaskRefreshToken] = useState(0);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const { user, privateKey, updateProfile } = useAuth();
+    const { workspace } = useWorkspace();
+    const isConsultingWorkspace = workspace?.type === 'consulting';
 	const savedViews = parseUserPreferences(user?.preferences).savedViews.filter((view) => view.projectId === id);
     const openTaskKey = searchParams.get('task');
     const openTaskID = searchParams.get('taskId');
@@ -545,13 +548,13 @@ export default function ProjectDetailPage() {
                                         </p>
 
                                         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                                            {project.daysPerWeek && (
+                                            {isConsultingWorkspace && project.daysPerWeek && (
                                                 <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                                                     <Calendar size={13} />
                                                     <span>{project.daysPerWeek} days/week</span>
                                                 </div>
                                             )}
-                                            {project.allocatedDays && (
+                                            {isConsultingWorkspace && project.allocatedDays && (
                                                 <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                                                     <Clock size={13} />
                                                     <span>{project.allocatedDays} days allocated</span>

@@ -7,7 +7,7 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
-import { Project, Snippet, Task, WikiGuide } from '@/services/frontend/types';
+import { Project, ProjectMilestone, Snippet, Task, WikiGuide } from '@/services/frontend/types';
 import { Button, Chip, Spinner, toast, Tooltip } from "@heroui/react";
 import dayjs from "dayjs";
 import {
@@ -36,12 +36,14 @@ export default function Home() {
   const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
   const [recentGuides, setRecentGuides] = useState<WikiGuide[]>([]);
   const [projectTaskCounts, setProjectTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
+  const [projectHealth, setProjectHealth] = useState<Record<string, { blocked: number; nextMilestone?: ProjectMilestone }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [justDoneIds, setJustDoneIds] = useState<Set<string>>(new Set());
   const { user, privateKey } = useAuth();
-  const { workspaceId } = useWorkspace();
+  const { workspace, workspaceId } = useWorkspace();
+  const isConsultingWorkspace = workspace?.type === 'consulting';
 
   const hours = new Date().getHours();
   useEffect(() => {
@@ -164,6 +166,14 @@ export default function Home() {
       setRecentGuides(processedGuides as WikiGuide[]);
       setOpenTasks(sortedOpen);
       setProjectTaskCounts(tasksByProject);
+      const activeProjects = processedProjects.filter((project) => project.status !== 'completed' && project.status !== 'archived');
+      const milestoneEntries = await Promise.all(activeProjects.map(async (project) => {
+        const milestones = await db.listProjectMilestones(project.id).catch(() => ({ documents: [] as ProjectMilestone[] }));
+        const nextMilestone = milestones.documents.filter((milestone) => milestone.status !== 'completed' && milestone.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))[0];
+        const blocked = processedTasks.filter((task) => task.projectId === project.id && !task.completed && !task.parentId && (task.dependencies || []).some((dependencyId) => !processedTasks.find((dependency) => dependency.id === dependencyId)?.completed)).length;
+        return [project.id, { blocked, nextMilestone }] as const;
+      }));
+      setProjectHealth(Object.fromEntries(milestoneEntries));
     } catch (error) {
       console.error(error);
     } finally {
@@ -546,7 +556,52 @@ export default function Home() {
             <div className="flex-1 h-px bg-border" />
           </div>
 
-          <ResourceHeatmap projects={allProjects} />
+          {isConsultingWorkspace ? (
+            <ResourceHeatmap projects={allProjects} />
+          ) : (
+            <section className="rounded-2xl border border-border bg-surface p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-foreground">Project progress</h3>
+                <div className="flex size-6 items-center justify-center rounded-xl bg-surface-secondary text-muted-foreground">
+                  <FolderKanban size={12} />
+                </div>
+              </div>
+              {allProjects.filter((project) => project.status !== 'completed' && project.status !== 'archived').length === 0 ? (
+                <p className="py-2 text-[12px] text-muted-foreground">No active projects</p>
+              ) : (
+                <div className="space-y-3">
+                  {allProjects
+                    .filter((project) => project.status !== 'completed' && project.status !== 'archived')
+                    .slice(0, 4)
+                    .map((project) => {
+                      const counts = projectTaskCounts[project.id] ?? { total: 0, completed: 0 };
+                      const openCount = Math.max(0, counts.total - counts.completed);
+                      const overdueCount = allDecryptedTasks.filter((task) => task.projectId === project.id && task.deadline && dayjs(task.deadline).isBefore(dayjs(), 'day')).length;
+                      const health = projectHealth[project.id];
+                      return (
+                        <Link key={project.id} href={`/projects/${project.id}`} className="block rounded-lg px-1 py-0.5 hover:bg-surface-secondary/60">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="truncate text-[12px] text-foreground">{project.name}</span>
+                            <span className={`shrink-0 text-[11px] tabular-nums ${overdueCount > 0 ? 'text-danger' : 'text-muted-foreground'}`}>
+                              {overdueCount > 0 ? `${overdueCount} overdue` : health?.blocked ? `${health.blocked} blocked` : `${openCount} open`}
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                </div>
+              )}
+              {Object.values(projectHealth).some((health) => health.nextMilestone) && (
+                <div className="mt-3 space-y-1 border-t border-border pt-3">
+                  {allProjects.filter((project) => projectHealth[project.id]?.nextMilestone).slice(0, 2).map((project) => <p key={project.id} className="truncate text-[11px] text-muted-foreground">Next: {projectHealth[project.id].nextMilestone?.title} · {projectHealth[project.id].nextMilestone?.dueDate}</p>)}
+                </div>
+              )}
+              <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[12px] text-muted-foreground">
+                <span>{allProjects.filter((project) => project.status !== 'completed' && project.status !== 'archived').length} active</span>
+                <span className="tabular-nums">{allDecryptedTasks.filter((task) => task.deadline && dayjs(task.deadline).isBefore(dayjs(), 'day')).length} overdue</span>
+              </div>
+            </section>
+          )}
 
           {/* Section: Activity */}
           <div className="flex items-center gap-2.5 pt-1">

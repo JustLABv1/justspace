@@ -1,15 +1,16 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
+import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { WorkspaceMember } from '@/services/frontend/lib/api';
 import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData, encryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
-import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, TeamInvitation } from '@/services/frontend/types';
+import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, ProjectMemberAllocation, TeamInvitation } from '@/services/frontend/types';
 import { Avatar, Button, Chip, Description, Dropdown, Input, Label, ListBox, Modal, Select, Tabs, toast } from '@heroui/react';
 import dayjs from 'dayjs';
 import { saveAs } from 'file-saver';
-import { FileText, FolderUp, Link as LinkIcon, Mail, Trash2, UserPlus, Users } from 'lucide-react';
+import { FileText, FolderUp, Link as LinkIcon, Mail, MoreHorizontal, Trash2, UserPlus, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type CollaborationTab = 'team' | 'files' | 'activity';
@@ -23,6 +24,7 @@ const inviteRoleLabels: Record<InviteRole, string> = {
 
 export function ProjectCollaborationPanel({ project, compact = false }: { project: Project; compact?: boolean }) {
     const { privateKey } = useAuth();
+    const { workspace } = useWorkspace();
     const [selectedTab, setSelectedTab] = useState<CollaborationTab>('team');
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
@@ -31,6 +33,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
     const [activity, setActivity] = useState<ActivityLog[]>([]);
     const [decryptedActivity, setDecryptedActivity] = useState<ActivityLog[]>([]);
     const [presence, setPresence] = useState<PresenceSession[]>([]);
+    const [allocations, setAllocations] = useState<ProjectMemberAllocation[]>([]);
     const [docKey, setDocKey] = useState<CryptoKey | null>(null);
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -67,13 +70,14 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
     useEffect(() => {
         const load = async () => {
             try {
-                const [memberRes, workspaceMemberRes, inviteRes, fileRes, activityRes, presenceRes] = await Promise.all([
+                const [memberRes, workspaceMemberRes, inviteRes, fileRes, activityRes, presenceRes, allocationRes] = await Promise.all([
                     db.listProjectMembers(project.id),
                     project.workspaceId ? db.listWorkspaceMembers(project.workspaceId) : Promise.resolve({ documents: [] as WorkspaceMember[] }),
                     db.listProjectInvitations(project.id),
                     db.listProjectFiles(project.id),
                     db.listProjectActivity(project.id),
                     db.heartbeatProjectPresence(project.id),
+                    db.listProjectAllocations(project.id),
                 ]);
                 setMembers(memberRes.documents);
                 setWorkspaceMembers(workspaceMemberRes.documents);
@@ -81,6 +85,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                 setFiles(fileRes.documents);
                 setActivity(activityRes.documents);
                 setPresence(presenceRes.documents);
+                setAllocations(allocationRes.documents);
             } catch (error) {
                 console.error('Failed to load collaboration panel:', error);
             }
@@ -274,6 +279,17 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
         }
     };
 
+    const updateAllocation = async (member: ProjectMember, value: string) => {
+        const daysPerWeek = Number(value);
+        if (!Number.isFinite(daysPerWeek) || daysPerWeek < 0) return;
+        try {
+            const updated = await db.updateProjectAllocation(project.id, member.userId, daysPerWeek);
+            setAllocations((current) => [...current.filter((item) => item.userId !== updated.userId), updated]);
+        } catch (error) {
+            toast.danger(error instanceof Error ? error.message : 'Could not update allocation');
+        }
+    };
+
     return (
         <div className={`rounded-xl border border-border bg-surface overflow-hidden ${compact ? 'flex flex-col' : ''}`}>
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
@@ -327,7 +343,8 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                 <Tabs.Panel id="team" className={`p-4 ${compact ? 'max-h-[360px] overflow-y-auto' : ''}`}>
                     <div className="space-y-3">
                         {members.map((member) => (
-                            <div key={member.userId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                            <div key={member.userId} className="rounded-lg border border-border px-3 py-2.5">
+                                <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <Avatar size="md" color="accent" variant="soft">
                                         <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
@@ -343,7 +360,7 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                                     </Chip>
                                     {canManageMembers && member.role !== 'owner' && (
                                         <Dropdown>
-                                            <Button variant="ghost" className="h-8 rounded-lg px-2 text-xs">Manage</Button>
+                                            <Button aria-label={`Manage ${member.name || member.email}`} variant="ghost" isIconOnly className="h-8 w-8 rounded-lg text-muted-foreground"><MoreHorizontal size={15} /></Button>
                                             <Dropdown.Popover placement="bottom end">
                                                 <Dropdown.Menu>
                                                     {(['admin', 'editor', 'viewer'] as const).map((role) => (
@@ -362,6 +379,26 @@ export function ProjectCollaborationPanel({ project, compact = false }: { projec
                                         </Dropdown>
                                     )}
                                 </div>
+                                </div>
+                                {workspace?.type === 'consulting' && (
+                                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-2.5">
+                                        <Label className="text-xs text-muted-foreground">Weekly allocation</Label>
+                                        <div className="flex items-center gap-1.5">
+                                            <Input
+                                                aria-label={`Weekly allocation for ${member.name || member.email}`}
+                                                type="number"
+                                                min="0"
+                                                step="0.5"
+                                                defaultValue={String(allocations.find((allocation) => allocation.userId === member.userId)?.daysPerWeek ?? 0)}
+                                                disabled={!canManageMembers}
+                                                onBlur={(event) => void updateAllocation(member, event.target.value)}
+                                                variant="secondary"
+                                                className="w-20"
+                                            />
+                                            <span className="text-xs text-muted-foreground">days/week</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
 

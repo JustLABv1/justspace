@@ -120,8 +120,12 @@ func (h *WorkspaceHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	req.Role = strings.ToLower(strings.TrimSpace(req.Role))
-	if !validWorkspaceRole(req.Role) {
+	if req.Role != "" && !validWorkspaceRole(req.Role) {
 		writeError(w, http.StatusBadRequest, "a valid role is required")
+		return
+	}
+	if req.WeeklyCapacityDays != nil && *req.WeeklyCapacityDays < 0 {
+		writeError(w, http.StatusBadRequest, "weekly capacity cannot be negative")
 		return
 	}
 	actorRole, _ := h.repo.GetWorkspaceRole(r.Context(), workspaceID, userID)
@@ -129,7 +133,7 @@ func (h *WorkspaceHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusForbidden, "admins cannot promote another admin")
 		return
 	}
-	member, err := h.repo.UpdateWorkspaceMemberRole(r.Context(), workspaceID, chi.URLParam(r, "userId"), req.Role)
+	member, err := h.repo.UpdateWorkspaceMember(r.Context(), workspaceID, chi.URLParam(r, "userId"), req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "failed to update workspace member")
 		return

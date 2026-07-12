@@ -2,13 +2,20 @@
 
 import { db } from '@/services/frontend/lib/db';
 import { ProjectMilestone } from '@/services/frontend/types';
-import { Alert, Button, Calendar, Card, Checkbox, Chip, DateField, DatePicker, Input, Label, TextField, toast } from '@heroui/react';
+import { Alert, Button, Calendar, Checkbox, Chip, DateField, DatePicker, Input, Label, TextField, toast } from '@heroui/react';
 import type { DateValue } from '@internationalized/date';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Flag, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+function parseDueDate(value: string) {
+    const dateOnly = value.slice(0, 10);
+    const date = new Date(`${dateOnly}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function formatDueDate(value: string) {
-    return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`));
+    const date = parseDueDate(value);
+    return date ? new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(date) : 'Date unavailable';
 }
 
 export function MilestonePanel({ projectId, compact = false }: { projectId: string; compact?: boolean }) {
@@ -69,25 +76,25 @@ export function MilestonePanel({ projectId, compact = false }: { projectId: stri
     };
 
     return (
-        <Card variant="default" className="rounded-xl border border-border bg-surface">
-            <Card.Header className="border-b border-border px-5 py-4">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="border-b border-border px-4 py-3">
                 <div className="flex w-full items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
                             <Flag size={16} />
                         </div>
                         <div className="min-w-0">
-                            <Card.Title className="text-sm font-semibold">Milestones</Card.Title>
-                            <Card.Description className="mt-0.5 text-xs">{compact ? 'Track delivery targets separately from tasks.' : 'Key delivery moments such as client review, beta, or go-live — separate from individual tasks.'}</Card.Description>
+                            <h2 className="text-sm font-semibold text-foreground">Milestones</h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{compact ? 'Track delivery targets separately from tasks.' : 'Key delivery moments such as client review, beta, or go-live — separate from individual tasks.'}</p>
                         </div>
                     </div>
                     <Chip size="sm" variant="soft" color={completedCount === milestones.length && milestones.length > 0 ? 'success' : 'default'} className="shrink-0">
                         <Chip.Label>{completedCount} of {milestones.length} complete</Chip.Label>
                     </Chip>
                 </div>
-            </Card.Header>
+            </div>
 
-            <Card.Content className="space-y-4 px-5 py-4">
+            <div className="space-y-4 p-4">
                 {milestones.length === 0 ? (
                     <Alert status="default" className="rounded-xl border border-border bg-surface-secondary/30 px-3 py-3">
                         <Alert.Indicator><Flag size={15} /></Alert.Indicator>
@@ -100,7 +107,8 @@ export function MilestonePanel({ projectId, compact = false }: { projectId: stri
                     <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                         {milestones.map((milestone) => {
                             const isComplete = milestone.status === 'completed';
-                            const isOverdue = !isComplete && !!milestone.dueDate && new Date(`${milestone.dueDate}T23:59:59`) < new Date();
+                            const dueDateValue = milestone.dueDate ? parseDueDate(milestone.dueDate) : null;
+                            const isOverdue = !isComplete && !!dueDateValue && dueDateValue < new Date(new Date().setHours(0, 0, 0, 0));
                             return (
                                 <div key={milestone.id} className="group flex items-center gap-3 px-3 py-3">
                                     <Checkbox isSelected={isComplete} onChange={() => void toggle(milestone)} aria-label={`Mark ${milestone.title} as complete`}>
@@ -172,7 +180,7 @@ export function MilestonePanel({ projectId, compact = false }: { projectId: stri
                         </Button>
                     </div>
                 </form>
-            </Card.Content>
-        </Card>
+            </div>
+        </div>
     );
 }

@@ -10,6 +10,7 @@ import { Avatar, Button, Dropdown, Label, Tooltip } from '@heroui/react';
 import { useBranding } from '@/services/frontend/context/BrandingContext';
 import {
     BookOpen,
+    Building2,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
@@ -96,6 +97,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
     ];
 
     const bottomNavItems = [
+        ...(workspace?.type === 'consulting' ? [{ name: 'Customers', href: '/customers', icon: Building2 }] : []),
         { name: 'Wiki', href: '/wiki', icon: BookOpen },
         { name: 'Snippets', href: '/snippets', icon: Code },
     ];

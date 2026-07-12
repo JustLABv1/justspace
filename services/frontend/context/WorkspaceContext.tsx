@@ -11,7 +11,7 @@ interface WorkspaceContextValue {
     isLoading: boolean;
     refresh: () => Promise<void>;
     setActiveWorkspace: (id: string) => void;
-    createWorkspace: (name: string) => Promise<Workspace>;
+    createWorkspace: (name: string, type?: Workspace['type']) => Promise<Workspace>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -60,8 +60,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         window.dispatchEvent(new CustomEvent('workspace-change', { detail: id }));
     }, []);
 
-    const createWorkspace = useCallback(async (name: string) => {
-        const created = await api.createWorkspace(name);
+    const createWorkspace = useCallback(async (name: string, type: Workspace['type'] = 'project_management') => {
+        const created = await api.createWorkspace(name, type);
         setWorkspaces((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
         setActiveWorkspace(created.id);
         return created;
