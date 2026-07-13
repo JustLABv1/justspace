@@ -3,7 +3,7 @@ name: justspace
 description: Production-oriented Helm chart for JustSpace
 type: application
 version: 0.1.0
-appVersion: 1.0.0-beta.6
+appVersion: 1.0.0-beta.7
 kubeVersion: ">=1.27.0-0"
 dependencies:
   - name: postgresql
