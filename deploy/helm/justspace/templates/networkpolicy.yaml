@@ -1,0 +1,38 @@
+{{- include "justspace.validate" . }}
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "justspace.frontendServiceName" . }}
+  labels:
+    {{- include "justspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "justspace.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- toYaml .Values.networkPolicy.frontend.ingress | nindent 4 }}
+  egress:
+    {{- toYaml .Values.networkPolicy.frontend.egress | nindent 4 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "justspace.backendServiceName" . }}
+  labels:
+    {{- include "justspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "justspace.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- toYaml .Values.networkPolicy.backend.ingress | nindent 4 }}
+  egress:
+    {{- toYaml .Values.networkPolicy.backend.egress | nindent 4 }}
+{{- end }}

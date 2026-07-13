@@ -1,0 +1,14 @@
+# Optional override for organisations whose PostgreSQL or OIDC endpoints use an
+# internal CA. Run with both files and set CUSTOM_CA_CERT_FILE in .env.
+services:
+  backend:
+    environment:
+      CUSTOM_CA_CERT_FILE: /etc/justspace-ca/custom-ca.pem
+    volumes:
+      - ${CUSTOM_CA_CERT_FILE:?Set CUSTOM_CA_CERT_FILE in .env}:/etc/justspace-ca/custom-ca.pem:ro
+
+  frontend:
+    environment:
+      NODE_EXTRA_CA_CERTS: /etc/justspace-ca/custom-ca.pem
+    volumes:
+      - ${CUSTOM_CA_CERT_FILE:?Set CUSTOM_CA_CERT_FILE in .env}:/etc/justspace-ca/custom-ca.pem:ro

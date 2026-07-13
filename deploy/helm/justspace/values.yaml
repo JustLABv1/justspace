@@ -1,0 +1,101 @@
+# Deliberately non-installable defaults: production inputs must be explicit.
+global:
+  publicUrl: ""
+  imagePullSecrets: []
+  commonLabels: {}
+
+frontend:
+  image:
+    repository: ghcr.io/justlabv1/justspace
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  apiUrl: ""
+  wsUrl: ""
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  podAnnotations: {}
+
+backend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/justlabv1/justspace
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  existingSecret:
+    name: ""
+    jwtSecretKey: jwt-secret
+    oidcEncryptionKey: oidc-encryption-key
+  externalDatabase:
+    host: ""
+    port: 5432
+    database: justspace
+    user: justspace
+    existingSecret:
+      name: ""
+      passwordKey: password
+    sslMode: verify-full
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+    size: 10Gi
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+  podAnnotations: {}
+
+# Set exactly one existing ConfigMap or Secret when enabled. Its selected key
+# must contain a PEM bundle, including the issuing CA where applicable.
+customCA:
+  enabled: false
+  existingConfigMap: ""
+  existingSecret: ""
+  key: ca.crt
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ""
+  tls:
+    enabled: true
+    existingSecret: ""
+
+# Enabling this renders the rules exactly as supplied. Empty rules deny all
+# traffic for the selected pod, so define controller, DNS, database and OIDC
+# peers before enabling it.
+networkPolicy:
+  enabled: false
+  frontend:
+    ingress: []
+    egress: []
+  backend:
+    ingress: []
+    egress: []
+
+# The Bitnami PostgreSQL subchart is disabled by default. When enabled, provide
+# its existing password secret and TLS certificate secret; production workloads
+# still connect with verify-full.
+postgresql:
+  enabled: false
+  auth:
+    username: justspace
+    database: justspace
+    existingSecret: ""
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+  tls:
+    enabled: true
+    certificatesSecret: ""
+    certFilename: tls.crt
+    certKeyFilename: tls.key
+    certCAFilename: ca.crt
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi

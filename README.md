@@ -31,12 +31,12 @@ JustSpace ist eine Open-Source-Plattform für Projektmanagement, Wissensmanageme
 	```
 
 2. **Umgebungsvariablen setzen:**
-	- Kopiere `.env.example` nach `.env` und passe die Werte ggf. an.
+	- Kopiere `deploy/.env.example` nach `deploy/.env` und passe die Werte an.
 	- Für das relationale Schema und Persistenzdetails siehe `POSTGRES_SCHEMA.md`.
 
 3. **Container starten:**
 	```bash
-	docker-compose up --build
+	docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 	```
 	- Frontend: http://localhost:3000
 	- Backend-API: http://localhost:8080
@@ -72,7 +72,7 @@ npm run dev
 
 ## Konfiguration
 
-Siehe `.env.example` für alle relevanten Umgebungsvariablen (DB, API, JWT, CORS, etc.).
+Siehe `deploy/.env.example` für alle relevanten Umgebungsvariablen (DB, API, JWT, CORS, etc.).
 
 **Wichtige Variablen:**
 - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
@@ -92,10 +92,30 @@ Siehe [POSTGRES_SCHEMA.md](POSTGRES_SCHEMA.md) für das relationale Schema, Task
 
 ## Deployment
 
-### Docker Compose (empfohlen)
+### Kubernetes mit Helm (Produktion)
+
+Das Chart unter `deploy/helm/justspace` erwartet eine externe TLS-PostgreSQL-
+Datenbank, vorhandene Kubernetes-Secrets und ein vorhandenes Ingress-TLS-Secret.
+Die vollständige Anleitung einschließlich Custom-CA- und optionaler interner
+PostgreSQL-Konfiguration steht in [deploy/README.md](deploy/README.md).
+
 ```bash
-docker-compose up --build -d
+helm dependency build deploy/helm/justspace
+helm upgrade --install justspace deploy/helm/justspace \
+  --namespace justspace --create-namespace \
+  --values deploy/helm/justspace/values-production.yaml \
+  --atomic --wait
 ```
+
+### Docker Compose (Entwicklung/Test)
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+```
+
+Diese Compose-Konfiguration verwendet absichtlich eine lokale PostgreSQL-Instanz
+ohne TLS und ist nicht für Produktion bestimmt. Für eine interne CA kann die
+Datei `deploy/docker-compose.custom-ca.yml` ergänzt werden.
 
 ### Manuell (z.B. für eigene Server)
 1. Backend bauen: `cd backend && go build -o server ./cmd/server/`
