@@ -16,6 +16,18 @@ helm upgrade --install justspace deploy/helm/justspace \
   --atomic --wait
 ```
 
+Release-Tags publish the same chart as an OCI artifact to GitHub Container
+Registry. Replace the version below with the release tag without its leading
+`v` and supply your production values file:
+
+```sh
+helm upgrade --install justspace oci://ghcr.io/justlabv1/charts/justspace \
+  --version 1.0.0 \
+  --namespace justspace --create-namespace \
+  --values values-production.yaml \
+  --atomic --wait
+```
+
 The chart routes `/` to the frontend and `/api` (including WebSocket upgrades) to
 the backend. Provide an existing TLS secret through `ingress.tls.existingSecret`.
 For private PKI, add a ConfigMap or Secret containing one PEM CA bundle through
