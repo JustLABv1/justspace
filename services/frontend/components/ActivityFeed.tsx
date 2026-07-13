@@ -1,10 +1,10 @@
 'use client';
 
 import { useAuth } from "@/services/frontend/context/AuthContext";
-import { decryptData, decryptDocumentKey } from "@/services/frontend/lib/crypto";
+import { decryptData } from "@/services/frontend/lib/crypto";
 import { db } from "@/services/frontend/lib/db";
 import { wsClient, WSEvent } from "@/services/frontend/lib/ws";
-import { ActivityLog, Project } from "@/services/frontend/types";
+import { ActivityLog, Project, Task } from "@/services/frontend/types";
 import { Button, Chip, Dropdown, Label, ScrollShadow, Spinner } from "@heroui/react";
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
@@ -30,10 +30,11 @@ type EntityFilter = 'all' | ActivityLog['entityType'];
 type ActionFilter = 'all' | ActivityLog['type'];
 
 export function ActivityFeed() {
-    const { user, privateKey } = useAuth();
+    const { getResourceKey } = useAuth();
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [decryptedActivities, setDecryptedActivities] = useState<ActivityLog[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [resolvedProjectNames, setResolvedProjectNames] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [entityFilter, setEntityFilter] = useState<EntityFilter>('all');
@@ -55,41 +56,72 @@ export function ActivityFeed() {
     }, []);
 
     useEffect(() => {
-        const decryptAll = async () => {
-            const processed = await Promise.all(activities.map(async (activity) => {
-                const isEncrypted = (() => {
-                    try { const p = JSON.parse(activity.entityName); return typeof p?.ciphertext === 'string'; } catch { return false; }
-                })();
+        const resolveEncryptedActivityNames = async () => {
+            const encryptedProjects = projects.filter((project) => project.isEncrypted);
+            const projectByID = new Map(projects.map((project) => [project.id, project]));
+            const encryptedProjectIDs = new Set(encryptedProjects.map((project) => project.id));
+            const taskProjectIDs = [...new Set(activities
+                .filter((activity) => activity.entityType === 'Task' && activity.projectId && encryptedProjectIDs.has(activity.projectId))
+                .map((activity) => activity.projectId as string))];
 
-                if (isEncrypted) {
-                    if (privateKey && user && activity.projectId) {
-                        try {
-                            const access = await db.getAccessKey(activity.projectId, user.id);
-                            if (access) {
-                                const docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
-                                const nameData = JSON.parse(activity.entityName);
-                                const decrypted = await decryptData(nameData, docKey);
-                                return { ...activity, entityName: decrypted };
-                            }
-                        } catch (e) {
-                            console.error('Failed to decrypt activity name:', activity.id, e);
-                        }
-                    }
-                    return { ...activity, entityName: 'Secure Activity' };
+            const taskLists = await Promise.all(taskProjectIDs.map(async (projectID) => {
+                try {
+                    const response = await db.listTasks(projectID);
+                    return [projectID, response.documents as Task[]] as const;
+                } catch {
+                    return [projectID, [] as Task[]] as const;
                 }
-                return activity;
+            }));
+            const tasksByProject = new Map(taskLists);
+            const keys = new Map<string, CryptoKey | null>();
+            const getKey = async (projectID: string) => {
+                if (!keys.has(projectID)) keys.set(projectID, await getResourceKey(projectID));
+                return keys.get(projectID) ?? null;
+            };
+            const decryptName = async (value: string, key: CryptoKey) => {
+                try {
+                    const envelope = JSON.parse(value);
+                    if (typeof envelope?.ciphertext !== 'string' || typeof envelope?.iv !== 'string') return null;
+                    return await decryptData(envelope, key);
+                } catch {
+                    return null;
+                }
+            };
+
+            const names = Object.fromEntries(await Promise.all(encryptedProjects.map(async (project) => {
+                const key = await getKey(project.id);
+                const name = key ? await decryptName(project.name, key) : null;
+                return [project.id, name || 'Encrypted project'];
+            })));
+            setResolvedProjectNames(names);
+
+            const processed = await Promise.all(activities.map(async (activity) => {
+                const project = activity.projectId ? projectByID.get(activity.projectId) : undefined;
+                if (!project?.isEncrypted) return activity;
+
+                const key = await getKey(project.id);
+                if (!key) return { ...activity, entityName: 'Encrypted item' };
+                if (activity.entityType === 'Project') {
+                    return { ...activity, entityName: names[project.id] || 'Encrypted project' };
+                }
+                if (activity.entityType === 'Task' && activity.taskId) {
+                    const task = tasksByProject.get(project.id)?.find((item) => item.id === activity.taskId);
+                    const name = task ? await decryptName(task.title, key) : null;
+                    return { ...activity, entityName: name || 'Encrypted item' };
+                }
+                return { ...activity, entityName: 'Encrypted item' };
             }));
             setDecryptedActivities(processed);
         };
-        decryptAll();
-    }, [activities, privateKey, user]);
+        void resolveEncryptedActivityNames();
+    }, [activities, projects, getResourceKey]);
 
     const projectName = (projectId?: string) => {
         if (!projectId) return null;
         const project = projects.find((item) => item.id === projectId);
         if (!project) return 'Personal workspace';
         if (!project.isEncrypted) return project.name;
-        return 'Encrypted Project';
+        return resolvedProjectNames[project.id] || 'Encrypted project';
     };
 
     useEffect(() => {
