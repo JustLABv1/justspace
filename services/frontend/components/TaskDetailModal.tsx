@@ -29,6 +29,7 @@ import {
     ScrollShadow,
     Tag,
     TagGroup,
+    Tabs,
     TextArea,
     TimeField,
     Tooltip,
@@ -46,6 +47,23 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
+
+function getTaskActivitySummary(activity: ActivityLog) {
+    if (activity.metadata?.trim()) return activity.metadata;
+
+    switch (activity.type) {
+        case 'create':
+            return 'Task created';
+        case 'complete':
+            return 'Task marked complete';
+        case 'delete':
+            return 'Task item removed';
+        case 'work':
+            return 'Work logged';
+        default:
+            return 'Task details updated';
+    }
+}
 
 interface TaskDetailModalProps {
     isOpen: boolean;
@@ -678,11 +696,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         return `${dur.minutes()}m ${dur.seconds()}s`;
     };
 
-    const timelineItems = [
-        ...messages.map((message) => ({ kind: 'message' as const, occurredAt: message.createdAt, value: message })),
-        ...taskActivity.map((activity) => ({ kind: 'activity' as const, occurredAt: activity.createdAt, value: activity })),
-    ].sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime());
-
     const currentTags = normalizeTaskTags(task.tags);
     const autocompleteTags = [...new Set([...projectTags, ...currentTags])].sort((left, right) => left.localeCompare(right));
     const filteredAutocompleteTags = autocompleteTags.filter((tag) => !currentTags.includes(tag) && (tagSearchValue.trim() === '' || contains(tag, tagSearchValue.trim())));
@@ -1195,20 +1208,28 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                         )}
 
                                         <div className="space-y-4 border-t border-border pt-6">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <h4 className="flex items-center gap-2 text-xs font-medium text-foreground">
-                                                    <MessageCircle size={14} /> Messages & activity
-                                                </h4>
-                                                <span className="text-[11px] text-muted-foreground">{timelineItems.length}</span>
-                                            </div>
-                                            {timelineItems.length === 0 ? (
-                                                <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-6 text-center text-[11px] text-muted-foreground/60">
-                                                    No messages or activity yet.
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {timelineItems.map((entry) => entry.kind === 'message' ? (() => {
-                                                        const message = entry.value;
+                                            <h4 className="flex items-center gap-2 text-xs font-medium text-foreground">
+                                                <MessageCircle size={14} /> Messages & activity
+                                            </h4>
+                                            <Tabs variant="secondary" defaultSelectedKey="messages" className="w-full">
+                                                <Tabs.ListContainer>
+                                                    <Tabs.List aria-label="Task conversation and changes" className="*:h-8 *:px-3 *:text-xs">
+                                                        <Tabs.Tab id="messages">
+                                                            Messages <span className="ml-1 text-[10px] text-muted-foreground">{messages.length}</span>
+                                                            <Tabs.Indicator />
+                                                        </Tabs.Tab>
+                                                        <Tabs.Tab id="changes">
+                                                            Changes <span className="ml-1 text-[10px] text-muted-foreground">{taskActivity.length}</span>
+                                                            <Tabs.Indicator />
+                                                        </Tabs.Tab>
+                                                    </Tabs.List>
+                                                </Tabs.ListContainer>
+                                                <Tabs.Panel id="messages" className="space-y-3 pt-4">
+                                                    {messages.length === 0 ? (
+                                                        <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-6 text-center text-[11px] text-muted-foreground/60">
+                                                            No messages yet.
+                                                        </div>
+                                                    ) : messages.map((message) => {
                                                         const mentionedMembers = projectMembers.filter((member) => message.mentionedUserIds?.includes(member.userId));
                                                         return (
                                                             <div key={`message-${message.id}`} className="flex items-start gap-2.5">
@@ -1225,27 +1246,44 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                             </Button>
                                                                         )}
                                                                     </div>
-                                                                    <p className="mt-1.5 text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">{message.body}</p>
+                                                                    <p className="mt-1.5 whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">{message.body}</p>
                                                                     {mentionedMembers.length > 0 && (
                                                                         <TagGroup className="mt-2"><TagGroup.List className="flex flex-wrap gap-1">{mentionedMembers.map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}</TagGroup.List></TagGroup>
                                                                     )}
                                                                 </div>
                                                             </div>
                                                         );
-                                                    })() : (
-                                                        <div key={`activity-${entry.value.id}`} className="ml-9 rounded-lg border border-border/60 bg-surface-secondary/20 px-3 py-2">
-                                                            <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[12px] font-medium text-foreground">{entry.value.userName || 'Teammate'} · {entry.value.type}</div><div className="truncate text-[11px] text-muted-foreground">{entry.value.entityType} {entry.value.metadata ? `· ${entry.value.metadata}` : ''}</div></div><span className="shrink-0 text-[11px] text-muted-foreground">{dayjs(entry.value.createdAt).fromNow()}</span></div>
+                                                    })}
+                                                    <form onSubmit={handleCreateMessage} className="space-y-2 rounded-lg border border-border bg-surface p-3">
+                                                        <div className="relative"><TextArea value={newMessage} onChange={(event) => setNewMessage(event.target.value)} placeholder="Add a message for the team..." rows={3} variant="secondary" className="w-full resize-none rounded-xl pb-10 text-xs" /><Button type="submit" size="sm" variant="primary" className="absolute bottom-2 right-2 h-7 rounded-md px-3 text-xs">Send</Button></div>
+                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                            {mentionableMembers.length > 0 && <Dropdown><Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground"><AtSign size={11} /> Mention <ChevronDown size={11} /></Button><Dropdown.Popover placement="top start" className="min-w-[220px]"><Dropdown.Menu>{mentionableMembers.map((member) => <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => toggleMention(member.userId)}><div className="flex items-center gap-2"><Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar><div className="min-w-0"><div className="truncate text-sm">{member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div></div></Dropdown.Item>)}</Dropdown.Menu></Dropdown.Popover></Dropdown>}
+                                                            {mentionedUserIds.length > 0 && <TagGroup onRemove={(keys) => setMentionedUserIds((current) => current.filter((userId) => !keys.has(userId)))}><TagGroup.List className="flex flex-wrap gap-1">{mentionableMembers.filter((member) => mentionedUserIds.includes(member.userId)).map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}</TagGroup.List></TagGroup>}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <form onSubmit={handleCreateMessage} className="space-y-2 rounded-lg border border-border bg-surface p-3">
-                                                <div className="relative"><TextArea value={newMessage} onChange={(event) => setNewMessage(event.target.value)} placeholder="Add a message for the team..." rows={3} variant="secondary" className="w-full resize-none rounded-xl pb-10 text-xs" /><Button type="submit" size="sm" variant="primary" className="absolute bottom-2 right-2 h-7 rounded-md px-3 text-xs">Send</Button></div>
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    {mentionableMembers.length > 0 && <Dropdown><Button type="button" size="sm" variant="ghost" className="h-6 rounded-md px-2 text-[11px] text-muted-foreground"><AtSign size={11} /> Mention <ChevronDown size={11} /></Button><Dropdown.Popover placement="top start" className="min-w-[220px]"><Dropdown.Menu>{mentionableMembers.map((member) => <Dropdown.Item key={member.userId} id={member.userId} textValue={member.name} onAction={() => toggleMention(member.userId)}><div className="flex items-center gap-2"><Avatar size="sm" color="accent" variant="soft"><Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback></Avatar><div className="min-w-0"><div className="truncate text-sm">{member.name}</div><div className="truncate text-xs text-muted-foreground">{member.email}</div></div></div></Dropdown.Item>)}</Dropdown.Menu></Dropdown.Popover></Dropdown>}
-                                                    {mentionedUserIds.length > 0 && <TagGroup onRemove={(keys) => setMentionedUserIds((current) => current.filter((userId) => !keys.has(userId)))}><TagGroup.List className="flex flex-wrap gap-1">{mentionableMembers.filter((member) => mentionedUserIds.includes(member.userId)).map((member) => <Tag key={member.userId} id={member.userId} className="rounded-md text-[10px]">@{member.name.split(' ')[0]}</Tag>)}</TagGroup.List></TagGroup>}
-                                                </div>
-                                            </form>
+                                                    </form>
+                                                </Tabs.Panel>
+                                                <Tabs.Panel id="changes" className="pt-4">
+                                                    {taskActivity.length === 0 ? (
+                                                        <div className="rounded-lg border border-dashed border-border/40 bg-surface-secondary/20 px-3 py-6 text-center text-[11px] text-muted-foreground/60">
+                                                            No changes recorded yet.
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            {taskActivity.map((activity) => (
+                                                                <div key={`activity-${activity.id}`} className="flex items-start gap-3 rounded-lg px-1 py-2">
+                                                                    <div className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-[12px] font-medium leading-relaxed text-foreground">{getTaskActivitySummary(activity)}</p>
+                                                                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                                                            {activity.userName || 'Teammate'} · {dayjs(activity.createdAt).fromNow()}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </Tabs.Panel>
+                                            </Tabs>
                                         </div>
 
                                     </div>

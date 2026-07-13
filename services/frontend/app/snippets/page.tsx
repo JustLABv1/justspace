@@ -251,22 +251,43 @@ export default function SnippetsPage() {
 
     return (
         <div className="w-full px-6 py-8 space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="space-y-0.5">
-                    <h1 className="text-lg font-semibold text-foreground">Snippets</h1>
-                    <p className="text-[13px] text-muted-foreground">Store and reuse your code snippets.</p>
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                        <Code size={18} />
+                    </div>
+                    <div>
+                        <h1 className="text-lg font-semibold text-foreground">Snippets</h1>
+                        <p className="mt-0.5 text-[13px] text-muted-foreground">Store and reuse your code snippets.</p>
+                    </div>
                 </div>
-                <Button variant="primary" size="sm" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
-                    <Plus size={13} className="mr-1" />
-                    New snippet
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                    <SearchField
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        variant="secondary"
+                        className="hidden w-56 sm:flex"
+                        aria-label="Search snippets"
+                    >
+                        <SearchField.Group className="h-9 rounded-lg">
+                            <SearchField.SearchIcon />
+                            <SearchField.Input placeholder="Search snippets..." />
+                            <SearchField.ClearButton />
+                        </SearchField.Group>
+                    </SearchField>
+                    <Button variant="primary" size="sm" onPress={() => { setSelectedSnippet(undefined); setIsSnippetModalOpen(true); }}>
+                        <Plus size={13} className="mr-1" />
+                        New snippet
+                    </Button>
+                </div>
             </div>
 
             <SearchField
                 value={searchQuery}
                 onChange={setSearchQuery}
                 variant="secondary"
-                className="max-w-sm"
+                fullWidth
+                className="sm:hidden"
                 aria-label="Search snippets"
             >
                 <SearchField.Group className="h-10 rounded-lg">

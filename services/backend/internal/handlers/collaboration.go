@@ -651,15 +651,6 @@ func (h *CollaborationHandler) CreateTaskComment(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusInternalServerError, "failed to create task comment")
 		return
 	}
-	var meta *string
-	if len(req.MentionedUserIDs) > 0 {
-		text := fmt.Sprintf("%d mention%s", len(req.MentionedUserIDs), map[bool]string{true: "", false: "s"}[len(req.MentionedUserIDs) == 1])
-		meta = &text
-	}
-	if _, err := h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, meta); err == nil {
-		h.broadcastProjectActivity(task.ProjectID, userID)
-		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
-	}
 	h.broadcastProject(task.ProjectID, models.WSEvent{Type: "create", Collection: "task_comments", Document: comment, UserID: userID})
 	for mentionedUserID := range seenMentions {
 		notification, err := h.repo.CreateNotification(r.Context(), mentionedUserID, userID, "mention", task.ProjectID, task.ID, &comment.ID)
@@ -685,11 +676,6 @@ func (h *CollaborationHandler) DeleteTaskComment(w http.ResponseWriter, r *http.
 	if err := h.repo.DeleteTaskComment(r.Context(), commentID, userID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete task comment")
 		return
-	}
-	meta := "Comment removed"
-	if _, err := h.repo.LogActivity(r.Context(), userID, "delete", "Task", task.Title, &task.ProjectID, &task.ID, &meta); err == nil {
-		h.broadcastProjectActivity(task.ProjectID, userID)
-		h.broadcastTaskActivity(task.ProjectID, task.ID, userID)
 	}
 	h.broadcastProject(task.ProjectID, models.WSEvent{
 		Type:       "delete",
