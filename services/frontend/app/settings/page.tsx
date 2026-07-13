@@ -806,7 +806,7 @@ function SettingsContent() {
                                     {oidcIdentities.length === 0 && (!authConfig || authConfig.oidcProviders.length === 0) && <p className="text-xs text-muted-foreground">No OIDC providers are configured.</p>}
                                 </div>
 
-                                <div className="rounded-xl border border-border bg-surface-secondary p-4 space-y-4">
+                                <div className="rounded-xl border border-border bg-surface-secondary/40 p-4 space-y-3">
                                     <div>
                                         <h4 className="text-sm font-medium text-foreground">{hasVault ? 'Unlock Vault' : 'Initialize Vault'}</h4>
                                         <p className="text-xs text-muted-foreground mt-0.5">

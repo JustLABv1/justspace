@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -281,6 +282,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update task")
 		return
 	}
+	activitySummary := summarizeTaskUpdate(existingTask, task, req)
 
 	if req.Completed != nil && *req.Completed && !existingTask.Completed && task.ParentID == nil {
 		if nextDeadline := nextRecurringDeadline(task); nextDeadline != nil {
@@ -296,12 +298,13 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.Completed != nil && *req.Completed {
-		h.repo.LogActivity(r.Context(), userID, "complete", "Task", task.Title, &task.ProjectID, &task.ID, nil)
+	if req.Completed != nil && *req.Completed && !existingTask.Completed {
+		h.repo.LogActivity(r.Context(), userID, "complete", "Task", task.Title, &task.ProjectID, &task.ID, activitySummary)
 	} else if req.IsTimerRunning != nil && !*req.IsTimerRunning && req.WorkDuration != nil {
-		h.repo.LogActivity(r.Context(), userID, "work", "Task", task.Title, &task.ProjectID, &task.ID, req.WorkDuration)
-	} else if req.Title != nil || req.Description != nil {
-		h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, nil)
+		workSummary := fmt.Sprintf("Logged %s of work", *req.WorkDuration)
+		h.repo.LogActivity(r.Context(), userID, "work", "Task", task.Title, &task.ProjectID, &task.ID, &workSummary)
+	} else if activitySummary != nil {
+		h.repo.LogActivity(r.Context(), userID, "update", "Task", task.Title, &task.ProjectID, &task.ID, activitySummary)
 	}
 	memberIDs, _ := h.repo.ListProjectMemberUserIDs(r.Context(), task.ProjectID)
 	h.hub.BroadcastUsers(memberIDs, models.WSEvent{Type: "update", Collection: "tasks", Document: task, UserID: userID})
