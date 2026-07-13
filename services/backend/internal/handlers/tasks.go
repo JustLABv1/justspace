@@ -21,6 +21,14 @@ type TaskHandler struct {
 	hub  *websocket.Hub
 }
 
+func isEncryptedEnvelope(value string) bool {
+	var envelope struct {
+		Ciphertext string `json:"ciphertext"`
+		IV         string `json:"iv"`
+	}
+	return json.Unmarshal([]byte(value), &envelope) == nil && envelope.Ciphertext != "" && envelope.IV != ""
+}
+
 func NewTaskHandler(repo *repository.Repo, hub *websocket.Hub) *TaskHandler {
 	return &TaskHandler{repo: repo, hub: hub}
 }
@@ -221,9 +229,19 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "tasks in encrypted projects cannot be made plaintext")
 			return
 		}
-		if (req.Title != nil || req.Description != nil) && (req.IsEncrypted == nil || !*req.IsEncrypted) {
-			writeError(w, http.StatusConflict, "updated task content must remain encrypted")
+		if req.Title != nil && !isEncryptedEnvelope(*req.Title) {
+			writeError(w, http.StatusBadRequest, "task title must use an encrypted envelope")
 			return
+		}
+		if req.Description != nil && *req.Description != "" && !isEncryptedEnvelope(*req.Description) {
+			writeError(w, http.StatusBadRequest, "task description must use an encrypted envelope")
+			return
+		}
+		// Project encryption is authoritative. Content updates also repair an
+		// outdated task flag without ever accepting plaintext.
+		if req.Title != nil || req.Description != nil {
+			encrypted := true
+			req.IsEncrypted = &encrypted
 		}
 	}
 	if req.Completed != nil && *req.Completed && !existingTask.Completed {

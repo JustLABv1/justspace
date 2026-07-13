@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/services/frontend/context/AuthContext';
-import { decryptBytes, decryptData, decryptDocumentKey, encryptBytes, encryptData } from '@/services/frontend/lib/crypto';
+import { decryptBytes, decryptData, encryptBytes, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import {
     getDefaultProjectTaskStatuses,
@@ -57,9 +57,10 @@ interface TaskDetailModalProps {
 }
 
 export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdate, statusOptions = [] }: TaskDetailModalProps) {
-    const { user, privateKey } = useAuth();
+    const { user, getResourceKey } = useAuth();
     const { contains } = useFilter({ sensitivity: 'base' });
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
+    const [isProjectEncrypted, setIsProjectEncrypted] = useState(false);
     const [subtasks, setSubtasks] = useState<Task[]>([]);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [tagSearchValue, setTagSearchValue] = useState('');
@@ -185,14 +186,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         try {
             const project = await db.getProject(projectId);
             setProjectRole(project.role);
+            setIsProjectEncrypted(!!project.isEncrypted);
 
             // Get decryption key if project is encrypted
             let docKey = documentKey;
-            if (task.isEncrypted && privateKey && user && !docKey) {
+            if (project.isEncrypted && !docKey) {
                 try {
-                    const access = await db.getAccessKey(projectId);
-                    if (access) {
-                        docKey = await decryptDocumentKey(access.encryptedKey, privateKey);
+                    docKey = await getResourceKey(projectId);
+                    if (docKey) {
                         setDocumentKey(docKey);
                     }
                 } catch {
@@ -304,7 +305,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch (error) {
             console.error('Failed to fetch task details:', error);
         }
-    }, [isOpen, projectId, task.id, task.parentId, task.isEncrypted, privateKey, user, documentKey]);
+    }, [isOpen, projectId, task.id, task.parentId, documentKey, getResourceKey]);
 
     useEffect(() => {
         const load = async () => {
@@ -414,7 +415,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             completed: false,
             parentId: task.id,
             order: subtasks.length,
-            isEncrypted: !!task.isEncrypted
+            isEncrypted: isProjectEncrypted
         } as Task;
 
         setSubtasks(prev => [...prev, newTask]);
@@ -422,11 +423,14 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
         try {
             let finalTitle = originalTitle;
-            if (task.isEncrypted && documentKey) {
+            if (isProjectEncrypted && documentKey) {
                 const encrypted = await encryptData(originalTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            const createdSubtask = await db.createEmptyTask(projectId, finalTitle, subtasks.length, !!task.isEncrypted, task.id, 'todo');
+            if (isProjectEncrypted && !documentKey) {
+                throw new Error('vault must be unlocked before creating a secure subtask');
+            }
+            const createdSubtask = await db.createEmptyTask(projectId, finalTitle, subtasks.length, isProjectEncrypted, task.id, 'todo');
             // Replace the local placeholder immediately. Realtime still reconciles the
             // collection, but follow-up edits must never target the temporary ID.
             setSubtasks((current) => current.map((item) => (
@@ -480,11 +484,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
         try {
             let finalTitle = editedTitle;
-            if (task.isEncrypted && documentKey) {
+            if (isProjectEncrypted && documentKey) {
                 const encrypted = await encryptData(editedTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.updateTask(task.id, { title: finalTitle });
+            if (isProjectEncrypted && !documentKey) {
+                toast.danger('Unlock vault before editing secure task details');
+                return;
+            }
+            await db.updateTask(task.id, { title: finalTitle, ...(isProjectEncrypted ? { isEncrypted: true } : {}) });
             setIsEditingTitle(false);
             onUpdate();
             toast.success('Title updated');
@@ -501,7 +509,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
         try {
             let finalDescription = editedDescription;
-            if (task.isEncrypted) {
+            if (isProjectEncrypted) {
                 if (!documentKey) {
                     toast.danger('Unlock vault before editing secure task details');
                     setEditedDescription(task.description || '');
@@ -510,7 +518,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(editedDescription, documentKey);
                 finalDescription = JSON.stringify(encrypted);
             }
-            await db.updateTask(task.id, { description: finalDescription });
+            await db.updateTask(task.id, { description: finalDescription, ...(isProjectEncrypted ? { isEncrypted: true } : {}) });
             onUpdate();
         } catch (error) {
             console.error('Failed to update description:', error);
@@ -527,11 +535,15 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
         try {
             let finalTitle = editedSubtaskTitle;
-            if (subtask.isEncrypted && documentKey) {
+            if (isProjectEncrypted && documentKey) {
                 const encrypted = await encryptData(editedSubtaskTitle, documentKey);
                 finalTitle = JSON.stringify(encrypted);
             }
-            await db.updateTask(subtask.id, { title: finalTitle });
+            if (isProjectEncrypted && !documentKey) {
+                toast.danger('Unlock vault before editing secure task details');
+                return;
+            }
+            await db.updateTask(subtask.id, { title: finalTitle, ...(isProjectEncrypted ? { isEncrypted: true } : {}) });
             setEditingSubtaskId(null);
             fetchDetails();
             onUpdate();
@@ -550,7 +562,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
 
         try {
             let finalDescription = nextDescription;
-            if (subtask.isEncrypted) {
+            if (isProjectEncrypted) {
                 if (!documentKey) {
                     toast.danger('Unlock vault before editing secure task details');
                     setEditedSubtaskDescriptions((current) => ({ ...current, [subtask.id]: subtask.description || '' }));
@@ -559,7 +571,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                 const encrypted = await encryptData(nextDescription, documentKey);
                 finalDescription = JSON.stringify(encrypted);
             }
-            await db.updateTask(subtask.id, { description: finalDescription });
+            await db.updateTask(subtask.id, { description: finalDescription, ...(isProjectEncrypted ? { isEncrypted: true } : {}) });
             setSubtasks((current) => current.map((item) => item.id === subtask.id ? { ...item, description: nextDescription } : item));
             onUpdate();
             toast.success('Subtask description updated');
