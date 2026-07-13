@@ -17,7 +17,7 @@ import {
     BookOpen,
     Edit,
     ExternalLink,
-    Github,
+    GitBranch,
     History,
     Lock,
     Plus,
@@ -523,7 +523,7 @@ export default function WikiDetailPage() {
                                             {activeInstallation.gitRepo && (
                                                 <Link href={activeInstallation.gitRepo} target="_blank">
                                                     <Button variant="secondary" size="sm">
-                                                        <Github size={12} className="mr-1.5" />
+                                                        <GitBranch size={12} className="mr-1.5" />
                                                         Source
                                                     </Button>
                                                 </Link>
