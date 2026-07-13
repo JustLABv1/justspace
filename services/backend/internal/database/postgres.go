@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io/fs"
 	"log"
@@ -18,6 +19,16 @@ func Connect(cfg *config.Config) (*pgxpool.Pool, error) {
 	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("parse dsn: %w", err)
+	}
+	if poolConfig.ConnConfig.TLSConfig != nil {
+		if pool, err := cfg.CustomCAPool(); err != nil {
+			return nil, err
+		} else if pool != nil {
+			tlsConfig := poolConfig.ConnConfig.TLSConfig.Clone()
+			tlsConfig.RootCAs = pool
+			tlsConfig.MinVersion = tls.VersionTLS12
+			poolConfig.ConnConfig.TLSConfig = tlsConfig
+		}
 	}
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {

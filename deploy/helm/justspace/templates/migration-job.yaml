@@ -1,0 +1,86 @@
+{{- include "justspace.validate" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "justspace.fullname" . }}-migrate
+  labels:
+    {{- include "justspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "justspace.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "justspace.backendImage" . | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: APP_ENV
+              value: production
+            - name: DB_HOST
+              value: {{ include "justspace.databaseHost" . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.backend.externalDatabase.port | quote }}
+            - name: DB_NAME
+              value: {{ include "justspace.databaseName" . | quote }}
+            - name: DB_USER
+              value: {{ include "justspace.databaseUser" . | quote }}
+            - name: DB_SSLMODE
+              value: verify-full
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "justspace.databaseSecretName" . | quote }}
+                  key: {{ include "justspace.databasePasswordKey" . | quote }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret.name | quote }}
+                  key: {{ .Values.backend.existingSecret.jwtSecretKey | quote }}
+            - name: OIDC_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret.name | quote }}
+                  key: {{ .Values.backend.existingSecret.oidcEncryptionKey | quote }}
+            - name: CORS_ORIGIN
+              value: {{ .Values.global.publicUrl | quote }}
+            - name: MIGRATIONS_MODE
+              value: only
+            {{- if .Values.customCA.enabled }}
+            - name: CUSTOM_CA_CERT_FILE
+              value: /etc/justspace-ca/custom-ca.pem
+            {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- include "justspace.customCAMount" . | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- include "justspace.customCAVolume" . | nindent 8 }}

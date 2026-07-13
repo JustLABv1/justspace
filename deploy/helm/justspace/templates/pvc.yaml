@@ -1,0 +1,19 @@
+{{- include "justspace.validate" . }}
+{{- if and .Values.backend.persistence.enabled (not .Values.backend.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "justspace.storageClaim" . }}
+  labels:
+    {{- include "justspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  accessModes:
+    {{- toYaml .Values.backend.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.size }}
+  {{- with .Values.backend.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}

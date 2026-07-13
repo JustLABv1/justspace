@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -22,6 +24,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.ConfigureDefaultHTTPClient(); err != nil {
+		log.Fatalf("Failed to configure custom CA: %v", err)
+	}
 
 	pool, err := database.Connect(cfg)
 	if err != nil {
@@ -38,10 +43,15 @@ func main() {
 			migrationsDir = "migrations"
 		}
 	}
-	if err := database.RunMigrations(pool, migrationsDir); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+	if cfg.MigrationsMode != "skip" {
+		if err := database.RunMigrations(pool, migrationsDir); err != nil {
+			log.Fatalf("Failed to run migrations: %v", err)
+		}
+		log.Println("Migrations complete")
 	}
-	log.Println("Migrations complete")
+	if cfg.MigrationsMode == "only" {
+		return
+	}
 
 	repo := repository.New(pool)
 	fileStore, err := storage.NewFileStore(cfg.FileStorageRoot)
@@ -76,6 +86,9 @@ func main() {
 	r.Use(securityHeaders)
 	r.Use(corsMiddleware(cfg.CORSOrigin))
 
+	r.Get("/healthz", healthHandler)
+	r.Get("/readyz", readyHandler(pool))
+	// Kept for existing monitors and callers. New deployments use /healthz and /readyz.
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
@@ -219,6 +232,28 @@ func main() {
 	log.Printf("justspace backend listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("Server error: %v", err)
+	}
+}
+
+type databasePinger interface {
+	Ping(context.Context) error
+}
+
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"ok"}`))
+}
+
+func readyHandler(pool databasePinger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := pool.Ping(ctx); err != nil {
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ready"}`))
 	}
 }
 

@@ -1,0 +1,34 @@
+global:
+  publicUrl: https://justspace.example.com
+
+frontend:
+  image:
+    repository: ghcr.io/justlabv1/justspace
+    digest: sha256:REPLACE_WITH_A_RELEASE_DIGEST
+
+backend:
+  image:
+    repository: ghcr.io/justlabv1/justspace
+    digest: sha256:REPLACE_WITH_A_RELEASE_DIGEST
+  existingSecret:
+    name: justspace-application
+  externalDatabase:
+    host: postgres.database.example.com
+    port: 5432
+    database: justspace
+    user: justspace
+    existingSecret:
+      name: justspace-database
+
+ingress:
+  enabled: true
+  className: nginx
+  host: justspace.example.com
+  tls:
+    enabled: true
+    existingSecret: justspace-ingress-tls
+
+# Uncomment for an internal PKI CA bundle stored in a ConfigMap key named ca.crt.
+# customCA:
+#   enabled: true
+#   existingConfigMap: organisation-ca

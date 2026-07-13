@@ -1,0 +1,114 @@
+{{- include "justspace.validate" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "justspace.backendServiceName" . }}
+  labels:
+    {{- include "justspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "justspace.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "justspace.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+      {{- with .Values.backend.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: {{ include "justspace.backendImage" . | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: APP_ENV
+              value: production
+            - name: PORT
+              value: "8080"
+            - name: DB_HOST
+              value: {{ include "justspace.databaseHost" . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.backend.externalDatabase.port | quote }}
+            - name: DB_NAME
+              value: {{ include "justspace.databaseName" . | quote }}
+            - name: DB_USER
+              value: {{ include "justspace.databaseUser" . | quote }}
+            - name: DB_SSLMODE
+              value: verify-full
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "justspace.databaseSecretName" . | quote }}
+                  key: {{ include "justspace.databasePasswordKey" . | quote }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret.name | quote }}
+                  key: {{ .Values.backend.existingSecret.jwtSecretKey | quote }}
+            - name: OIDC_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret.name | quote }}
+                  key: {{ .Values.backend.existingSecret.oidcEncryptionKey | quote }}
+            - name: CORS_ORIGIN
+              value: {{ .Values.global.publicUrl | quote }}
+            - name: MIGRATIONS_MODE
+              value: skip
+            - name: FILE_STORAGE_ROOT
+              value: /data/uploads
+            {{- if .Values.customCA.enabled }}
+            - name: CUSTOM_CA_CERT_FILE
+              value: /etc/justspace-ca/custom-ca.pem
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /data/uploads
+            - name: tmp
+              mountPath: /tmp
+            {{- include "justspace.customCAMount" . | nindent 12 }}
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ include "justspace.storageClaim" . }}
+        - name: tmp
+          emptyDir: {}
+        {{- include "justspace.customCAVolume" . | nindent 8 }}

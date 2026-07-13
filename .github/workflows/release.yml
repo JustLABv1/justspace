@@ -84,54 +84,61 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-  # chart:
-  #   name: Package & Push Helm Chart
-  #   runs-on: ubuntu-24.04
-  #   permissions:
-  #     packages: write
-  #     contents: read
+  chart:
+    name: Package & Push Helm Chart
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+      contents: read
 
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-  #     - name: Set up Helm
-  #       uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
 
-  #     - name: Prepare chart metadata
-  #       id: chart_meta
-  #       run: |
-  #         VERSION="${GITHUB_REF_NAME#v}"
-  #         OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+      - name: Build and validate chart dependencies
+        run: |
+          helm dependency build deploy/helm/justspace
+          helm lint deploy/helm/justspace \
+            --values deploy/helm/justspace/values-production.example.yaml
+          git diff --exit-code -- deploy/helm/justspace/Chart.lock deploy/helm/justspace/charts
 
-  #         echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-  #         echo "registry_repo=oci://${{ env.REGISTRY }}/${OWNER}/charts" >> "$GITHUB_OUTPUT"
+      - name: Prepare chart metadata
+        id: chart_meta
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
 
-  #     - name: Log in to GitHub Container Registry for Helm
-  #       run: |
-  #         echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} \
-  #           --username "${{ github.actor }}" \
-  #           --password-stdin
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "registry_repo=oci://${{ env.REGISTRY }}/${OWNER}/charts" >> "$GITHUB_OUTPUT"
 
-  #     - name: Package Helm chart
-  #       run: |
-  #         mkdir -p dist
-  #         helm package charts/justspace \
-  #           --destination dist \
-  #           --version "${{ steps.chart_meta.outputs.version }}" \
-  #           --app-version "${{ steps.chart_meta.outputs.version }}"
+      - name: Log in to GitHub Container Registry for Helm
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} \
+            --username "${{ github.actor }}" \
+            --password-stdin
 
-  #     - name: Push Helm chart
-  #       run: |
-  #         helm push "dist/${{ env.CHART_NAME }}-${{ steps.chart_meta.outputs.version }}.tgz" \
-  #           "${{ steps.chart_meta.outputs.registry_repo }}"
+      - name: Package Helm chart
+        run: |
+          mkdir -p dist
+          helm package deploy/helm/justspace \
+            --destination dist \
+            --version "${{ steps.chart_meta.outputs.version }}" \
+            --app-version "${{ steps.chart_meta.outputs.version }}"
+
+      - name: Push Helm chart
+        run: |
+          helm push "dist/${{ env.CHART_NAME }}-${{ steps.chart_meta.outputs.version }}.tgz" \
+            "${{ steps.chart_meta.outputs.registry_repo }}"
 
   release:
     name: Create GitHub Release
     runs-on: ubuntu-24.04
     needs:
       - build
-      # - chart
+      - chart
     permissions:
       contents: write
 
@@ -193,6 +200,7 @@ jobs:
           IMAGE="${{ env.IMAGE_NAME }}"
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           BODY="${BODY}### Docker Images\n\`\`\`\ndocker pull ${REGISTRY}/${IMAGE}:${VERSION}\ndocker pull ${REGISTRY}/${IMAGE}:backend-${VERSION}\ndocker pull ${REGISTRY}/${IMAGE}:frontend-${VERSION}\n\`\`\`\n\n"
+          BODY="${BODY}### Helm Chart\n\`\`\`\nhelm upgrade --install justspace oci://${REGISTRY}/${OWNER}/charts/justspace --version ${VERSION}\n\`\`\`\n\n"
 
           # Multiline output for GitHub Actions
           {
