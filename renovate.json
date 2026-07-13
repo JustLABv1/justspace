@@ -13,6 +13,11 @@
 
   "packageRules": [
     {
+      "description": "Keep TypeScript compatible with the Next.js ESLint parser",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<6.0.0"
+    },
+    {
       "description": "Automerge patch and minor updates",
       "matchUpdateTypes": ["patch", "minor"],
       "automerge": true,
