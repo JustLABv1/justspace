@@ -28,17 +28,20 @@ jobs:
             context: .
             file: Dockerfile
             tag_prefix: ""
-            latest_tag: latest
+            stable_tag: latest
+            prerelease_tag: beta
           - service: backend
             context: services/backend
             file: services/backend/Dockerfile
             tag_prefix: backend-
-            latest_tag: backend
+            stable_tag: backend-latest
+            prerelease_tag: backend-beta
           - service: frontend
             context: services/frontend
             file: services/frontend/Dockerfile
             tag_prefix: frontend-
-            latest_tag: frontend
+            stable_tag: frontend-latest
+            prerelease_tag: frontend-beta
 
     steps:
       - name: Checkout
@@ -63,7 +66,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ matrix.latest_tag }},enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=${{ matrix.stable_tag }},enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=${{ matrix.prerelease_tag }},enable=${{ contains(github.ref_name, '-') }}
             type=semver,pattern={{version}},prefix=${{ matrix.tag_prefix }}
             type=semver,pattern={{major}}.{{minor}},prefix=${{ matrix.tag_prefix }}
             type=semver,pattern={{major}},prefix=${{ matrix.tag_prefix }}
