@@ -822,6 +822,130 @@ func (h *CollaborationHandler) ListProjectActivity(w http.ResponseWriter, r *htt
 	writeJSON(w, http.StatusOK, models.ListResponse[models.ActivityLog]{Total: len(activity), Documents: activity})
 }
 
+const maxCollaborationPayloadBytes = 256 * 1024
+
+func collaborationPayloadTooLarge(payload string) bool {
+	// Base64 has at most 4 bytes for every 3 raw bytes. Reject it before decoding
+	// so a single update cannot allocate an unbounded request body in the API.
+	return len(payload) > (maxCollaborationPayloadBytes*4)/3+4
+}
+
+func (h *CollaborationHandler) GetTaskDescriptionCollaboration(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	task, ok := ensureTaskAccess(w, r, h.repo, chi.URLParam(r, "taskId"), userID)
+	if !ok {
+		return
+	}
+	document, err := h.repo.GetTaskCollaborationDocument(r.Context(), task.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load collaborative description")
+		return
+	}
+	if document == nil {
+		writeJSON(w, http.StatusOK, models.CollaborationSyncResponse{Updates: []models.CollaborationUpdate{}})
+		return
+	}
+	updates, err := h.repo.ListCollaborationUpdates(r.Context(), document.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load collaborative updates")
+		return
+	}
+	writeJSON(w, http.StatusOK, models.CollaborationSyncResponse{Document: document, Updates: updates})
+}
+
+func (h *CollaborationHandler) InitializeTaskDescriptionCollaboration(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	task, ok := ensureTaskAccess(w, r, h.repo, chi.URLParam(r, "taskId"), userID)
+	if !ok || !ensureProjectRole(w, r, h.repo, task.ProjectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.InitializeCollaborationDocumentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ClientUpdateID == "" || req.Payload == "" || collaborationPayloadTooLarge(req.Payload) {
+		writeError(w, http.StatusBadRequest, "valid collaboration payload and client update id are required")
+		return
+	}
+	if req.IsEncrypted != task.IsEncrypted {
+		writeError(w, http.StatusConflict, "collaboration encryption does not match task")
+		return
+	}
+	document, created, err := h.repo.InitializeTaskCollaborationDocument(r.Context(), task.ID, task.ProjectID, userID, req)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to initialize collaborative description")
+		return
+	}
+	updates, err := h.repo.ListCollaborationUpdates(r.Context(), document.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load collaborative updates")
+		return
+	}
+	response := models.CollaborationSyncResponse{Document: document, Updates: updates}
+	if created && len(updates) > 0 {
+		h.broadcastProject(task.ProjectID, models.WSEvent{Type: "update", Collection: "collaboration_updates", Document: map[string]interface{}{"document": document, "update": updates[0]}, UserID: userID})
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *CollaborationHandler) CreateCollaborationUpdate(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	document, err := h.repo.GetCollaborationDocument(r.Context(), chi.URLParam(r, "documentId"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load collaborative document")
+		return
+	}
+	if document == nil {
+		writeError(w, http.StatusNotFound, "collaborative document not found")
+		return
+	}
+	if !ensureProjectRole(w, r, h.repo, document.ProjectID, userID, "owner", "admin", "editor") {
+		return
+	}
+	var req models.CreateCollaborationUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ClientUpdateID == "" || req.Payload == "" || collaborationPayloadTooLarge(req.Payload) {
+		writeError(w, http.StatusBadRequest, "valid collaboration payload and client update id are required")
+		return
+	}
+	update, err := h.repo.CreateCollaborationUpdate(r.Context(), document.ID, userID, req)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save collaborative update")
+		return
+	}
+	h.broadcastProject(document.ProjectID, models.WSEvent{Type: "update", Collection: "collaboration_updates", Document: map[string]interface{}{"document": document, "update": update}, UserID: userID})
+	writeJSON(w, http.StatusCreated, update)
+}
+
+func (h *CollaborationHandler) BroadcastCollaborationAwareness(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r)
+	document, err := h.repo.GetCollaborationDocument(r.Context(), chi.URLParam(r, "documentId"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load collaborative document")
+		return
+	}
+	if document == nil {
+		writeError(w, http.StatusNotFound, "collaborative document not found")
+		return
+	}
+	if !ensureProjectAccess(w, r, h.repo, document.ProjectID, userID) {
+		return
+	}
+	var req struct {
+		State json.RawMessage `json:"state"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.State) == 0 || len(req.State) > 8192 {
+		writeError(w, http.StatusBadRequest, "valid collaboration awareness state is required")
+		return
+	}
+	h.broadcastProject(document.ProjectID, models.WSEvent{Type: "update", Collection: "collaboration_awareness", Document: map[string]interface{}{"documentId": document.ID, "state": json.RawMessage(req.State)}, UserID: userID})
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *CollaborationHandler) broadcastProject(projectID string, event models.WSEvent) {
 	memberIDs, err := h.repo.ListProjectMemberUserIDs(context.Background(), projectID)
 	if err != nil {

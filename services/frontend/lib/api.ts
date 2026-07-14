@@ -776,6 +776,31 @@ export const api = {
         return request(`/api/tasks/${taskId}/presence`, { method: 'POST' });
     },
 
+    async getTaskDescriptionCollaboration<T>(taskId: string): Promise<T> {
+        return request(`/api/tasks/${taskId}/collaboration/description`);
+    },
+
+    async initializeTaskDescriptionCollaboration<T>(taskId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/tasks/${taskId}/collaboration/description/initialize`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async createCollaborationUpdate<T>(documentId: string, data: Record<string, unknown>): Promise<T> {
+        return request(`/api/collaboration/documents/${documentId}/updates`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async broadcastCollaborationAwareness(documentId: string, state: Record<string, unknown>): Promise<void> {
+        return request(`/api/collaboration/documents/${documentId}/awareness`, {
+            method: 'POST',
+            body: JSON.stringify({ state }),
+        });
+    },
+
     async listProjectActivity<T>(projectId: string): Promise<ListResponse<T>> {
         return request(`/api/projects/${projectId}/activity`);
     },
