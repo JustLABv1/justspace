@@ -2584,14 +2584,22 @@ func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]model
 	return scanTasks(rows)
 }
 
-func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int, sortByDeadline, openOnly bool) ([]models.Task, error) {
+func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int, sortByDeadline, openOnly bool, workspaceID string) ([]models.Task, error) {
 	whereClause := `
 		 WHERE EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $1
 		 )`
+	args := []any{userID}
 	if openOnly {
 		whereClause += ` AND tasks.completed = false`
+	}
+	if workspaceID != "" {
+		whereClause += ` AND EXISTS (
+			SELECT 1 FROM projects p
+			WHERE p.id = tasks.project_id AND p.workspace_id = $2
+		)`
+		args = append(args, workspaceID)
 	}
 
 	orderClause := ` ORDER BY created_at DESC`
@@ -2611,9 +2619,10 @@ func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int, sortB
 				created_at DESC`
 	}
 
+	args = append(args, limit)
 	rows, err := r.pool.Query(ctx,
 		`SELECT `+taskSelectColumns+`
-		 FROM tasks`+whereClause+orderClause+` LIMIT $2`, userID, limit)
+		 FROM tasks`+whereClause+orderClause+` LIMIT $`+strconv.Itoa(len(args)), args...)
 	if err != nil {
 		return nil, fmt.Errorf("list all tasks: %w", err)
 	}

@@ -140,7 +140,8 @@ func (h *TaskHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	}
 	sortByDeadline := r.URL.Query().Get("sort") == "deadline"
 	openOnly := r.URL.Query().Get("openOnly") == "true"
-	tasks, err := h.repo.ListAllTasks(r.Context(), userID, limit, sortByDeadline, openOnly)
+	workspaceID := r.URL.Query().Get("workspaceId")
+	tasks, err := h.repo.ListAllTasks(r.Context(), userID, limit, sortByDeadline, openOnly, workspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list tasks")
 		return

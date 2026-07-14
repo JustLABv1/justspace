@@ -58,8 +58,8 @@ export default function Home() {
         db.listProjects(workspaceId),
         db.listGuides(workspaceId),
         db.listSnippets(workspaceId),
-        db.listAllTasks(100),
-        db.listAllTasks({ limit: 300, sort: 'deadline', openOnly: true }),
+        db.listAllTasks({ limit: 100, workspaceId }),
+        db.listAllTasks({ limit: 300, sort: 'deadline', openOnly: true, workspaceId }),
       ]);
 
       const pendingTasksCount = allTasks.documents.filter(t => !t.completed && !t.parentId).length;

@@ -165,7 +165,7 @@ export const db = {
     },
 
     // Tasks
-    async listAllTasks(options: number | { limit?: number; sort?: 'createdAt' | 'deadline'; openOnly?: boolean } = 100) {
+    async listAllTasks(options: number | { limit?: number; sort?: 'createdAt' | 'deadline'; openOnly?: boolean; workspaceId?: string } = 100) {
         return await api.listAllTasks<Task>(options);
     },
     async listTasks(projectId: string) {
