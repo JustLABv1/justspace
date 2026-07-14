@@ -3,6 +3,7 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getDeadlineDisplay, isDueSoon, isOverdue, sortTasksBySchedule, useScheduleNow } from '@/services/frontend/lib/task-schedule';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { Project, ProjectTaskStatus, Task } from '@/services/frontend/types';
 import { Button, Calendar } from '@heroui/react';
@@ -25,14 +26,13 @@ interface TaskCalendarProps {
     onUpdate?: () => void;
 }
 
-const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-
 export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searchQuery = '', selectedTags = [], hideCompleted = false, refreshToken, onOpenTask, onUpdate: _onUpdate }: TaskCalendarProps) {
     const [fetchedTasks, setFetchedTasks] = useState<Task[]>([]);
     const [selectedDate, setSelectedDate] = useState<CalendarDate | null>(() => {
         try { return parseDate(dayjs().format('YYYY-MM-DD')); } catch { return null; }
     });
     const { privateKey, user } = useAuth();
+    const scheduleNow = useScheduleNow();
 
     const tasks = propTasks ?? fetchedTasks;
 
@@ -100,25 +100,23 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
         }, {} as Record<string, Task[]>);
     }, [visibleTasks]);
 
-    // Sort tasks within each date by priority
+    // Sort tasks within each date by the exact due time, then priority and manual order.
     const sortedTasksByDate = useMemo(() => {
         return Object.fromEntries(
             Object.entries(tasksByDate).map(([date, dateTasks]) => [
                 date,
-                [...dateTasks].sort((a, b) =>
-                    (priorityOrder[a.priority ?? 'low'] ?? 4) - (priorityOrder[b.priority ?? 'low'] ?? 4)
-                ),
+                sortTasksBySchedule(dateTasks, tasks, scheduleNow),
             ])
         );
-    }, [tasksByDate]);
+    }, [scheduleNow, tasks, tasksByDate]);
 
     const getDateVariant = (dateStr: string): 'overdue' | 'today' | 'soon' | 'future' | null => {
         if (!sortedTasksByDate[dateStr]?.length) return null;
-        const now = dayjs();
+        const now = scheduleNow;
         const d = dayjs(dateStr);
-        if (d.isBefore(now, 'day')) return 'overdue';
+        if (sortedTasksByDate[dateStr].some((task) => isOverdue(task.deadline, now))) return 'overdue';
         if (d.isSame(now, 'day')) return 'today';
-        if (d.isBefore(now.add(3, 'day'), 'day')) return 'soon';
+        if (d.isBefore(now.add(7, 'day').endOf('day'))) return 'soon';
         return 'future';
     };
 
@@ -140,8 +138,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
     };
 
     const getTaskPriorityColor = (task: Task) => {
-        const now = dayjs();
-        if (task.deadline && dayjs(task.deadline).isBefore(now, 'day')) return 'bg-danger';
+        if (isOverdue(task.deadline, scheduleNow)) return 'bg-danger';
         switch (task.priority) {
             case 'urgent': return 'bg-danger';
             case 'high':   return 'bg-warning';
@@ -150,21 +147,10 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
         }
     };
 
-    const formatDeadline = (deadline: string) => {
-        const d = dayjs(deadline);
-        const now = dayjs();
-        if (d.isBefore(now, 'day')) return { label: 'Overdue', cls: 'text-danger' };
-        if (d.isSame(now, 'day')) return { label: 'Today', cls: 'text-warning font-medium' };
-        if (d.isSame(now.add(1, 'day'), 'day')) return { label: 'Tomorrow', cls: 'text-warning' };
-        return { label: d.format('MMM D'), cls: 'text-muted-foreground' };
-    };
-
     // Count upcoming tasks in next 7 days for the legend
     const upcomingCount = useMemo(() => {
-        const start = dayjs().startOf('day');
-        const end = dayjs().add(7, 'day').endOf('day');
-        return visibleTasks.filter(t => t.deadline && !t.completed && dayjs(t.deadline).isAfter(start) && dayjs(t.deadline).isBefore(end)).length;
-    }, [visibleTasks]);
+        return visibleTasks.filter((task) => !task.completed && isDueSoon(task.deadline, scheduleNow)).length;
+    }, [scheduleNow, visibleTasks]);
 
     return (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
@@ -174,7 +160,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
                         <span className="w-1.5 h-1.5 rounded-full bg-danger inline-block" /> Overdue
                     </span>
                     <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block" /> Due soon
+                        <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block" /> Next 7 days
                     </span>
                     <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                         <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" /> Scheduled
@@ -256,7 +242,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
                             </div>
                             <div className="divide-y divide-border">
                                 {selectedTasks.map(task => {
-                                    const deadline = task.deadline ? formatDeadline(task.deadline) : null;
+                                    const deadline = !task.completed ? getDeadlineDisplay(task.deadline, scheduleNow) : null;
                                     const project = projects.find(p => p.id === task.projectId);
                                     return (
                                         <Button
@@ -275,7 +261,7 @@ export function TaskCalendar({ tasks: propTasks, projectId, projects = [], searc
                                                 </span>
                                             )}
                                             {deadline && (
-                                                <span className={`shrink-0 text-[11px] ${deadline.cls}`}>
+                                                <span className={`shrink-0 text-[11px] ${deadline.color === 'danger' ? 'text-danger' : deadline.color === 'warning' ? 'text-warning' : 'text-muted-foreground'}`}>
                                                     {deadline.label}
                                                 </span>
                                             )}

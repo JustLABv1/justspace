@@ -2584,15 +2584,36 @@ func (r *Repo) ListTasks(ctx context.Context, projectID, userID string) ([]model
 	return scanTasks(rows)
 }
 
-func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int) ([]models.Task, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT `+taskSelectColumns+`
-		 FROM tasks
+func (r *Repo) ListAllTasks(ctx context.Context, userID string, limit int, sortByDeadline, openOnly bool) ([]models.Task, error) {
+	whereClause := `
 		 WHERE EXISTS (
 		 	SELECT 1 FROM project_members pm
 		 	WHERE pm.project_id = tasks.project_id AND pm.user_id = $1
-		 )
-		 ORDER BY created_at DESC LIMIT $2`, userID, limit)
+		 )`
+	if openOnly {
+		whereClause += ` AND tasks.completed = false`
+	}
+
+	orderClause := ` ORDER BY created_at DESC`
+	if sortByDeadline {
+		orderClause = `
+			ORDER BY
+				CASE WHEN deadline IS NULL THEN 1 ELSE 0 END ASC,
+				deadline ASC NULLS LAST,
+				CASE priority
+					WHEN 'urgent' THEN 0
+					WHEN 'high' THEN 1
+					WHEN 'medium' THEN 2
+					WHEN 'low' THEN 3
+					ELSE 4
+				END ASC,
+				sort_order ASC,
+				created_at DESC`
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+taskSelectColumns+`
+		 FROM tasks`+whereClause+orderClause+` LIMIT $2`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list all tasks: %w", err)
 	}

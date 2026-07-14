@@ -391,9 +391,14 @@ export const api = {
     },
 
     // Tasks
-    async listAllTasks<T>(limit?: number): Promise<ListResponse<T>> {
-        const q = limit ? `?limit=${limit}` : '';
-        return request(`/api/tasks${q}`);
+    async listAllTasks<T>(options: number | { limit?: number; sort?: 'createdAt' | 'deadline'; openOnly?: boolean } = 100): Promise<ListResponse<T>> {
+        const normalizedOptions = typeof options === 'number' ? { limit: options } : options;
+        const params = new URLSearchParams();
+        if (normalizedOptions.limit) params.set('limit', String(normalizedOptions.limit));
+        if (normalizedOptions.sort === 'deadline') params.set('sort', 'deadline');
+        if (normalizedOptions.openOnly) params.set('openOnly', 'true');
+        const query = params.toString();
+        return request(`/api/tasks${query ? `?${query}` : ''}`);
     },
 
     async getTask<T>(id: string): Promise<T> {

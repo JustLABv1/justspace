@@ -129,7 +129,7 @@ At minimum define rules for ingress-controller traffic to the frontend, frontend
 
 ## Migrations, health checks, and upgrades
 
-The `pre-install` and `pre-upgrade` migration Job runs migrations before the workloads start. Backend Pods use `MIGRATIONS_MODE=skip` so they cannot run migrations concurrently. Liveness checks use `/healthz`; readiness checks use `/readyz` and therefore include database availability.
+The `pre-install` and `pre-upgrade` migration Job runs migrations before the workloads start. Its name includes the Helm release revision, because Kubernetes Job pod templates are immutable. Backend Pods use `MIGRATIONS_MODE=skip` so they cannot run migrations concurrently. Liveness checks use `/healthz`; readiness checks use `/readyz` and therefore include database availability.
 
 Validate before deploying:
 
