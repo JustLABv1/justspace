@@ -18,12 +18,13 @@ COPY migrations/ ./migrations/
 RUN addgroup -S -g 10001 justspace \
     && adduser -S -u 10001 -G justspace justspace \
     && mkdir -p /data/uploads /tmp \
-    && chown -R justspace:justspace /app /data/uploads /tmp
+    && chown -R justspace:0 /app /data/uploads /tmp \
+    && chmod -R g=u /app /data/uploads /tmp
 
 ENV PORT=8080
 ENV MIGRATIONS_DIR=/app/migrations
 ENV FILE_STORAGE_ROOT=/data/uploads
 
 EXPOSE 8080
-USER 10001:10001
+USER 10001:0
 CMD ["./server"]

@@ -21,12 +21,10 @@ spec:
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
+      {{- with .Values.backend.podSecurityContext }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -35,11 +33,10 @@ spec:
         - name: migrate
           image: {{ include "justspace.backendImage" . | quote }}
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          {{- with .Values.backend.containerSecurityContext }}
           securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: APP_ENV
               value: production
