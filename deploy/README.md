@@ -2,6 +2,9 @@
 
 ## Kubernetes (production)
 
+See [the Helm chart documentation](helm/README.md) for installation, Secrets,
+values, TLS/custom CAs, ingress, OpenShift, storage, and network policies.
+
 The Helm chart expects a TLS-enabled PostgreSQL database and existing Kubernetes
 Secrets. It never puts credentials into Helm release metadata. Create one Secret
 for `jwt-secret` and `oidc-encryption-key`, and one containing the database

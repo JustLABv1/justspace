@@ -57,7 +57,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
+# OpenShift may replace the UID at runtime. Group-readable files and the root
+# group follow the arbitrary-UID container convention.
+RUN chown -R nextjs:0 /app \
+    && chmod -R g=u /app
+
+USER 1001:0
 
 EXPOSE 3000
 

@@ -11,7 +11,7 @@
     "frontend": {
       "type": "object",
       "required": ["image"],
-      "properties": { "image": { "$ref": "#/definitions/image" }, "apiUrl": { "type": "string" }, "wsUrl": { "type": "string" } }
+      "properties": { "image": { "$ref": "#/definitions/image" }, "apiUrl": { "type": "string" }, "wsUrl": { "type": "string" }, "podSecurityContext": { "type": "object" }, "containerSecurityContext": { "type": "object" } }
     },
     "backend": {
       "type": "object",
@@ -19,6 +19,8 @@
       "properties": {
         "replicaCount": { "type": "integer", "minimum": 1, "maximum": 1 },
         "image": { "$ref": "#/definitions/image" },
+        "podSecurityContext": { "type": "object" },
+        "containerSecurityContext": { "type": "object" },
         "existingSecret": { "$ref": "#/definitions/secretReference" },
         "externalDatabase": {
           "type": "object",

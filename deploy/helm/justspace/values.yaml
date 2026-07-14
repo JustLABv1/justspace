@@ -12,6 +12,19 @@ frontend:
     pullPolicy: IfNotPresent
   apiUrl: ""
   wsUrl: ""
+  # Set runAsUser/runAsGroup/fsGroup to null for OpenShift's assigned UID.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
@@ -28,6 +41,19 @@ backend:
     name: ""
     jwtSecretKey: jwt-secret
     oidcEncryptionKey: oidc-encryption-key
+  # Set runAsUser/runAsGroup/fsGroup to null for OpenShift's assigned UID.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
   externalDatabase:
     host: ""
     port: 5432
