@@ -21,7 +21,7 @@ services:
       - no-new-privileges:true
 
   init-uploads:
-    image: ${PERMISSIONS_IMAGE:-alpine:3.20}
+    image: ${PERMISSIONS_IMAGE:-alpine:3.24}
     user: "0:0"
     command: ["sh", "-ec", "mkdir -p /data/uploads && chown -R 10001:10001 /data/uploads"]
     volumes:
