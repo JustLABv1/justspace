@@ -35,7 +35,7 @@ The default `values.yaml` is intentionally not installable. Define the following
 | `global.publicUrl` | Public HTTPS URL, for example `https://justspace.example.com`. It controls backend CORS plus the default frontend API and WebSocket URLs. |
 | `frontend.image`, `backend.image` | Repository plus tag or, preferably, immutable `digest`. |
 | `backend.existingSecret.name` | Existing Secret with `jwt-secret` and `oidc-encryption-key` by default. The key names are configurable. |
-| `backend.externalDatabase` | Host, port, database, user, and a Secret reference for the password. `sslMode` must remain `verify-full`. |
+| `backend.externalDatabase` | Host, port, database, user, password Secret reference, and PostgreSQL `sslMode`. The default `verify-full` is recommended; `disable` and the other libpq modes are supported. |
 | `ingress` | Enable it, set `host`, an optional `className`, and an existing TLS Secret. |
 
 Create secrets outside Helm, for example:
@@ -71,7 +71,7 @@ ingress:
 
 ### External PostgreSQL
 
-External PostgreSQL is recommended. Its certificate must validate for `backend.externalDatabase.host`, because the backend enforces `verify-full` TLS. For private PKI, set exactly one custom CA source; the selected key contains a PEM bundle.
+External PostgreSQL is recommended. `verify-full` validates both the certificate chain and database hostname; use it whenever TLS is available. The chart does not enforce it, so isolated deployments may set `sslMode: disable`. For private PKI, set exactly one custom CA source; the selected key contains a PEM bundle.
 
 ```yaml
 customCA:

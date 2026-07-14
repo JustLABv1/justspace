@@ -5,8 +5,9 @@
 See [the Helm chart documentation](helm/README.md) for installation, Secrets,
 values, TLS/custom CAs, ingress, OpenShift, storage, and network policies.
 
-The Helm chart expects a TLS-enabled PostgreSQL database and existing Kubernetes
-Secrets. It never puts credentials into Helm release metadata. Create one Secret
+The Helm chart expects an existing PostgreSQL database and Kubernetes Secrets.
+`verify-full` TLS is the secure default, but the database SSL mode is configurable.
+It never puts credentials into Helm release metadata. Create one Secret
 for `jwt-secret` and `oidc-encryption-key`, and one containing the database
 `password`, then copy `helm/justspace/values-production.example.yaml` and replace
 the example host, secret names, public URL, and immutable image references.

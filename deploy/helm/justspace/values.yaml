@@ -62,6 +62,8 @@ backend:
     existingSecret:
       name: ""
       passwordKey: password
+    # verify-full is recommended for production. Set disable only for trusted,
+    # isolated networks where PostgreSQL TLS is intentionally unavailable.
     sslMode: verify-full
   persistence:
     enabled: true
@@ -105,7 +107,7 @@ networkPolicy:
 
 # The Bitnami PostgreSQL subchart is disabled by default. When enabled, provide
 # its existing password secret and TLS certificate secret; production workloads
-# still connect with verify-full.
+# use the configured externalDatabase.sslMode for the backend connection.
 postgresql:
   enabled: false
   auth:

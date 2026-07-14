@@ -60,8 +60,8 @@ func Load() *Config {
 		if cfg.OIDCEncryptionKey == "" {
 			panic("OIDC_ENCRYPTION_KEY must be configured in production")
 		}
-		if cfg.DBPassword == "justspace" || cfg.DBSSLMode != "verify-full" {
-			panic("production requires a non-default DB_PASSWORD and DB_SSLMODE=verify-full")
+		if cfg.DBPassword == "justspace" {
+			panic("production requires a non-default DB_PASSWORD")
 		}
 	}
 	return cfg

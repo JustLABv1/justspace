@@ -28,7 +28,7 @@
           "properties": {
             "host": { "type": "string" }, "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
             "database": { "type": "string" }, "user": { "type": "string" },
-            "sslMode": { "enum": ["verify-full"] }, "existingSecret": { "$ref": "#/definitions/secretReference" }
+            "sslMode": { "enum": ["disable", "allow", "prefer", "require", "verify-ca", "verify-full"] }, "existingSecret": { "$ref": "#/definitions/secretReference" }
           }
         }
       }

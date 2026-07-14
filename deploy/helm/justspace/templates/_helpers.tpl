@@ -105,7 +105,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $ignored = required "backend.externalDatabase.existingSecret.name is required" .Values.backend.externalDatabase.existingSecret.name -}}
 {{- end -}}
 {{- if and (not .Values.backend.persistence.enabled) (not .Values.backend.persistence.existingClaim) }}{{ fail "enable backend.persistence or set backend.persistence.existingClaim" }}{{ end -}}
-{{- if ne .Values.backend.externalDatabase.sslMode "verify-full" }}{{ fail "backend.externalDatabase.sslMode must be verify-full" }}{{ end -}}
 {{- if .Values.customCA.enabled -}}
 {{- if and .Values.customCA.existingConfigMap .Values.customCA.existingSecret }}{{ fail "set only one customCA source" }}{{ end -}}
 {{- if not (or .Values.customCA.existingConfigMap .Values.customCA.existingSecret) }}{{ fail "set a customCA ConfigMap or Secret when customCA.enabled=true" }}{{ end -}}

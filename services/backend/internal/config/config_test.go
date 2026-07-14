@@ -73,3 +73,15 @@ func TestLoadRejectsUnknownMigrationMode(t *testing.T) {
 	}()
 	Load()
 }
+
+func TestLoadAllowsDisabledDatabaseTLSInProduction(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("JWT_SECRET", "a-unique-jwt-secret-with-at-least-32-characters")
+	t.Setenv("OIDC_ENCRYPTION_KEY", "a-separate-oidc-encryption-key")
+	t.Setenv("DB_PASSWORD", "a-production-database-password")
+	t.Setenv("DB_SSLMODE", "disable")
+
+	if got := Load().DBSSLMode; got != "disable" {
+		t.Fatalf("DBSSLMode = %q, want disable", got)
+	}
+}

@@ -49,7 +49,7 @@ spec:
             - name: DB_USER
               value: {{ include "justspace.databaseUser" . | quote }}
             - name: DB_SSLMODE
-              value: verify-full
+              value: {{ .Values.backend.externalDatabase.sslMode | quote }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
