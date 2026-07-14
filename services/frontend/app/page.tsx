@@ -7,13 +7,13 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getDeadlineDisplay, getScheduleBucket, isOverdue, sortTasksBySchedule, useScheduleNow } from '@/services/frontend/lib/task-schedule';
 import { Project, ProjectMilestone, Snippet, Task, WikiGuide } from '@/services/frontend/types';
-import { Button, Chip, Spinner, toast, Tooltip } from "@heroui/react";
+import { Button, Chip, Spinner, Tooltip } from "@heroui/react";
 import dayjs from "dayjs";
 import {
     ArrowRight,
     BookOpen,
-    Check,
     CheckCircle2,
     Code,
     ExternalLink,
@@ -25,25 +25,25 @@ import {
     Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export default function Home() {
   const [stats, setStats] = useState({ projects: 0, guides: 0, snippets: 0, tasks: 0 });
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [allDecryptedTasks, setAllDecryptedTasks] = useState<Task[]>([]);
+  const [scheduledTasks, setScheduledTasks] = useState<Task[]>([]);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
-  const [openTasks, setOpenTasks] = useState<Task[]>([]);
   const [recentSnippets, setRecentSnippets] = useState<Snippet[]>([]);
   const [recentGuides, setRecentGuides] = useState<WikiGuide[]>([]);
   const [projectTaskCounts, setProjectTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
   const [projectHealth, setProjectHealth] = useState<Record<string, { blocked: number; nextMilestone?: ProjectMilestone }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
-  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
-  const [justDoneIds, setJustDoneIds] = useState<Set<string>>(new Set());
+  const [expandedScheduleGroups, setExpandedScheduleGroups] = useState<Set<string>>(new Set());
   const { user, privateKey } = useAuth();
   const { workspace, workspaceId } = useWorkspace();
   const isConsultingWorkspace = workspace?.type === 'consulting';
+  const scheduleNow = useScheduleNow();
 
   const hours = new Date().getHours();
   useEffect(() => {
@@ -54,11 +54,12 @@ export default function Home() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [projects, guides, snippets, allTasks] = await Promise.all([
+      const [projects, guides, snippets, allTasks, scheduledTasksResponse] = await Promise.all([
         db.listProjects(workspaceId),
         db.listGuides(workspaceId),
         db.listSnippets(workspaceId),
-        db.listAllTasks(100)
+        db.listAllTasks({ limit: 100, workspaceId }),
+        db.listAllTasks({ limit: 300, sort: 'deadline', openOnly: true, workspaceId }),
       ]);
 
       const pendingTasksCount = allTasks.documents.filter(t => !t.completed && !t.parentId).length;
@@ -102,8 +103,7 @@ export default function Home() {
         return s;
       }));
 
-      // Decrypt tasks
-      const processedTasks = await Promise.all(allTasks.documents.map(async (t) => {
+      const decryptTasks = async (sourceTasks: Task[]) => Promise.all(sourceTasks.map(async (t) => {
         if (t.isEncrypted && privateKey && user) {
           try {
             const access = await db.getAccessKey(t.projectId);
@@ -117,6 +117,20 @@ export default function Home() {
         return t;
       }));
 
+      // Decrypt recently created tasks and the separately deadline-sorted dashboard feed.
+      const processedTasks = await decryptTasks(allTasks.documents);
+      const processedScheduledTasks = (await decryptTasks(scheduledTasksResponse.documents))
+        .filter((task) => !task.completed && !!task.deadline);
+
+      // Load missing parents so scheduled subtasks can name their parent even when it is older than the recent-task feed.
+      const knownTaskIds = new Set([...processedTasks, ...processedScheduledTasks].map((task) => task.id));
+      const missingParentIds = [...new Set(processedScheduledTasks
+        .map((task) => task.parentId)
+        .filter((parentId): parentId is string => !!parentId && !knownTaskIds.has(parentId)))];
+      const missingParents = await Promise.all(missingParentIds.map((parentId) => db.getTask(parentId).catch(() => null)));
+      const processedParents = await decryptTasks(missingParents.filter((task): task is Task => !!task));
+      const dashboardTasks = [...new Map([...processedTasks, ...processedScheduledTasks, ...processedParents].map((task) => [task.id, task])).values()];
+
       // Task counts per project (top-level only)
       const tasksByProject: Record<string, { total: number; completed: number }> = {};
       processedTasks.filter(t => !t.parentId).forEach(t => {
@@ -124,23 +138,6 @@ export default function Home() {
         tasksByProject[t.projectId].total++;
         if (t.completed) tasksByProject[t.projectId].completed++;
       });
-
-      // Priority-sorted open tasks: overdue → has deadline → by priority
-      const now = dayjs();
-      const sortedOpen = processedTasks
-        .filter(t => !t.completed && !t.parentId)
-        .sort((a, b) => {
-          const aOverdue = a.deadline && dayjs(a.deadline).isBefore(now, 'day');
-          const bOverdue = b.deadline && dayjs(b.deadline).isBefore(now, 'day');
-          if (aOverdue && !bOverdue) return -1;
-          if (!aOverdue && bOverdue) return 1;
-          if (a.deadline && b.deadline) return dayjs(a.deadline).unix() - dayjs(b.deadline).unix();
-          if (a.deadline) return -1;
-          if (b.deadline) return 1;
-          const pOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
-          return (pOrder[a.priority as keyof typeof pOrder] ?? 4) - (pOrder[b.priority as keyof typeof pOrder] ?? 4);
-        })
-        .slice(0, 7);
 
       // Decrypt wiki guides
       const processedGuides = await Promise.all(guides.documents.slice(0, 3).map(async (g) => {
@@ -160,17 +157,17 @@ export default function Home() {
       }));
 
       setAllProjects(processedProjects);
-      setAllDecryptedTasks(processedTasks.filter(t => !t.completed && !t.parentId));
+      setAllDecryptedTasks(dashboardTasks.filter((task) => !task.completed));
+      setScheduledTasks(processedScheduledTasks);
       setRecentProjects(processedProjects.filter(p => p.status !== 'completed' && p.status !== 'archived').slice(0, 3));
       setRecentSnippets(processedSnippets);
       setRecentGuides(processedGuides as WikiGuide[]);
-      setOpenTasks(sortedOpen);
       setProjectTaskCounts(tasksByProject);
       const activeProjects = processedProjects.filter((project) => project.status !== 'completed' && project.status !== 'archived');
       const milestoneEntries = await Promise.all(activeProjects.map(async (project) => {
         const milestones = await db.listProjectMilestones(project.id).catch(() => ({ documents: [] as ProjectMilestone[] }));
         const nextMilestone = milestones.documents.filter((milestone) => milestone.status !== 'completed' && milestone.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))[0];
-        const blocked = processedTasks.filter((task) => task.projectId === project.id && !task.completed && !task.parentId && (task.dependencies || []).some((dependencyId) => !processedTasks.find((dependency) => dependency.id === dependencyId)?.completed)).length;
+        const blocked = dashboardTasks.filter((task) => task.projectId === project.id && !task.completed && !task.parentId && (task.dependencies || []).some((dependencyId) => !dashboardTasks.find((dependency) => dependency.id === dependencyId)?.completed)).length;
         return [project.id, { blocked, nextMilestone }] as const;
       }));
       setProjectHealth(Object.fromEntries(milestoneEntries));
@@ -183,49 +180,23 @@ export default function Home() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleCompleteTask = async (taskId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const scheduleGroups = useMemo(() => {
+    const parentById = new Map(allDecryptedTasks.map((task) => [task.id, task]));
+    const groups = [
+      { id: 'overdue', label: 'Overdue', color: 'danger' as const },
+      { id: 'today', label: 'Today', color: 'warning' as const },
+      { id: 'upcoming', label: 'Next 7 days', color: 'accent' as const },
+    ];
 
-    // If already marked done in this session, undo it
-    if (justDoneIds.has(taskId)) {
-      try {
-        await import('@/services/frontend/lib/db').then(m => m.db.updateTask(taskId, { completed: false, kanbanStatus: 'todo' }));
-        setJustDoneIds(prev => { const n = new Set(prev); n.delete(taskId); return n; });
-        setStats(prev => ({ ...prev, tasks: prev.tasks + 1 }));
-        toast.success('Task reopened');
-      } catch (err) { console.error(err); }
-      return;
-    }
-
-    setCompletingTaskId(taskId);
-    try {
-      await import('@/services/frontend/lib/db').then(m => m.db.updateTask(taskId, { completed: true, kanbanStatus: 'done' }));
-      setJustDoneIds(prev => new Set([...prev, taskId]));
-      setStats(prev => ({ ...prev, tasks: prev.tasks - 1 }));
-      toast.success('Task completed — click again to undo');
-      // Remove from list after 4 seconds
-      setTimeout(() => {
-        setOpenTasks(prev => prev.filter(t => t.id !== taskId));
-        setJustDoneIds(prev => { const n = new Set(prev); n.delete(taskId); return n; });
-      }, 4000);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCompletingTaskId(null);
-    }
-  };
-
-  const getDeadlineInfo = (deadline?: string | null) => {
-    if (!deadline) return null;
-    const d = dayjs(deadline);
-    const today = dayjs();
-    if (d.isBefore(today, 'day')) return { label: 'Overdue', cls: 'text-danger font-medium' };
-    if (d.isSame(today, 'day')) return { label: 'Today', cls: 'text-warning font-medium' };
-    if (d.isSame(today.add(1, 'day'), 'day')) return { label: 'Tomorrow', cls: 'text-warning' };
-    if (d.isBefore(today.endOf('week').add(1, 'day'))) return { label: d.format('ddd'), cls: 'text-muted-foreground' };
-    return { label: d.format('MMM D'), cls: 'text-muted-foreground' };
-  };
+    return groups.map((group) => ({
+      ...group,
+      tasks: sortTasksBySchedule(
+        scheduledTasks.filter((task) => getScheduleBucket(task.deadline, scheduleNow) === group.id),
+        allDecryptedTasks,
+        scheduleNow,
+      ).map((task) => ({ task, parent: task.parentId ? parentById.get(task.parentId) : undefined })),
+    }));
+  }, [allDecryptedTasks, scheduleNow, scheduledTasks]);
 
   return (
     <div className="w-full px-6 py-8 space-y-6">
@@ -272,9 +243,7 @@ export default function Home() {
 
       {/* Stats — compact one-liner */}
       {(() => {
-        const overdueCount = allDecryptedTasks.filter(t =>
-          t.deadline && dayjs(t.deadline).isBefore(dayjs(), 'day')
-        ).length;
+        const overdueCount = allDecryptedTasks.filter((task) => isOverdue(task.deadline, scheduleNow)).length;
         return (
           <div className="rounded-2xl overflow-hidden border border-border bg-border">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-px">
@@ -395,51 +364,68 @@ export default function Home() {
             )}
           </section>
 
-          {/* Open Tasks */}
+          {/* Scheduled work */}
           <section className="bg-surface rounded-2xl border border-border overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
               <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                 <CheckCircle2 size={13} className="text-muted-foreground" />
-                Open tasks
+                Due tasks
               </h2>
-              <span className="text-[12px] text-muted-foreground">{stats.tasks} pending</span>
+              <span className="text-[12px] text-muted-foreground">Next 7 days</span>
             </div>
             {isLoading ? (
               <div className="h-24 flex items-center justify-center"><Spinner color="accent" size="sm" /></div>
-            ) : openTasks.length > 0 ? (
+            ) : scheduleGroups.some((group) => group.tasks.length > 0) ? (
               <div className="divide-y divide-border">
-                {openTasks.map(task => {
-                  const project = allProjects.find(p => p.id === task.projectId);
-                  const deadline = getDeadlineInfo(task.deadline);
-                  const isCompleting = completingTaskId === task.id;
-                  const isDone = justDoneIds.has(task.id);
+                {scheduleGroups.filter((group) => group.tasks.length > 0).map((group) => {
+                  const isExpanded = expandedScheduleGroups.has(group.id);
+                  const visibleTasks = isExpanded ? group.tasks : group.tasks.slice(0, 5);
                   return (
-                    <div key={task.id} className={`flex items-center gap-3 px-5 py-2.5 hover:bg-surface-secondary/40 transition-all ${isDone ? 'opacity-50' : ''}`}>
-                      <button
-                        onClick={(e) => handleCompleteTask(task.id, e)}
-                        disabled={isCompleting}
-                        aria-label={isDone ? 'Undo complete' : 'Complete task'}
-                        className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-all ${
-                          isDone ? 'border-success bg-success text-white' :
-                          isCompleting ? 'border-success bg-success/20' :
-                          task.priority === 'urgent' ? 'border-danger hover:border-success hover:bg-success/10' :
-                          task.priority === 'high' ? 'border-warning hover:border-success hover:bg-success/10' :
-                          task.priority === 'medium' ? 'border-accent hover:border-success hover:bg-success/10' : 'border-border hover:border-success hover:bg-success/10'
-                        }`}
-                      >
-                        {(isCompleting || isDone) && <Check size={9} className={isDone ? 'text-white' : 'text-success'} />}
-                      </button>
-                      <Link href={`/projects/${task.projectId}`} className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className={`text-[13px] truncate flex-1 transition-all ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          {project && (
-                            <span className="hidden sm:block text-[12px] text-muted-foreground max-w-[100px] truncate">{project.name}</span>
-                          )}
-                          {deadline && (
-                            <span className={`text-[12px] ${deadline.cls}`}>{deadline.label}</span>
-                          )}
-                        </div>
-                      </Link>
+                    <div key={group.id}>
+                      <div className="flex items-center gap-2 bg-surface-secondary/30 px-5 py-2">
+                        <Chip size="sm" variant="soft" color={group.color} className="h-5 rounded-md">
+                          <Chip.Label className="text-[10px] font-semibold">{group.label}</Chip.Label>
+                        </Chip>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">{group.tasks.length}</span>
+                      </div>
+                      <div className="divide-y divide-border">
+                        {visibleTasks.map(({ task, parent }) => {
+                          const project = allProjects.find((candidate) => candidate.id === task.projectId);
+                          const deadline = getDeadlineDisplay(task.deadline, scheduleNow);
+                          return (
+                            <Link key={task.id} href={`/projects/${task.projectId}?taskId=${task.id}`} className="block">
+                              <div className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-surface-secondary/40">
+                                <span className={`h-2 w-2 shrink-0 rounded-full ${group.color === 'danger' ? 'bg-danger' : group.color === 'warning' ? 'bg-warning' : 'bg-accent'}`} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[13px] font-medium text-foreground">{task.title}</p>
+                                  <p className="truncate text-[11px] text-muted-foreground">
+                                    {project?.name || 'Project'}{parent ? ` · Subtask of ${parent.title}` : task.parentId ? ' · Subtask' : ''}
+                                  </p>
+                                </div>
+                                {deadline && (
+                                  <Chip size="sm" variant="soft" color={deadline.color} className="h-5 shrink-0 rounded-md">
+                                    <Chip.Label className="px-1.5 text-[10px]">{deadline.label}</Chip.Label>
+                                  </Chip>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      {group.tasks.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-full rounded-none text-[11px] text-muted-foreground"
+                          onPress={() => setExpandedScheduleGroups((current) => {
+                            const next = new Set(current);
+                            if (next.has(group.id)) next.delete(group.id); else next.add(group.id);
+                            return next;
+                          })}
+                        >
+                          {isExpanded ? 'Show fewer' : `Show ${group.tasks.length - 5} more`}
+                        </Button>
+                      )}
                     </div>
                   );
                 })}
@@ -447,7 +433,7 @@ export default function Home() {
             ) : (
               <div className="px-5 py-8 text-center">
                 <CheckCircle2 size={20} className="mx-auto text-success/50 mb-2" />
-                <p className="text-[13px] text-muted-foreground">All caught up — no open tasks</p>
+                <p className="text-[13px] text-muted-foreground">No scheduled tasks in the next 7 days</p>
               </div>
             )}
           </section>
@@ -576,7 +562,7 @@ export default function Home() {
                     .map((project) => {
                       const counts = projectTaskCounts[project.id] ?? { total: 0, completed: 0 };
                       const openCount = Math.max(0, counts.total - counts.completed);
-                      const overdueCount = allDecryptedTasks.filter((task) => task.projectId === project.id && task.deadline && dayjs(task.deadline).isBefore(dayjs(), 'day')).length;
+                      const overdueCount = allDecryptedTasks.filter((task) => task.projectId === project.id && isOverdue(task.deadline, scheduleNow)).length;
                       const health = projectHealth[project.id];
                       return (
                         <Link key={project.id} href={`/projects/${project.id}`} className="block rounded-lg px-1 py-0.5 hover:bg-surface-secondary/60">
@@ -598,7 +584,7 @@ export default function Home() {
               )}
               <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[12px] text-muted-foreground">
                 <span>{allProjects.filter((project) => project.status !== 'completed' && project.status !== 'archived').length} active</span>
-                <span className="tabular-nums">{allDecryptedTasks.filter((task) => task.deadline && dayjs(task.deadline).isBefore(dayjs(), 'day')).length} overdue</span>
+                <span className="tabular-nums">{allDecryptedTasks.filter((task) => isOverdue(task.deadline, scheduleNow)).length} overdue</span>
               </div>
             </section>
           )}

@@ -3,6 +3,7 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getDeadlineDisplay, isDueSoon, isOverdue, sortTasksBySchedule, useScheduleNow } from '@/services/frontend/lib/task-schedule';
 import { getCompletedStatus, getStatusTokenChipColor, getTaskStatusForTask } from '@/services/frontend/lib/task-statuses';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { DEPLOYMENT_TEMPLATES } from '@/services/frontend/lib/templates';
@@ -10,7 +11,6 @@ import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskMessage } from '@/services/frontend/types';
 import { Button, Avatar, Checkbox, Chip, Dropdown, Header, Input, Label, Spinner, toast } from "@heroui/react";
 import { ZonedDateTime } from "@internationalized/date";
-import dayjs from 'dayjs';
 import { Calendar, CheckCircle2, ChevronRight, Clock, Filter, GitBranch, ListChecks, MessageCircle, Paperclip, Plus, Search, Trash2, UserCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pagination } from './Pagination';
@@ -44,7 +44,7 @@ export function TaskList({
     searchQuery?: string,
     selectedTags?: string[],
     hideCompleted?: boolean,
-    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked',
+    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'overdue' | 'blocked',
     statusOptions?: ProjectTaskStatus[],
     refreshToken?: number,
     onOpenTask?: (task: Task) => void,
@@ -70,6 +70,7 @@ export function TaskList({
     const itemsPerPage = 8;
 
     const { user, privateKey } = useAuth();
+    const scheduleNow = useScheduleNow();
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
     const completedStatus = getCompletedStatus(statusOptions);
 
@@ -291,14 +292,16 @@ export function TaskList({
             quickFilter === 'all' ||
             (quickFilter === 'mine' && !!user && meta.assignees.some((assignee) => assignee.userId === user.id)) ||
             (quickFilter === 'unassigned' && meta.assignees.length === 0) ||
-            (quickFilter === 'due-soon' && !!t.deadline && !t.completed && dayjs(t.deadline).diff(dayjs(), 'day') <= 7) ||
+            (quickFilter === 'due-soon' && !t.completed && isDueSoon(t.deadline, scheduleNow)) ||
+            (quickFilter === 'overdue' && !t.completed && isOverdue(t.deadline, scheduleNow)) ||
             (quickFilter === 'blocked' && ((t.dependencies || []).length > 0 || t.kanbanStatus === 'waiting'));
         
         return (matchesTask || anySubtaskMatches) && matchesFilter && matchesQuickFilter;
     });
 
-    const activeTasks = filteredMainTasks.filter(t => !t.completed);
-    const completedTasks = filteredMainTasks.filter(t => t.completed);
+    const sortedMainTasks = sortTasksBySchedule(filteredMainTasks, tasks, scheduleNow);
+    const activeTasks = sortedMainTasks.filter(t => !t.completed);
+    const completedTasks = sortedMainTasks.filter(t => t.completed);
     const totalPages = Math.ceil(activeTasks.length / itemsPerPage);
     const paginatedTasks = activeTasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     const allVisibleSelected = paginatedTasks.length > 0 && paginatedTasks.every((task) => selectedIds.has(task.id));
@@ -332,14 +335,17 @@ export function TaskList({
         );
     };
 
-    const renderActivity = (task: Task, meta: TaskMeta) => (
+    const renderActivity = (task: Task, meta: TaskMeta) => {
+        const deadline = !task.completed ? getDeadlineDisplay(task.deadline, scheduleNow) : null;
+        return (
         <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
-            {task.deadline && <span className={`inline-flex items-center gap-1 ${dayjs(task.deadline).isBefore(dayjs(), 'minute') && !task.completed ? 'text-danger' : ''}`}><Calendar size={12} />{dayjs(task.deadline).format('MMM D')}</span>}
+            {deadline && <span className={`inline-flex items-center gap-1 ${deadline.color === 'danger' ? 'text-danger' : deadline.color === 'warning' ? 'text-warning' : ''}`}><Calendar size={12} />{deadline.label}</span>}
             {task.timeSpent ? <span className="inline-flex items-center gap-1"><Clock size={12} />{Math.floor(task.timeSpent / 3600)}h</span> : null}
             {meta.comments.length > 0 && <span className="inline-flex items-center gap-1"><MessageCircle size={12} />{meta.comments.length}</span>}
             {meta.files.length > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={12} />{meta.files.length}</span>}
         </div>
-    );
+        );
+    };
 
     const renderSubtaskRow = (subtask: Task, parentTask: Task, isCompleted = false) => {
         const status = getTaskStatusForTask(subtask, statusOptions);
@@ -523,7 +529,7 @@ export function TaskList({
 
                 {subtasks.length > 0 && !isCollapsed && (
                     <div>
-                        {[...subtasks].sort((a, b) => Number(a.completed) - Number(b.completed)).map((subtask) => renderSubtaskRow(subtask, task, isCompleted || subtask.completed))}
+                        {sortTasksBySchedule(subtasks, tasks, scheduleNow).map((subtask) => renderSubtaskRow(subtask, task, isCompleted || subtask.completed))}
                     </div>
                 )}
             </div>

@@ -4,7 +4,7 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { db } from '@/services/frontend/lib/db';
 import { Customer, Project } from '@/services/frontend/types';
-import { Button, Form, Input, Label, ListBox, Modal, Select, Switch, TextArea, TextField } from "@heroui/react";
+import { Alert, Button, Form, Input, Label, ListBox, Modal, Select, Switch, TextArea, TextField } from "@heroui/react";
 import { FolderOpen, Lock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
@@ -138,6 +138,15 @@ export const ProjectModal = ({ isOpen, onClose, onSubmit, project }: ProjectModa
                                             </Switch.Content>
                                         </Switch>
                                 </div>
+                                {!project?.id && workspace?.autoAddMembersToProjects && isEncrypted && (
+                                    <Alert status="warning">
+                                        <Alert.Indicator />
+                                        <Alert.Content>
+                                            <Alert.Title>Workspace members will not be added automatically</Alert.Title>
+                                            <Alert.Description>Automatic members apply only to unencrypted projects. Disable encryption for this project to use the workspace default.</Alert.Description>
+                                        </Alert.Content>
+                                    </Alert>
+                                )}
                                 {!hasVault && (
                                     <div className="px-3 py-2 rounded-xl bg-warning-muted border border-warning/30 text-xs text-warning flex items-center gap-2">
                                         <Lock size={13} />

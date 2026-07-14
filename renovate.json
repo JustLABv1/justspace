@@ -11,7 +11,25 @@
 
   "rangeStrategy": "bump",
 
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/pr-check\\.yml$/"],
+      "matchStrings": ["uses: pnpm/action-setup@v6\\s+with:\\s+version: (?<currentValue>\\S+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    }
+  ],
+
   "packageRules": [
+    {
+      "description": "Skip the broken pnpm 11.12.0 CI bootstrap release and keep the workflow version synchronized",
+      "matchPackageNames": ["pnpm"],
+      "allowedVersions": "!/^11\\.12\\.0$/",
+      "groupName": "pnpm runtime",
+      "minimumReleaseAge": "2 days"
+    },
     {
       "description": "Keep TypeScript compatible with the Next.js ESLint parser",
       "matchPackageNames": ["typescript"],

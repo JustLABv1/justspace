@@ -2,11 +2,13 @@
   "name": "justspace",
   "version": "1.0.0-beta.10",
   "private": true,
+  "packageManager": "pnpm@11.11.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:schedule": "tsx --test lib/task-schedule.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

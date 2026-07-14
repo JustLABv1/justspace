@@ -3,13 +3,12 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey, encryptData } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getDeadlineDisplay, isDueSoon, isOverdue, sortTasksBySchedule, useScheduleNow } from '@/services/frontend/lib/task-schedule';
 import { getCompletedStatus, getStatusTokenDotClass } from '@/services/frontend/lib/task-statuses';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
-import { getDeadlineWarning } from '@/services/frontend/lib/deadline';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ProjectFile, ProjectTaskStatus, Task, TaskAssignee, TaskMessage } from '@/services/frontend/types';
 import { Avatar, Button, Chip, Dropdown, Input, Label, ScrollShadow, Spinner, toast } from "@heroui/react";
-import dayjs from 'dayjs';
 import { Calendar, Check, Clock, CornerDownRight, GitBranch, Lock, MessageCircle, MoreHorizontal, Paperclip, Plus, Trash2, UserCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -43,12 +42,13 @@ export function KanbanBoard({
     searchQuery?: string,
     selectedTags?: string[],
     hideCompleted?: boolean,
-    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked',
+    quickFilter?: 'all' | 'mine' | 'unassigned' | 'due-soon' | 'overdue' | 'blocked',
     statusOptions?: ProjectTaskStatus[],
     refreshToken?: number,
     onOpenTask?: (task: Task) => void,
 }) {
     const { user, privateKey } = useAuth();
+    const scheduleNow = useScheduleNow();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEncrypted, setIsEncrypted] = useState(false);
@@ -163,8 +163,7 @@ export function KanbanBoard({
         return () => window.removeEventListener('kanban-add-task', handler);
     }, [resolvedStatuses]);
 
-    const boardTasks = [...tasks]
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const boardTasks = sortTasksBySchedule(tasks, tasks, scheduleNow);
 
     const getVisibleColumnTasks = useCallback((statusKey: string) => {
         return boardTasks.filter((t) => {
@@ -174,13 +173,14 @@ export function KanbanBoard({
                 quickFilter === 'all' ||
                 (quickFilter === 'mine' && !!user && meta.assignees.some((assignee) => assignee.userId === user.id)) ||
                 (quickFilter === 'unassigned' && meta.assignees.length === 0) ||
-                (quickFilter === 'due-soon' && !!t.deadline && !t.completed && dayjs(t.deadline).diff(dayjs(), 'day') <= 7) ||
+                (quickFilter === 'due-soon' && !t.completed && isDueSoon(t.deadline, scheduleNow)) ||
+                (quickFilter === 'overdue' && !t.completed && isOverdue(t.deadline, scheduleNow)) ||
                 (quickFilter === 'blocked' && ((t.dependencies || []).length > 0));
             const matchesSearch = taskMatchesFilters(t, searchQuery, selectedTags);
             const matchesCompleted = hideCompleted ? !t.completed : true;
             return effectiveStatus === statusKey && matchesQuickFilter && matchesSearch && matchesCompleted;
         });
-    }, [boardTasks, completedStatus.key, hideCompleted, quickFilter, resolvedStatuses, searchQuery, selectedTags, taskMeta, user]);
+    }, [boardTasks, completedStatus.key, hideCompleted, quickFilter, resolvedStatuses, scheduleNow, searchQuery, selectedTags, taskMeta, user]);
 
     const persistTaskOrder = useCallback(async (nextTasks: Task[]) => {
         await db.reorderTasks(
@@ -332,6 +332,7 @@ export function KanbanBoard({
                                     const parentTask = task.parentId ? tasks.find((candidate) => candidate.id === task.parentId) : undefined;
                                     const priorityConfig = getPriorityConfig(task.priority);
                                     const meta = taskMeta[task.id] || { assignees: [], files: [], comments: [] };
+                                    const deadlineDisplay = !task.completed ? getDeadlineDisplay(task.deadline, scheduleNow) : null;
 
                                     return (
                                         <div
@@ -418,7 +419,7 @@ export function KanbanBoard({
                                             ) : null}
 
                                             {/* Footer: priority + metadata chips */}
-                                            {(priorityConfig || (task.tags && task.tags.length > 0) || task.deadline || (task.timeSpent && task.timeSpent > 0)) && (
+                                            {(priorityConfig || (task.tags && task.tags.length > 0) || deadlineDisplay || (task.timeSpent && task.timeSpent > 0)) && (
                                                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                                                     {priorityConfig && (
                                                         <Chip size="sm" variant="soft" color={priorityConfig.color} className="h-5 rounded-md">
@@ -433,13 +434,13 @@ export function KanbanBoard({
                                                     {task.tags && task.tags.length > 2 && (
                                                         <span className="text-[10px] text-muted-foreground/50">+{task.tags.length - 2}</span>
                                                     )}
-                                                    {task.deadline && (
+                                                    {deadlineDisplay && (
                                                         <span className={`flex items-center gap-1 text-[10px] ${
-                                                            getDeadlineWarning(task.deadline, task.completed) === 'overdue' || getDeadlineWarning(task.deadline, task.completed) === 'urgent' ? 'text-danger font-medium' :
-                                                            getDeadlineWarning(task.deadline, task.completed) === 'soon' ? 'text-warning font-medium' : 'text-muted-foreground/60'
+                                                            deadlineDisplay.color === 'danger' ? 'text-danger font-medium' :
+                                                            deadlineDisplay.color === 'warning' ? 'text-warning font-medium' : 'text-muted-foreground/60'
                                                         }`}>
                                                             <Calendar size={10} />
-                                                            {getDeadlineWarning(task.deadline, task.completed) === 'overdue' ? 'Overdue' : getDeadlineWarning(task.deadline, task.completed) === 'urgent' ? 'Due soon' : dayjs(task.deadline).format('MMM D')}
+                                                            {deadlineDisplay.label}
                                                         </span>
                                                     )}
                                                     {task.timeSpent !== undefined && task.timeSpent > 0 && (

@@ -176,7 +176,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }:
                             <Dropdown.Menu aria-label="Workspaces" onAction={(key) => {
                                 const action = String(key);
                                 if (action === 'create-workspace') {
-                                    router.push('/workspace');
+                                    router.push('/workspace/new');
                                     return;
                                 }
                                 if (action === 'manage-workspace') {

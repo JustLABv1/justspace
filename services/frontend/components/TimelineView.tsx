@@ -3,12 +3,13 @@
 import { useAuth } from '@/services/frontend/context/AuthContext';
 import { decryptData, decryptDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
+import { getDeadlineDisplay, isOverdue, sortTasksBySchedule, useScheduleNow } from '@/services/frontend/lib/task-schedule';
 import { taskMatchesFilters } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ProjectTaskStatus, Task } from '@/services/frontend/types';
 import dayjs from 'dayjs';
 import { Lock } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const PRIORITY_COLORS: Record<string, string> = {
     urgent: 'bg-danger/80',
@@ -43,6 +44,7 @@ export function TimelineView({
     const [isLoading, setIsLoading] = useState(true);
     const [documentKey, setDocumentKey] = useState<CryptoKey | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const scheduleNow = useScheduleNow();
 
     const fetchTasks = useCallback(async (isInitial = false) => {
         if (isInitial) setIsLoading(true);
@@ -75,32 +77,13 @@ export function TimelineView({
                 return task;
             }));
 
-            const visibleParents = decrypted.filter(task => {
-                if (task.parentId) return false;
-
-                const subtasks = decrypted.filter(subtask => subtask.parentId === task.id);
-                const matchesTask = taskMatchesFilters(task, searchQuery, selectedTags);
-                const matchesSubtask = subtasks.some(subtask => taskMatchesFilters(subtask, searchQuery, selectedTags));
-
-                if (!(matchesTask || matchesSubtask)) return false;
-                if (hideCompleted && (task.kanbanStatus === 'done' || task.completed)) return false;
-                return true;
-            });
-
-            const timelineRows = visibleParents.flatMap((parentTask) => {
-                const visibleSubtasks = decrypted
-                    .filter((subtask) => subtask.parentId === parentTask.id)
-                    .filter((subtask) => !hideCompleted || !subtask.completed);
-                return [parentTask, ...visibleSubtasks];
-            });
-
-            setTasks(timelineRows);
+            setTasks(decrypted);
         } catch (err) {
             console.error(err);
         } finally {
             if (isInitial) setIsLoading(false);
         }
-    }, [projectId, user, privateKey, documentKey, searchQuery, selectedTags, hideCompleted]);
+    }, [projectId, user, privateKey, documentKey]);
 
     useEffect(() => { fetchTasks(true); }, [fetchTasks]);
 
@@ -124,6 +107,27 @@ export function TimelineView({
         return () => unsub();
     }, [projectId, fetchTasks]);
 
+    const timelineTasks = useMemo(() => {
+        const visibleParents = tasks.filter((task) => {
+            if (task.parentId) return false;
+
+            const subtasks = tasks.filter((subtask) => subtask.parentId === task.id);
+            const matchesTask = taskMatchesFilters(task, searchQuery, selectedTags);
+            const matchesSubtask = subtasks.some((subtask) => taskMatchesFilters(subtask, searchQuery, selectedTags));
+
+            if (!(matchesTask || matchesSubtask)) return false;
+            if (hideCompleted && (task.kanbanStatus === 'done' || task.completed)) return false;
+            return true;
+        });
+
+        return sortTasksBySchedule(visibleParents, tasks, scheduleNow).flatMap((parentTask) => {
+            const visibleSubtasks = tasks
+                .filter((subtask) => subtask.parentId === parentTask.id)
+                .filter((subtask) => !hideCompleted || !subtask.completed);
+            return [parentTask, ...sortTasksBySchedule(visibleSubtasks, tasks, scheduleNow)];
+        });
+    }, [hideCompleted, scheduleNow, searchQuery, selectedTags, tasks]);
+
     // Scroll to today on load
     useEffect(() => {
         if (!isLoading && scrollRef.current) {
@@ -139,7 +143,7 @@ export function TimelineView({
         </div>
     );
 
-    if (tasks.length === 0) {
+    if (timelineTasks.length === 0) {
         return (
             <div className="h-40 flex items-center justify-center text-[13px] text-muted-foreground">
                 No tasks found
@@ -148,8 +152,8 @@ export function TimelineView({
     }
 
     // Compute timeline bounds
-    const today = dayjs();
-    const taskDates = tasks.flatMap(t => {
+    const today = scheduleNow;
+    const taskDates = timelineTasks.flatMap(t => {
         const dates = [dayjs(t.createdAt)];
         if (t.deadline) dates.push(dayjs(t.deadline));
         return dates;
@@ -188,14 +192,16 @@ export function TimelineView({
 
     return (
         <>
-            <div className="flex border border-border rounded-xl overflow-hidden bg-surface" style={{ minHeight: `${(tasks.length + 1) * ROW_HEIGHT + 56}px` }}>
+            <div className="flex border border-border rounded-xl overflow-hidden bg-surface" style={{ minHeight: `${(timelineTasks.length + 1) * ROW_HEIGHT + 56}px` }}>
                 {/* Left sidebar - task names */}
                 <div className="shrink-0 bg-surface border-r border-border z-10" style={{ width: LEFT_WIDTH }}>
                     {/* Header */}
                     <div className="h-14 flex items-end px-4 pb-2 border-b border-border">
                         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Task</span>
                     </div>
-                    {tasks.map((task, i) => (
+                    {timelineTasks.map((task, i) => {
+                        const deadlineDisplay = !task.completed ? getDeadlineDisplay(task.deadline, scheduleNow) : null;
+                        return (
                         <div
                             key={task.id}
                             onClick={() => onOpenTask?.(task)}
@@ -204,7 +210,7 @@ export function TimelineView({
                         >
                             {task.isEncrypted && <Lock size={10} className="text-muted-foreground shrink-0" />}
                             <div className="min-w-0">
-                                <span className={`block truncate text-[12px] text-foreground ${task.parentId ? 'pl-3' : ''}`} title={task.title}>
+                                <span className={`block truncate text-[12px] text-foreground ${task.parentId ? 'pl-3' : ''}`} title={deadlineDisplay ? `${task.title} · ${deadlineDisplay.label}` : task.title}>
                                     {task.parentId ? `↳ ${task.title}` : task.title}
                                 </span>
                                 {task.parentId && (
@@ -214,7 +220,8 @@ export function TimelineView({
                                 )}
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Scrollable timeline area */}
@@ -268,7 +275,7 @@ export function TimelineView({
                             )}
 
                             {/* Task rows with bars */}
-                            {tasks.map((task, i) => {
+                            {timelineTasks.map((task, i) => {
                                 const barColor = task.parentId ? `${PRIORITY_COLORS[task.priority || 'default']} opacity-80` : PRIORITY_COLORS[task.priority || 'default'];
                                 const startDay = dayjs(task.createdAt).diff(minDate, 'day');
                                 const endDay = task.deadline
@@ -276,7 +283,8 @@ export function TimelineView({
                                     : todayOffset + 1;
                                 const barLeft = Math.max(0, startDay) * DAY_WIDTH;
                                 const barWidth = Math.max(DAY_WIDTH, (endDay - Math.max(0, startDay)) * DAY_WIDTH);
-                                const isOverdue = task.deadline && dayjs(task.deadline).isBefore(today, 'day') && !task.completed;
+                                const taskIsOverdue = !task.completed && isOverdue(task.deadline, scheduleNow);
+                                const deadlineDisplay = !task.completed ? getDeadlineDisplay(task.deadline, scheduleNow) : null;
 
                                 return (
                                     <div
@@ -286,9 +294,10 @@ export function TimelineView({
                                     >
                                         <div
                                             onClick={() => onOpenTask?.(task)}
-                                            className={`absolute h-6 rounded-md cursor-pointer flex items-center px-2 transition-opacity hover:opacity-90 ${barColor} ${task.completed ? 'opacity-40' : ''} ${isOverdue ? 'ring-1 ring-danger/50' : ''}`}
+                                            className={`absolute h-6 rounded-md cursor-pointer flex items-center px-2 transition-opacity hover:opacity-90 ${barColor} ${task.completed ? 'opacity-40' : ''} ${taskIsOverdue ? 'ring-1 ring-danger/50' : ''}`}
                                             style={{ left: barLeft, width: barWidth }}
-                                            title={task.title}
+                                            title={deadlineDisplay ? `${task.title} · ${deadlineDisplay.label}` : task.title}
+                                            aria-label={deadlineDisplay ? `${task.title}, ${deadlineDisplay.label}` : task.title}
                                         >
                                             <span className="text-[10px] font-medium text-white truncate leading-none">{task.title}</span>
                                         </div>

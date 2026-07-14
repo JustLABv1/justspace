@@ -16,6 +16,7 @@ import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { decryptData, decryptDocumentKey, encryptData, encryptDocumentKey, generateDocumentKey } from '@/services/frontend/lib/crypto';
 import { db } from '@/services/frontend/lib/db';
 import { buildProjectViewHref, isSavedViewMode, mergeUserPreferences, parseUserPreferences, SavedProjectView } from '@/services/frontend/lib/preferences';
+import { isDueSoon } from '@/services/frontend/lib/task-schedule';
 import { collectTaskTags } from '@/services/frontend/lib/task-filters';
 import { getCompletedStatus, getDefaultProjectTaskStatuses, getOpenStatus } from '@/services/frontend/lib/task-statuses';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
@@ -51,7 +52,7 @@ const VIEW_TABS = [
 ] as const;
 
 type ViewMode = typeof VIEW_TABS[number]['id'];
-type QuickFilter = 'all' | 'mine' | 'unassigned' | 'due-soon' | 'blocked';
+type QuickFilter = 'all' | 'mine' | 'unassigned' | 'due-soon' | 'overdue' | 'blocked';
 
 export default function ProjectDetailPage() {
     const { id } = useParams() as { id: string };
@@ -324,7 +325,7 @@ export default function ProjectDetailPage() {
         open: timeReportTasks.filter((task) => !task.completed && (task.kanbanStatus || openStatus.key) !== completedStatus.key).length,
         progress: timeReportTasks.filter((task) => task.kanbanStatus === 'in-progress').length,
         done: timeReportTasks.filter((task) => task.completed || task.kanbanStatus === completedStatus.key).length,
-        dueSoon: timeReportTasks.filter((task) => task.deadline && !task.completed && new Date(task.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7).length,
+        dueSoon: timeReportTasks.filter((task) => !task.completed && isDueSoon(task.deadline)).length,
     };
 
     const handleSaveCurrentView = async () => {
@@ -660,7 +661,7 @@ export default function ProjectDetailPage() {
                                                 className="h-8 rounded-lg px-2.5 text-[12px] font-medium"
                                             >
                                                 <Filter size={12} />
-                                                {hideCompleted ? 'Pending' : quickFilter === 'all' ? 'All tasks' : ({ mine: 'My tasks', unassigned: 'Unassigned', 'due-soon': 'Due soon', blocked: 'Blocked' }[quickFilter])}
+                                                {hideCompleted ? 'Pending' : quickFilter === 'all' ? 'All tasks' : ({ mine: 'My tasks', unassigned: 'Unassigned', 'due-soon': 'Due soon', overdue: 'Overdue', blocked: 'Blocked' }[quickFilter])}
                                                 <ChevronDown size={12} />
                                             </Button>
                                         <Dropdown.Popover placement="bottom start">
@@ -669,6 +670,7 @@ export default function ProjectDetailPage() {
                                                     { id: 'all', label: 'All tasks' },
                                                     { id: 'mine', label: 'My tasks' },
                                                     { id: 'unassigned', label: 'Unassigned' },
+                                                    { id: 'overdue', label: 'Overdue' },
                                                     { id: 'due-soon', label: 'Due soon' },
                                                     { id: 'blocked', label: 'Blocked' },
                                                     { id: 'pending', label: 'Pending only' },

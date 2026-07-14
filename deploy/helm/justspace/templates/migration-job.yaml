@@ -2,7 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "justspace.fullname" . }}-migrate
+  # Jobs have immutable pod templates. A revision-specific name prevents Helm
+  # from patching a completed migration Job during upgrades.
+  name: {{ include "justspace.migrationJobName" . }}
   labels:
     {{- include "justspace.labels" . | nindent 4 }}
     app.kubernetes.io/component: migration

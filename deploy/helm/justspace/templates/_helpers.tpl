@@ -40,6 +40,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "justspace.backendServiceName" -}}{{ include "justspace.fullname" . }}-backend{{- end }}
 {{- define "justspace.frontendServiceName" -}}{{ include "justspace.fullname" . }}-frontend{{- end }}
+{{- define "justspace.migrationJobName" -}}
+{{- $suffix := printf "-migrate-%d" .Release.Revision -}}
+{{- $maxBaseLength := int (sub 63 (len $suffix)) -}}
+{{- printf "%s%s" (include "justspace.fullname" . | trunc $maxBaseLength | trimSuffix "-") $suffix -}}
+{{- end }}
 {{- define "justspace.storageClaim" -}}
 {{- if .Values.backend.persistence.existingClaim }}{{ .Values.backend.persistence.existingClaim }}{{ else }}{{ include "justspace.fullname" . }}-uploads{{ end -}}
 {{- end }}

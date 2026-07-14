@@ -4,8 +4,10 @@ import { useAuth } from '@/services/frontend/context/AuthContext';
 import { useWorkspace } from '@/services/frontend/context/WorkspaceContext';
 import { db } from '@/services/frontend/lib/db';
 import { Workspace, WorkspaceInvitation, WorkspaceMember } from '@/services/frontend/lib/api';
-import { Button, Card, Description, Input, Label, ListBox, Radio, RadioGroup, Select, Spinner, Switch, toast } from '@heroui/react';
-import { BriefcaseBusiness, Copy, FolderKanban, Mail, Plus, Save, Trash2, Users } from 'lucide-react';
+import { WorkspaceTypePicker } from '@/services/frontend/components/WorkspaceTypePicker';
+import { Button, Card, Input, Label, ListBox, Select, Spinner, Switch, toast } from '@heroui/react';
+import { Copy, Mail, Plus, Save, Trash2, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 const workspaceRoles = [
@@ -16,27 +18,23 @@ const workspaceRoles = [
 
 const fieldClass = 'flex min-w-0 flex-col gap-1.5';
 const fieldLabelClass = 'text-xs font-medium text-muted-foreground';
-const workspaceTypes: Array<{ value: Workspace['type']; label: string; description: string; icon: typeof FolderKanban }> = [
-    { value: 'project_management', label: 'Project management', description: 'Focus on projects, tasks, milestones, and delivery progress.', icon: FolderKanban },
-    { value: 'consulting', label: 'Consulting', description: 'Adds per-project allocation and weekly capacity planning.', icon: BriefcaseBusiness },
-];
 
 export function WorkspaceManagementPanel() {
+    const router = useRouter();
     const { user } = useAuth();
-    const { workspace, workspaceId, refresh, createWorkspace } = useWorkspace();
+    const { workspace, workspaceId, refresh } = useWorkspace();
     const [members, setMembers] = useState<WorkspaceMember[]>([]);
     const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [workspaceName, setWorkspaceName] = useState('');
     const [workspaceType, setWorkspaceType] = useState<Workspace['type']>('project_management');
     const [autoAddMembersToProjects, setAutoAddMembersToProjects] = useState(false);
-    const [newWorkspaceName, setNewWorkspaceName] = useState('');
-    const [newWorkspaceType, setNewWorkspaceType] = useState<Workspace['type']>('project_management');
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('member');
     const [inviteLink, setInviteLink] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isUpdatingWorkspaceType, setIsUpdatingWorkspaceType] = useState(false);
+    const [isUpdatingAutoAddMembers, setIsUpdatingAutoAddMembers] = useState(false);
 
     const canManage = workspace?.role === 'owner' || workspace?.role === 'admin';
     const currentUserRole = members.find((member) => member.userId === user?.id)?.role ?? workspace?.role;
@@ -107,33 +105,20 @@ export function WorkspaceManagementPanel() {
     };
 
     const updateAutoAddMembersToProjects = async (isSelected: boolean) => {
-        if (!workspaceId || !canManage) return;
+        if (!workspaceId || !canManage || isUpdatingAutoAddMembers) return;
         const previousValue = autoAddMembersToProjects;
         setAutoAddMembersToProjects(isSelected);
+        setIsUpdatingAutoAddMembers(true);
         try {
-            await db.updateWorkspace(workspaceId, { autoAddMembersToProjects: isSelected });
+            const updated = await db.updateWorkspace(workspaceId, { autoAddMembersToProjects: isSelected });
+            setAutoAddMembersToProjects(updated.autoAddMembersToProjects);
             await refresh();
-            toast.success(isSelected ? 'New projects will include workspace members automatically' : 'New projects will start without automatic members');
+            toast.success(updated.autoAddMembersToProjects ? 'New projects will include workspace members automatically' : 'New projects will start without automatic members');
         } catch (error) {
             setAutoAddMembersToProjects(previousValue);
             toast.danger(error instanceof Error ? error.message : 'Could not update project default');
-        }
-    };
-
-    const handleCreateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const name = newWorkspaceName.trim();
-        if (!name) return;
-        setIsSaving(true);
-        try {
-            await createWorkspace(name, newWorkspaceType);
-            setNewWorkspaceName('');
-            setNewWorkspaceType('project_management');
-            toast.success('Workspace created');
-        } catch (error) {
-            toast.danger(error instanceof Error ? error.message : 'Could not create workspace');
         } finally {
-            setIsSaving(false);
+            setIsUpdatingAutoAddMembers(false);
         }
     };
 
@@ -209,16 +194,10 @@ export function WorkspaceManagementPanel() {
                     <Card.Description>Create your first workspace to organize projects, wiki, and snippets.</Card.Description>
                 </Card.Header>
                 <Card.Content>
-                    <form onSubmit={handleCreateWorkspace} className="space-y-4">
-                        <div className={`${fieldClass} flex-1`}>
-                            <Label htmlFor="new-workspace-name" className={fieldLabelClass}>Name</Label>
-                            <Input id="new-workspace-name" value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="e.g. Product Team" variant="secondary" fullWidth />
-                        </div>
-                        <WorkspaceTypePicker value={newWorkspaceType} onChange={setNewWorkspaceType} />
-                        <Button type="submit" isPending={isSaving} isDisabled={!newWorkspaceName.trim()}>
-                            <Plus size={15} /> Create workspace
-                        </Button>
-                    </form>
+                    <Button onPress={() => router.push('/workspace/new')}>
+                        <Plus size={15} />
+                        Create workspace
+                    </Button>
                 </Card.Content>
             </Card>
 
@@ -276,7 +255,7 @@ export function WorkspaceManagementPanel() {
                             aria-label="Automatically add workspace members to new projects"
                             isSelected={autoAddMembersToProjects}
                             onChange={(isSelected) => void updateAutoAddMembersToProjects(isSelected)}
-                            isDisabled={!canManage}
+                            isDisabled={!canManage || isUpdatingAutoAddMembers}
                         >
                             <Switch.Control><Switch.Thumb /></Switch.Control>
                         </Switch>
@@ -414,39 +393,6 @@ export function WorkspaceManagementPanel() {
                 </Card>
             )}
 
-            <form onSubmit={handleCreateWorkspace} className="space-y-4 rounded-xl border border-border bg-surface-secondary/30 p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                    <div className={`${fieldClass} flex-1`}>
-                        <Label htmlFor="new-workspace-inline" className={fieldLabelClass}>Create workspace</Label>
-                        <Input id="new-workspace-inline" value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="e.g. Client Projects" variant="secondary" fullWidth />
-                    </div>
-                    <Button type="submit" variant="secondary" isPending={isSaving} isDisabled={!newWorkspaceName.trim()}>
-                        <Plus size={15} />
-                        New workspace
-                    </Button>
-                </div>
-                <WorkspaceTypePicker value={newWorkspaceType} onChange={setNewWorkspaceType} />
-            </form>
         </div>
-    );
-}
-
-function WorkspaceTypePicker({ value, onChange, isDisabled = false }: {
-    value: Workspace['type'];
-    onChange: (value: Workspace['type']) => void;
-    isDisabled?: boolean;
-}) {
-    return (
-        <RadioGroup value={value} onChange={(nextValue) => onChange(nextValue as Workspace['type'])} isDisabled={isDisabled} aria-label="Workspace type" variant="secondary" className="grid gap-3 sm:grid-cols-2">
-            {workspaceTypes.map(({ value: type, label, description, icon: Icon }) => (
-                <Radio key={type} value={type} className="group min-h-24 w-full items-start gap-3 rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-accent/40 hover:bg-surface-secondary data-[selected=true]:border-accent data-[selected=true]:bg-accent-muted/20">
-                    <Radio.Control className="mt-0.5 shrink-0"><Radio.Indicator /></Radio.Control>
-                    <Radio.Content className="min-w-0 gap-1.5">
-                        <Label className="flex items-center gap-2 text-sm font-medium text-foreground"><Icon size={15} className="shrink-0 text-muted-foreground" />{label}</Label>
-                        <Description className="text-xs leading-relaxed text-muted-foreground">{description}</Description>
-                    </Radio.Content>
-                </Radio>
-            ))}
-        </RadioGroup>
     );
 }

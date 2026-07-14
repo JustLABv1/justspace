@@ -36,8 +36,8 @@ import {
     toast,
     useFilter
 } from '@heroui/react';
-import { getLocalTimeZone, parseAbsoluteToLocal, Time, toZoned } from "@internationalized/date";
-import type { DateValue } from "@internationalized/date";
+import { getLocalTimeZone, now, parseAbsoluteToLocal, Time, toZoned } from "@internationalized/date";
+import type { DateValue, ZonedDateTime } from "@internationalized/date";
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -103,7 +103,8 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
     const [taskFiles, setTaskFiles] = useState<ProjectFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [showDepPicker, setShowDepPicker] = useState(false);
-    const [deadlineDraft, setDeadlineDraft] = useState<DateValue | null>(() => task.deadline ? parseAbsoluteToLocal(task.deadline) : null);
+    const [deadlineDraft, setDeadlineDraft] = useState<ZonedDateTime | null>(() => task.deadline ? parseAbsoluteToLocal(task.deadline) : null);
+    const [isDeadlinePickerOpen, setIsDeadlinePickerOpen] = useState(false);
     const attachmentInputRef = useRef<HTMLInputElement | null>(null);
     const [recurrence, setRecurrence] = useState<{ type: 'daily' | 'weekly' | 'monthly'; interval: number } | null>(() => {
         try { return task.recurrence ? JSON.parse(task.recurrence) : null; } catch { return null; }
@@ -634,27 +635,21 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         });
     };
 
-    // DatePicker emits a ZonedDateTime for absolute values and a calendar value
-    // when the calendar/time segments are edited independently.
-    // Persist both forms as one absolute ISO timestamp.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleUpdateDeadline = async (val: any) => {
+    const handleUpdateDeadline = async (value: ZonedDateTime) => {
         try {
-            if (!val) return;
-            const dateStr = typeof val.toAbsoluteString === 'function'
-                ? val.toAbsoluteString()
-                : toZoned(val, getLocalTimeZone()).toAbsoluteString();
-            await db.updateTask(task.id, { deadline: dateStr });
+            await db.updateTask(task.id, { deadline: value.toAbsoluteString() });
             onUpdate();
             toast.success('Deadline updated');
+            return true;
         } catch (error) {
             console.error('Failed to update deadline:', error);
             toast.danger('Failed to update deadline');
+            return false;
         }
     };
 
     const deadlineTime = deadlineDraft
-        ? new Time('hour' in deadlineDraft ? deadlineDraft.hour : 0, 'minute' in deadlineDraft ? deadlineDraft.minute : 0)
+        ? new Time(deadlineDraft.hour, deadlineDraft.minute)
         : null;
 
     const handleDeadlineDateChange = (value: DateValue | null) => {
@@ -662,30 +657,37 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
             setDeadlineDraft(null);
             return;
         }
-        const selected = ('timeZone' in value ? value : toZoned(value, getLocalTimeZone())) as {
-            hour: number;
-            minute: number;
-            second: number;
-            millisecond: number;
-            set: (values: { hour: number; minute: number; second: number; millisecond: number }) => DateValue;
-        };
-        setDeadlineDraft(selected.set({
-            hour: deadlineTime?.hour ?? selected.hour,
-            minute: deadlineTime?.minute ?? selected.minute,
+
+        setDeadlineDraft((currentDeadline) => {
+            const selected = toZoned(value, getLocalTimeZone());
+            const timeToKeep = 'hour' in value ? selected : currentDeadline ?? selected;
+
+            return selected.set({
+                hour: timeToKeep.hour,
+                minute: timeToKeep.minute,
+                second: 0,
+                millisecond: 0,
+            });
+        });
+    };
+
+    const handleDeadlineTimeChange = (time: Time | null) => {
+        if (!time) return;
+
+        setDeadlineDraft((currentDeadline) => (currentDeadline ?? now(getLocalTimeZone())).set({
+            hour: time.hour,
+            minute: time.minute,
             second: 0,
             millisecond: 0,
         }));
     };
 
-    const handleDeadlineTimeChange = (time: Time | null) => {
-        if (!time || !deadlineDraft) return;
-        const currentDeadline = deadlineDraft as { set: (values: { hour: number; minute: number; second: number; millisecond: number }) => DateValue };
-        setDeadlineDraft(currentDeadline.set({
-            hour: time.hour,
-            minute: time.minute,
-            second: time.second,
-            millisecond: time.millisecond,
-        }));
+    const handleSaveDeadline = async () => {
+        if (!deadlineDraft) return;
+
+        if (await handleUpdateDeadline(deadlineDraft)) {
+            setIsDeadlinePickerOpen(false);
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -1401,6 +1403,9 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <DatePicker
                                                         value={deadlineDraft}
                                                         onChange={handleDeadlineDateChange}
+                                                        isOpen={isDeadlinePickerOpen}
+                                                        onOpenChange={setIsDeadlinePickerOpen}
+                                                        shouldCloseOnSelect={false}
                                                         granularity="minute"
                                                         isDisabled={!canEditTask}
                                                         className="w-full min-w-0"
@@ -1455,7 +1460,7 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                     size="sm"
                                                                     className="mt-3 h-8 w-full rounded-lg text-xs"
                                                                     isDisabled={!deadlineDraft}
-                                                                    onPress={() => void handleUpdateDeadline(deadlineDraft)}
+                                                                    onPress={() => void handleSaveDeadline()}
                                                                 >
                                                                     Save due date
                                                                 </Button>
