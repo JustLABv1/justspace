@@ -11,6 +11,7 @@ import {
 import { collectTaskTags, normalizeTaskTags } from '@/services/frontend/lib/task-filters';
 import { wsClient, WSEvent } from '@/services/frontend/lib/ws';
 import { ActivityLog, PresenceSession, Project, ProjectFile, ProjectMember, ProjectTaskStatus, Task, TaskAssignee, TaskMessage } from '@/services/frontend/types';
+import { CollaborativeDescriptionEditor } from './CollaborativeDescriptionEditor';
 import {
     Avatar,
     Button,
@@ -521,31 +522,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         }
     };
 
-    const handleUpdateDescription = async () => {
-        if (editedDescription === (task.description || '')) {
-            return;
-        }
-
-        try {
-            let finalDescription = editedDescription;
-            if (isProjectEncrypted) {
-                if (!documentKey) {
-                    toast.danger('Unlock vault before editing secure task details');
-                    setEditedDescription(task.description || '');
-                    return;
-                }
-                const encrypted = await encryptData(editedDescription, documentKey);
-                finalDescription = JSON.stringify(encrypted);
-            }
-            await db.updateTask(task.id, { description: finalDescription, ...(isProjectEncrypted ? { isEncrypted: true } : {}) });
-            onUpdate();
-        } catch (error) {
-            console.error('Failed to update description:', error);
-            setEditedDescription(task.description || '');
-            toast.danger('Failed to update description');
-        }
-    };
-
     const handleUpdateSubtaskTitle = async (subtask: Task) => {
         if (!editedSubtaskTitle.trim() || editedSubtaskTitle === subtask.title) {
             setEditingSubtaskId(null);
@@ -570,34 +546,6 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
         } catch (error) {
             console.error('Failed to update subtask title:', error);
             toast.danger('Failed to update subtask');
-        }
-    };
-
-    const handleUpdateSubtaskDescription = async (subtask: Task) => {
-        const nextDescription = editedSubtaskDescriptions[subtask.id] ?? '';
-        if (nextDescription === (subtask.description || '')) {
-            return;
-        }
-
-        try {
-            let finalDescription = nextDescription;
-            if (isProjectEncrypted) {
-                if (!documentKey) {
-                    toast.danger('Unlock vault before editing secure task details');
-                    setEditedSubtaskDescriptions((current) => ({ ...current, [subtask.id]: subtask.description || '' }));
-                    return;
-                }
-                const encrypted = await encryptData(nextDescription, documentKey);
-                finalDescription = JSON.stringify(encrypted);
-            }
-            await db.updateTask(subtask.id, { description: finalDescription, ...(isProjectEncrypted ? { isEncrypted: true } : {}) });
-            setSubtasks((current) => current.map((item) => item.id === subtask.id ? { ...item, description: nextDescription } : item));
-            onUpdate();
-            toast.success('Subtask description updated');
-        } catch (error) {
-            console.error('Failed to update subtask description:', error);
-            setEditedSubtaskDescriptions((current) => ({ ...current, [subtask.id]: subtask.description || '' }));
-            toast.danger('Failed to update subtask description');
         }
     };
 
@@ -972,17 +920,12 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                     <FileText size={14} /> Description
                                                 </h4>
                                             </div>
-                                            <TextArea
-                                                value={editedDescription}
-                                                onChange={(event) => setEditedDescription(event.target.value)}
-                                                onBlur={handleUpdateDescription}
-                                                placeholder="Add context, acceptance criteria, links, or implementation notes..."
-                                                variant="secondary"
-                                                rows={6}
-                                                fullWidth
-                                                disabled={!canEditTask}
-                                                className="w-full min-h-40 rounded-lg text-sm"
-                                                style={{ resize: 'vertical' }}
+                                            <CollaborativeDescriptionEditor
+                                                taskId={task.id}
+                                                initialValue={editedDescription}
+                                                isEncrypted={!!task.isEncrypted || isProjectEncrypted}
+                                                documentKey={documentKey}
+                                                isEditable={canEditTask}
                                             />
                                         </div>
 
@@ -1172,16 +1115,13 @@ export function TaskDetailModal({ isOpen, onOpenChange, task, projectId, onUpdat
                                                                             </Disclosure.Heading>
                                                                             <Disclosure.Content>
                                                                                 <Disclosure.Body className="pt-1.5">
-                                                                                    <TextArea
-                                                                                        value={editedSubtaskDescriptions[st.id] ?? ''}
-                                                                                        onChange={(event) => setEditedSubtaskDescriptions((current) => ({ ...current, [st.id]: event.target.value }))}
-                                                                                        onBlur={() => { void handleUpdateSubtaskDescription(st); }}
-                                                                                        placeholder="Add subtask context or acceptance criteria..."
-                                                                                        variant="secondary"
-                                                                                        rows={2}
-                                                                                        fullWidth
-                                                                                        className="min-h-[64px] w-full rounded-lg text-xs"
-                                                                                        disabled={!canEditTask}
+                                                                                    <CollaborativeDescriptionEditor
+                                                                                        taskId={st.id}
+                                                                                        initialValue={editedSubtaskDescriptions[st.id] ?? ''}
+                                                                                        isEncrypted={!!st.isEncrypted || isProjectEncrypted}
+                                                                                        documentKey={documentKey}
+                                                                                        isEditable={canEditTask}
+                                                                                        compact
                                                                                     />
                                                                                 </Disclosure.Body>
                                                                             </Disclosure.Content>

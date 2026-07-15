@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -3156,6 +3157,184 @@ func (r *Repo) ListDeadlineReminderTasks(ctx context.Context, until time.Time) (
 	}
 	defer rows.Close()
 	return scanTasks(rows)
+}
+
+func scanCollaborationDocument(row pgx.Row, document *models.CollaborationDocument) error {
+	return row.Scan(
+		&document.ID,
+		&document.ProjectID,
+		&document.TaskID,
+		&document.IsEncrypted,
+		&document.CreatedByID,
+		&document.CreatedAt,
+		&document.UpdatedAt,
+	)
+}
+
+func scanCollaborationUpdate(row pgx.Row, update *models.CollaborationUpdate) error {
+	var payload []byte
+	if err := row.Scan(
+		&update.DocumentID,
+		&update.Sequence,
+		&update.ClientUpdateID,
+		&update.AuthorID,
+		&payload,
+		&update.IV,
+		&update.CreatedAt,
+	); err != nil {
+		return err
+	}
+	update.Payload = base64.StdEncoding.EncodeToString(payload)
+	return nil
+}
+
+func (r *Repo) GetTaskCollaborationDocument(ctx context.Context, taskID string) (*models.CollaborationDocument, error) {
+	document := &models.CollaborationDocument{}
+	err := scanCollaborationDocument(r.pool.QueryRow(ctx,
+		`SELECT id, project_id, task_id, is_encrypted, created_by_id, created_at, updated_at
+		 FROM collaboration_documents WHERE task_id = $1`, taskID), document)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get task collaboration document: %w", err)
+	}
+	return document, nil
+}
+
+func (r *Repo) GetCollaborationDocument(ctx context.Context, documentID string) (*models.CollaborationDocument, error) {
+	document := &models.CollaborationDocument{}
+	err := scanCollaborationDocument(r.pool.QueryRow(ctx,
+		`SELECT id, project_id, task_id, is_encrypted, created_by_id, created_at, updated_at
+		 FROM collaboration_documents WHERE id = $1`, documentID), document)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get collaboration document: %w", err)
+	}
+	return document, nil
+}
+
+func (r *Repo) ListCollaborationUpdates(ctx context.Context, documentID string) ([]models.CollaborationUpdate, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT document_id, sequence, client_update_id, author_id, payload, iv, created_at
+		 FROM collaboration_updates WHERE document_id = $1 ORDER BY sequence`, documentID)
+	if err != nil {
+		return nil, fmt.Errorf("list collaboration updates: %w", err)
+	}
+	defer rows.Close()
+	updates := make([]models.CollaborationUpdate, 0)
+	for rows.Next() {
+		var update models.CollaborationUpdate
+		if err := scanCollaborationUpdate(rows, &update); err != nil {
+			return nil, fmt.Errorf("scan collaboration update: %w", err)
+		}
+		updates = append(updates, update)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate collaboration updates: %w", err)
+	}
+	return updates, nil
+}
+
+func (r *Repo) InitializeTaskCollaborationDocument(ctx context.Context, taskID, projectID, userID string, req models.InitializeCollaborationDocumentRequest) (*models.CollaborationDocument, bool, error) {
+	payload, err := base64.StdEncoding.DecodeString(req.Payload)
+	if err != nil || len(payload) == 0 {
+		return nil, false, fmt.Errorf("invalid collaboration payload")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, false, fmt.Errorf("begin initialize collaboration document: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	document := &models.CollaborationDocument{}
+	err = scanCollaborationDocument(tx.QueryRow(ctx,
+		`INSERT INTO collaboration_documents (project_id, task_id, is_encrypted, created_by_id)
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (task_id) DO NOTHING
+		 RETURNING id, project_id, task_id, is_encrypted, created_by_id, created_at, updated_at`,
+		projectID, taskID, req.IsEncrypted, userID), document)
+	if err == pgx.ErrNoRows {
+		if err := scanCollaborationDocument(tx.QueryRow(ctx,
+			`SELECT id, project_id, task_id, is_encrypted, created_by_id, created_at, updated_at
+			 FROM collaboration_documents WHERE task_id = $1`, taskID), document); err != nil {
+			return nil, false, fmt.Errorf("load existing collaboration document: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, false, fmt.Errorf("commit existing collaboration document: %w", err)
+		}
+		return document, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("create collaboration document: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO collaboration_updates (document_id, sequence, client_update_id, author_id, payload, iv, materialized_description)
+		 VALUES ($1, 1, $2, $3, $4, $5, $6)`,
+		document.ID, req.ClientUpdateID, userID, payload, req.IV, req.MaterializedDescription); err != nil {
+		return nil, false, fmt.Errorf("create initial collaboration update: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE tasks SET description = $2 WHERE id = $1`, taskID, req.MaterializedDescription); err != nil {
+		return nil, false, fmt.Errorf("materialize initial collaboration description: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, false, fmt.Errorf("commit initialize collaboration document: %w", err)
+	}
+	return document, true, nil
+}
+
+func (r *Repo) CreateCollaborationUpdate(ctx context.Context, documentID, userID string, req models.CreateCollaborationUpdateRequest) (*models.CollaborationUpdate, error) {
+	payload, err := base64.StdEncoding.DecodeString(req.Payload)
+	if err != nil || len(payload) == 0 {
+		return nil, fmt.Errorf("invalid collaboration payload")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin collaboration update: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var taskID string
+	if err := tx.QueryRow(ctx, `SELECT task_id FROM collaboration_documents WHERE id = $1 FOR UPDATE`, documentID).Scan(&taskID); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("collaboration document not found")
+		}
+		return nil, fmt.Errorf("lock collaboration document: %w", err)
+	}
+	update := &models.CollaborationUpdate{}
+	err = scanCollaborationUpdate(tx.QueryRow(ctx,
+		`WITH next_sequence AS (
+			SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM collaboration_updates WHERE document_id = $1
+		), inserted AS (
+			INSERT INTO collaboration_updates (document_id, sequence, client_update_id, author_id, payload, iv, materialized_description)
+			SELECT $1, next_sequence.value, $2, $3, $4, $5, $6 FROM next_sequence
+			ON CONFLICT (document_id, client_update_id) DO NOTHING
+			RETURNING document_id, sequence, client_update_id, author_id, payload, iv, created_at
+		)
+		SELECT * FROM inserted`, documentID, req.ClientUpdateID, userID, payload, req.IV, req.MaterializedDescription), update)
+	if err == pgx.ErrNoRows {
+		err = scanCollaborationUpdate(tx.QueryRow(ctx,
+			`SELECT document_id, sequence, client_update_id, author_id, payload, iv, created_at
+			 FROM collaboration_updates WHERE document_id = $1 AND client_update_id = $2`, documentID, req.ClientUpdateID), update)
+		if err != nil {
+			return nil, fmt.Errorf("load duplicate collaboration update: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("commit duplicate collaboration update: %w", err)
+		}
+		return update, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("create collaboration update: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE tasks SET description = $2 WHERE id = $1`, taskID, req.MaterializedDescription); err != nil {
+		return nil, fmt.Errorf("materialize collaboration description: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit collaboration update: %w", err)
+	}
+	return update, nil
 }
 
 func (r *Repo) ListDeadlineRecipients(ctx context.Context, taskID string) ([]string, error) {

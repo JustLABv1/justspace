@@ -162,6 +162,31 @@ export interface PresenceSession {
     lastSeen: string;
 }
 
+export interface CollaborationDocument {
+    id: string;
+    projectId: string;
+    taskId: string;
+    isEncrypted: boolean;
+    createdById: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CollaborationUpdate {
+    documentId: string;
+    sequence: number;
+    clientUpdateId: string;
+    authorId: string;
+    payload: string;
+    iv?: string;
+    createdAt: string;
+}
+
+export interface CollaborationSyncResponse {
+    document?: CollaborationDocument;
+    updates: CollaborationUpdate[];
+}
+
 export interface WikiGuide {
     id: string;
     workspaceId?: string;

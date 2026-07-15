@@ -785,3 +785,46 @@ type WSEvent struct {
 	Document   interface{} `json:"document"`
 	UserID     string      `json:"userId"`
 }
+
+// CollaborationDocument is the durable, opaque Yjs stream for a task description.
+// Payloads may be AES-GCM ciphertext; the backend never interprets their contents.
+type CollaborationDocument struct {
+	ID          string    `json:"id"`
+	ProjectID   string    `json:"projectId"`
+	TaskID      string    `json:"taskId"`
+	IsEncrypted bool      `json:"isEncrypted"`
+	CreatedByID string    `json:"createdById"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type CollaborationUpdate struct {
+	DocumentID              string    `json:"documentId"`
+	Sequence                int64     `json:"sequence"`
+	ClientUpdateID          string    `json:"clientUpdateId"`
+	AuthorID                string    `json:"authorId"`
+	Payload                 string    `json:"payload"`
+	IV                      *string   `json:"iv,omitempty"`
+	MaterializedDescription string    `json:"-"`
+	CreatedAt               time.Time `json:"createdAt"`
+}
+
+type CollaborationSyncResponse struct {
+	Document *CollaborationDocument `json:"document,omitempty"`
+	Updates  []CollaborationUpdate  `json:"updates"`
+}
+
+type InitializeCollaborationDocumentRequest struct {
+	Payload                 string  `json:"payload"`
+	IV                      *string `json:"iv,omitempty"`
+	ClientUpdateID          string  `json:"clientUpdateId"`
+	MaterializedDescription string  `json:"materializedDescription"`
+	IsEncrypted             bool    `json:"isEncrypted"`
+}
+
+type CreateCollaborationUpdateRequest struct {
+	Payload                 string  `json:"payload"`
+	IV                      *string `json:"iv,omitempty"`
+	ClientUpdateID          string  `json:"clientUpdateId"`
+	MaterializedDescription string  `json:"materializedDescription"`
+}

@@ -367,6 +367,31 @@ Indexes:
 
 - Primary key on (`task_id`, `user_id`)
 
+### collaboration_documents
+
+Durable collaboration streams for task descriptions. The backend stores Yjs updates as opaque binary data; encrypted projects send AES-GCM ciphertext and its IV, so the database never receives the description plaintext.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `project_id` | `uuid` | FK to `projects(id)` |
+| `task_id` | `uuid` | Unique FK to `tasks(id)`; cascade-deleted with the task |
+| `is_encrypted` | `boolean` | Whether update payloads are client-side encrypted |
+| `created_by_id` | `uuid` | Project editor that initialized the document |
+| `created_at` / `updated_at` | `timestamptz` | Lifecycle timestamps |
+
+### collaboration_updates
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `document_id` / `sequence` | `uuid` / `bigint` | Ordered composite primary key |
+| `client_update_id` | `uuid` | Idempotency key unique per document |
+| `author_id` | `uuid` | Project editor that submitted the update |
+| `payload` | `bytea` | Base64-transported Yjs update; ciphertext when encrypted |
+| `iv` | `text` | AES-GCM IV for encrypted payloads |
+| `materialized_description` | `text` | Current task-description projection; encrypted envelope for E2EE projects |
+| `created_at` | `timestamptz` | Update timestamp |
+
 ### snippets
 
 | Column | Type | Notes |
@@ -492,6 +517,8 @@ Migration `019_workspace_project_membership_defaults` adds `workspaces.auto_add_
 Migration `020_workspace_types` adds `workspaces.type`. Existing workspaces default to `project_management`; Consulting workspaces expose optional per-project staffing values and the weekly-capacity dashboard.
 
 Migration `021_consulting_customers_capacity` adds Consulting-only customers, optional project hour budgets, a weekly capacity per workspace member, and per-project member allocations. Customer records are archived instead of deleted when they are no longer active.
+
+Migration `023_collaborative_descriptions` adds the durable Yjs update stream that powers live, conflict-free task and subtask description editing. Existing descriptions are lazily seeded when a collaborator opens the editor; no bulk plaintext migration is required.
 
 ## Operational Notes
 

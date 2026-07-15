@@ -321,6 +321,18 @@ export const db = {
     async heartbeatTaskPresence(taskId: string) {
         return await api.heartbeatTaskPresence<PresenceSession>(taskId);
     },
+    async getTaskDescriptionCollaboration(taskId: string) {
+        return await api.getTaskDescriptionCollaboration<import('@/services/frontend/types').CollaborationSyncResponse>(taskId);
+    },
+    async initializeTaskDescriptionCollaboration(taskId: string, data: Record<string, unknown>) {
+        return await api.initializeTaskDescriptionCollaboration<import('@/services/frontend/types').CollaborationSyncResponse>(taskId, data);
+    },
+    async createCollaborationUpdate(documentId: string, data: Record<string, unknown>) {
+        return await api.createCollaborationUpdate<import('@/services/frontend/types').CollaborationUpdate>(documentId, data);
+    },
+    async broadcastCollaborationAwareness(documentId: string, state: Record<string, unknown>) {
+        return await api.broadcastCollaborationAwareness(documentId, state);
+    },
     async listProjectActivity(projectId: string) {
         return await api.listProjectActivity<ActivityLog>(projectId);
     },

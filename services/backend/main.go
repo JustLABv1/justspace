@@ -178,6 +178,10 @@ func main() {
 		r.Get("/api/tasks/{taskId}/activity", collabH.ListTaskActivity)
 		r.Post("/api/projects/{projectId}/presence", collabH.HeartbeatProjectPresence)
 		r.Post("/api/tasks/{taskId}/presence", collabH.HeartbeatTaskPresence)
+		r.Get("/api/tasks/{taskId}/collaboration/description", collabH.GetTaskDescriptionCollaboration)
+		r.Post("/api/tasks/{taskId}/collaboration/description/initialize", collabH.InitializeTaskDescriptionCollaboration)
+		r.Post("/api/collaboration/documents/{documentId}/updates", collabH.CreateCollaborationUpdate)
+		r.Post("/api/collaboration/documents/{documentId}/awareness", collabH.BroadcastCollaborationAwareness)
 
 		r.Get("/api/wiki", wikiH.List)
 		r.Post("/api/wiki", wikiH.Create)
