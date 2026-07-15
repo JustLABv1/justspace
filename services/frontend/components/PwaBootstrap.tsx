@@ -11,8 +11,6 @@ import {
 } from '@/services/frontend/lib/pwa';
 import { useEffect } from 'react';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 async function unregisterServiceWorkersAndClearCaches() {
     if (!('serviceWorker' in navigator)) {
         return;
@@ -56,24 +54,18 @@ export function PwaBootstrap() {
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
         window.addEventListener('appinstalled', handleAppInstalled);
 
-        if (!isProduction) {
-            unregisterServiceWorkersAndClearCaches()
-                .catch((error) => {
-                    console.error('Failed to clear development service workers:', error);
-                })
-                .finally(() => {
-                    setPwaServiceWorkerReady(false);
-                });
-        } else if ('serviceWorker' in navigator) {
-            navigator.serviceWorker
-                .register('/sw.js', { updateViaCache: 'none' })
-                .then(() => navigator.serviceWorker.ready)
-                .then(() => setPwaServiceWorkerReady(true))
-                .catch((error) => {
-                    console.error('Failed to register service worker:', error);
-                    setPwaServiceWorkerReady(false);
-                });
-        }
+        // Service workers previously cached Next.js chunks under a fixed cache
+        // name. That can serve a chunk from an older release alongside the
+        // current page and cause runtime errors after a deployment. We no
+        // longer ship a service worker, so retire any existing registration
+        // and its caches in every environment.
+        unregisterServiceWorkersAndClearCaches()
+            .catch((error) => {
+                console.error('Failed to clear stale service workers:', error);
+            })
+            .finally(() => {
+                setPwaServiceWorkerReady(false);
+            });
 
         return () => {
             displayModeQuery.removeEventListener('change', handleDisplayModeChange);
