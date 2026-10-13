@@ -7,6 +7,6 @@ appVersion: 1.0.0-beta.7
 kubeVersion: ">=1.27.0-0"
 dependencies:
   - name: postgresql
-    version: 16.7.27
+    version: 18.8.6
     repository: oci://registry-1.docker.io/bitnamicharts
     condition: postgresql.enabled
